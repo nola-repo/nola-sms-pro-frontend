@@ -16,6 +16,7 @@ interface SenderSelectorProps {
     onChange: (value: SenderId) => void;
     label?: string;
     size?: "sm" | "md";
+    align?: "left" | "right";
 }
 
 const DEFAULT_OPTIONS: SenderOption[] = [
@@ -31,7 +32,8 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
     value,
     onChange,
     label = "From:",
-    size = "md"
+    size = "md",
+    align = "right"
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
@@ -144,12 +146,13 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
                 {/* Floating Menu */}
                 {isOpen && (
                     <div className={`
-            absolute top-full left-0 z-[60] mt-2 
+            absolute top-full z-[60] mt-2 
             w-64 max-w-[calc(100vw-2rem)] p-1.5
             bg-white/95 dark:bg-[#1a1b1e]/95 backdrop-blur-2xl
             border border-gray-200/80 dark:border-white/10
             rounded-2xl shadow-2xl shadow-black/10 dark:shadow-black/40
-            animate-in fade-in zoom-in-95 duration-200 origin-top-left
+            animate-in fade-in zoom-in-95 duration-200 
+            ${align === "left" ? "left-0 origin-top-left" : "left-auto right-0 origin-top-right"}
           `}>
                         <div className="max-h-60 overflow-y-auto custom-scrollbar p-0.5">
                             {allOptions.map((option) => {

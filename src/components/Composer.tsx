@@ -330,8 +330,8 @@ export const Composer: React.FC<ComposerProps> = ({
       <div className="flex-shrink-0 z-30 bg-white/80 dark:bg-[#1a1b1e]/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-white/5 shadow-sm">
         {activePhoneNumber ? (
           /* Chat Header for specific contact */
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex-shrink-0 flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-md shadow-blue-500/10">
                 {(activeContact?.name || selectedContacts[0]?.name || "?").charAt(0).toUpperCase()}
               </div>
@@ -346,7 +346,7 @@ export const Composer: React.FC<ComposerProps> = ({
             </div>
 
             {/* Consistently styled Sender Selection */}
-            <div className="flex justify-end sm:contents">
+            <div className="flex-shrink-0">
               <SenderSelector
                 value={senderName}
                 onChange={setSenderName}
@@ -369,10 +369,10 @@ export const Composer: React.FC<ComposerProps> = ({
               <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
 
                 {/* Compact Toggle */}
-                <div className="flex p-0.5 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200/50 dark:border-white/5">
+                <div className="flex p-0.5 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200/50 dark:border-white/5 w-full sm:w-auto">
                   <button
                     onClick={() => setComposeMode("single")}
-                    className={`flex items-center gap-1.5 px-3 py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${composeMode === "single"
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${composeMode === "single"
                       ? "bg-white dark:bg-[#2a2b32] text-[#2b83fa] shadow-sm shadow-blue-500/10"
                       : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       }`}
@@ -382,7 +382,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   </button>
                   <button
                     onClick={() => setComposeMode("bulk")}
-                    className={`flex items-center gap-1.5 px-3 py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${composeMode === "bulk"
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${composeMode === "bulk"
                       ? "bg-white dark:bg-[#2a2b32] text-[#2b83fa] shadow-sm shadow-blue-500/10"
                       : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       }`}
@@ -390,6 +390,20 @@ export const Composer: React.FC<ComposerProps> = ({
                     <FiUsers className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                     Bulk
                   </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Sender Selector - Full Width Above To: on Mobile */}
+            <div className="mb-3 w-full block sm:hidden">
+              <div className="flex items-center gap-3">
+                <span className="text-[14px] font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap">From:</span>
+                <div className="flex-1">
+                  <SenderSelector
+                    value={senderName}
+                    onChange={setSenderName}
+                    align="left"
+                  />
                 </div>
               </div>
             </div>
@@ -509,8 +523,8 @@ export const Composer: React.FC<ComposerProps> = ({
                 </div>
               </div>
 
-              {/* Sender Selector — right of To: row */}
-              <div className="flex-shrink-0 mt-1">
+              {/* Sender Selector — right of To: row (Desktop only) */}
+              <div className="flex-shrink-0 mt-1 hidden sm:block">
                 <SenderSelector
                   value={senderName}
                   onChange={setSenderName}
