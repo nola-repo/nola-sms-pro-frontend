@@ -5,6 +5,7 @@ import { Sidebar } from "../components/Sidebar";
 import type { ViewTab } from "../components/Sidebar";
 import { Composer } from "../components/Composer";
 import { ContactsTab } from "../components/ContactsTab";
+import { Settings } from "./Settings";
 import { TbLayoutSidebarRightCollapse } from "react-icons/tb";
 import { FiMenu } from "react-icons/fi";
 
@@ -148,23 +149,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             <ContactsTab
               onSendToComposer={handleSendToComposer}
             />
-          ) : currentView === 'templates' || currentView === 'settings' ? (
+          ) : currentView === 'settings' ? (
+            <Settings
+              darkMode={darkMode ?? false}
+              toggleDarkMode={toggleDarkMode ?? (() => { })}
+            />
+          ) : currentView === 'templates' ? (
             <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-white/50 dark:bg-[#202123]/50 backdrop-blur-sm">
               <div className="w-20 h-20 mb-6 rounded-2xl bg-gradient-to-br from-[#2b83fa]/20 to-[#60a5fa]/20 dark:from-[#2b83fa]/10 dark:to-[#60a5fa]/10 flex items-center justify-center border border-[#2b83fa]/20">
-                {currentView === 'templates' ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#2b83fa]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#2b83fa]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                )}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#2b83fa]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6" />
+                </svg>
               </div>
-              <h2 className="text-2xl font-bold text-[#37352f] dark:text-[#ececf1] mb-2 tracking-tight capitalize">{currentView} Module</h2>
+              <h2 className="text-2xl font-bold text-[#37352f] dark:text-[#ececf1] mb-2 tracking-tight">Templates Module</h2>
               <p className="text-[#6e6e73] dark:text-[#a0a0ab] max-w-sm text-[15px]">
-                This section is currently under construction. Please check back later for updates to the CRM capabilities.
+                This section is currently under construction. Please check back later.
               </p>
             </div>
           ) : null}

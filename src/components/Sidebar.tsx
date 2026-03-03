@@ -42,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const filtered = data.filter(c => !deletedIds.includes(c.id));
       setContacts(filtered);
     }).catch(console.error);
-    
+
     // Listen for bulk message sent events to refresh history
     const handleBulkMessageSent = () => {
       setBulkHistory(getBulkMessageHistory());
@@ -197,7 +197,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   flex items-center transition-all duration-300 relative group
                   ${isCollapsed ? 'w-12 h-12 justify-center rounded-2xl' : 'w-full gap-3 px-3 py-2.5 rounded-xl'}
                   ${isActive
-                    ? `bg-gradient-to-r from-[#2b83fa]/10 to-transparent dark:from-[#2b83fa]/20 text-[#2b83fa] ${isCollapsed ? 'bg-[#2b83fa]/10' : ''}`
+                    ? `bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa] ${isCollapsed ? '' : ''}`
                     : 'text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]'}
                 `}
               >
@@ -231,7 +231,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
 
             {/* Direct Messages Header - Sticky */}
-            <div 
+            <div
               className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer border-t border-[#00000005] dark:border-[#ffffff05] pt-4 sticky top-[41px] bg-white/70 dark:bg-[#121415]/80 backdrop-blur-xl z-10"
               onClick={() => setDirectMessagesExpanded(!directMessagesExpanded)}
             >
@@ -245,111 +245,111 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Direct Messages Content - Not scrollable, part of main scroll */}
             <div className={`overflow-visible transition-all duration-300 ${directMessagesExpanded ? 'max-h-[500px] opacity-100 mb-2' : 'max-h-0 opacity-0'}`}>
               <div className="flex flex-col gap-0.5">
-              {contacts.map(contact => (
-                <div
-                  key={contact.id}
-                  className={`
+                {contacts.map(contact => (
+                  <div
+                    key={contact.id}
+                    className={`
                      group relative transition-all duration-300 overflow-visible
                      px-3 py-3 rounded-2xl cursor-pointer mb-0.5
                      ${activeContactId === contact.id
-                     ? 'bg-white dark:bg-[#1c1e21] shadow-[0_4px_15px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] ring-1 ring-[#00000005] dark:ring-[#ffffff05]'
-                     : 'hover:bg-black/[0.015] dark:hover:bg-white/[0.015]'}
+                        ? 'bg-white dark:bg-[#1c1e21] shadow-[0_4px_15px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] ring-1 ring-[#00000005] dark:ring-[#ffffff05]'
+                        : 'hover:bg-black/[0.015] dark:hover:bg-white/[0.015]'}
                   `}
-                  onClick={() => {
-                    onTabChange('compose');
-                    onSelectContact(contact);
-                  }}
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className="relative flex-shrink-0">
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-[14px] transition-all duration-300 shadow-inner
+                    onClick={() => {
+                      onTabChange('compose');
+                      onSelectContact(contact);
+                    }}
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <div className="relative flex-shrink-0">
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-[14px] transition-all duration-300 shadow-inner
                         ${activeContactId === contact.id
-                          ? 'bg-[#2b83fa] text-white shadow-[0_4px_8px_rgba(43,131,250,0.2)]'
-                          : 'bg-[#f0f0f0] dark:bg-[#202123] text-[#6e6e73] dark:text-[#ececf1] group-hover:bg-[#e8e8e8] dark:group-hover:bg-[#25262a]'}
+                            ? 'bg-[#2b83fa] text-white shadow-[0_4px_8px_rgba(43,131,250,0.2)]'
+                            : 'bg-[#f0f0f0] dark:bg-[#202123] text-[#6e6e73] dark:text-[#ececf1] group-hover:bg-[#e8e8e8] dark:group-hover:bg-[#25262a]'}
                       `}>
-                        {(() => {
-                          const parts = contact.name.trim().split(/\s+/);
-                          const firstInitial = parts[0]?.charAt(0) || '';
-                          const lastInitial = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
-                          return (firstInitial + lastInitial).toUpperCase();
-                        })()}
-                      </div>
-                      <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#121415] shadow-sm transition-opacity duration-300
+                          {(() => {
+                            const parts = contact.name.trim().split(/\s+/);
+                            const firstInitial = parts[0]?.charAt(0) || '';
+                            const lastInitial = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
+                            return (firstInitial + lastInitial).toUpperCase();
+                          })()}
+                        </div>
+                        <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#121415] shadow-sm transition-opacity duration-300
                         ${activeContactId === contact.id ? 'bg-green-500 opacity-100' : 'bg-gray-300 dark:bg-gray-600 opacity-0 group-hover:opacity-100'}
                       `}></span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-baseline mb-0.5">
-                        <span className={`text-[13.5px] truncate transition-colors duration-200 ${activeContactId === contact.id ? 'font-bold text-[#111111] dark:text-white' : 'font-semibold text-[#37352f] dark:text-[#ececf1]'}`}>
-                          {contact.name}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[9px] font-bold text-[#b4b4b4] dark:text-[#55565a] uppercase tracking-tighter">2m</span>
-                          {deletingContactId === contact.id ? (
-                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                onClick={confirmDeleteContact}
-                                className="p-1 rounded bg-red-500 text-white hover:bg-red-600"
-                              >
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={cancelDeleteContact}
-                                className="p-1 rounded bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500"
-                              >
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenMenuId(openMenuId === contact.id ? null : contact.id);
-                                }}
-                                className="p-1 rounded hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043]"
-                              >
-                                <FiMoreVertical className="w-3 h-3 text-[#5f6368] dark:text-[#9aa0a6]" />
-                              </button>
-                              {openMenuId === contact.id && (
-                                <div 
-                                  className="absolute right-0 top-full mt-1 bg-white dark:bg-[#2d2d2d] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[100px] z-50"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteContact(contact.id, e);
-                                      setOpenMenuId(null);
-                                    }}
-                                    className="w-full px-3 py-1.5 text-left text-[12px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
-                                  >
-                                    <FiTrash2 className="w-3 h-3" />
-                                    Delete
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
                       </div>
-                      <div className={`text-[11.5px] truncate leading-tight transition-colors duration-200 ${activeContactId === contact.id ? 'text-[#6e6e73] dark:text-[#a0a0ab]' : 'text-[#a2a2a7] dark:text-[#6e6e73]'}`}>
-                        {contact.lastMessage || `Click to message ${contact.phone}`}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline mb-0.5">
+                          <span className={`text-[13.5px] truncate transition-colors duration-200 ${activeContactId === contact.id ? 'font-bold text-[#111111] dark:text-white' : 'font-semibold text-[#37352f] dark:text-[#ececf1]'}`}>
+                            {contact.name}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-bold text-[#b4b4b4] dark:text-[#55565a] uppercase tracking-tighter">2m</span>
+                            {deletingContactId === contact.id ? (
+                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={confirmDeleteContact}
+                                  className="p-1 rounded bg-red-500 text-white hover:bg-red-600"
+                                >
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={cancelDeleteContact}
+                                  className="p-1 rounded bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500"
+                                >
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMenuId(openMenuId === contact.id ? null : contact.id);
+                                  }}
+                                  className="p-1 rounded hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043]"
+                                >
+                                  <FiMoreVertical className="w-3 h-3 text-[#5f6368] dark:text-[#9aa0a6]" />
+                                </button>
+                                {openMenuId === contact.id && (
+                                  <div
+                                    className="absolute right-0 top-full mt-1 bg-white dark:bg-[#2d2d2d] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[100px] z-50"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteContact(contact.id, e);
+                                        setOpenMenuId(null);
+                                      }}
+                                      className="w-full px-3 py-1.5 text-left text-[12px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                                    >
+                                      <FiTrash2 className="w-3 h-3" />
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className={`text-[11.5px] truncate leading-tight transition-colors duration-200 ${activeContactId === contact.id ? 'text-[#6e6e73] dark:text-[#a0a0ab]' : 'text-[#a2a2a7] dark:text-[#6e6e73]'}`}>
+                          {contact.lastMessage || `Click to message ${contact.phone}`}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
               </div>
             </div>
 
             {/* Bulk Messages Header - Sticky */}
             <>
-              <div 
+              <div
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer mt-1 sticky top-[92px] bg-white/70 dark:bg-[#121415]/80 backdrop-blur-xl z-10"
                 onClick={() => setBulkMessagesExpanded(!bulkMessagesExpanded)}
               >
@@ -420,7 +420,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         <FiMoreVertical className="w-4 h-4 text-[#5f6368] dark:text-[#9aa0a6]" />
                                       </button>
                                       {openMenuId === item.id && (
-                                        <div 
+                                        <div
                                           className="absolute right-0 top-full mt-1 bg-white dark:bg-[#2d2d2d] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[100px] z-50"
                                           onClick={(e) => e.stopPropagation()}
                                         >
@@ -480,7 +480,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             flex items-center rounded-xl transition-all duration-300 group text-sm
             ${isCollapsed ? 'w-12 h-12 justify-center' : 'w-full gap-3 px-3 py-2.5'}
             ${activeTab === 'settings'
-              ? 'bg-gradient-to-r from-[#2b83fa]/10 to-transparent dark:from-[#2b83fa]/20 text-[#2b83fa]'
+              ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
               : 'text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'}
           `}
         >
