@@ -349,10 +349,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
 
-            {/* Bulk Messages Header - Sticky */}
+            {/* Bulk Messages Header */}
             <>
               <div
-                className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer mt-1 sticky top-[92px] bg-white/70 dark:bg-[#121415]/80 backdrop-blur-xl z-10"
+                className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer mt-1"
                 onClick={() => setBulkMessagesExpanded(!bulkMessagesExpanded)}
               >
                 <div className="flex items-center gap-2">
