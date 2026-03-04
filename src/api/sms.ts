@@ -54,7 +54,9 @@ export const fetchSmsLogs = async (phoneNumber: string): Promise<SmsLog[]> => {
   if (!formattedNumber) return [];
 
   try {
-    const res = await fetch(`${WEBHOOK_URL}?direction=outbound&number=${formattedNumber}&limit=100`, {
+    // Fetch ALL outbound messages (without number filter)
+    // Then filter client-side by checking if phoneNumber is in the numbers array
+    const res = await fetch(`${WEBHOOK_URL}?direction=outbound&limit=500`, {
       headers: {
         'X-Webhook-Secret': WEBHOOK_SECRET,
       },
@@ -62,7 +64,17 @@ export const fetchSmsLogs = async (phoneNumber: string): Promise<SmsLog[]> => {
     if (!res.ok) throw new Error("Failed to fetch message history");
     const data = await res.json();
     console.log('SMS Logs Response:', data);
-    return data.data || [];
+    
+    // Filter messages client-side - only include messages where the phone number is in the numbers array
+    const allMessages: SmsLog[] = data.data || [];
+    const filteredMessages = allMessages.filter(log => {
+      // Normalize all numbers in the array for comparison
+      const normalizedNumbers = (log.numbers || []).map(n => normalizePHNumber(n)).filter(Boolean);
+      return normalizedNumbers.includes(formattedNumber);
+    });
+    
+    console.log('Filtered messages for', formattedNumber, ':', filteredMessages);
+    return filteredMessages;
   } catch (error) {
     console.error("Fetch Logs Error:", error);
     return [];

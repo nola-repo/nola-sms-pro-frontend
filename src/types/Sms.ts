@@ -23,6 +23,7 @@ export interface SmsLog {
   status: string;
   date_created: string | { _seconds: number; _nanoseconds: number };
   source?: string;
+  direction?: 'inbound' | 'outbound';
 }
 
 export interface Message {
