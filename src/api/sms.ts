@@ -91,9 +91,11 @@ export const sendSms = async (
   }
 
   const payload = {
-    number: formattedNumber,
-    message: message,
-    sendername: senderName,
+    customData: {
+      number: formattedNumber,
+      message: message,
+      sendername: senderName,
+    },
   };
 
   console.log("Sending SMS to new backend:", payload);
