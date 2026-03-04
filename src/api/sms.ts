@@ -1,6 +1,7 @@
 import type { SmsLog } from "../types/Sms";
 
-const WEBHOOK_URL = "/api/sms";
+const WEBHOOK_URL = "/api/messages";
+const WEBHOOK_SECRET = "f7RkQ2pL9zV3tX8cB1nS4yW6";
 
 export type SenderId = string;
 
@@ -53,9 +54,15 @@ export const fetchSmsLogs = async (phoneNumber: string): Promise<SmsLog[]> => {
   if (!formattedNumber) return [];
 
   try {
-    const res = await fetch(`/api/messages?number=${formattedNumber}`);
+    const res = await fetch(`${WEBHOOK_URL}?direction=outbound&number=${formattedNumber}&limit=100`, {
+      headers: {
+        'X-Webhook-Secret': WEBHOOK_SECRET,
+      },
+    });
     if (!res.ok) throw new Error("Failed to fetch message history");
-    return res.json();
+    const data = await res.json();
+    console.log('SMS Logs Response:', data);
+    return data.data || [];
   } catch (error) {
     console.error("Fetch Logs Error:", error);
     return [];
@@ -96,6 +103,7 @@ export const sendSms = async (
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "X-Webhook-Secret": WEBHOOK_SECRET,
       },
       body: JSON.stringify(payload),
     });

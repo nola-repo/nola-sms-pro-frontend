@@ -9,18 +9,22 @@ export const useMessages = (phoneNumber: string | undefined) => {
 
     const formatLogToMessage = (log: SmsLog): Message => {
         let date: Date;
-        if (typeof log.date_created === 'string') {
+        if (!log.date_created) {
+            date = new Date();
+        } else if (typeof log.date_created === 'string') {
             date = new Date(log.date_created);
+        } else if (typeof log.date_created === 'object' && '_seconds' in log.date_created) {
+            date = new Date((log.date_created as any)._seconds * 1000);
         } else {
-            date = new Date(log.date_created._seconds * 1000);
+            date = new Date();
         }
 
         return {
-            id: log.message_id,
-            text: log.message,
+            id: log.message_id || `msg-${Date.now()}`,
+            text: log.message || '',
             timestamp: date,
-            senderName: log.sender_id,
-            status: log.status as any,
+            senderName: log.sender_id || 'NOLACRM',
+            status: (log.status as Message['status']) || 'sent',
         };
     };
 
