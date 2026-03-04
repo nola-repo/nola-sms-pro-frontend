@@ -17,31 +17,70 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     if (req.method === 'GET') {
-      // Fetch contacts from GHL API
-      const url = `${GHL_API_URL}/contacts?locationId=${GHL_LOCATION_ID}&limit=100`;
-      console.log('Fetching from GHL API:', url);
+      // Try different GHL endpoints
+      const endpoints = [
+        `${GHL_API_URL}/contacts/search?locationId=${GHL_LOCATION_ID}&limit=100`,
+        `${GHL_API_URL}/contacts?locationId=${GHL_LOCATION_ID}&limit=100`,
+        `${GHL_API_URL}/contacts/list?locationId=${GHL_LOCATION_ID}&limit=100`,
+      ];
       
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${GHL_API_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      let lastError: { status?: number; text?: string; message?: string } | null = null;
+      let data = null;
+      
+      for (const url of endpoints) {
+        try {
+          console.log('Trying GHL endpoint:', url);
+          const response = await fetch(url, {
+            method: 'POST', // Try POST for search
+            headers: {
+              'Authorization': `Bearer ${GHL_API_TOKEN}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              locationId: GHL_LOCATION_ID,
+              limit: 100
+            })
+          });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('GHL API error:', response.status, errorText);
-        return res.status(response.status).json({ 
-          error: 'Failed to fetch contacts from GHL',
-          details: errorText 
+          if (response.ok) {
+            data = await response.json();
+            console.log('GHL API Success:', url);
+            break;
+          } else {
+            const errorText = await response.text();
+            console.log('GHL endpoint failed:', response.status, errorText);
+            lastError = { status: response.status, text: errorText };
+            
+            // Try GET if POST fails
+            const getResponse = await fetch(url.replace('POST', 'GET').replace('search?', '?'), {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${GHL_API_TOKEN}`,
+                'Content-Type': 'application/json',
+              }
+            });
+            
+            if (getResponse.ok) {
+              data = await getResponse.json();
+              console.log('GHL API Success with GET:', url);
+              break;
+            }
+          }
+        } catch (e: unknown) {
+          const err = e instanceof Error ? { message: e.message } : { message: 'Unknown error' };
+          lastError = err;
+        }
+      }
+      
+      if (!data) {
+        console.error('All GHL endpoints failed:', lastError);
+        return res.status(401).json({ 
+          error: 'Failed to authenticate with GHL',
+          details: lastError?.text || lastError?.message 
         });
       }
-
-      const data = await response.json();
-      console.log('GHL API response:', data);
       
-      // Handle GHL response format - contacts might be in data.contacts or data
+      // Handle GHL response format
       let contacts: any[] = [];
       if (Array.isArray(data)) {
         contacts = data;
