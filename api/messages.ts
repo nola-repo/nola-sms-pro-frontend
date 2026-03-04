@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       
       // Try fetch_logs first (filters by number)
-      let cloudRunUrl = `${CLOUD_RUN_URL}/api/fetch_logs?${queryParams.toString()}`;
+      let cloudRunUrl = `${CLOUD_RUN_URL}/webhook/fetch_logs?${queryParams.toString()}`;
       console.log('Trying fetch_logs:', cloudRunUrl);
       
       let response = await fetch(cloudRunUrl, {
@@ -43,7 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       
       // If fetch_logs doesn't return valid data, fall back to messages
       if (!data.data || data.data.length === 0) {
-        cloudRunUrl = `${CLOUD_RUN_URL}/api/messages?${queryParams.toString()}`;
+        cloudRunUrl = `${CLOUD_RUN_URL}/webhook/messages?${queryParams.toString()}`;
         console.log('Fallback to messages:', cloudRunUrl);
         
         response = await fetch(cloudRunUrl, {
