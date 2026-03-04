@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetchSmsLogs } from "../api/sms";
 import type { Message, SmsLog } from "../types/Sms";
+import { getCachedMessages, setCachedMessages, updateMessageInCache } from "../utils/storage";
 
 export const useMessages = (phoneNumber: string | undefined) => {
     const [messages, setMessages] = useState<Message[]>([]);
@@ -29,8 +30,16 @@ export const useMessages = (phoneNumber: string | undefined) => {
     };
 
     const fetchHistory = useCallback(async () => {
+        // Try to load from cache first
+        if (phoneNumber) {
+            const cached = getCachedMessages(phoneNumber);
+            if (cached && cached.length > 0) {
+                setMessages(cached);
+            }
+        }
+        
         if (!phoneNumber) {
-            setMessages([]);
+            // Don't clear messages - keep them cached for when user returns
             return;
         }
 
@@ -42,6 +51,8 @@ export const useMessages = (phoneNumber: string | undefined) => {
             // Sort by date_created ascending as requested
             formattedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
             setMessages(formattedMessages);
+            // Save to cache
+            setCachedMessages(phoneNumber, formattedMessages);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to load history");
         } finally {
@@ -62,16 +73,30 @@ export const useMessages = (phoneNumber: string | undefined) => {
             senderName,
             status: 'sending',
         };
-        setMessages(prev => [...prev, newMessage]);
+        setMessages(prev => {
+            const updated = [...prev, newMessage];
+            // Cache the updated messages
+            if (phoneNumber) {
+                setCachedMessages(phoneNumber, updated);
+            }
+            return updated;
+        });
         return id;
     };
 
     const updateMessageStatus = (tempId: string, status: 'sent' | 'failed', realId?: string) => {
-        setMessages(prev => prev.map(msg =>
-            msg.id === tempId
-                ? { ...msg, status, id: realId || msg.id }
-                : msg
-        ));
+        setMessages(prev => {
+            const updated = prev.map(msg =>
+                msg.id === tempId
+                    ? { ...msg, status, id: realId || msg.id }
+                    : msg
+            );
+            // Cache the updated messages
+            if (phoneNumber) {
+                updateMessageInCache(phoneNumber, tempId, status, realId);
+            }
+            return updated;
+        });
     };
 
     return {

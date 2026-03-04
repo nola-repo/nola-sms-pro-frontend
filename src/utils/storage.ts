@@ -1,7 +1,12 @@
-import type { BulkMessageHistoryItem } from "../types/Sms";
+import type { BulkMessageHistoryItem, Message } from "../types/Sms";
 
 const BULK_HISTORY_KEY = "nola_sms_bulk_history";
 const DELETED_CONTACTS_KEY = "nola_sms_deleted_contacts";
+const MESSAGES_CACHE_KEY = "nola_sms_messages_cache";
+
+interface MessagesCache {
+  [phoneNumber: string]: Message[];
+}
 
 export const getDeletedContactIds = (): string[] => {
   try {
@@ -99,4 +104,44 @@ export const getRelativeTime = (timestamp: string): string => {
   if (diffHours < 24) return `${diffHours}h`;
   if (diffDays < 7) return `${diffDays}d`;
   return then.toLocaleDateString();
+};
+
+// Message caching functions
+const getMessagesCache = (): MessagesCache => {
+  try {
+    const stored = localStorage.getItem(MESSAGES_CACHE_KEY);
+    if (!stored) return {};
+    return JSON.parse(stored);
+  } catch {
+    return {};
+  }
+};
+
+const setMessagesCache = (cache: MessagesCache): void => {
+  try {
+    localStorage.setItem(MESSAGES_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    console.error("Failed to save messages to cache");
+  }
+};
+
+export const getCachedMessages = (phoneNumber: string): Message[] | null => {
+  const cache = getMessagesCache();
+  return cache[phoneNumber] || null;
+};
+
+export const setCachedMessages = (phoneNumber: string, messages: Message[]): void => {
+  const cache = getMessagesCache();
+  cache[phoneNumber] = messages;
+  setMessagesCache(cache);
+};
+
+export const updateMessageInCache = (phoneNumber: string, tempId: string, status: Message['status'], realId?: string): void => {
+  const cache = getMessagesCache();
+  if (!cache[phoneNumber]) return;
+  
+  cache[phoneNumber] = cache[phoneNumber].map(msg =>
+    msg.id === tempId ? { ...msg, status, id: realId || msg.id } : msg
+  );
+  setMessagesCache(cache);
 };
