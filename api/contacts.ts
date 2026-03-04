@@ -2,8 +2,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const CLOUD_RUN_URL = "https://smspro-api.nolacrm.io";
 const WEBHOOK_SECRET = "f7RkQ2pL9zV3tX8cB1nS4yW6";
-const NOLA_LOCATION_ID = "ugBqfQsPtGijLjrmLdmA";
-const NOLA_API_TOKEN = "pit-2c6e3df4-9472-4bed-bd7c-fbea8acb2abd";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers for the response
@@ -19,60 +17,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     if (req.method === 'GET') {
-      // Try to fetch contacts from NolaCRM API with the private integration token
-      const endpoints = [
-        `${CLOUD_RUN_URL}/contacts?locationId=${NOLA_LOCATION_ID}`,
-        `${CLOUD_RUN_URL}/webhook/fetch_contacts`,
-      ];
+      // Fetch contacts from NolaCRM API
+      const limit = req.query.limit || '100';
+      const cloudRunUrl = `${CLOUD_RUN_URL}/api/contacts?limit=${limit}`;
+      console.log('Fetching contacts from:', cloudRunUrl);
       
-      let lastError: { status?: number; text?: string; message?: string } | null = null;
-      let data = null;
-      
-      for (const url of endpoints) {
-        try {
-          console.log('Trying NolaCRM endpoint:', url);
-          const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${NOLA_API_TOKEN}`,
-              'X-Webhook-Secret': WEBHOOK_SECRET,
-              'Content-Type': 'application/json',
-            },
-          });
+      const response = await fetch(cloudRunUrl, {
+        method: 'GET',
+        headers: {
+          'X-Webhook-Secret': WEBHOOK_SECRET,
+          'Content-Type': 'application/json',
+        },
+      });
 
-          if (response.ok) {
-            data = await response.json();
-            console.log('NolaCRM API Success:', url);
-            break;
-          } else {
-            const errorText = await response.text();
-            console.log('NolaCRM endpoint failed:', response.status, errorText);
-            lastError = { status: response.status, text: errorText };
-          }
-        } catch (e: unknown) {
-          lastError = e instanceof Error ? { message: e.message } : { message: 'Unknown error' };
-        }
-      }
-      
-      if (!data) {
-        console.error('All NolaCRM endpoints failed:', lastError);
-        return res.status(lastError?.status || 500).json({ 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Contacts API error:', response.status, errorText);
+        return res.status(response.status).json({ 
           error: 'Failed to fetch contacts',
-          details: lastError?.text || lastError?.message 
+          details: errorText 
         });
       }
-      
-      // Handle different response formats
-      let contacts = [];
-      if (Array.isArray(data)) {
-        contacts = data;
-      } else if (data.contacts) {
-        contacts = data.contacts;
-      } else if (data.data) {
-        contacts = data.data;
-      }
-      
-      return res.status(200).json(contacts);
+
+      const data = await response.json();
+      console.log('Contacts response:', data);
+      return res.status(response.status).json(data);
     } else {
       return res.status(405).json({ error: 'Method not allowed' });
     }
