@@ -18,19 +18,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // Route based on method
     if (req.method === 'GET') {
-      // Try fetch_logs endpoint first (has number filter)
+      // GET /api/messages - fetch messages
       const queryParams = new URLSearchParams();
       for (const [key, value] of Object.entries(req.query)) {
         if (value) {
           queryParams.append(key, Array.isArray(value) ? value[0] : value);
         }
       }
+      const cloudRunUrl = `${CLOUD_RUN_URL}/api/messages?${queryParams.toString()}`;
+      console.log('Proxying GET to:', cloudRunUrl);
       
-      // Try fetch_logs first (filters by number)
-      let cloudRunUrl = `${CLOUD_RUN_URL}/webhook/fetch_logs?${queryParams.toString()}`;
-      console.log('Trying fetch_logs:', cloudRunUrl);
-      
-      let response = await fetch(cloudRunUrl, {
+      const response = await fetch(cloudRunUrl, {
         method: 'GET',
         headers: {
           'X-Webhook-Secret': WEBHOOK_SECRET,
@@ -38,39 +36,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       });
 
-      console.log('fetch_logs status:', response.status);
-      let data;
-      
-      // Check if response is OK
-      if (response.ok) {
-        data = await response.json();
-        console.log('fetch_logs response:', data);
-      } else {
-        // Try webhook/messages instead
-        console.log('fetch_logs failed, trying webhook/messages');
-        cloudRunUrl = `${CLOUD_RUN_URL}/webhook/messages?${queryParams.toString()}`;
-        console.log('Trying messages:', cloudRunUrl);
-        
-        response = await fetch(cloudRunUrl, {
-          method: 'GET',
-          headers: {
-            'X-Webhook-Secret': WEBHOOK_SECRET,
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        console.log('messages status:', response.status);
-        
-        // Try to parse JSON, if not valid, return error
-        const text = await response.text();
-        try {
-          data = JSON.parse(text);
-        } catch {
-          data = { error: 'Cloud Run returned non-JSON', status: response.status, text };
-        }
-        console.log('messages response:', data);
-      }
-      
+      const data = await response.json();
+      console.log('Cloud Run response:', data);
       return res.status(response.status).json(data);
     } else if (req.method === 'POST') {
       // POST /api/messages - send SMS
