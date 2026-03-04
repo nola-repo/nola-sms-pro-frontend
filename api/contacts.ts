@@ -17,12 +17,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     if (req.method === 'GET') {
-      // Fetch contacts from NolaCRM API
-      const limit = req.query.limit || '100';
-      const cloudRunUrl = `${CLOUD_RUN_URL}/api/contacts?limit=${limit}`;
-      console.log('Fetching contacts from:', cloudRunUrl);
+      // First try the webhook that extracts contacts from sms_logs (phone numbers)
+      const webhookUrl = `${CLOUD_RUN_URL}/webhook/fetch_contacts`;
+      console.log('Fetching contacts from:', webhookUrl);
       
-      const response = await fetch(cloudRunUrl, {
+      const response = await fetch(webhookUrl, {
         method: 'GET',
         headers: {
           'X-Webhook-Secret': WEBHOOK_SECRET,
@@ -32,16 +31,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Contacts API error:', response.status, errorText);
-        return res.status(response.status).json({ 
-          error: 'Failed to fetch contacts',
-          details: errorText 
-        });
+        console.error('Webhook error:', response.status, errorText);
+        // Try the direct API as fallback
+        return fetchFromContactsAPI(req, res);
       }
 
       const data = await response.json();
-      console.log('Contacts response:', data);
+      console.log('Contacts from webhook:', data);
       return res.status(response.status).json(data);
+    } else if (req.method === 'POST') {
+      // Create new contact
+      return fetchFromContactsAPI(req, res);
     } else {
       return res.status(405).json({ error: 'Method not allowed' });
     }
@@ -53,4 +53,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
+}
+
+async function fetchFromContactsAPI(req: VercelRequest, res: VercelResponse) {
+  // Try direct contacts API
+  const cloudRunUrl = `${CLOUD_RUN_URL}/api/contacts`;
+  console.log('Fetching from contacts API:', cloudRunUrl);
+  
+  const response = await fetch(cloudRunUrl, {
+    method: 'GET',
+    headers: {
+      'X-Webhook-Secret': WEBHOOK_SECRET,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  const data = await response.json();
+  console.log('Contacts API response:', data);
+  return res.status(response.status).json(data);
 }

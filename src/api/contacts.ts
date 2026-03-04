@@ -18,13 +18,18 @@ export const fetchContacts = async (): Promise<Contact[]> => {
     
     const data = await res.json();
     
-    if (!Array.isArray(data)) {
-      console.log('Invalid contacts response:', data);
-      return [];
+    // Handle response - could be array directly or { data: [], success: true }
+    let contacts: any[] = [];
+    if (Array.isArray(data)) {
+      contacts = data;
+    } else if (data.data && Array.isArray(data.data)) {
+      contacts = data.data;
+    } else if (data.contacts && Array.isArray(data.contacts)) {
+      contacts = data.contacts;
     }
     
-    console.log('Contacts fetched:', data.length);
-    return data;
+    console.log('Contacts fetched:', contacts.length);
+    return contacts;
   } catch (error) {
     console.error('Failed to fetch contacts:', error);
     return [];
