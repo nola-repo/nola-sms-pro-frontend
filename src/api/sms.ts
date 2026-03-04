@@ -1,6 +1,6 @@
 import type { SmsLog } from "../types/Sms";
 
-const WEBHOOK_URL = "/api/messages";
+const CLOUD_RUN_URL = "https://smspro-api.nolacrm.io";
 const WEBHOOK_SECRET = "f7RkQ2pL9zV3tX8cB1nS4yW6";
 
 export type SenderId = string;
@@ -54,9 +54,11 @@ export const fetchSmsLogs = async (phoneNumber: string): Promise<SmsLog[]> => {
   if (!formattedNumber) return [];
 
   try {
-    const res = await fetch(`${WEBHOOK_URL}?direction=outbound&number=${formattedNumber}&limit=100`, {
+    // Use Cloud Run directly
+    const res = await fetch(`${CLOUD_RUN_URL}/webhook/messages?direction=outbound&number=${formattedNumber}&limit=100`, {
       headers: {
         'X-Webhook-Secret': WEBHOOK_SECRET,
+        'Origin': 'https://nola-sms-pro.vercel.app',
       },
     });
     if (!res.ok) throw new Error("Failed to fetch message history");
@@ -99,14 +101,15 @@ export const sendSms = async (
   };
 
   console.log("Sending SMS to new backend:", payload);
-    console.log("Sending to:", WEBHOOK_URL);
+    console.log("Sending to:", CLOUD_RUN_URL + "/webhook/send_sms");
 
   try {
-    const res = await fetch(WEBHOOK_URL, {
+    const res = await fetch(CLOUD_RUN_URL + "/webhook/send_sms", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-Webhook-Secret": WEBHOOK_SECRET,
+        "Origin": "https://nola-sms-pro.vercel.app",
       },
       body: JSON.stringify(payload),
     });
