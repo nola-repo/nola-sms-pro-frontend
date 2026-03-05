@@ -74,26 +74,21 @@ export const BulkChatView: React.FC<BulkChatViewProps> = ({ bulkItem }) => {
         }
     };
 
-    // Group messages by current status for a summary
-    const stats = {
-        pending: messages.filter(m => m.status.toLowerCase() === 'pending').length,
-        sent: messages.filter(m => m.status.toLowerCase() === 'sent').length,
-        failed: messages.filter(m => ['failed', 'error'].includes(m.status.toLowerCase())).length,
-        total: bulkItem.recipientCount
-    };
 
     return (
         <div className="flex flex-col h-full bg-white dark:bg-[#0b0b0b] overflow-hidden">
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-100 dark:border-white/5 bg-white/80 dark:bg-[#0b0b0b]/80 backdrop-blur-md sticky top-0 z-10">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
+                    <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa] flex-shrink-0">
                             <FiUsers size={20} />
                         </div>
-                        <div>
-                            <h2 className="text-[17px] font-bold text-[#111111] dark:text-[#ececf1] leading-tight mb-0.5">
-                                {bulkItem.customName || "Bulk Campaign"}
+                        <div className="min-w-0">
+                            <h2 className="text-[17px] font-bold text-[#111111] dark:text-[#ececf1] leading-tight mb-0.5 truncate">
+                                {bulkItem.customName || (bulkItem.recipientNames && bulkItem.recipientNames.length > 0
+                                    ? bulkItem.recipientNames.join(", ")
+                                    : bulkItem.recipientNumbers.join(", "))}
                             </h2>
                             <div className="flex items-center gap-3 text-[12px] font-medium text-gray-500 dark:text-gray-400">
                                 <span className="flex items-center gap-1">
@@ -105,14 +100,9 @@ export const BulkChatView: React.FC<BulkChatViewProps> = ({ bulkItem }) => {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        {stats.failed > 0 && (
-                            <span className="px-2 py-1 rounded-lg bg-red-500/10 text-red-500 text-[11px] font-bold flex items-center gap-1">
-                                <FiAlertCircle size={10} /> {stats.failed} Failed
-                            </span>
-                        )}
-                        <span className="px-2 py-1 rounded-lg bg-green-500/10 text-green-500 text-[11px] font-bold flex items-center gap-1">
-                            <FiCheck size={10} /> {stats.sent} Sent
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                        <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-[#2b83fa] text-[11px] font-bold uppercase tracking-wider">
+                            Group Chat
                         </span>
                     </div>
                 </div>
@@ -157,29 +147,30 @@ export const BulkChatView: React.FC<BulkChatViewProps> = ({ bulkItem }) => {
                                     ? new Date(firstMsg.date_created)
                                     : new Date(firstMsg.date_created._seconds * 1000);
 
+                                const campaignStats = {
+                                    sent: campaignMsgs.filter(m => m.status.toLowerCase() === 'sent' || m.status.toLowerCase() === 'delivered').length,
+                                    pending: campaignMsgs.filter(m => m.status.toLowerCase() === 'pending' || m.status.toLowerCase() === 'queued').length,
+                                    failed: campaignMsgs.filter(m => ['failed', 'error'].includes(m.status.toLowerCase())).length,
+                                    total: campaignMsgs.length
+                                };
+
                                 return (
-                                    <div key={bid} className="flex flex-col gap-3">
-                                        <div className="flex items-center gap-4 px-2">
-                                            <div className="flex-1 h-px bg-gray-200 dark:bg-white/5"></div>
-                                            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">
+                                    <div key={bid} className="flex flex-col gap-2 mb-4">
+                                        <div className="flex justify-center my-2">
+                                            <span className="px-3 py-1 rounded-full bg-gray-100 dark:bg-white/5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                                 {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
-                                            <div className="flex-1 h-px bg-gray-200 dark:bg-white/5"></div>
                                         </div>
 
-                                        <div className="bg-white dark:bg-[#1a1b1e] border border-gray-100 dark:border-white/5 rounded-2xl p-4 shadow-sm">
-                                            <div className="text-[15px] text-[#111111] dark:text-[#ececf1] mb-4 whitespace-pre-wrap leading-relaxed">
-                                                {firstMsg.message}
+                                        <div className="flex flex-col items-end gap-1 max-w-[85%] self-end">
+                                            <div className="bg-[#2b83fa] text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-md">
+                                                <div className="text-[15px] whitespace-pre-wrap leading-relaxed">
+                                                    {firstMsg.message}
+                                                </div>
                                             </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                                {campaignMsgs.map(m => (
-                                                    <div key={m.message_id} className="flex items-center justify-between p-2 rounded-xl bg-gray-50 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                                                        <span className="text-[12px] font-medium text-gray-600 dark:text-gray-400 truncate">
-                                                            {m.numbers[0]}
-                                                        </span>
-                                                        <StatusBadge status={m.status} />
-                                                    </div>
-                                                ))}
+
+                                            <div className="flex items-center gap-2 px-1">
+                                                <StatusBadgeSummary stats={campaignStats} />
                                             </div>
                                         </div>
                                     </div>
@@ -246,25 +237,24 @@ export const BulkChatView: React.FC<BulkChatViewProps> = ({ bulkItem }) => {
     );
 };
 
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-    const s = status.toLowerCase();
-    if (s === 'sent' || s === 'delivered') {
-        return (
-            <span className="flex items-center gap-1 text-[11px] font-bold text-green-500 uppercase tracking-wider">
-                <FiCheck size={12} /> {s}
-            </span>
-        );
-    }
-    if (s === 'pending' || s === 'queued') {
-        return (
-            <span className="flex items-center gap-1 text-[11px] font-bold text-blue-500 uppercase tracking-wider">
-                <FiLoader className="animate-spin" size={12} /> {s}
-            </span>
-        );
-    }
+const StatusBadgeSummary: React.FC<{ stats: { sent: number, pending: number, failed: number, total: number } }> = ({ stats }) => {
     return (
-        <span className="flex items-center gap-1 text-[11px] font-bold text-red-500 uppercase tracking-wider">
-            <FiAlertCircle size={12} /> {s}
-        </span>
+        <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider">
+            {stats.failed > 0 && (
+                <span className="text-red-500 flex items-center gap-1">
+                    <FiAlertCircle size={10} /> {stats.failed} Failed
+                </span>
+            )}
+            {stats.pending > 0 && (
+                <span className="text-blue-500 flex items-center gap-1">
+                    <FiLoader className="animate-spin" size={10} /> {stats.pending} Pending
+                </span>
+            )}
+            <span className="text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                <FiCheck size={10} className={stats.sent === stats.total ? "text-green-500" : ""} />
+                {stats.sent}/{stats.total} Sent
+            </span>
+        </div>
     );
 };
+
