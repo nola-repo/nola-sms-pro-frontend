@@ -106,15 +106,24 @@ export const Composer: React.FC<ComposerProps> = ({
   const { messages: singleMessages, loading: singleLoading, addOptimisticMessage, updateMessageStatus, refresh: refreshSingle } = useMessages(activePhoneNumber);
 
   const recipientKey = useMemo(() => {
+    // If we have an active bulk message from sidebar, use its recipientKey
+    if (activeBulkMessage?.recipientKey) {
+      return activeBulkMessage.recipientKey;
+    }
+    // Otherwise compute from selected contacts
     if (composeMode === 'bulk' && bulkSelectedContacts.length > 1) {
       return getRecipientKey(bulkSelectedContacts.map(c => c.phone));
     }
     return undefined;
-  }, [composeMode, bulkSelectedContacts]);
+  }, [composeMode, bulkSelectedContacts, activeBulkMessage]);
 
   const recipientNumbers = useMemo(() => {
+    // If we have an active bulk message from sidebar, use its numbers
+    if (activeBulkMessage?.recipientNumbers) {
+      return activeBulkMessage.recipientNumbers;
+    }
     return bulkSelectedContacts.map(c => c.phone);
-  }, [bulkSelectedContacts]);
+  }, [bulkSelectedContacts, activeBulkMessage]);
 
   const { messages: groupMessages, loading: groupLoading, refresh: refreshGroup } = useGroupMessages(recipientKey, recipientNumbers);
 
