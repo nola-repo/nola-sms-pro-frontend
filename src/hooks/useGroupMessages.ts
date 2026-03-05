@@ -71,8 +71,8 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
                     console.log('[useGroupMessages] Sample date_created:', batchData[0].date_created);
                 }
                 
-                // Filter to only messages from this specific bulk message batch
-                // Show only messages that were sent as part of this bulk message
+                // Filter - when viewing a specific bulk conversation, show ALL messages in that batch
+                // The batch is already filtered by batchId in the API call
                 let filtered = batchData;
                 if (recipientNumbers && recipientNumbers.length > 0) {
                     // Normalize the recipient numbers from bulk message
@@ -81,22 +81,10 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
                         .filter((n): n is string => n !== null);
                     console.log('[useGroupMessages] Normalized recipients:', normalizedRecipients);
                     
-                    // Filter to messages that: 
-                    // 1. Have the same batch_id (sent as part of this bulk)
-                    // 2. Were sent to one of the recipients
-                    filtered = batchData.filter(m => {
-                        const isFromThisBatch = m.batch_id === batchId;
-                        
-                        // Check if message recipient matches our numbers
-                        const messageNumbers = m.numbers || [];
-                        const normalizedMessageNumbers = messageNumbers
-                            .map(n => normalizePHNumber(n))
-                            .filter((n): n is string => n !== null);
-                        const hasMatchingRecipient = normalizedMessageNumbers.some(num => normalizedRecipients.includes(num));
-                        
-                        return isFromThisBatch && hasMatchingRecipient;
-                    });
-                    console.log('[useGroupMessages] After filtering:', filtered.length, 'messages');
+                    // When viewing a specific bulk message, show all messages in that batch
+                    // (no need to filter by recipient since the batch IS the conversation)
+                    filtered = batchData;
+                    console.log('[useGroupMessages] Showing all', filtered.length, 'messages from batch');
                 }
                 
                 // Sort by date (chronological)
