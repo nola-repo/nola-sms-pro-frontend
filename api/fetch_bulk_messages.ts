@@ -16,17 +16,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Fetch all bulk messages from Firestore via Cloud Run
-    const cloudRunUrl = `${CLOUD_RUN_URL}/webhook/fetch_bulk_messages`;
-    console.log('Proxying fetch_bulk_messages to:', cloudRunUrl);
+    // Try different URL paths
+    const possibleUrls = [
+      `${CLOUD_RUN_URL}/webhook/fetch_bulk_messages`,
+      `${CLOUD_RUN_URL}/fetch_bulk_messages`,
+      `${CLOUD_RUN_URL}/api/fetch_bulk_messages`,
+    ];
     
-    const response = await fetch(cloudRunUrl, {
-      method: 'GET',
-      headers: {
-        'X-Webhook-Secret': WEBHOOK_SECRET,
-        'Content-Type': 'application/json',
-      },
-    });
+    let response: Response | null = null;
+    
+    for (const url of possibleUrls) {
+      console.log('Trying URL:', url);
+      try {
+        response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'X-Webhook-Secret': WEBHOOK_SECRET,
+          },
+        });
+        
+        if (response.ok) {
+          console.log('Success with URL:', url);
+          break;
+        } else {
+          console.log('Failed with URL:', url, 'status:', response.status);
+        }
+      } catch (urlErr) {
+        console.log('Error with URL:', url, urlErr);
+      }
+    }
+    
+    if (!response || !response.ok) {
+      return res.status(500).json({
+        success: false,
+        error: 'All URLs failed',
+      });
+    }
 
     // Get response as text first to check for errors
     const responseText = await response.text();

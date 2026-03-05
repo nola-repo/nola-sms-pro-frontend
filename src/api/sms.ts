@@ -206,6 +206,26 @@ export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => 
   }
 };
 
+// Fetch messages by recipient_key (conversation key)
+export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise<SmsLog[]> => {
+  if (!recipientKey) return [];
+
+  try {
+    const res = await fetch(`${WEBHOOK_URL}?recipient_key=${encodeURIComponent(recipientKey)}&limit=500`, {
+      headers: {
+        'X-Webhook-Secret': WEBHOOK_SECRET,
+      },
+    });
+    if (!res.ok) throw new Error("Failed to fetch messages by recipient_key");
+    const data = await res.json();
+    // Handle both array response and {data: [...]} response
+    return Array.isArray(data) ? data : (data.data || []);
+  } catch (error) {
+    console.error("Fetch by Recipient Key Error:", error);
+    return [];
+  }
+};
+
 // Fetch all bulk messages from Firestore (grouped by batch)
 export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> => {
   try {

@@ -20,13 +20,18 @@ if ($receivedSecret !== 'f7RkQ2pL9zV3tX8cB1nS4yW6') {
 // 2. Get Parameters
 $number = $_GET['number'] ?? '';
 $batch_id = $_GET['batch_id'] ?? ''; // [NEW] Capture batch_id
+$recipient_key = $_GET['recipient_key'] ?? ''; // [NEW] Capture recipient_key
 
 try {
     // 3. Query Firestore
     $db = get_firestore();
     $collection = $db->collection('sms_logs');
 
-    if ($batch_id) {
+    if ($recipient_key) {
+        // [NEW] Query by recipient_key (conversation key) - for bulk message groups
+        $query = $collection->where('recipient_key', '=', $recipient_key);
+    }
+    else if ($batch_id) {
         // [NEW] Query by batch_id if provided
         $query = $collection->where('batch_id', '=', $batch_id);
     }

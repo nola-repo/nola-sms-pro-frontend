@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { fetchBatchMessages } from "../api/sms";
-import { getHistoryForGroup } from "../utils/storage";
+import { fetchMessagesByRecipientKey } from "../api/sms";
 import type { Message } from "../types/Sms";
 
 // Helper to parse date from Firestore timestamp or string
@@ -56,46 +55,56 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
     const dataLoaded = useRef(false);
 
     const refresh = useCallback(async (showLoading = false) => {
-        // If we have a specific batchId, only fetch that batch
-        if (batchId) {
+        // If we have a specific batchId, fetch messages for that batch
+        // OR if we have a recipientKey, fetch by recipient_key (conversation)
+        if (batchId || recipientKey) {
             if (showLoading) setLoading(true);
             try {
-                console.log('[useGroupMessages] Fetching batch:', batchId);
-                const batchData = await fetchBatchMessages(batchId);
-                console.log('[useGroupMessages] Batch data received:', batchData.length, 'messages');
-                console.log('[useGroupMessages] Filtering by recipientNumbers:', recipientNumbers);
-                
-                // Debug: check what fields the messages have
-                if (batchData.length > 0) {
-                    console.log('[useGroupMessages] Sample message fields:', Object.keys(batchData[0]));
-                    console.log('[useGroupMessages] Sample date_created:', batchData[0].date_created);
+                // Use recipient_key if available, otherwise use batchId
+                const conversationKey = recipientKey || batchId;
+                if (!conversationKey) {
+                    setMessages([]);
+                    return;
                 }
                 
-                // Filter - when viewing a specific bulk conversation, show ALL messages in that batch
-                // The batch is already filtered by batchId in the API call
-                let filtered = batchData;
+                console.log('[useGroupMessages] Fetching by conversation key:', conversationKey);
+                
+                // Fetch messages by recipient_key (conversation key)
+                const messagesData = await fetchMessagesByRecipientKey(conversationKey);
+                console.log('[useGroupMessages] Messages received:', messagesData.length);
+                
+                // Debug: check what fields the messages have
+                if (messagesData.length > 0) {
+                    console.log('[useGroupMessages] Sample message fields:', Object.keys(messagesData[0]));
+                    console.log('[useGroupMessages] Sample message:', messagesData[0]);
+                }
+                
+                // Filter by recipient numbers if provided (for specific group members)
+                let filtered = messagesData;
                 if (recipientNumbers && recipientNumbers.length > 0) {
-                    // Normalize the recipient numbers from bulk message
                     const normalizedRecipients = recipientNumbers
                         .map(n => normalizePHNumber(n))
                         .filter((n): n is string => n !== null);
                     console.log('[useGroupMessages] Normalized recipients:', normalizedRecipients);
                     
-                    // When viewing a specific bulk message, show all messages in that batch
-                    // (no need to filter by recipient since the batch IS the conversation)
-                    filtered = batchData;
-                    console.log('[useGroupMessages] Showing all', filtered.length, 'messages from batch');
+                    // Filter messages: check if message's number matches any recipient
+                    filtered = messagesData.filter((m) => {
+                        const msgNumber = m.number || '';
+                        const normalizedMsgNumber = normalizePHNumber(msgNumber);
+                        
+                        return normalizedMsgNumber && normalizedRecipients.includes(normalizedMsgNumber);
+                    });
+                    console.log('[useGroupMessages] After filtering:', filtered.length);
                 }
                 
-                // Sort by date (chronological)
+                // Sort by date (chronological - oldest first for chat)
                 filtered = [...filtered].sort((a, b) => {
                     const dateA = a?.date_created ? parseDate(a.date_created) : Date.now();
                     const dateB = b?.date_created ? parseDate(b.date_created) : Date.now();
                     return dateA - dateB;
                 });
                 
-                // Transform to UI format: map message->text, date_created->timestamp, sender_id->senderName
-                // Include batch_id for campaign grouping
+                // Transform to UI format
                 let transformedMessages: Message[] = [];
                 try {
                     transformedMessages = filtered
@@ -106,7 +115,6 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
                             timestamp: new Date(parseDate(m.date_created)),
                             senderName: m.sender_id || 'NOLACRM',
                             status: (m.status || 'sent') as Message['status'],
-                            // Add these for compatibility with campaign view
                             batch_id: m.batch_id,
                             message: m.message,
                             date_created: m.date_created,
@@ -118,9 +126,8 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
                 setMessages(transformedMessages);
                 dataLoaded.current = true;
                 console.log('[useGroupMessages] Final messages set:', transformedMessages.length);
-                console.log('[useGroupMessages] Sample transformed message:', transformedMessages[0]);
             } catch (error) {
-                console.error("Failed to fetch batch messages:", error);
+                console.error("Failed to fetch group messages:", error);
             } finally {
                 if (showLoading) setLoading(false);
                 initialLoadDone.current = true;
@@ -128,83 +135,8 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
             return;
         }
 
-        // Original logic for when no specific batchId is provided
-        if (!recipientKey) {
-            setMessages([]);
-            return;
-        }
-
-        if (showLoading) setLoading(true);
-        try {
-            // 1. Get all batches associated with this group from local storage
-            const groupHistory = getHistoryForGroup(recipientKey);
-            const batchIds = groupHistory
-                .map(item => item.batchId)
-                .filter((id): id is string => !!id);
-
-            if (batchIds.length === 0) {
-                setMessages([]);
-                return;
-            }
-
-            // 2. Fetch all messages for these batches from the backend
-            const allBatchData = await Promise.all(
-                batchIds.map(id => fetchBatchMessages(id))
-            );
-
-            // 3. Flatten
-            let flattened = allBatchData.flat();
-
-            // 4. Filter to only recipients in this group!
-            // AND only messages that were sent as part of bulk messages (have batch_id)
-            if (recipientNumbers && recipientNumbers.length > 0) {
-                const normalizedRecipients = recipientNumbers
-                    .map(n => normalizePHNumber(n))
-                    .filter((n): n is string => n !== null);
-                
-                // Get the batch_ids from the group history
-                const groupBatchIds = batchIds;
-                
-                flattened = flattened.filter(m => {
-                    // Must have a batch_id that's in our group
-                    const hasMatchingBatch = m.batch_id && groupBatchIds.includes(m.batch_id);
-                    
-                    const messageNumbers = m.numbers || [];
-                    const normalizedMessageNumbers = messageNumbers
-                        .map(n => normalizePHNumber(n))
-                        .filter((n): n is string => n !== null);
-                    const hasMatchingRecipient = normalizedMessageNumbers.some(num => normalizedRecipients.includes(num));
-                    
-                    return hasMatchingBatch && hasMatchingRecipient;
-                });
-            }
-
-            // 5. Deduplicate by message_id
-            const unique = Array.from(new Map(flattened.map(m => [m.message_id, m])).values());
-
-            // 6. Sort by date (chronological)
-            unique.sort((a, b) => {
-                const dateA = parseDate(a.date_created);
-                const dateB = parseDate(b.date_created);
-                return dateA - dateB;
-            });
-
-            // Transform to UI format: map message->text, date_created->timestamp, sender_id->senderName
-            const transformedMessages: Message[] = unique.map(m => ({
-                id: m.message_id,
-                text: m.message || '',
-                timestamp: new Date(parseDate(m.date_created)),
-                senderName: m.sender_id || 'NOLACRM',
-                status: (m.status || 'sent') as Message['status'],
-            }));
-
-            setMessages(transformedMessages);
-        } catch (error) {
-            console.error("Failed to fetch group messages:", error);
-        } finally {
-            if (showLoading) setLoading(false);
-            initialLoadDone.current = true;
-        }
+        // No batchId or recipientKey - clear messages
+        setMessages([]);
     }, [recipientKey, recipientNumbers, batchId]);
 
     useEffect(() => {

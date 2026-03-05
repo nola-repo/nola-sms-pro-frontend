@@ -21,6 +21,7 @@ export interface BulkMessageHistoryItem {
 
 export interface SmsLog {
   message_id: string;
+  number?: string;  // Single recipient number
   numbers: string[];
   message: string;
   sender_id: string;

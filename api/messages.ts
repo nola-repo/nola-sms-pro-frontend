@@ -18,6 +18,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // Route based on action parameter
     const action = req.query.action as string;
+    const batch_id = req.query.batch_id as string;
+    const recipient_key = req.query.recipient_key as string;
     
     if (action === 'fetch_bulk_messages') {
       // Fetch all bulk messages from Firestore
@@ -45,7 +47,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           queryParams.append(key, Array.isArray(value) ? value[0] : value);
         }
       }
-      const cloudRunUrl = `${CLOUD_RUN_URL}/api/messages?${queryParams.toString()}`;
+      
+      // Forward batch_id OR recipient_key to Cloud Run
+      let cloudRunUrl = `${CLOUD_RUN_URL}/api/messages?${queryParams.toString()}`;
+      
+      // If no specific filter provided, add default filters
+      if (!batch_id && !recipient_key && !req.query.number) {
+        // Get outbound messages only
+        cloudRunUrl = `${CLOUD_RUN_URL}/api/messages?direction=outbound&${queryParams.toString()}`;
+      }
+      
       console.log('Proxying GET to:', cloudRunUrl);
       
       const response = await fetch(cloudRunUrl, {
