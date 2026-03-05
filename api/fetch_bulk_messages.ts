@@ -28,7 +28,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     });
 
-    const data = await response.json();
+    // Get response as text first to check for errors
+    const responseText = await response.text();
+    console.log('Cloud Run response text:', responseText.substring(0, 500));
+    
+    // Try to parse as JSON
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseErr) {
+      console.error('Failed to parse Cloud Run response as JSON:', parseErr);
+      return res.status(500).json({
+        success: false,
+        error: 'Cloud Run returned non-JSON response',
+        message: responseText.substring(0, 200),
+      });
+    }
+    
     console.log('Cloud Run response:', data);
     return res.status(response.status).json(data);
   } catch (error) {
