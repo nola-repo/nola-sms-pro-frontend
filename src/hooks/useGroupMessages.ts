@@ -3,12 +3,44 @@ import { fetchBatchMessages } from "../api/sms";
 import { getHistoryForGroup } from "../utils/storage";
 import type { SmsLog } from "../types/Sms";
 
-export const useGroupMessages = (recipientKey?: string, recipientNumbers?: string[]) => {
+export const useGroupMessages = (recipientKey?: string, recipientNumbers?: string[], batchId?: string) => {
     const [messages, setMessages] = useState<SmsLog[]>([]);
     const [loading, setLoading] = useState(false);
     const initialLoadDone = useRef(false);
 
     const refresh = useCallback(async (showLoading = false) => {
+        // If we have a specific batchId, only fetch that batch
+        if (batchId) {
+            if (showLoading) setLoading(true);
+            try {
+                const batchData = await fetchBatchMessages(batchId);
+                
+                // Filter to only recipients in this specific bulk message
+                let filtered = batchData;
+                if (recipientNumbers && recipientNumbers.length > 0) {
+                    filtered = batchData.filter(m =>
+                        m.numbers?.some(num => recipientNumbers.includes(num))
+                    );
+                }
+                
+                // Sort by date (chronological)
+                filtered.sort((a, b) => {
+                    const dateA = typeof a.date_created === 'string' ? new Date(a.date_created).getTime() : a.date_created._seconds * 1000;
+                    const dateB = typeof b.date_created === 'string' ? new Date(b.date_created).getTime() : b.date_created._seconds * 1000;
+                    return dateA - dateB;
+                });
+                
+                setMessages(filtered);
+            } catch (error) {
+                console.error("Failed to fetch batch messages:", error);
+            } finally {
+                if (showLoading) setLoading(false);
+                initialLoadDone.current = true;
+            }
+            return;
+        }
+
+        // Original logic for when no specific batchId is provided
         if (!recipientKey) {
             setMessages([]);
             return;
@@ -60,13 +92,13 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
             if (showLoading) setLoading(false);
             initialLoadDone.current = true;
         }
-    }, [recipientKey, recipientNumbers]);
+    }, [recipientKey, recipientNumbers, batchId]);
 
     useEffect(() => {
         initialLoadDone.current = false;
         refresh(true);
 
-        if (!recipientKey) return;
+        if (!recipientKey && !batchId) return;
 
         // Background polling every 10 seconds
         const interval = setInterval(() => {
@@ -74,7 +106,7 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
         }, 10000);
 
         return () => clearInterval(interval);
-    }, [recipientKey, refresh]);
+    }, [recipientKey, refresh, batchId]);
 
     return {
         messages,

@@ -28,6 +28,7 @@ export interface SmsLog {
   source?: string;
   direction?: 'inbound' | 'outbound';
   batch_id?: string;
+  recipient_key?: string;
 }
 
 export interface Message {

@@ -125,7 +125,7 @@ export const Composer: React.FC<ComposerProps> = ({
     return bulkSelectedContacts.map(c => c.phone);
   }, [bulkSelectedContacts, activeBulkMessage]);
 
-  const { messages: groupMessages, loading: groupLoading, refresh: refreshGroup } = useGroupMessages(recipientKey, recipientNumbers);
+  const { messages: groupMessages, loading: groupLoading, refresh: refreshGroup } = useGroupMessages(recipientKey, recipientNumbers, activeBulkMessage?.batchId);
 
   const messages = composeMode === 'bulk' && bulkSelectedContacts.length > 1 ? groupMessages : (singleMessages as any[]);
   const historyLoading = composeMode === 'bulk' && bulkSelectedContacts.length > 1 ? groupLoading : singleLoading;
@@ -357,7 +357,8 @@ export const Composer: React.FC<ComposerProps> = ({
       } else {
         // Bulk SMS sending
         const phones = recipients.map(c => c.phone);
-        const { results, batchId } = await sendBulkSms(phones, messageText, senderName, recipients);
+        const recipientKey = getRecipientKey(phones);
+        const { results, batchId } = await sendBulkSms(phones, messageText, senderName, recipients, recipientKey);
         const successCount = results.filter(r => r.success).length;
 
         // Save to bulk message history
@@ -368,7 +369,7 @@ export const Composer: React.FC<ComposerProps> = ({
           recipientCount: recipients.length,
           recipientNames: recipients.map(r => r.name),
           recipientNumbers,
-          recipientKey: getRecipientKey(recipientNumbers),
+          recipientKey,
           timestamp: new Date().toISOString(),
           status: successCount === recipients.length ? 'sent' : successCount > 0 ? 'partial' : 'failed',
           batchId: batchId

@@ -68,6 +68,7 @@ $message = trim($customData['message'] ?? '');
 $sender = $customData['sendername'] ?? ($SENDER_IDS[0] ?? "");
 $batch_id = $customData['batch_id'] ?? null;
 $contact_name = $customData['name'] ?? null; // [NEW] Capture contact name
+$recipient_key = $customData['recipient_key'] ?? null; // [NEW] For grouping bulk messages
 
 if (!in_array($sender, $SENDER_IDS)) {
     $sender = $SENDER_IDS[0];
@@ -133,7 +134,8 @@ if ($http_status == 200 && is_array($result)) {
                 'date_created' => new \Google\Cloud\Core\Timestamp(new \DateTime()),
                 'source' => 'api',
                 'batch_id' => $batch_id,
-                'name' => $contact_name, // [NEW] Store contact name
+                'name' => $contact_name,
+                'recipient_key' => $recipient_key, // [NEW] For grouping bulk messages
             ], ['merge' => true]);
         }
     }
