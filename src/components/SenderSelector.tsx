@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { createPortal } from "react-dom";
-import { FiChevronDown, FiCheck, FiGlobe, FiMapPin, FiBriefcase, FiPlus, FiTrash2, FiX, FiCheckCircle } from "react-icons/fi";
+import { FiChevronDown, FiCheck, FiGlobe, FiMapPin, FiBriefcase, FiPlus, FiTrash2, FiCheckCircle } from "react-icons/fi";
 import { type SenderId } from "../api/sms";
+import { SenderRequestModal } from "./SenderRequestModal";
+import { type StoredSenderId } from "../utils/settingsStorage";
 
 interface SenderOption {
     id: SenderId;
@@ -26,7 +27,6 @@ const DEFAULT_OPTIONS: SenderOption[] = [
     { id: "BRANCH2", name: "BRANCH2", description: "Alternate Sender ID", icon: <FiBriefcase />, color: "bg-orange-500" },
 ];
 
-const COLORS = ["bg-emerald-500", "bg-rose-500", "bg-amber-500", "bg-indigo-500", "bg-cyan-500", "bg-pink-500"];
 const ICONS = [<FiGlobe />, <FiMapPin />, <FiBriefcase />, <FiCheckCircle />];
 
 export const SenderSelector: React.FC<SenderSelectorProps> = ({
@@ -39,8 +39,6 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
-    const [newId, setNewId] = useState("");
-    const [newDesc, setNewDesc] = useState("");
     const [customOptions, setCustomOptions] = useState<SenderOption[]>([]);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -76,27 +74,21 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
 
     const selectedOption = allOptions.find(opt => opt.id === value) || allOptions[0];
 
-    const handleAdd = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newId.trim()) return;
-
+    const handleSuccess = (newSender: StoredSenderId) => {
+        // Map StoredSenderId back to SenderOption with icon
         const newOption: SenderOption = {
-            id: newId.trim().toUpperCase(),
-            name: newId.trim().toUpperCase(),
-            description: newDesc.trim() || "Custom Sender ID",
-            color: COLORS[customOptions.length % COLORS.length],
+            id: newSender.id,
+            name: newSender.name,
+            description: newSender.description,
+            color: newSender.color,
             icon: ICONS[customOptions.length % ICONS.length],
         };
 
         const updated = [...customOptions, newOption];
         setCustomOptions(updated);
 
-        // Save to localStorage (storing everything except the dynamic icon element)
-        const toSave = updated.map(({ icon, ...rest }) => rest);
-        localStorage.setItem("custom_sender_ids", JSON.stringify(toSave));
-
-        setNewId("");
-        setNewDesc("");
+        // localStorage is already handled by addSenderId in the modal, 
+        // but we need to re-sync if the modal doesn't do it or if we want local state update
         setIsAdding(false);
         setIsOpen(false);
         onChange(newOption.id);
@@ -219,85 +211,12 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
                 )}
             </div>
 
-            {/* Modal Portal - Moved outside internal component scope to fix focus bug */}
-            {isAdding && createPortal(
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    {/* Backdrop */}
-                    <div
-                        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300"
-                        onClick={() => setIsAdding(false)}
-                    />
-
-                    {/* Modal Card */}
-                    <div className="relative w-full max-w-md bg-white dark:bg-[#1a1b1e] rounded-2xl shadow-2xl p-4 sm:p-6 animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between mb-4 sm:mb-6">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-lg bg-[#2b83fa]/10 dark:bg-[#2b83fa]/20 flex items-center justify-center text-[#2b83fa]">
-                                    <FiPlus className="h-4 w-4" />
-                                </div>
-                                <h3 className="text-[16px] sm:text-[18px] font-bold text-[#111111] dark:text-[#ececf1]">Request Sender ID</h3>
-                            </div>
-                            <button
-                                onClick={() => setIsAdding(false)}
-                                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 transition-colors"
-                            >
-                                <FiX className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleAdd} className="space-y-4">
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-[11px] sm:text-[12px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                                        Sender ID
-                                    </label>
-                                    <input
-                                        autoFocus
-                                        type="text"
-                                        value={newId}
-                                        onChange={(e) => setNewId(e.target.value.toUpperCase())}
-                                        placeholder="e.g. MYBRAND"
-                                        maxLength={11}
-                                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 transition-all font-bold"
-                                        required
-                                    />
-                                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Max 11 characters. Will be submitted for approval.</p>
-                                </div>
-                                <div>
-                                    <label className="block text-[11px] sm:text-[12px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                                        Description (optional)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={newDesc}
-                                        onChange={(e) => setNewDesc(e.target.value)}
-                                        placeholder="e.g. Marketing campaigns"
-                                        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 transition-all"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col-reverse sm:flex-row items-center gap-3 mt-4 sm:mt-6">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsAdding(false)}
-                                    className="w-full sm:flex-1 px-4 py-3 text-[14px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="w-full sm:flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-semibold text-[14px] transition-all shadow-md shadow-blue-500/20"
-                                >
-                                    <FiPlus className="h-4 w-4" />
-                                    Submit Request
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>,
-                document.body
-            )}
+            {/* Shared Modal */}
+            <SenderRequestModal
+                isOpen={isAdding}
+                onClose={() => setIsAdding(false)}
+                onSuccess={handleSuccess}
+            />
         </div>
     );
 };

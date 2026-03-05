@@ -74,6 +74,27 @@ const smsProxyPlugin = () => ({
       }
     });
 
+    server.middlewares.use('/api/credits', async (req, res) => {
+      try {
+        const cloudRunUrl = 'https://smspro-api.nolacrm.io/api/credits';
+        const response = await fetch(cloudRunUrl, {
+          method: 'GET',
+          headers: {
+            'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const data = await response.json();
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(data));
+      } catch (error) {
+        console.error('Dev proxy error for /api/credits:', error);
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ status: 'error', message: 'Failed to fetch credits from backend' }));
+      }
+    });
+
     server.middlewares.use('/api/contacts', (_req, res) => {
       const mockContacts = [
         { id: '1', name: 'Raely Ivan Reyes', phone: '0976 173 1036' },

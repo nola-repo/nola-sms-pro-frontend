@@ -380,9 +380,11 @@ export const Composer: React.FC<ComposerProps> = ({
             </div>
 
             {/* Consistently styled Sender Selection */}
-            <div className="flex items-center gap-3">
-              <CreditBadge />
-              <div className="flex-shrink-0">
+            <div className="flex items-center gap-2 group">
+              <div className="flex-shrink-0 order-2 sm:order-1">
+                <CreditBadge />
+              </div>
+              <div className="flex-shrink-0 order-1 sm:order-2">
                 <SenderSelector
                   value={senderName}
                   onChange={setSenderName}
@@ -411,10 +413,13 @@ export const Composer: React.FC<ComposerProps> = ({
                 <h2 className="text-[16px] sm:text-[17px] font-bold text-[#111111] dark:text-[#ececf1] tracking-tight">New Message</h2>
               </div>
 
-              <div className="flex items-center justify-end gap-3 sm:gap-4">
+              <div className="flex items-center justify-end gap-2 sm:gap-4 flex-wrap">
+                <div className="order-1 hidden sm:block">
+                  <CreditBadge />
+                </div>
 
                 {/* Compact Toggle */}
-                <div className="flex p-0.5 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200/50 dark:border-white/5">
+                <div className="flex p-0.5 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200/50 dark:border-white/5 order-2">
                   <button
                     onClick={() => setComposeMode("single")}
                     className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${composeMode === "single"
@@ -436,21 +441,25 @@ export const Composer: React.FC<ComposerProps> = ({
                     Bulk
                   </button>
                 </div>
-                <CreditBadge />
               </div>
             </div>
 
             {/* Sender Selector - Full Width Above To: on Mobile */}
             <div className="mb-3 w-full block sm:hidden">
-              <div className="flex items-center gap-3">
-                <span className="text-[14px] font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap">From:</span>
-                <div className="flex-1">
-                  <SenderSelector
-                    value={senderName}
-                    onChange={setSenderName}
-                    align="left"
-                    onRequestSettings={onRequestSettings}
-                  />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-[14px] font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap">From:</span>
+                  <div className="flex-1">
+                    <SenderSelector
+                      value={senderName}
+                      onChange={setSenderName}
+                      align="left"
+                      onRequestSettings={onRequestSettings}
+                    />
+                  </div>
+                </div>
+                <div className="flex-shrink-0 scale-90 origin-right">
+                  <CreditBadge />
                 </div>
               </div>
             </div>
