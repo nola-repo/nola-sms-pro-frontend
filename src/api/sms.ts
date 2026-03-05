@@ -209,7 +209,7 @@ export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => 
 // Fetch all bulk messages from Firestore (grouped by batch)
 export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> => {
   try {
-    const res = await fetch(`${WEBHOOK_URL}?action=fetch_bulk_messages`, {
+    const res = await fetch('/api/fetch_bulk_messages', {
       headers: {
         'X-Webhook-Secret': WEBHOOK_SECRET,
       },
