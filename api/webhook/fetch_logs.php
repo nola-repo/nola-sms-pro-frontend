@@ -19,20 +19,28 @@ if ($receivedSecret !== 'f7RkQ2pL9zV3tX8cB1nS4yW6') {
 
 // 2. Get Parameters
 $number = $_GET['number'] ?? '';
-if (!$number) {
-    http_response_code(400);
-    die(json_encode(["status" => "error", "message" => "Phone number required"]));
-}
+$batch_id = $_GET['batch_id'] ?? ''; // [NEW] Capture batch_id
 
 try {
     // 3. Query Firestore
     $db = get_firestore();
+    $collection = $db->collection('sms_logs');
 
-    // Query logs where this number is the recipient
-    // We order by date_created descending to show newest messages first
-    $logs = $db->collection('sms_logs')
-        ->where('number', '=', $number)
-        ->orderBy('date_created', 'DESC')
+    if ($batch_id) {
+        // [NEW] Query by batch_id if provided
+        $query = $collection->where('batch_id', '=', $batch_id);
+    }
+    else if ($number) {
+        // Query by specific number (check both singular 'number' and array 'numbers')
+        // Try singular first as it's more efficient
+        $query = $collection->where('number', '=', $number);
+    }
+    else {
+        // Default to recent logs
+        $query = $collection;
+    }
+
+    $logs = $query->orderBy('date_created', 'DESC')
         ->limit(100)
         ->documents();
 

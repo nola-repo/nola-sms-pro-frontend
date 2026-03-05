@@ -3,7 +3,7 @@ import { fetchBatchMessages } from "../api/sms";
 import { getHistoryForGroup } from "../utils/storage";
 import type { SmsLog } from "../types/Sms";
 
-export const useGroupMessages = (recipientKey?: string) => {
+export const useGroupMessages = (recipientKey?: string, recipientNumbers?: string[]) => {
     const [messages, setMessages] = useState<SmsLog[]>([]);
     const [loading, setLoading] = useState(false);
     const initialLoadDone = useRef(false);
@@ -28,22 +28,29 @@ export const useGroupMessages = (recipientKey?: string) => {
             }
 
             // 2. Fetch all messages for these batches from the backend
-            // For now, we fetch them one by one. In a real app, the API might support multiple IDs.
             const allBatchData = await Promise.all(
                 batchIds.map(id => fetchBatchMessages(id))
             );
 
-            // 3. Flatten and sort by date
-            const flattened = allBatchData.flat();
+            // 3. Flatten
+            let flattened = allBatchData.flat();
 
-            // Deduplicate by message_id
+            // 4. Filter to only recipients in this group!
+            // This is key: "i just want selected contacts not all"
+            if (recipientNumbers && recipientNumbers.length > 0) {
+                flattened = flattened.filter(m =>
+                    m.numbers.some(num => recipientNumbers.includes(num))
+                );
+            }
+
+            // 5. Deduplicate by message_id
             const unique = Array.from(new Map(flattened.map(m => [m.message_id, m])).values());
 
-            // Sort by date (descending to match single chat pattern)
+            // 6. Sort by date (chronological)
             unique.sort((a, b) => {
                 const dateA = typeof a.date_created === 'string' ? new Date(a.date_created).getTime() : a.date_created._seconds * 1000;
                 const dateB = typeof b.date_created === 'string' ? new Date(b.date_created).getTime() : b.date_created._seconds * 1000;
-                return dateA - dateB; // Chronological
+                return dateA - dateB;
             });
 
             setMessages(unique);
@@ -53,7 +60,7 @@ export const useGroupMessages = (recipientKey?: string) => {
             if (showLoading) setLoading(false);
             initialLoadDone.current = true;
         }
-    }, [recipientKey]);
+    }, [recipientKey, recipientNumbers]);
 
     useEffect(() => {
         initialLoadDone.current = false;

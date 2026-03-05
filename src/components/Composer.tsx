@@ -2,16 +2,18 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { Snackbar, Alert, Slide } from "@mui/material";
 import { sendSms, sendBulkSms, type SenderId } from "../api/sms";
 import { fetchContacts } from "../api/contacts";
-import { saveBulkMessage, getRecipientKey, getHistoryForGroup } from "../utils/storage";
+import { saveBulkMessage, getRecipientKey } from "../utils/storage";
 import type { BulkMessageHistoryItem } from "../types/Sms";
 import type { Contact } from "../types/Contact";
 import { FiUser, FiUsers, FiMenu } from "react-icons/fi";
 import ShinyText from "./ShinyText";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useMessages } from "../hooks/useMessages";
+import { useGroupMessages } from "../hooks/useGroupMessages";
 import { SenderSelector } from "./SenderSelector";
-import { BulkChatView } from "./BulkChatView";
 import { CreditBadge } from "./CreditBadge";
+import { FiCheck, FiAlertCircle, FiLoader } from "react-icons/fi";
+import type { SmsLog } from "../types/Sms";
 
 interface ComposerProps {
   selectedContacts: Contact[];
@@ -23,6 +25,49 @@ interface ComposerProps {
   onRequestSettings?: () => void;
   onToggleMobileMenu?: () => void;
 }
+
+const StatusBadgeSummary: React.FC<{ stats: { sent: number, pending: number, failed: number, total: number }, minimal?: boolean }> = ({ stats, minimal }) => {
+  if (minimal) {
+    const isFullySent = stats.sent === stats.total && stats.total > 0;
+    const isFailed = stats.failed === stats.total && stats.total > 0;
+
+    return (
+      <div className="flex items-center gap-1.5 text-[10px] font-bold">
+        {isFailed ? (
+          <span className="text-red-500 uppercase tracking-wider">✗ Failed</span>
+        ) : isFullySent ? (
+          <span className="text-green-500 flex items-center gap-0.5">
+            <FiCheck size={11} className="text-blue-400" />
+            <FiCheck size={11} className="-ml-1.5 text-blue-400" />
+          </span>
+        ) : (
+          <span className="text-gray-400 dark:text-gray-500 uppercase flex items-center gap-1">
+            <FiCheck size={10} /> {stats.sent}/{stats.total}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider">
+      {stats.failed > 0 && (
+        <span className="text-red-500 flex items-center gap-1">
+          <FiAlertCircle size={10} /> {stats.failed} Failed
+        </span>
+      )}
+      {stats.pending > 0 && (
+        <span className="text-blue-500 flex items-center gap-1">
+          <FiLoader className="animate-spin" size={10} /> {stats.pending} Pending
+        </span>
+      )}
+      <span className="text-gray-400 dark:text-gray-500 flex items-center gap-1">
+        <FiCheck size={10} className={stats.sent === stats.total && stats.total > 0 ? "text-green-500" : ""} />
+        {stats.sent}/{stats.total} Sent
+      </span>
+    </div>
+  );
+};
 
 export const Composer: React.FC<ComposerProps> = ({
   selectedContacts,
@@ -58,7 +103,24 @@ export const Composer: React.FC<ComposerProps> = ({
     return undefined;
   }, [activeContact, selectedContacts]);
 
-  const { messages, loading: historyLoading, addOptimisticMessage, updateMessageStatus, refresh } = useMessages(activePhoneNumber);
+  const { messages: singleMessages, loading: singleLoading, addOptimisticMessage, updateMessageStatus, refresh: refreshSingle } = useMessages(activePhoneNumber);
+
+  const recipientKey = useMemo(() => {
+    if (composeMode === 'bulk' && bulkSelectedContacts.length > 1) {
+      return getRecipientKey(bulkSelectedContacts.map(c => c.phone));
+    }
+    return undefined;
+  }, [composeMode, bulkSelectedContacts]);
+
+  const recipientNumbers = useMemo(() => {
+    return bulkSelectedContacts.map(c => c.phone);
+  }, [bulkSelectedContacts]);
+
+  const { messages: groupMessages, loading: groupLoading, refresh: refreshGroup } = useGroupMessages(recipientKey, recipientNumbers);
+
+  const messages = composeMode === 'bulk' && bulkSelectedContacts.length > 1 ? groupMessages : (singleMessages as any[]);
+  const historyLoading = composeMode === 'bulk' && bulkSelectedContacts.length > 1 ? groupLoading : singleLoading;
+  const refresh = composeMode === 'bulk' && bulkSelectedContacts.length > 1 ? refreshGroup : refreshSingle;
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -100,16 +162,29 @@ export const Composer: React.FC<ComposerProps> = ({
   useEffect(() => {
     if (selectedContacts.length > 0) {
       if (selectedContacts.length === 1 && !activeContact) {
-        // Single contact from ContactsTab
         setBulkSelectedContacts(selectedContacts);
         setComposeMode("single");
       } else if (selectedContacts.length > 1) {
-        // Multiple contacts from ContactsTab - switch to bulk mode
         setBulkSelectedContacts(selectedContacts);
         setComposeMode("bulk");
       }
     }
   }, [selectedContacts]);
+
+  // Handle selected bulk message from Sidebar
+  useEffect(() => {
+    if (activeBulkMessage) {
+      setComposeMode("bulk");
+      // Derive contacts from activeBulkMessage numbers if possible
+      // For now, we at least set the mode so useGroupMessages triggers
+      const derivedContacts: Contact[] = activeBulkMessage.recipientNumbers.map((num, i) => ({
+        id: `bulk-derive-${num}`,
+        name: activeBulkMessage.recipientNames?.[i] || num,
+        phone: num
+      }));
+      setBulkSelectedContacts(derivedContacts);
+    }
+  }, [activeBulkMessage]);
 
   // Reset bulkSelectedContacts when switching from bulk to single mode
   useEffect(() => {
@@ -248,7 +323,7 @@ export const Composer: React.FC<ComposerProps> = ({
       if (recipients.length === 1) {
         // Optimistic update for single message
         const tempId = addOptimisticMessage(messageText, senderName);
-        const smsResult = await sendSms(recipients[0].phone, messageText, senderName);
+        const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, recipients[0].name);
 
         if (smsResult.success) {
           updateMessageStatus(tempId, 'sent');
@@ -273,7 +348,7 @@ export const Composer: React.FC<ComposerProps> = ({
       } else {
         // Bulk SMS sending
         const phones = recipients.map(c => c.phone);
-        const { results, batchId } = await sendBulkSms(phones, messageText, senderName);
+        const { results, batchId } = await sendBulkSms(phones, messageText, senderName, recipients);
         const successCount = results.filter(r => r.success).length;
 
         // Save to bulk message history
@@ -350,18 +425,7 @@ export const Composer: React.FC<ComposerProps> = ({
     return "";
   };
 
-  const existingGroupItem = useMemo(() => {
-    if (composeMode === 'bulk' && bulkSelectedContacts.length > 1) {
-      const key = getRecipientKey(bulkSelectedContacts.map(c => c.phone));
-      const groupHistory = getHistoryForGroup(key);
-      return groupHistory.length > 0 ? groupHistory[0] : null;
-    }
-    return null;
-  }, [composeMode, bulkSelectedContacts]);
-
-  if (activeBulkMessage || existingGroupItem) {
-    return <BulkChatView bulkItem={(activeBulkMessage || existingGroupItem) as BulkMessageHistoryItem} />;
-  }
+  // History state logic...
 
   return (
     <div className="flex flex-col h-full bg-[#f9fafb] dark:bg-[#111111] relative overflow-hidden transition-colors duration-300">
@@ -406,197 +470,61 @@ export const Composer: React.FC<ComposerProps> = ({
             </div>
           </div>
         ) : (
-          /* New Message / Bulk Header */
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 pb-2">
-            <div className="flex flex-row items-center justify-between mb-4 gap-3">
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={onToggleMobileMenu}
-                  className="md:hidden p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-[#ececf1] transition-colors"
-                  aria-label="Toggle sidebar"
-                >
-                  <FiMenu className="h-5 w-5" />
-                </button>
-                <div className="w-8 h-8 rounded-lg bg-[#2b83fa] flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                  </svg>
-                </div>
-                <h2 className="text-[16px] sm:text-[17px] font-bold text-[#111111] dark:text-[#ececf1] tracking-tight">New Message</h2>
+          /* Bulk Message Header - Similar to individual contact but with multi-recipient info */
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+              <button
+                onClick={onToggleMobileMenu}
+                className="md:hidden p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-[#ececf1] transition-colors"
+                aria-label="Toggle sidebar"
+              >
+                <FiMenu className="h-5 w-5" />
+              </button>
+              
+              {/* Circular Avatar - matches individual contact style */}
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#7c3aed] to-[#a78bfa] flex-shrink-0 flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-md shadow-purple-500/20">
+                <FiUsers className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
-
-              <div className="flex items-center justify-end gap-2 sm:gap-4 flex-wrap">
-                <div className="order-1 hidden sm:block">
-                  <CreditBadge />
-                </div>
-
-                {/* Compact Toggle */}
-                <div className="flex p-0.5 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200/50 dark:border-white/5 order-2">
-                  <button
-                    onClick={() => setComposeMode("single")}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${composeMode === "single"
-                      ? "bg-white dark:bg-[#2a2b32] text-[#2b83fa] shadow-sm shadow-blue-500/10"
-                      : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                      }`}
-                  >
-                    <FiUser className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    Single
-                  </button>
-                  <button
-                    onClick={() => setComposeMode("bulk")}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${composeMode === "bulk"
-                      ? "bg-white dark:bg-[#2a2b32] text-[#2b83fa] shadow-sm shadow-blue-500/10"
-                      : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                      }`}
-                  >
-                    <FiUsers className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    Bulk
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Sender Selector - Full Width Above To: on Mobile */}
-            <div className="mb-3 w-full block sm:hidden">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-[14px] font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap">From:</span>
-                  <div className="flex-1">
-                    <SenderSelector
-                      value={senderName}
-                      onChange={setSenderName}
-                      align="left"
-                      onRequestSettings={onRequestSettings}
-                    />
-                  </div>
-                </div>
-                <div className="flex-shrink-0 scale-90 origin-right">
-                  <CreditBadge />
-                </div>
-              </div>
-            </div>
-
-            {/* Recipient Line */}
-            <div className="flex items-start gap-3 pb-2 border-t border-gray-100 dark:border-white/5 pt-3">
-              <span className="text-[14px] font-semibold text-gray-400 dark:text-gray-500 mt-2.5 whitespace-nowrap">To:</span>
-
-              <div className="flex-1 min-h-[44px]">
-                <div className="relative" ref={dropdownRef}>
-                  <div
-                    className="flex flex-wrap gap-2 py-1.5 cursor-text"
-                    onClick={() => setIsPickerOpen(true)}
-                  >
-                    {bulkSelectedContacts.map(contact => (
-                      <span
-                        key={contact.id}
-                        className="flex items-center gap-1.5 bg-[#2b83fa]/10 dark:bg-[#2b83fa]/20 border border-[#2b83fa]/20 px-2.5 py-1 rounded-full text-[13px] text-[#2b83fa] font-semibold"
-                      >
-                        {toProperCase(contact.name)}
-                        <button
-                          onClick={(e) => handleRemoveBulkContact(contact.id, e)}
-                          className="hover:text-red-500 transition-colors"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setIsPickerOpen(true);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && searchQuery) {
-                          e.preventDefault();
-                          handleManualAdd();
-                        }
-                      }}
-                      onFocus={() => setIsPickerOpen(true)}
-                      placeholder={bulkSelectedContacts.length === 0 ? (composeMode === "single" ? "Search or enter number..." : "Search or enter multiple...") : ""}
-                      className="flex-1 bg-transparent border-none min-w-[120px] text-[15px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none py-1"
-                    />
-                  </div>
-
-                  {/* Dropdown */}
-                  {isPickerOpen && (
-                    <div className="absolute top-full left-0 right-0 z-40 max-h-64 overflow-y-auto rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white/95 dark:bg-[#1a1b1e]/95 backdrop-blur-2xl shadow-2xl mt-1 py-2 custom-scrollbar transition-all scale-up-center">
-                      {/* Manual Add Option */}
-                      {searchQuery.replace(/\D/g, "").length >= 7 && (
-                        <div
-                          onClick={handleManualAdd}
-                          className="mx-2 mb-2 p-3 rounded-xl bg-[#2b83fa]/5 border border-[#2b83fa]/20 flex items-center gap-3 cursor-pointer hover:bg-[#2b83fa]/10 transition-all group"
-                        >
-                          <div className="w-8 h-8 rounded-full bg-[#2b83fa] flex items-center justify-center text-white shadow-sm group-hover:scale-110 transition-transform">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-[13px] font-bold text-[#2b83fa]">Add manual number</p>
-                            <p className="text-[11px] text-[#2b83fa]/70 font-medium">"{searchQuery}"</p>
-                          </div>
-                          <span className="text-[10px] font-black text-[#2b83fa]/40 tracking-widest uppercase">Enter</span>
-                        </div>
-                      )}
-
-                      {filteredContacts.length === 0 && searchQuery.replace(/\D/g, "").length < 7 ? (
-                        <div className="px-4 py-8 text-center">
-                          <p className="text-[13px] text-gray-500 font-medium">No results found</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-0.5 px-2">
-                          {filteredContacts.map(contact => {
-                            const isSelected = bulkSelectedContacts.some(c => c.id === contact.id);
-                            return (
-                              <div
-                                key={contact.id}
-                                onClick={() => isSelected ? handleRemoveBulkContact(contact.id) : handleSelectBulkContact(contact)}
-                                className={`px-3 py-2.5 rounded-xl flex items-center justify-between cursor-pointer transition-all duration-150 ${isSelected
-                                  ? "bg-[#2b83fa]/5 dark:bg-[#2b83fa]/10"
-                                  : "hover:bg-gray-100/50 dark:hover:bg-white/5"
-                                  }`}
-                              >
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold ${isSelected ? "bg-[#2b83fa] text-white" : "bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400"}`}>
-                                    {(() => {
-                                      const parts = contact.name.split(' ').filter(p => p.length > 0);
-                                      const first = parts[0]?.charAt(0) || '';
-                                      const last = parts.length > 1 ? parts[parts.length - 1]?.charAt(0) || '' : '';
-                                      return (first + last).toUpperCase() || '?';
-                                    })()}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="font-semibold text-[13px] text-[#111111] dark:text-[#ececf1] truncate">{toProperCase(contact.name)}</p>
-                                    <p className="text-[11px] text-gray-500 truncate">{contact.phone}</p>
-                                  </div>
-                                </div>
-                                {isSelected && (
-                                  <div className="w-5 h-5 rounded-full bg-[#2b83fa] flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
-                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+              
+              {/* Recipient Name(s) - similar to individual contact header */}
+              <div className="flex flex-col min-w-0">
+                <h2 className="text-[15px] sm:text-[17px] font-bold text-[#111111] dark:text-[#ececf1] leading-tight tracking-tight truncate">
+                  {activeBulkMessage ? (
+                    activeBulkMessage.customName || 
+                    (activeBulkMessage.recipientNames && activeBulkMessage.recipientNames.length > 0 
+                      ? activeBulkMessage.recipientNames.slice(0, 2).join(', ') + (activeBulkMessage.recipientNames.length > 2 ? ` +${activeBulkMessage.recipientNames.length - 2}` : '')
+                      : `${activeBulkMessage.recipientCount} recipients`)
+                  ) : (
+                    composeMode === 'bulk' && bulkSelectedContacts.length > 0 ? (
+                      (() => {
+                        const count = bulkSelectedContacts.length;
+                        if (count === 1) return toProperCase(bulkSelectedContacts[0].name);
+                        if (count === 2) return `${toProperCase(bulkSelectedContacts[0].name)}, ${toProperCase(bulkSelectedContacts[1].name)}`;
+                        return `${toProperCase(bulkSelectedContacts[0].name)}, ${toProperCase(bulkSelectedContacts[1].name)} +${count - 2} more`;
+                      })()
+                    ) : (
+                      "New Broadcast"
+                    )
                   )}
-                </div>
+                </h2>
+                <span className="text-[12px] sm:text-[13px] text-gray-500 dark:text-gray-400 font-medium truncate">
+                  {activeBulkMessage 
+                    ? `${activeBulkMessage.recipientCount} recipient${activeBulkMessage.recipientCount !== 1 ? 's' : ''}`
+                    : (bulkSelectedContacts.length > 0 ? `${bulkSelectedContacts.length} selected` : 'Select recipients')
+                  }
+                </span>
               </div>
+            </div>
 
-              {/* Sender Selector — right of To: row (Desktop only) */}
-              <div className="flex-shrink-0 mt-1 hidden sm:block">
+            {/* Consistently styled Sender Selection */}
+            <div className="flex items-center gap-2 group">
+              <div className="flex-shrink-0 order-2 sm:order-1">
+                <CreditBadge />
+              </div>
+              <div className="flex-shrink-0 order-1 sm:order-2">
                 <SenderSelector
                   value={senderName}
                   onChange={setSenderName}
-                  size="sm"
                   onRequestSettings={onRequestSettings}
                 />
               </div>
@@ -661,65 +589,157 @@ export const Composer: React.FC<ComposerProps> = ({
               </p>
             </div>
           ) : (
-            <>
-              {messages.map((msg, index) => {
-                const isExpanded = expandedMessageId === msg.id;
-                const prevMsg = messages[index - 1];
-                const nextMsg = messages[index + 1];
+            <div className={`space-y-1 ${composeMode === 'bulk' && bulkSelectedContacts.length > 1 ? 'max-w-4xl mx-auto w-full' : ''}`}>
+              {(() => {
+                const isGroupView = composeMode === 'bulk' && bulkSelectedContacts.length > 1;
 
-                const msgDateStr = new Date(msg.timestamp).toDateString();
-                const showDateSeparator = !prevMsg || new Date(prevMsg.timestamp).toDateString() !== msgDateStr;
+                if (isGroupView) {
+                  const campaigns: { [key: string]: SmsLog[] } = {};
+                  (messages as any[]).forEach(m => {
+                    const bid = m.batch_id || 'no-batch';
+                    if (!campaigns[bid]) campaigns[bid] = [];
+                    campaigns[bid].push(m);
+                  });
 
-                const isPrevSameGroup = !showDateSeparator; // If no date separator, it's same group as prev
-                const isNextSameGroup = nextMsg && new Date(nextMsg.timestamp).toDateString() === msgDateStr;
+                  const campaignEntries = Object.keys(campaigns);
+                  return campaignEntries.map((bid, index) => {
+                    const campaignMsgs = campaigns[bid];
+                    const firstMsg = campaignMsgs[0];
+                    const prevBid = campaignEntries[index - 1];
+                    const nextBid = campaignEntries[index + 1];
 
-                // Rounding Logic
-                let roundingClasses = "rounded-[20px]";
-                if (isPrevSameGroup && isNextSameGroup) {
-                  roundingClasses = "rounded-[20px] rounded-tr-[4px] rounded-br-[4px]"; // Middle
-                } else if (isPrevSameGroup && !isNextSameGroup) {
-                  roundingClasses = "rounded-[20px] rounded-tr-[4px]"; // Bottom
-                } else if (!isPrevSameGroup && isNextSameGroup) {
-                  roundingClasses = "rounded-[20px] rounded-br-[4px]"; // Top
+                    const date = typeof firstMsg.date_created === 'string'
+                      ? new Date(firstMsg.date_created)
+                      : new Date((firstMsg.date_created as any)._seconds * 1000);
+
+                    const msgDateStr = date.toDateString();
+                    const prevFirstMsg = prevBid ? campaigns[prevBid][0] : null;
+                    const prevDateStr = prevFirstMsg ? (typeof prevFirstMsg.date_created === 'string' ? new Date(prevFirstMsg.date_created).toDateString() : new Date((prevFirstMsg.date_created as any)._seconds * 1000).toDateString()) : null;
+                    const showDateSeparator = !prevDateStr || prevDateStr !== msgDateStr;
+
+                    const campaignStats = {
+                      sent: campaignMsgs.filter(m => m.status.toLowerCase() === 'sent' || m.status.toLowerCase() === 'delivered').length,
+                      pending: campaignMsgs.filter(m => m.status.toLowerCase() === 'pending' || m.status.toLowerCase() === 'queued').length,
+                      failed: campaignMsgs.filter(m => ['failed', 'error'].includes(m.status.toLowerCase())).length,
+                      total: campaignMsgs.length
+                    };
+
+                    const isExpanded = expandedMessageId === bid;
+                    const isNextSameDay = nextBid && (typeof campaigns[nextBid][0].date_created === 'string' ? new Date(campaigns[nextBid][0].date_created).toDateString() : new Date((campaigns[nextBid][0].date_created as any)._seconds * 1000).toDateString()) === msgDateStr;
+
+                    let roundingClasses = "rounded-[20px]";
+                    if (!showDateSeparator && isNextSameDay) {
+                      roundingClasses = "rounded-[20px] rounded-tr-[4px] rounded-br-[4px]";
+                    } else if (!showDateSeparator && !isNextSameDay) {
+                      roundingClasses = "rounded-[20px] rounded-tr-[4px]";
+                    } else if (showDateSeparator && isNextSameDay) {
+                      roundingClasses = "rounded-[20px] rounded-br-[4px]";
+                    }
+
+                    return (
+                      <div key={bid} className="flex flex-col items-end w-full mb-1">
+                        {showDateSeparator && (
+                          <div className="w-full flex items-center justify-center my-4">
+                            <span className="px-3 py-1 bg-gray-100 dark:bg-white/10 rounded-full text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                              {date.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                        )}
+
+                        <div
+                          className="max-w-[85%] flex flex-col items-end group cursor-pointer"
+                          onClick={() => setExpandedMessageId(isExpanded ? null : bid)}
+                        >
+                          <div className={`bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white px-4 py-2.5 shadow-lg shadow-blue-500/10 transition-transform group-hover:scale-[1.01] ${roundingClasses}`}>
+                            <div className="text-[14.5px] whitespace-pre-wrap leading-relaxed">
+                              {firstMsg.message}
+                            </div>
+                          </div>
+
+                          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-20 opacity-100 mt-1 mb-1 px-1' : 'max-h-0 opacity-0'}`}>
+                            <div className="flex flex-col items-end gap-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                                  {firstMsg.sender_id || (firstMsg as any).senderName}
+                                </span>
+                                <span className="text-[10px] text-gray-400">•</span>
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+                                  {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <StatusBadgeSummary stats={campaignStats} />
+                            </div>
+                          </div>
+
+                          {!isExpanded && (
+                            <div className="mt-1 px-1">
+                              <StatusBadgeSummary stats={campaignStats} minimal />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
                 }
 
-                return (
-                  <div key={msg.id} className="w-full flex flex-col items-end">
-                    {showDateSeparator && (
-                      <div className="w-full flex items-center justify-center my-4">
-                        <span className="px-3 py-1 bg-gray-100 dark:bg-white/10 rounded-full text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                          {new Date(msg.timestamp).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
-                        </span>
-                      </div>
-                    )}
-                    <div
-                      className="max-w-[85%] flex flex-col items-end group mb-1 cursor-pointer"
-                      onClick={() => setExpandedMessageId(isExpanded ? null : msg.id)}
-                    >
-                      <div className={`bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white px-4 py-2.5 shadow-lg shadow-blue-500/10 transition-transform group-hover:scale-[1.01] ${roundingClasses}`}>
-                        <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                      </div>
+                return (messages as any[]).map((msg, index) => {
+                  const isExpanded = expandedMessageId === msg.id;
+                  const prevMsg = messages[index - 1];
+                  const nextMsg = messages[index + 1];
 
-                      <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-20 opacity-100 mt-1 mb-1 px-1' : 'max-h-0 opacity-0'}`}>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                            {msg.senderName}
+                  const msgDateStr = new Date(msg.timestamp).toDateString();
+                  const showDateSeparator = !prevMsg || new Date(prevMsg.timestamp).toDateString() !== msgDateStr;
+
+                  const isPrevSameGroup = !showDateSeparator;
+                  const isNextSameGroup = nextMsg && new Date(nextMsg.timestamp).toDateString() === msgDateStr;
+
+                  let roundingClasses = "rounded-[20px]";
+                  if (isPrevSameGroup && isNextSameGroup) {
+                    roundingClasses = "rounded-[20px] rounded-tr-[4px] rounded-br-[4px]";
+                  } else if (isPrevSameGroup && !isNextSameGroup) {
+                    roundingClasses = "rounded-[20px] rounded-tr-[4px]";
+                  } else if (!isPrevSameGroup && isNextSameGroup) {
+                    roundingClasses = "rounded-[20px] rounded-br-[4px]";
+                  }
+
+                  return (
+                    <div key={msg.id} className="w-full flex flex-col items-end">
+                      {showDateSeparator && (
+                        <div className="w-full flex items-center justify-center my-4">
+                          <span className="px-3 py-1 bg-gray-100 dark:bg-white/10 rounded-full text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                            {new Date(msg.timestamp).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
                           </span>
-                          <span className="text-[10px] text-gray-400">•</span>
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
-                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <span className="text-[10px] text-gray-400">•</span>
-                          <span className={`text-[10px] font-bold capitalize tracking-wider ${msg.status === 'sent' ? 'text-green-500' : msg.status === 'delivered' ? 'text-blue-400' : msg.status === 'failed' ? 'text-red-500' : 'text-gray-400'}`}>
-                            {msg.status === 'sending' ? '⟳' : msg.status === 'sent' ? '✓' : msg.status === 'delivered' ? '✓✓' : '✗'} {msg.status}
-                          </span>
+                        </div>
+                      )}
+                      <div
+                        className="max-w-[85%] flex flex-col items-end group mb-1 cursor-pointer"
+                        onClick={() => setExpandedMessageId(isExpanded ? null : msg.id)}
+                      >
+                        <div className={`bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white px-4 py-2.5 shadow-lg shadow-blue-500/10 transition-transform group-hover:scale-[1.01] ${roundingClasses}`}>
+                          <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                        </div>
+
+                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-20 opacity-100 mt-1 mb-1 px-1' : 'max-h-0 opacity-0'}`}>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                              {msg.senderName}
+                            </span>
+                            <span className="text-[10px] text-gray-400">•</span>
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+                              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span className="text-[10px] text-gray-400">•</span>
+                            <span className={`text-[10px] font-bold capitalize tracking-wider ${msg.status === 'sent' ? 'text-green-500' : msg.status === 'delivered' ? 'text-blue-400' : msg.status === 'failed' ? 'text-red-500' : 'text-gray-400'}`}>
+                              {msg.status === 'sending' ? '⟳' : msg.status === 'sent' ? '✓' : msg.status === 'delivered' ? '✓✓' : '✗'} {msg.status}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </>
+                  );
+                });
+              })()}
+            </div>
           )}
         </div>
         <div ref={messagesEndRef} />
@@ -964,6 +984,6 @@ export const Composer: React.FC<ComposerProps> = ({
           {toastMessage}
         </Alert>
       </Snackbar>
-    </div>
+    </div >
   );
 };

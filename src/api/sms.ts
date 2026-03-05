@@ -95,7 +95,8 @@ export const sendSms = async (
   phoneNumber: string,
   message: string,
   senderName: string = "NOLACRM",
-  batchId?: string
+  batchId?: string,
+  contactName?: string
 ): Promise<SendSmsResponse> => {
   if (!phoneNumber || !message) {
     return {
@@ -119,6 +120,7 @@ export const sendSms = async (
       message: message,
       sendername: senderName,
       batch_id: batchId,
+      name: contactName,
     },
   };
 
@@ -166,13 +168,15 @@ export const sendSms = async (
 export const sendBulkSms = async (
   phoneNumbers: string[],
   message: string,
-  senderName: string = "NOLACRM"
+  senderName: string = "NOLACRM",
+  contacts: { phone: string, name: string }[] = []
 ): Promise<{ results: SendSmsResponse[], batchId: string }> => {
   const results: SendSmsResponse[] = [];
   const batchId = `batch-${Date.now()}`;
 
   for (const phone of phoneNumbers) {
-    const result = await sendSms(phone, message, senderName, batchId);
+    const contact = contacts.find(c => normalizePHNumber(c.phone) === normalizePHNumber(phone));
+    const result = await sendSms(phone, message, senderName, batchId, contact?.name);
     results.push(result);
   }
 
