@@ -40,7 +40,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     () => (localStorage.getItem('nola_active_tab') as ViewTab) || 'compose'
   );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen] = useState(false);
 
   const isMobileMenuOpen = externalIsMobileMenuOpen !== undefined ? externalIsMobileMenuOpen : false;
 
