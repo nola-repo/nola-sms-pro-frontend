@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchBatchMessages } from "../api/sms";
 import { getHistoryForGroup } from "../utils/storage";
-import type { SmsLog } from "../types/Sms";
+import type { Message } from "../types/Sms";
 
 // Normalize phone number to 09XXXXXXXXX format for consistent comparison
 const normalizePHNumber = (input: string): string | null => {
@@ -33,7 +33,7 @@ const normalizePHNumber = (input: string): string | null => {
 };
 
 export const useGroupMessages = (recipientKey?: string, recipientNumbers?: string[], batchId?: string) => {
-    const [messages, setMessages] = useState<SmsLog[]>([]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
     const initialLoadDone = useRef(false);
 
@@ -73,8 +73,17 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
                     return dateA - dateB;
                 });
                 
-                setMessages(filtered);
-                console.log('[useGroupMessages] Final messages set:', filtered.length);
+                // Transform to UI format: map message->text, date_created->timestamp, sender_id->senderName
+                const transformedMessages: Message[] = filtered.map(m => ({
+                    id: m.message_id,
+                    text: m.message,
+                    timestamp: typeof m.date_created === 'string' ? new Date(m.date_created) : new Date(m.date_created._seconds * 1000),
+                    senderName: m.sender_id || 'NOLACRM',
+                    status: (m.status || 'sent') as Message['status'],
+                }));
+                
+                setMessages(transformedMessages);
+                console.log('[useGroupMessages] Final messages set:', transformedMessages.length);
             } catch (error) {
                 console.error("Failed to fetch batch messages:", error);
             } finally {
@@ -138,7 +147,16 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
                 return dateA - dateB;
             });
 
-            setMessages(unique);
+            // Transform to UI format: map message->text, date_created->timestamp, sender_id->senderName
+            const transformedMessages: Message[] = unique.map(m => ({
+                id: m.message_id,
+                text: m.message,
+                timestamp: typeof m.date_created === 'string' ? new Date(m.date_created) : new Date(m.date_created._seconds * 1000),
+                senderName: m.sender_id || 'NOLACRM',
+                status: (m.status || 'sent') as Message['status'],
+            }));
+
+            setMessages(transformedMessages);
         } catch (error) {
             console.error("Failed to fetch group messages:", error);
         } finally {
