@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
 import { Sidebar } from "../components/Sidebar";
@@ -39,6 +39,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const [currentView, setCurrentView] = useState<ViewTab>(
     () => (localStorage.getItem('nola_active_tab') as ViewTab) || 'compose'
   );
+  const [settingsTab, setSettingsTab] = useState<"account" | "senderIds" | "api" | "notifications" | "credits" | undefined>(undefined);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [settingsOpen] = useState(false);
 
@@ -111,6 +112,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const toggleCollapse = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
+
+  // Handle navigation to settings tabs from CreditBadge
+  useEffect(() => {
+    const handleNavigateToSettings = (e: CustomEvent) => {
+      const tab = e.detail?.tab;
+      if (tab) {
+        setSettingsTab(tab);
+        setCurrentView('settings');
+        localStorage.setItem('nola_active_tab', 'settings');
+      }
+    };
+
+    window.addEventListener('navigate-to-settings', handleNavigateToSettings as EventListener);
+    return () => {
+      window.removeEventListener('navigate-to-settings', handleNavigateToSettings as EventListener);
+    };
+  }, []);
 
   return (
     <div className="flex h-screen bg-[#ffffff] dark:bg-[#202123] overflow-visible">
@@ -199,7 +217,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             <Settings
               darkMode={darkMode ?? false}
               toggleDarkMode={toggleDarkMode ?? (() => { })}
-              initialTab={settingsOpen ? "senderIds" : undefined}
+              initialTab={settingsOpen ? "senderIds" : settingsTab || undefined}
               autoOpenAddModal={settingsOpen}
             />
           ) : currentView === 'templates' ? (

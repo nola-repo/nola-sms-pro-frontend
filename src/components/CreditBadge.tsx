@@ -1,10 +1,15 @@
 import { useState, useEffect } from "react";
-import { FiCreditCard, FiRefreshCw, FiZap } from "react-icons/fi";
+import { FiCreditCard, FiRefreshCw, FiZap, FiPlus } from "react-icons/fi";
 
 export const CreditBadge = () => {
     const [balance, setBalance] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
+
+    const navigateToCredits = () => {
+        // Dispatch custom event to navigate to settings > credits tab
+        window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }));
+    };
 
     const fetchBalance = async () => {
         setLoading(true);
@@ -64,6 +69,13 @@ export const CreditBadge = () => {
                     </span>
                     <span className="text-[9px] sm:text-[10px] font-black text-emerald-600/50 dark:text-emerald-400/50 uppercase tracking-tighter leading-none">Credits</span>
                 </div>
+                <button
+                    onClick={(e) => { e.stopPropagation(); navigateToCredits(); }}
+                    className="ml-1 w-4 h-4 flex items-center justify-center bg-emerald-500/20 dark:bg-emerald-500/30 rounded-full text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all"
+                    title="Buy Credits"
+                >
+                    <FiPlus className="w-2.5 h-2.5" />
+                </button>
             </div>
 
             {/* Glossy Tooltip */}

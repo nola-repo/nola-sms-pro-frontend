@@ -126,11 +126,12 @@ export const sendSms = async (
     },
   };
 
-  console.log("Sending SMS payload via proxy:", payload);
-  console.log("Sending to:", WEBHOOK_URL);
+  const SEND_SMS_URL = "https://smspro-api.nolacrm.io/webhook/send_sms.php";
+  console.log("Sending SMS payload directly to production:", payload);
+  console.log("Sending to:", SEND_SMS_URL);
 
   try {
-    const res = await fetch(WEBHOOK_URL, {
+    const res = await fetch(SEND_SMS_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -274,7 +275,10 @@ export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise
 // Fetch all bulk messages from Firestore (grouped by batch)
 export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> => {
   try {
-    const res = await fetch('/api/fetch_bulk_messages');
+    const BULK_CAMPAIGNS_URL = "https://smspro-api.nolacrm.io/api/bulk-campaigns";
+    const res = await fetch(BULK_CAMPAIGNS_URL, {
+      headers: { 'X-Webhook-Secret': WEBHOOK_SECRET }
+    });
     console.log('[fetchAllBulkMessages] Response status:', res.status);
     if (!res.ok) {
       const errorText = await res.text();

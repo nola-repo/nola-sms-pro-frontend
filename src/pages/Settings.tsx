@@ -517,7 +517,7 @@ const NotificationsSection: React.FC = () => {
                             onChange={e => setForm(prev => ({ ...prev, lowBalanceThreshold: Number(e.target.value) }))}
                             className="flex-1 accent-[#2b83fa]"
                         />
-                        <span className="text-[15px] font-bold text-[#2b83fa] min-w-[60px] text-right">{form.lowBalanceThreshold} cr</span>
+                        <span className="text-[15px] font-bold text-[#2b83fa] min-w-[60px] text-right">{form.lowBalanceThreshold} credits</span>
                     </div>
                     <p className="text-[11px] text-[#9aa0a6] mt-2">Alert triggers when balance drops below this credit level.</p>
                 </Card>
@@ -537,10 +537,8 @@ const CreditsSection: React.FC = () => {
     const [submitted, setSubmitted] = useState(false);
 
     const PACKAGES = [
+        { credits: 1, price: 1 },
         { credits: 500, price: 250 },
-        { credits: 1000, price: 450 },
-        { credits: 2500, price: 1000 },
-        { credits: 5000, price: 1800 },
     ];
 
     const handleTopUp = (e: React.FormEvent) => {
@@ -619,7 +617,7 @@ const CreditsSection: React.FC = () => {
                                     }`}
                             >
                                 <span className={`text-[16px] font-black ${topUpAmount === pkg.credits ? "text-[#2b83fa]" : "text-[#111111] dark:text-[#ececf1]"}`}>{pkg.credits.toLocaleString()}</span>
-                                <span className="text-[11px] text-[#9aa0a6]">cr</span>
+                                <span className="text-[11px] text-[#9aa0a6]">credits</span>
                                 <span className={`text-[12px] font-bold mt-1 ${topUpAmount === pkg.credits ? "text-[#2b83fa]" : "text-[#6e6e73] dark:text-[#94959b]"}`}>₱{pkg.price}</span>
                             </button>
                         ))}
@@ -630,7 +628,7 @@ const CreditsSection: React.FC = () => {
                         </div>
                     ) : (
                         <button type="submit" className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-semibold text-[14px] transition-all shadow-md shadow-blue-500/20">
-                            <FiZap className="w-4 h-4" /> Request {topUpAmount.toLocaleString()} Credits
+                            <FiZap className="w-4 h-4" /> Buy {topUpAmount.toLocaleString()} Credits
                         </button>
                     )}
                 </form>
@@ -649,7 +647,7 @@ const CreditsSection: React.FC = () => {
                                 <p className="text-[11px] text-[#9aa0a6]">{tx.date}</p>
                             </div>
                             <span className={`text-[13px] font-bold flex-shrink-0 ${tx.amount > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"}`}>
-                                {tx.amount > 0 ? "+" : ""}{tx.amount} cr
+                                {tx.amount > 0 ? "+" : ""}{tx.amount} credits
                             </span>
                         </div>
                     ))}
