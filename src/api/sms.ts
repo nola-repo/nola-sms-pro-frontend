@@ -220,13 +220,13 @@ export const fetchMessagesByConversationId = async (
   if (!conversationId) return [];
 
   try {
-    const res = await fetch(
-      `${WEBHOOK_URL}?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`,
-      { headers: { 'X-Webhook-Secret': WEBHOOK_SECRET } }
-    );
+    const DIRECT_MESSAGES_URL = `https://smspro-api.nolacrm.io/api/messages?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`;
+    const res = await fetch(DIRECT_MESSAGES_URL, {
+      headers: { 'X-Webhook-Secret': WEBHOOK_SECRET }
+    });
     if (!res.ok) throw new Error(`Failed to fetch conversation messages: ${res.status}`);
     const data = await res.json();
-    return (data.data || []) as FirestoreMessage[];
+    return (data.data || data || []) as FirestoreMessage[];
   } catch (error) {
     console.error('[fetchMessagesByConversationId] Error:', error);
     return [];
@@ -239,13 +239,14 @@ export const fetchMessagesByConversationId = async (
  */
 export const fetchConversations = async (): Promise<Conversation[]> => {
   try {
-    const res = await fetch(`${WEBHOOK_URL}?action=fetch_conversations`, {
+    const CONVERSATIONS_URL = "https://smspro-api.nolacrm.io/api/conversations";
+    const res = await fetch(CONVERSATIONS_URL, {
       headers: { 'X-Webhook-Secret': WEBHOOK_SECRET },
     });
     if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
     const data = await res.json();
-    // Data may be { data: [...] } or a plain array
-    return (Array.isArray(data) ? data : data.data || []) as Conversation[];
+    // Data may be { data: [...] } or a plain array or { conversations: [...] }
+    return (Array.isArray(data) ? data : (data.data || data.conversations || [])) as Conversation[];
   } catch (error) {
     console.error('[fetchConversations] Error:', error);
     return [];
