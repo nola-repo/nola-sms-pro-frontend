@@ -1,5 +1,13 @@
 <?php
 header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: X-Webhook-Secret, Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
 
 require __DIR__ . '/firestore_client.php';
 
@@ -14,11 +22,11 @@ if ($receivedSecret !== 'f7RkQ2pL9zV3tX8cB1nS4yW6') {
 
 try {
     $db = get_firestore();
-    $collection = $db->collection('sms_logs');
+    // Search in 'messages' collection which is the new standard
+    $collection = $db->collection('messages');
 
     // Get all outbound messages with batch_id.
-    // Firestore rule: when using '!=' on a field, that field must be the first orderBy.
-    // We orderBy('batch_id') first, then sort by date in PHP after fetching.
+    // Ensure direction is outbound and batch_id exists and is not empty.
     $query = $collection->where('direction', '=', 'outbound')
         ->where('batch_id', '!=', '')
         ->orderBy('batch_id')
@@ -82,7 +90,7 @@ try {
         ];
     }, $batches));
 
-    // Sort by most recent first (Firestore now returns results ordered by batch_id)
+    // Sort by most recent first
     usort($results, function ($a, $b) {
         return strtotime($b['timestamp'] ?? 0) - strtotime($a['timestamp'] ?? 0);
     });

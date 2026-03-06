@@ -22,7 +22,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `${CLOUD_RUN_URL}/webhook/fetch_bulk_messages`,
       `${CLOUD_RUN_URL}/fetch_bulk_messages.php`,
       `${CLOUD_RUN_URL}/fetch_bulk_messages`,
-      `${CLOUD_RUN_URL}/api/fetch_bulk_messages`,
     ];
 
     let response: Response | null = null;

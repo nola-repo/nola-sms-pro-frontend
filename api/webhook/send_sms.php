@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
+
 $config = require __DIR__ . '/config.php';
 require __DIR__ . '/firestore_client.php';
 require __DIR__ . '/../auth_helpers.php';
@@ -23,171 +24,197 @@ $SENDER_IDS = $config['SENDER_IDS'];
 
 validate_api_request();
 
+/* |-------------------------------------------------------------------------- | BASIC LOGGER |-------------------------------------------------------------------------- */
 function log_sms($label, $data)
 {
-    $log_line = "[" . date('Y-m-d H:i:s') . "] $label: " .
-        json_encode($data, JSON_PRETTY_PRINT);
-
-    // Send to Cloud Run logs (Cloud Logging)
-    error_log($log_line);
+    error_log("[" . date('Y-m-d H:i:s') . "] $label: " . json_encode($data));
 }
 
-function clean_numbers($numberString)
+/* |-------------------------------------------------------------------------- | FULL PAYLOAD LOGGER |-------------------------------------------------------------------------- */
+function log_full_payload($raw, $payload)
 {
-    if ($numberString === null || $numberString === '') {
-        return [];
-    }
-    $numbers = is_array($numberString) ? $numberString : explode(',', (string)$numberString);
-    $cleanNumbers = [];
-
-    foreach ($numbers as $num) {
-        $num = trim((string)$num);
-        $num = preg_replace('/[\s\-\.\(\)]/', '', $num);
-        if ($num === '')
-            continue;
-
-        if (substr($num, 0, 3) === '+63') {
-            $num = '0' . substr($num, 3);
-        }
-        if (preg_match('/^63\d{9}$/', $num)) {
-            $num = '0' . substr($num, 2);
-        }
-        if (preg_match('/^09\d{9}$/', $num)) {
-            $cleanNumbers[] = $num;
-        }
-    }
-
-    return $cleanNumbers;
+    $headers = function_exists('getallheaders') ? getallheaders() : [];
+    $debug = [
+        "timestamp" => date('Y-m-d H:i:s'),
+        "method" => $_SERVER['REQUEST_METHOD'] ?? null,
+        "uri" => $_SERVER['REQUEST_URI'] ?? null,
+        "headers" => $headers,
+        "raw_body" => $raw,
+        "json_decoded_payload" => $payload,
+        "post_data" => $_POST,
+        "get_data" => $_GET
+    ];
+    error_log("[FULL_PAYLOAD] " . json_encode($debug));
+    $payloadFile = sys_get_temp_dir() . '/last_payload_debug.json';
+    file_put_contents($payloadFile, json_encode($debug, JSON_PRETTY_PRINT));
 }
 
-// Handle GET for debugging payload
+/* |-------------------------------------------------------------------------- | CLEAN PH NUMBERS |-------------------------------------------------------------------------- */
+function clean_numbers($numberString): array
+{
+    if (!$numberString)
+        return [];
+    $numbers = is_array($numberString) ? $numberString : preg_split('/[,;]/', $numberString);
+    $valid = [];
+    foreach ($numbers as $num) {
+        $num = trim($num);
+        $num = preg_replace('/[^0-9+]/', '', $num);
+        $digits = ltrim($num, '+');
+        if (preg_match('/^09\d{9}$/', $digits)) {
+            $normalized = $digits;
+        }
+        elseif (preg_match('/^9\d{9}$/', $digits)) {
+            $normalized = '0' . $digits;
+        }
+        elseif (preg_match('/^639\d{9}$/', $digits)) {
+            $normalized = '0' . substr($digits, 2);
+        }
+        elseif (preg_match('/^63(9\d{9})$/', $digits, $m)) {
+            $normalized = '0' . $m[1];
+        }
+        else {
+            $normalized = null;
+        }
+        if ($normalized) {
+            $valid[$normalized] = true;
+        }
+    }
+    return array_keys($valid);
+}
+
+/* |-------------------------------------------------------------------------- | DEBUG VIEW |-------------------------------------------------------------------------- */
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $payloadFile = sys_get_temp_dir() . '/last_payload.json';
-    if (file_exists($payloadFile)) {
-        echo file_get_contents($payloadFile);
+    $file = sys_get_temp_dir() . '/last_payload_debug.json';
+    if (file_exists($file)) {
+        echo file_get_contents($file);
     }
     else {
-        echo json_encode(["status" => "empty", "message" => "No payload yet"]);
+        echo json_encode(["status" => "empty"]);
     }
     exit;
 }
 
-// Handle POST
+/* |-------------------------------------------------------------------------- | RECEIVE PAYLOAD |-------------------------------------------------------------------------- */
 $raw = file_get_contents('php://input');
 $payload = json_decode($raw, true);
 if (!is_array($payload)) {
     $payload = $_POST;
 }
-log_sms("INCOMING", $payload);
+log_full_payload($raw, $payload);
 
+/* |-------------------------------------------------------------------------- | EXTRACT MESSAGE + SENDER |-------------------------------------------------------------------------- */
 $customData = $payload['customData'] ?? [];
-// Get number from many possible GHL payload locations (Default vs Custom)
-$number_input = $customData['number'] ?? $customData['phone'] ?? $payload['number'] ?? $payload['phone'] ?? '';
-if ($number_input === '' && !empty($payload['contact'])) {
-    $contact = is_array($payload['contact']) ? $payload['contact'] : [];
-    $number_input = $contact['phone'] ?? $contact['phoneNumber'] ?? $contact['number']
-        ?? $contact['workPhone'] ?? $contact['cellPhone'] ?? $contact['smartPhone'] ?? $contact['primaryPhone'] ?? '';
-}
-// GHL sometimes puts phone in customField array
-if ($number_input === '' && !empty($payload['contact']['customField'])) {
-    $fields = $payload['contact']['customField'];
-    if (is_array($fields)) {
-        foreach ($fields as $f) {
-            if (!empty($f['value']) && preg_match('/^(\+?63|0)\d{9,10}$/', preg_replace('/\s+/', '', (string)$f['value']))) {
-                $number_input = trim((string)$f['value']);
-                break;
-            }
-        }
-    }
-}
+$data = $payload['data'] ?? [];
 
-$message = trim($customData['message'] ?? $payload['message'] ?? '');
-$sender = $customData['sendername'] ?? $payload['sendername'] ?? ($SENDER_IDS[0] ?? "");
+$message = $customData['message'] ?? $payload['message'] ?? $data['message'] ?? '';
+if ($message) {
+    if (strpos($message, '<') !== false) {
+        $message = strip_tags($message);
+    }
+    $message = html_entity_decode($message);
+    $message = preg_replace('/\s+/', ' ', $message);
+    $message = trim($message);
+}
+log_sms("MESSAGE_CLEANED", $message);
+
+$sender = $customData['sendername'] ?? $payload['sendername'] ?? $data['sendername'] ?? ($SENDER_IDS[0] ?? "");
 $batch_id = $customData['batch_id'] ?? null;
 $contact_name = $customData['name'] ?? ($payload['contact']['name'] ?? null);
-$recipient_key = $customData['recipient_key'] ?? null; // [NEW] For grouping bulk messages
+$recipient_key = $customData['recipient_key'] ?? null;
 
+/* |-------------------------------------------------------------------------- | EXTRACT PHONE NUMBER |-------------------------------------------------------------------------- */
+$number_input = $customData['number'] ?? $customData['phone'] ?? $payload['number'] ?? $payload['phone'] ?? $payload['phoneNumber'] ?? ($data['phone'] ?? ($data['Phone'] ?? ($data['number'] ?? ($data['mobile'] ?? ($payload['contact']['phone'] ?? ($payload['contact']['phoneNumber'] ?? ($payload['contact']['mobile'] ?? null)))))));
+log_sms("NUMBER_INPUT_RAW", $number_input);
+
+$validNumbers = clean_numbers($number_input);
+log_sms("NUMBER_AFTER_CLEAN", $validNumbers);
+
+if (empty($validNumbers)) {
+    echo json_encode(["status" => "error", "message" => "No valid PH numbers", "received" => $number_input]);
+    exit;
+}
+if (!$message) {
+    echo json_encode(["status" => "error", "message" => "Message empty"]);
+    exit;
+}
 if (!in_array($sender, $SENDER_IDS)) {
     $sender = $SENDER_IDS[0];
 }
 
-$validNumbers = clean_numbers($number_input);
-if (empty($validNumbers)) {
-    error_log('[send_sms] No valid PH numbers. Received number value: ' . json_encode($number_input) . ' | Payload keys: ' . implode(',', array_keys($payload ?? [])));
-    die(json_encode([
-        "status" => "error",
-        "message" => "No valid Philippine numbers found. In GHL workflow, map Contact Phone to customData.number, or use Default payload so contact.phone is sent. Number must be 09XXXXXXXXX or +639XXXXXXXXX."
-    ]));
-}
-
-if (empty($message)) {
-    die(json_encode(["status" => "error", "message" => "Message cannot be empty"]));
-}
-
-// Log payload to temp file
-$payloadFile = sys_get_temp_dir() . '/last_payload.json';
-file_put_contents($payloadFile, json_encode($payload, JSON_PRETTY_PRINT));
-
+/* |-------------------------------------------------------------------------- | SEND SMS |-------------------------------------------------------------------------- */
 $sms_data = [
     "apikey" => $SEMAPHORE_API_KEY,
     "number" => implode(',', $validNumbers),
     "message" => $message,
     "sendername" => $sender
 ];
+log_sms("SEMAPHORE_REQUEST", $sms_data);
 
 $ch = curl_init($SEMAPHORE_URL);
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json", "Accept: application/json"]);
+curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($sms_data));
 
-$sms_response = curl_exec($ch);
-$http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$response = curl_exec($ch);
+$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$result = json_decode($response, true);
+log_sms("SEMAPHORE_RESPONSE", $result);
 
-if ($sms_response === false) {
-    die(json_encode(["status" => "error", "message" => curl_error($ch)]));
-}
-
-$result = json_decode($sms_response, true);
-
-if ($http_status == 200 && is_array($result)) {
-    $messages = isset($result[0]) ? $result : [$result];
+/* |-------------------------------------------------------------------------- | SAVE FIRESTORE |-------------------------------------------------------------------------- */
+if ($status == 200 && is_array($result)) {
     $db = get_firestore();
+    $now = new \DateTime();
+    $ts = new \Google\Cloud\Core\Timestamp($now);
 
-    foreach ($messages as $msg) {
-        if (isset($msg['message_id'])) {
-            $message_id = (string)$msg['message_id'];
-            $status = $msg['status'] ?? 'sent';
+    // Support both array response and single message object response
+    $messages_results = isset($result[0]) ? $result : [$result];
 
-            // [FIX] Map individual message to its specific recipient number from Semaphore response
-            $recipient = $msg['number'] ?? $validNumbers[0];
+    foreach ($messages_results as $index => $msg) {
+        if (!isset($msg['message_id']))
+            continue;
 
-            $db->collection('sms_logs')
-                ->document($message_id)
-                ->set([
-                'message_id' => $message_id,
-                'number' => $recipient,
-                'numbers' => [$recipient],
-                'message' => $message,
-                'sender_id' => $sender,
-                'status' => $status,
-                'direction' => 'outbound',
-                'date_created' => new \Google\Cloud\Core\Timestamp(new \DateTime()),
-                'source' => 'api',
-                'batch_id' => $batch_id,
-                'name' => $contact_name,
-                'recipient_key' => $recipient_key, // [NEW] Store recipient key for bulk message grouping
-            ], ['merge' => true]);
-        }
+        // Track specific recipient for each message in the response if multiple
+        $recipient = $msg['number'] ?? ($validNumbers[$index] ?? $validNumbers[0]);
+
+        $db->collection('messages')
+            ->document($msg['message_id'])
+            ->set([
+            'number' => $recipient,
+            'numbers' => [$recipient],
+            'message' => $message,
+            'sender_id' => $sender,
+            'direction' => 'outbound',
+            'status' => $msg['status'] ?? 'sent',
+            'date_created' => $ts, // Standardized key name
+            'batch_id' => $batch_id,
+            'name' => $contact_name,
+            'recipient_key' => $recipient_key,
+            'source' => 'api'
+        ], ['merge' => true]);
+
+        // Also save to legacy sms_logs for backward compatibility
+        $db->collection('sms_logs')
+            ->document($msg['message_id'])
+            ->set([
+            'number' => $recipient,
+            'message' => $message,
+            'sender_id' => $sender,
+            'direction' => 'outbound',
+            'status' => $msg['status'] ?? 'sent',
+            'date_created' => $ts,
+            'batch_id' => $batch_id,
+            'recipient_key' => $recipient_key
+        ], ['merge' => true]);
     }
 }
 
+/* |-------------------------------------------------------------------------- | RESPONSE |-------------------------------------------------------------------------- */
 echo json_encode([
-    "status" => $http_status == 200 ? "success" : "failed",
+    "status" => $status == 200 ? "success" : "failed",
     "numbers" => $validNumbers,
     "message" => $message,
     "sender" => $sender,
     "batch_id" => $batch_id,
-    "semaphore_status" => $http_status,
     "response" => $result
 ]);
