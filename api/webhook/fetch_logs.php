@@ -18,26 +18,27 @@ if ($receivedSecret !== 'f7RkQ2pL9zV3tX8cB1nS4yW6') {
 }
 
 // 2. Get Parameters
+$conversation_id = $_GET['conversation_id'] ?? '';
 $number = $_GET['number'] ?? '';
-$batch_id = $_GET['batch_id'] ?? ''; // [NEW] Capture batch_id
-$recipient_key = $_GET['recipient_key'] ?? ''; // [NEW] Capture recipient_key
+$batch_id = $_GET['batch_id'] ?? '';
+$recipient_key = $_GET['recipient_key'] ?? '';
 
 try {
     // 3. Query Firestore
     $db = get_firestore();
-    $collection = $db->collection('sms_logs');
+    // Use the new messages collection instead of legacy sms_logs
+    $collection = $db->collection('messages');
 
-    if ($recipient_key) {
-        // [NEW] Query by recipient_key (conversation key) - for bulk message groups
+    if ($conversation_id) {
+        $query = $collection->where('conversation_id', '=', $conversation_id);
+    }
+    else if ($recipient_key) {
         $query = $collection->where('recipient_key', '=', $recipient_key);
     }
     else if ($batch_id) {
-        // [NEW] Query by batch_id if provided
         $query = $collection->where('batch_id', '=', $batch_id);
     }
     else if ($number) {
-        // Query by specific number (check both singular 'number' and array 'numbers')
-        // Try singular first as it's more efficient
         $query = $collection->where('number', '=', $number);
     }
     else {
