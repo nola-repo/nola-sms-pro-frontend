@@ -14,6 +14,7 @@ import {
     type AccountSettings, type APISettings, type NotificationSettings, type StoredSenderId,
 } from "../utils/settingsStorage";
 import { SenderRequestModal } from "../components/SenderRequestModal";
+import { useGhlLocation } from "../hooks/useGhlLocation";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type SettingsTab = "account" | "senderIds" | "api" | "notifications" | "credits";
@@ -137,6 +138,14 @@ const SelectField: React.FC<{
 const AccountSection: React.FC = () => {
     const [form, setForm] = useState<AccountSettings>(getAccountSettings);
     const [saved, setSaved] = useState(false);
+    const ghlLocationIdFromHook = useGhlLocation();
+
+    useEffect(() => {
+        // Automatically update local form if hook detects a new GHL Location ID
+        if (ghlLocationIdFromHook && ghlLocationIdFromHook !== form.ghlLocationId) {
+            setForm(prev => ({ ...prev, ghlLocationId: ghlLocationIdFromHook }));
+        }
+    }, [ghlLocationIdFromHook, form.ghlLocationId]);
 
     const field = (key: keyof AccountSettings) => ({
         value: String(form[key]),
@@ -180,14 +189,33 @@ const AccountSection: React.FC = () => {
             </Card>
 
             <Card>
-                <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] mb-4 uppercase tracking-wider">GHL Integration</h3>
-                <InputField
-                    label="GHL Location ID"
-                    id="ghlLocationId"
-                    placeholder="Leave blank if not using GHL"
-                    hint="Your GoHighLevel sub-account location ID for webhook sync."
-                    {...field("ghlLocationId")}
-                />
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider">GHL Integration</h3>
+                    {form.ghlLocationId && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400">
+                            <FiCheck className="w-3.5 h-3.5" /> Verified
+                        </span>
+                    )}
+                </div>
+                {form.ghlLocationId ? (
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a]">
+                        <div className="w-10 h-10 rounded-xl bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
+                            <FiBriefcase className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className="text-[13px] font-semibold text-[#111111] dark:text-[#ececf1]">Connected Subaccount</p>
+                            <p className="text-[12px] font-mono text-[#9aa0a6] mt-0.5">{form.ghlLocationId}</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30">
+                        <FiAlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                        <div>
+                            <p className="text-[13px] font-semibold text-amber-800 dark:text-amber-300">Not Connected</p>
+                            <p className="text-[12px] text-amber-700 dark:text-amber-400 mt-0.5">Please open this app from within GoHighLevel to automatically verify your Location ID.</p>
+                        </div>
+                    </div>
+                )}
             </Card>
 
             <div className="flex justify-end">
