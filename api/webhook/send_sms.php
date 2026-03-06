@@ -206,6 +206,22 @@ if ($status == 200 && is_array($result)) {
             'batch_id' => $batch_id,
             'recipient_key' => $recipient_key
         ], ['merge' => true]);
+
+        // 3. Update Conversation Summary for Sidebar
+        $conv_id = $batch_id ? "group_$batch_id" : "conv_$recipient";
+        $conv_type = $batch_id ? "bulk" : "direct";
+
+        $db->collection('conversations')
+            ->document($conv_id)
+            ->set([
+            'id' => $conv_id,
+            'type' => $conv_type,
+            'members' => $batch_id ? $validNumbers : [$recipient],
+            'last_message' => $message,
+            'last_message_at' => $ts,
+            'updated_at' => $ts,
+            'name' => $batch_id ? ($contact_name ?? "Bulk Campaign") : ($contact_name ?? $recipient),
+        ], ['merge' => true]);
     }
 }
 
