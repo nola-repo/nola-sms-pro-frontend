@@ -17,12 +17,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const accountId = (req.query.account_id as string) || 'default';
-    const limit = (req.query.limit as string) || '50';
-
     try {
-        const cloudRunUrl = `${CLOUD_RUN_URL}/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`;
-        console.log('Proxying credit_transactions GET to:', cloudRunUrl);
+        // Forward the raw query string to the PHP endpoint on Cloud Run
+        const urlParams = new URL(`https://dummy.com${req.url}`).search;
+        const cloudRunUrl = `${CLOUD_RUN_URL}/api/get_credit_transactions.php${urlParams}`;
+        console.log('Proxying get_credit_transactions to:', cloudRunUrl);
 
         const response = await fetch(cloudRunUrl, {
             method: 'GET',
@@ -33,14 +32,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         if (!response.ok) {
-            console.error('Cloud Run returned non-OK:', response.status);
-            return res.status(response.status).json({ error: 'Upstream error', transactions: [] });
+            return res.status(response.status).json({ success: false, error: 'Proxy request failed', transactions: [] });
         }
 
         const data = await response.json();
         return res.status(200).json(data);
     } catch (error) {
         console.error('Credit Transactions Proxy Error:', error);
-        return res.status(500).json({ error: 'Internal proxy error', transactions: [] });
+        return res.status(500).json({ success: false, error: 'Proxy implementation error', transactions: [] });
     }
 }
