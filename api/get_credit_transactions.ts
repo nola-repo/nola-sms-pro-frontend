@@ -18,7 +18,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        // Forward the raw query string to the PHP endpoint on Cloud Run
         const urlParams = new URL(`https://dummy.com${req.url}`).search;
         const cloudRunUrl = `${CLOUD_RUN_URL}/api/get_credit_transactions.php${urlParams}`;
         console.log('Proxying get_credit_transactions to:', cloudRunUrl);
@@ -32,13 +31,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         if (!response.ok) {
-            return res.status(response.status).json({ success: false, error: 'Proxy request failed', transactions: [] });
+            return res.status(response.status).json({ success: false, error: 'Proxy request failed' });
         }
 
         const data = await response.json();
         return res.status(200).json(data);
     } catch (error) {
-        console.error('Credit Transactions Proxy Error:', error);
-        return res.status(500).json({ success: false, error: 'Proxy implementation error', transactions: [] });
+        console.error('Transactions Proxy Error:', error);
+        return res.status(500).json({ success: false, error: 'Proxy implementation error' });
     }
 }

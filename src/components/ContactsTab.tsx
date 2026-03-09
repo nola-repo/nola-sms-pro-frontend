@@ -1,7 +1,33 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { fetchContacts, addContact, updateContact, deleteContact } from "../api/contacts";
 import type { Contact } from "../types/Contact";
-import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader } from "react-icons/fi";
+import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader, FiChevronDown, FiChevronUp } from "react-icons/fi";
+import { useConversationMessages } from "../hooks/useConversationMessages";
+
+const ContactHistory: React.FC<{ phone: string }> = ({ phone }) => {
+  const conversationId = `conv_${phone.replace(/\D/g, "").startsWith("639") ? "0" + phone.replace(/\D/g, "").substring(2) : phone.replace(/\D/g, "")}`;
+  const { messages, loading } = useConversationMessages(conversationId);
+
+  if (loading) return <div className="text-[12px] text-gray-500 py-2">Loading history...</div>;
+  if (!messages.length) return <div className="text-[12px] text-gray-500 py-2">No message history</div>;
+
+  return (
+    <div className="mt-3 bg-gray-50 dark:bg-white/5 rounded-xl p-3 max-h-48 overflow-y-auto custom-scrollbar">
+      <div className="flex flex-col gap-2">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex flex-col ${msg.senderName === 'NOLACRM' ? 'items-end' : 'items-start'}`}>
+            <div className={`px-3 py-2 rounded-xl max-w-[85%] ${msg.senderName === 'NOLACRM' ? 'bg-[#2b83fa] text-white' : 'bg-gray-200 dark:bg-[#2d2d2d] text-[#111111] dark:text-[#ececf1]'} text-[13px]`}>
+              {msg.text || (msg as any).message}
+            </div>
+            <span className="text-[10px] text-gray-500 mt-0.5">
+              {msg.timestamp instanceof Date ? msg.timestamp.toLocaleDateString() : new Date(msg.timestamp).toLocaleDateString()}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 interface ContactsTabProps {
   onSendToComposer: (contacts: Contact[]) => void;
@@ -22,6 +48,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const touchStartY = useRef<number>(0);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -409,18 +436,35 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                           </div>
 
                           {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <p
-                              className={`
-                                text-[14px] font-semibold truncate transition-colors
-                                ${isSelected ? "text-[#2b83fa]" : "text-[#111111] dark:text-[#ececf1]"}
-                              `}
-                            >
-                              {toProperCase(contact.name)}
-                            </p>
+                          <div className="flex-1 min-w-0" onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedHistoryId(expandedHistoryId === contact.id ? null : contact.id);
+                          }}>
+                            <div className="flex items-center gap-2">
+                              <p
+                                className={`
+                                  text-[14px] font-semibold truncate transition-colors
+                                  ${isSelected ? "text-[#2b83fa]" : "text-[#111111] dark:text-[#ececf1]"}
+                                `}
+                              >
+                                {toProperCase(contact.name)}
+                              </p>
+                              {expandedHistoryId === contact.id ? (
+                                <FiChevronUp className="h-4 w-4 text-gray-400" />
+                              ) : (
+                                <FiChevronDown className="h-4 w-4 text-gray-400" />
+                              )}
+                            </div>
                             <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
                               {contact.phone}
                             </p>
+                            
+                            {/* Contact History (Accordion) */}
+                            {expandedHistoryId === contact.id && (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <ContactHistory phone={contact.phone} />
+                              </div>
+                            )}
                           </div>
 
                           {/* Last message preview */}
