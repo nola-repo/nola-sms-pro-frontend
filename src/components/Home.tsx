@@ -4,6 +4,9 @@ import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
 import { fetchConversations } from "../api/sms";
 import { fetchContacts } from "../api/contacts";
+import SplitText from "./SplitText";
+import AnimatedContent from "./AnimatedContent";
+import FadeContent from "./FadeContent";
 
 interface HomeProps {
     onTabChange: (tab: any) => void;
@@ -58,6 +61,10 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         return name.replace(/\b\w/g, (char) => char.toUpperCase());
     };
 
+    const handleAnimationComplete = () => {
+        console.log('All letters have animated!');
+    };
+
     const handleRecentClick = (conv: Conversation) => {
         if (conv.type === 'bulk') {
             const batchId = conv.id.replace(/^group_/, '');
@@ -93,65 +100,85 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                             <FiHome className="h-6 w-6 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-extrabold text-[#111111] dark:text-white tracking-tight">
-                                {getGreeting()}
-                            </h1>
-                            <p className="text-[#6e6e73] dark:text-[#a0a0ab] font-medium">Welcome back to NOLA SMS Pro.</p>
+                            <SplitText
+                                text={getGreeting()}
+                                className="text-3xl font-extrabold text-[#111111] dark:text-white tracking-tight"
+                                delay={50}
+                                duration={1.25}
+                                ease="power3.out"
+                                splitType="chars"
+                                from={{ opacity: 0, y: 40 }}
+                                to={{ opacity: 1, y: 0 }}
+                                threshold={0.1}
+                                rootMargin="-100px"
+                                textAlign="left"
+                                tag="h1"
+                                onLetterAnimationComplete={handleAnimationComplete}
+                            />
+                            <FadeContent blur={false} duration={1500} ease="ease-out" initialOpacity={0}>
+                                <p className="text-[#6e6e73] dark:text-[#a0a0ab] font-medium">Welcome back to your SMS command center</p>
+                            </FadeContent>
                         </div>
                     </div>
                 </div>
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                    <div className="p-6 rounded-3xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all group overflow-hidden relative">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-                            <FiCreditCard className="w-24 h-24 text-white" />
-                        </div>
-                        <div className="relative z-10">
-                            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
-                                <FiCreditCard className="h-5 w-5" />
+                    <AnimatedContent delay={0.1} distance={50} direction="vertical">
+                        <div className="p-6 rounded-3xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all group overflow-hidden relative h-full">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                                <FiCreditCard className="w-24 h-24 text-white" />
                             </div>
-                            <p className="text-[13px] font-bold text-white/70 uppercase tracking-widest mb-1">Available Credits</p>
-                            <h2 className="text-3xl font-black text-white">
-                                {loading ? "---" : balance?.toLocaleString()}
-                            </h2>
+                            <div className="relative z-10">
+                                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
+                                    <FiCreditCard className="h-5 w-5" />
+                                </div>
+                                <p className="text-[13px] font-bold text-white/70 uppercase tracking-widest mb-1">Available Credits</p>
+                                <h2 className="text-3xl font-black text-white">
+                                    {loading ? "---" : balance?.toLocaleString()}
+                                </h2>
+                            </div>
                         </div>
-                    </div>
+                    </AnimatedContent>
 
-                    <div className="p-6 rounded-3xl bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all group overflow-hidden relative">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-                            <FiMessageSquare className="w-24 h-24 text-white" />
-                        </div>
-                        <div className="relative z-10">
-                            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
-                                <FiMessageSquare className="h-5 w-5" />
+                    <AnimatedContent delay={0.2} distance={50} direction="vertical">
+                        <div className="p-6 rounded-3xl bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all group overflow-hidden relative h-full">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                                <FiMessageSquare className="w-24 h-24 text-white" />
                             </div>
-                            <p className="text-[13px] font-bold text-white/70 uppercase tracking-widest mb-1">Total Conversations</p>
-                            <h2 className="text-3xl font-black text-white">
-                                {loading ? "---" : conversations.length}
-                            </h2>
+                            <div className="relative z-10">
+                                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
+                                    <FiMessageSquare className="h-5 w-5" />
+                                </div>
+                                <p className="text-[13px] font-bold text-white/70 uppercase tracking-widest mb-1">Total Conversations</p>
+                                <h2 className="text-3xl font-black text-white">
+                                    {loading ? "---" : conversations.length}
+                                </h2>
+                            </div>
                         </div>
-                    </div>
+                    </AnimatedContent>
 
-                    <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all group overflow-hidden relative">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-                            <FiUsers className="w-24 h-24 text-white" />
-                        </div>
-                        <div className="relative z-10">
-                            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
-                                <FiUsers className="h-5 w-5" />
+                    <AnimatedContent delay={0.3} distance={50} direction="vertical">
+                        <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all group overflow-hidden relative h-full">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                                <FiUsers className="w-24 h-24 text-white" />
                             </div>
-                            <p className="text-[13px] font-bold text-white/70 uppercase tracking-widest mb-1">Total Contacts</p>
-                            <h2 className="text-3xl font-black text-white">
-                                {loading ? "---" : contactsCount}
-                            </h2>
+                            <div className="relative z-10">
+                                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
+                                    <FiUsers className="h-5 w-5" />
+                                </div>
+                                <p className="text-[13px] font-bold text-white/70 uppercase tracking-widest mb-1">Total Contacts</p>
+                                <h2 className="text-3xl font-black text-white">
+                                    {loading ? "---" : contactsCount}
+                                </h2>
+                            </div>
                         </div>
-                    </div>
+                    </AnimatedContent>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                     {/* Quick Actions */}
-                    <div>
+                    <AnimatedContent delay={0.4} distance={50} direction="vertical">
                         <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-5 flex items-center gap-2">
                             Quick Actions
                         </h3>
@@ -204,10 +231,10 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 <FiArrowRight className="h-5 w-5 text-gray-300 group-hover:text-gray-600 group-hover:translate-x-1 transition-all" />
                             </button>
                         </div>
-                    </div>
+                    </AnimatedContent>
 
                     {/* Recent Activity */}
-                    <div>
+                    <AnimatedContent delay={0.5} distance={50} direction="vertical">
                         <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-5 flex items-center gap-2">
                             Recent Activity
                         </h3>
@@ -253,7 +280,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </AnimatedContent>
                 </div>
             </div>
         </div>
