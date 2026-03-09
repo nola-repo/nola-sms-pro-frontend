@@ -1,7 +1,6 @@
 import type { SmsLog, BulkMessageHistoryItem, FirestoreMessage, Conversation } from "../types/Sms";
 
 const WEBHOOK_URL = "/api/messages";
-const WEBHOOK_SECRET = "f7RkQ2pL9zV3tX8cB1nS4yW6";
 
 export type SenderId = string;
 
@@ -56,11 +55,7 @@ export const fetchSmsLogs = async (phoneNumber: string): Promise<SmsLog[]> => {
   try {
     // Fetch ALL outbound messages (without number filter)
     // Then filter client-side by checking if phoneNumber is in the numbers array
-    const res = await fetch(`${WEBHOOK_URL}?direction=outbound&limit=500`, {
-      headers: {
-        'X-Webhook-Secret': WEBHOOK_SECRET,
-      },
-    });
+    const res = await fetch(`${WEBHOOK_URL}?direction=outbound&limit=500`);
     if (!res.ok) throw new Error("Failed to fetch message history");
     const data = await res.json();
     console.log('SMS Logs Response:', data);
@@ -135,7 +130,6 @@ export const sendSms = async (
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Webhook-Secret": WEBHOOK_SECRET,
       },
       body: JSON.stringify(payload),
     });
@@ -151,7 +145,7 @@ export const sendSms = async (
     if (data?.status === "error" || data?.status === "failed") {
       return {
         success: false,
-        message: data.message || data.error || "SMS sending failed",
+        message: data.message || "SMS sending failed",
       };
     }
 
@@ -193,11 +187,7 @@ export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => 
   if (!batchId) return [];
 
   try {
-    const res = await fetch(`${WEBHOOK_URL}?batch_id=${batchId}&limit=500`, {
-      headers: {
-        'X-Webhook-Secret': WEBHOOK_SECRET,
-      },
-    });
+    const res = await fetch(`${WEBHOOK_URL}?batch_id=${batchId}&limit=500`);
     if (!res.ok) throw new Error("Failed to fetch batch messages");
     const data = await res.json();
     return data.data || [];
@@ -220,10 +210,8 @@ export const fetchMessagesByConversationId = async (
   if (!conversationId) return [];
 
   try {
-    const DIRECT_MESSAGES_URL = `https://smspro-api.nolacrm.io/api/messages?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`;
-    const res = await fetch(DIRECT_MESSAGES_URL, {
-      headers: { 'X-Webhook-Secret': WEBHOOK_SECRET }
-    });
+    const PROXY_MESSAGES_URL = `${WEBHOOK_URL}?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`;
+    const res = await fetch(PROXY_MESSAGES_URL);
     if (!res.ok) throw new Error(`Failed to fetch conversation messages: ${res.status}`);
     const data = await res.json();
     return (data.data || data || []) as FirestoreMessage[];
@@ -239,10 +227,8 @@ export const fetchMessagesByConversationId = async (
  */
 export const fetchConversations = async (): Promise<Conversation[]> => {
   try {
-    const CONVERSATIONS_URL = "https://smspro-api.nolacrm.io/api/conversations";
-    const res = await fetch(CONVERSATIONS_URL, {
-      headers: { 'X-Webhook-Secret': WEBHOOK_SECRET },
-    });
+    const PROXY_CONVERSATIONS_URL = `${WEBHOOK_URL}?action=fetch_conversations`;
+    const res = await fetch(PROXY_CONVERSATIONS_URL);
     if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
     const data = await res.json();
     // Data may be { data: [...] } or a plain array or { conversations: [...] }
@@ -258,11 +244,7 @@ export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise
   if (!recipientKey) return [];
 
   try {
-    const res = await fetch(`${WEBHOOK_URL}?recipient_key=${encodeURIComponent(recipientKey)}&limit=500`, {
-      headers: {
-        'X-Webhook-Secret': WEBHOOK_SECRET,
-      },
-    });
+    const res = await fetch(`${WEBHOOK_URL}?recipient_key=${encodeURIComponent(recipientKey)}&limit=500`);
     if (!res.ok) throw new Error("Failed to fetch messages by recipient_key");
     const data = await res.json();
     // Handle both array response and {data: [...]} response
@@ -276,10 +258,8 @@ export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise
 // Fetch all bulk messages from Firestore (grouped by batch)
 export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> => {
   try {
-    const BULK_CAMPAIGNS_URL = "https://smspro-api.nolacrm.io/api/bulk-campaigns";
-    const res = await fetch(BULK_CAMPAIGNS_URL, {
-      headers: { 'X-Webhook-Secret': WEBHOOK_SECRET }
-    });
+    const PROXY_BULK_MESSAGES_URL = `${WEBHOOK_URL}?action=fetch_bulk_messages`;
+    const res = await fetch(PROXY_BULK_MESSAGES_URL);
     console.log('[fetchAllBulkMessages] Response status:', res.status);
     if (!res.ok) {
       const errorText = await res.text();
