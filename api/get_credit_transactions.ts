@@ -18,7 +18,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        const urlParams = new URL(`https://dummy.com${req.url}`).search;
+        // Extract query params from the incoming URL correctly
+        const urlParams = new URL(req.url || '', `https://${req.headers.host}`).search;
         const cloudRunUrl = `${CLOUD_RUN_URL}/api/get_credit_transactions.php${urlParams}`;
         console.log('Proxying get_credit_transactions to:', cloudRunUrl);
 
@@ -31,6 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         if (!response.ok) {
+            console.error('Cloud Run Proxy Error:', response.status, response.statusText);
             return res.status(response.status).json({ success: false, error: 'Proxy request failed' });
         }
 
