@@ -1,3 +1,4 @@
+const WEBHOOK_SECRET = 'f7RkQ2pL9zV3tX8cB1nS4yW6';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface CreditTransaction {
@@ -11,6 +12,12 @@ export interface CreditTransaction {
     created_at: string;     // ISO 8601 timestamp
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const authHeaders = {
+    'X-Webhook-Secret': WEBHOOK_SECRET,
+    'Content-Type': 'application/json',
+};
+
 // ─── API Calls ───────────────────────────────────────────────────────────────
 
 /**
@@ -19,7 +26,7 @@ export interface CreditTransaction {
  */
 export async function fetchCreditBalance(): Promise<number> {
     try {
-        const res = await fetch('/api/credits');
+        const res = await fetch('/api/credits', { headers: authHeaders });
         if (!res.ok) return 0;
         const data = await res.json();
         return data.balance ?? data.data?.balance ?? 0;
@@ -38,7 +45,8 @@ export async function fetchCreditTransactions(
 ): Promise<CreditTransaction[]> {
     try {
         const res = await fetch(
-            `/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`
+            `/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`,
+            { headers: authHeaders },
         );
         if (!res.ok) return [];
         const data = await res.json();
