@@ -18,9 +18,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        // Extract query params from the incoming URL correctly
-        const urlParams = new URL(req.url || '', `https://${req.headers.host}`).search;
-        const cloudRunUrl = `${CLOUD_RUN_URL}/api/get_credit_transactions.php${urlParams}`;
+        // Use Vercel's req.query to build the target URL search params
+        const searchParams = new URLSearchParams();
+        for (const [key, value] of Object.entries(req.query)) {
+            if (Array.isArray(value)) {
+                value.forEach(v => searchParams.append(key, v));
+            } else if (value) {
+                searchParams.append(key, value);
+            }
+        }
+
+        const queryString = searchParams.toString();
+        const cloudRunUrl = `${CLOUD_RUN_URL}/api/get_credit_transactions.php${queryString ? '?' + queryString : ''}`;
+
         console.log('Proxying get_credit_transactions to:', cloudRunUrl);
 
         const response = await fetch(cloudRunUrl, {
@@ -32,14 +42,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         if (!response.ok) {
-            console.error('Cloud Run Proxy Error:', response.status, response.statusText);
-            return res.status(response.status).json({ success: false, error: 'Proxy request failed' });
+            const errorText = await response.text().catch(() => 'No error body');
+            console.error('Cloud Run Proxy Error:', response.status, errorText);
+            return res.status(response.status).json({
+                success: false,
+                error: 'Proxy request failed',
+                status: response.status,
+                details: errorText.substring(0, 200)
+            });
         }
 
         const data = await response.json();
         return res.status(200).json(data);
-    } catch (error) {
+    } catch (error: any) {
         console.error('Transactions Proxy Error:', error);
-        return res.status(500).json({ success: false, error: 'Proxy implementation error' });
+        return res.status(500).json({
+            success: false,
+            error: 'Proxy implementation error',
+            message: error.message,
+            query: req.query
+        });
     }
 }
