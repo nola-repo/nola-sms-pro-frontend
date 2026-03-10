@@ -1,6 +1,6 @@
 import type { Contact } from "../types/Contact";
 
-const CONTACTS_API_URL = `${import.meta.env.VITE_API_BASE}/api/webhook/fetch_contacts.php`;
+const CONTACTS_API_URL = `${import.meta.env.VITE_API_BASE}/api/contacts`;
 
 export const fetchContacts = async (): Promise<Contact[]> => {
   try {
