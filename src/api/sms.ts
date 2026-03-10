@@ -1,6 +1,6 @@
 import type { SmsLog, BulkMessageHistoryItem, FirestoreMessage, Conversation } from "../types/Sms";
 
-const WEBHOOK_URL = "/api/messages";
+const WEBHOOK_URL = `${import.meta.env.VITE_API_BASE}/api/messages`;
 
 export type SenderId = string;
 
@@ -121,7 +121,7 @@ export const sendSms = async (
     },
   };
 
-  const SEND_SMS_URL = "/api/sms";
+  const SEND_SMS_URL = import.meta.env.VITE_API_SEND_SMS;
   console.log("Sending SMS payload directly to production:", payload);
   console.log("Sending to:", SEND_SMS_URL);
 
@@ -210,7 +210,7 @@ export const fetchMessagesByConversationId = async (
   if (!conversationId) return [];
 
   try {
-    const DIRECT_MESSAGES_URL = `/api/messages?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`;
+    const DIRECT_MESSAGES_URL = `${import.meta.env.VITE_API_BASE}/api/messages?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`;
     const res = await fetch(DIRECT_MESSAGES_URL);
     if (!res.ok) throw new Error(`Failed to fetch conversation messages: ${res.status}`);
     const data = await res.json();
@@ -227,7 +227,7 @@ export const fetchMessagesByConversationId = async (
  */
 export const fetchConversations = async (): Promise<Conversation[]> => {
   try {
-    const CONVERSATIONS_URL = "/api/messages?action=fetch_conversations";
+    const CONVERSATIONS_URL = `${import.meta.env.VITE_API_BASE}/api/messages?action=fetch_conversations`;
     const res = await fetch(CONVERSATIONS_URL);
     if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
     const data = await res.json();
@@ -258,7 +258,7 @@ export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise
 // Fetch all bulk messages from Firestore (grouped by batch)
 export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> => {
   try {
-    const BULK_CAMPAIGNS_URL = "/api/messages?action=fetch_bulk_messages";
+    const BULK_CAMPAIGNS_URL = `${import.meta.env.VITE_API_BASE}/api/messages?action=fetch_bulk_messages`;
     const res = await fetch(BULK_CAMPAIGNS_URL);
     console.log('[fetchAllBulkMessages] Response status:', res.status);
     if (!res.ok) {

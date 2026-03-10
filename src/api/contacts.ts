@@ -1,18 +1,18 @@
 import type { Contact } from "../types/Contact";
 
-const CONTACTS_API_URL = "/api/contacts";
+const CONTACTS_API_URL = `${import.meta.env.VITE_API_BASE}/api/contacts`;
 
 export const fetchContacts = async (): Promise<Contact[]> => {
   try {
     const res = await fetch(CONTACTS_API_URL);
-    
+
     if (!res.ok) {
       console.error('Contacts API returned error:', res.status, res.statusText);
       return [];
     }
-    
+
     const data = await res.json();
-    
+
     // Handle response
     let contacts: any[] = [];
     if (Array.isArray(data)) {
@@ -20,7 +20,7 @@ export const fetchContacts = async (): Promise<Contact[]> => {
     } else if (data.data && Array.isArray(data.data)) {
       contacts = data.data;
     }
-    
+
     console.log('Contacts fetched:', contacts.length);
     return contacts;
   } catch (error) {
@@ -44,14 +44,14 @@ export const addContact = async (params: AddContactParams): Promise<Contact | nu
       },
       body: JSON.stringify(params),
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       console.error('Failed to add contact:', error);
       // Return error details for display
       throw new Error(error.details || error.error || 'Failed to add contact');
     }
-    
+
     const contact = await res.json();
     console.log('Contact added:', contact);
     return contact;
@@ -77,13 +77,13 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
       },
       body: JSON.stringify(params),
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       console.error('Failed to update contact:', error);
       throw new Error(error.details || error.error || 'Failed to update contact');
     }
-    
+
     const contact = await res.json();
     console.log('Contact updated:', contact);
     return contact;
@@ -98,13 +98,13 @@ export const deleteContact = async (id: string): Promise<boolean> => {
     const res = await fetch(`${CONTACTS_API_URL}?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       console.error('Failed to delete contact:', error);
       throw new Error(error.details || error.error || 'Failed to delete contact');
     }
-    
+
     console.log('Contact deleted:', id);
     return true;
   } catch (error) {
