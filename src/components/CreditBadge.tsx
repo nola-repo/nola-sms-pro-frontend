@@ -21,7 +21,7 @@ export const CreditBadge = () => {
                 }
             });
             const data = await res.json();
-            setBalance(data.balance || data.data?.balance || 0);
+            setBalance(data.credit_balance ?? data.balance ?? data.data?.balance ?? 0);
         } catch (error) {
             console.error("Failed to fetch balance", error);
         } finally {

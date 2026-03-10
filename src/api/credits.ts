@@ -21,7 +21,7 @@ export async function fetchCreditBalance(): Promise<number> {
         const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/credits`);
         if (!res.ok) return 0;
         const data = await res.json();
-        return data.balance ?? data.data?.balance ?? 0;
+        return data.credit_balance ?? data.balance ?? data.data?.balance ?? 0;
     } catch {
         return 0;
     }
