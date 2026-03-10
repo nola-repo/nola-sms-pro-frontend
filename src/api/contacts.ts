@@ -1,6 +1,6 @@
 import type { Contact } from "../types/Contact";
 
-const CONTACTS_API_URL = `${import.meta.env.VITE_API_BASE}/api/contacts`;
+const CONTACTS_API_URL = `${import.meta.env.VITE_API_BASE}/api/webhook/fetch_contacts.php`;
 
 export const fetchContacts = async (): Promise<Contact[]> => {
   try {
@@ -12,13 +12,22 @@ export const fetchContacts = async (): Promise<Contact[]> => {
     }
 
     const data = await res.json();
+    console.log('[fetchContacts] Data received:', data);
 
-    // Handle response
+    // Handle various response formats: 
+    // - Array of contacts
+    // - { data: [...] }
+    // - { contacts: [...] }
+    // - { data: { contacts: [...] } }
     let contacts: any[] = [];
     if (Array.isArray(data)) {
       contacts = data;
+    } else if (data.contacts && Array.isArray(data.contacts)) {
+      contacts = data.contacts;
     } else if (data.data && Array.isArray(data.data)) {
       contacts = data.data;
+    } else if (data.data?.contacts && Array.isArray(data.data.contacts)) {
+      contacts = data.data.contacts;
     }
 
     console.log('Contacts fetched:', contacts.length);

@@ -18,11 +18,11 @@ if ($receivedSecret !== 'f7RkQ2pL9zV3tX8cB1nS4yW6') {
 }
 
 try {
-    // 2. Query Firestore - get all sms_logs to extract unique phone numbers
+    // 2. Query Firestore - get all messages to extract unique phone numbers
     $db = get_firestore();
 
     // Get all documents with number field
-    $logs = $db->collection('sms_logs')
+    $logs = $db->collection('messages')
         ->select(['number', 'message', 'date_created'])
         ->orderBy('date_created', 'DESC')
         ->limit(1000)
@@ -33,16 +33,16 @@ try {
         if ($doc->exists()) {
             $data = $doc->data();
             $number = $data['number'] ?? null;
-            
+
             if ($number && !isset($contactsMap[$number])) {
                 // Get the most recent message for this contact
                 $lastMessage = $data['message'] ?? '';
                 $lastDate = null;
-                
+
                 if (isset($data['date_created']) && $data['date_created'] instanceof \Google\Cloud\Core\Timestamp) {
                     $lastDate = $data['date_created']->get()->format('c');
                 }
-                
+
                 $contactsMap[$number] = [
                     'id' => $number,
                     'phone' => $number,
@@ -56,15 +56,14 @@ try {
 
     // Convert to array and sort by lastSentAt descending
     $contacts = array_values($contactsMap);
-    usort($contacts, function($a, $b) {
+    usort($contacts, function ($a, $b) {
         $dateA = $a['lastSentAt'] ?? '';
         $dateB = $b['lastSentAt'] ?? '';
         return strcmp($dateB, $dateA);
     });
 
     echo json_encode($contacts);
-}
-catch (Exception $e) {
+} catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
         "status" => "error",

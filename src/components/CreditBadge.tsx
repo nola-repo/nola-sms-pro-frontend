@@ -14,7 +14,7 @@ export const CreditBadge = () => {
     const fetchBalance = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/credits', {
+            const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/credits`, {
                 headers: {
                     'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
                     'Content-Type': 'application/json',
