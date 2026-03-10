@@ -31,8 +31,8 @@ $code = $payload['code'];
 $redirectUri = $payload['redirectUri'] ?? '';
 
 // User Provided Credentials
-$clientId = '6999da2b8f278296d95f7274-mm9wv85e';
-$clientSecret = 'dfc4380f-6132-49b3-8246-92e14f55ee78';
+$clientId = '69aa6cc3412b25467476d5de-mmehrtt9';
+$clientSecret = '2697c89b-0112-4919-8f2f-d79ae3869c18';
 
 $postData = http_build_query([
     'client_id' => $clientId,
@@ -72,7 +72,7 @@ if ($http_status == 200 && is_array($result) && isset($result['access_token'])) 
         exit;
     }
 
-    $expiresIn = (int)($result['expires_in'] ?? 86399);
+    $expiresIn = (int) ($result['expires_in'] ?? 86399);
     $expiresAtTimestamp = time() + $expiresIn;
 
     // Save tokens securely in Firestore
@@ -80,27 +80,25 @@ if ($http_status == 200 && is_array($result) && isset($result['access_token'])) 
         $db->collection('ghl_tokens')
             ->document($locationId)
             ->set([
-            'access_token' => $result['access_token'],
-            'refresh_token' => $result['refresh_token'],
-            'expires_at' => $expiresAtTimestamp,
-            'scope' => $result['scope'] ?? '',
-            'userType' => $result['userType'] ?? 'Location',
-            'companyId' => $result['companyId'] ?? '',
-            'userId' => $result['userId'] ?? '',
-            'updated_at' => new \Google\Cloud\Core\Timestamp(new \DateTime())
-        ]);
+                'access_token' => $result['access_token'],
+                'refresh_token' => $result['refresh_token'],
+                'expires_at' => $expiresAtTimestamp,
+                'scope' => $result['scope'] ?? '',
+                'userType' => $result['userType'] ?? 'Location',
+                'companyId' => $result['companyId'] ?? '',
+                'userId' => $result['userId'] ?? '',
+                'updated_at' => new \Google\Cloud\Core\Timestamp(new \DateTime())
+            ]);
 
         echo json_encode([
             "status" => "success",
             "locationId" => $locationId
         ]);
-    }
-    catch (Exception $e) {
+    } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(["status" => "error", "error" => "Failed to save tokens: " . $e->getMessage()]);
     }
-}
-else {
+} else {
     http_response_code(400);
     echo json_encode([
         "status" => "failed",
