@@ -53,7 +53,7 @@ const DEFAULT_ACCOUNT: AccountSettings = {
 };
 
 const DEFAULT_API: APISettings = {
-    webhookUrl: "/api/sms",
+    webhookUrl: `${import.meta.env.VITE_API_BASE}/api/sms`,
     apiKey: "nola_sk_••••••••••••••••••••",
     webhookSecret: "",
 };

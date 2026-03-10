@@ -24,7 +24,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         const loadHomeData = async () => {
             try {
                 // 1. Fetch Balance
-                const credRes = await fetch('/api/credits', {
+                const credRes = await fetch(`${import.meta.env.VITE_API_BASE}/api/credits`, {
                     headers: {
                         'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
                         'Content-Type': 'application/json',

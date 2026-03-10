@@ -266,10 +266,14 @@ export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> 
       console.error('[fetchAllBulkMessages] Error response:', errorText);
       throw new Error(`Failed to fetch bulk messages: ${res.status}`);
     }
-    const data = await res.json();
-    console.log('[fetchAllBulkMessages] Data received:', data);
+    const resData = await res.json();
+    console.log('[fetchAllBulkMessages] Data received:', resData);
+
+    // Handle both array and { data: [...] } format
+    const messages = Array.isArray(resData) ? resData : (resData.data || []);
+
     // Convert to BulkMessageHistoryItem format
-    return data.map((item: any) => ({
+    return messages.map((item: any) => ({
       id: `bulk-db-${item.batch_id}`,
       message: item.message || '',
       recipientCount: item.recipientCount || 0,
