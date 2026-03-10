@@ -1,10 +1,21 @@
+import { API_CONFIG } from "../config";
+import { getAccountSettings } from "../utils/settingsStorage";
 import type { Contact } from "../types/Contact";
 
-const CONTACTS_API_URL = `${import.meta.env.VITE_API_BASE}/api/contacts`;
+const CONTACTS_API_URL = API_CONFIG.contacts;
 
 export const fetchContacts = async (): Promise<Contact[]> => {
   try {
-    const res = await fetch(CONTACTS_API_URL);
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
+    const res = await fetch(CONTACTS_API_URL, { headers });
 
     if (!res.ok) {
       console.error('Contacts API returned error:', res.status, res.statusText);
@@ -46,11 +57,18 @@ export interface AddContactParams {
 
 export const addContact = async (params: AddContactParams): Promise<Contact | null> => {
   try {
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
     const res = await fetch(CONTACTS_API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(params),
     });
 
@@ -79,11 +97,18 @@ export interface UpdateContactParams {
 
 export const updateContact = async (params: UpdateContactParams): Promise<Contact | null> => {
   try {
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
     const res = await fetch(CONTACTS_API_URL, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(params),
     });
 
@@ -104,8 +129,16 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
 
 export const deleteContact = async (id: string): Promise<boolean> => {
   try {
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {};
+
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
     const res = await fetch(`${CONTACTS_API_URL}?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      headers,
     });
 
     if (!res.ok) {

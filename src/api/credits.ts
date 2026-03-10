@@ -1,3 +1,5 @@
+import { API_CONFIG } from "../config";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface CreditTransaction {
     transaction_id: string;
@@ -18,7 +20,7 @@ export interface CreditTransaction {
  */
 export async function fetchCreditBalance(): Promise<number> {
     try {
-        const res = await fetch(`${import.meta.env.VITE_API_BASE}/api/credits`);
+        const res = await fetch(API_CONFIG.credits);
         if (!res.ok) return 0;
         const data = await res.json();
         return data.credit_balance ?? data.balance ?? data.data?.balance ?? 0;
@@ -37,7 +39,7 @@ export async function fetchCreditTransactions(
 ): Promise<CreditTransaction[]> {
     try {
         const res = await fetch(
-            `${import.meta.env.VITE_API_BASE}/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`
+            `${API_CONFIG.base}/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`
         );
         if (!res.ok) return [];
         const data = await res.json();
