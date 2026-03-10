@@ -123,7 +123,7 @@ export const sendSms = async (
     },
   };
 
-  const SEND_SMS_URL = "/api/sms";
+  const SEND_SMS_URL = API_CONFIG.sms;
   console.log("Sending SMS payload via proxy:", payload);
   console.log("Sending to:", SEND_SMS_URL);
 
