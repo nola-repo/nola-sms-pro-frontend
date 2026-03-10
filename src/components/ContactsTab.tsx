@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { fetchContacts, addContact, updateContact, deleteContact } from "../api/contacts";
+import { deleteContact as deleteContactLocal } from "../utils/storage";
 import type { Contact } from "../types/Contact";
 import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader, FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { useConversationMessages } from "../hooks/useConversationMessages";
@@ -232,6 +233,9 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
         await deleteContact(contactId);
       }
 
+      // Add to local deleted list so it's hidden from Sidebar too
+      deleteContactLocal(contactId);
+
       // Remove from contacts list
       setContacts((prev) => prev.filter((c) => c.id !== contactId));
       // Remove from selected if selected
@@ -458,7 +462,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                             <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
                               {contact.phone}
                             </p>
-                            
+
                             {/* Contact History (Accordion) */}
                             {expandedHistoryId === contact.id && (
                               <div onClick={(e) => e.stopPropagation()}>

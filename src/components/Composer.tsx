@@ -83,6 +83,9 @@ export const Composer: React.FC<ComposerProps> = ({
   const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null);
   const [lottieError, setLottieError] = useState(false);
 
+  // Filtering focus for bulk conversations
+  const [recipientKeyFocus, setRecipientKeyFocus] = useState<string | undefined>(undefined);
+
   // Bulk SMS state
   const [composeMode, setComposeMode] = useState<"single" | "bulk">("single");
   const [allContacts, setAllContacts] = useState<Contact[]>([]);
@@ -130,7 +133,7 @@ export const Composer: React.FC<ComposerProps> = ({
     addOptimisticMessage,
     updateMessageStatus,
     refresh,
-  } = useConversationMessages(conversationId);
+  } = useConversationMessages(conversationId, recipientKeyFocus);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -202,7 +205,9 @@ export const Composer: React.FC<ComposerProps> = ({
       // Keep only the first contact when switching to single mode
       setBulkSelectedContacts(bulkSelectedContacts.slice(0, 1));
     }
-  }, [composeMode]);
+    // Clear recipient filter when switching modes or conversations
+    setRecipientKeyFocus(undefined);
+  }, [composeMode, conversationId]);
 
   useEffect(() => {
     if (isNewMessage) {
@@ -681,22 +686,50 @@ export const Composer: React.FC<ComposerProps> = ({
                     className="flex flex-wrap gap-2 py-1.5 cursor-text"
                     onClick={() => setIsPickerOpen(true)}
                   >
-                    {bulkSelectedContacts.map(contact => (
-                      <span
-                        key={contact.id}
-                        className="flex items-center gap-1.5 bg-[#2b83fa]/10 dark:bg-[#2b83fa]/20 border border-[#2b83fa]/20 px-2.5 py-1 rounded-full text-[13px] text-[#2b83fa] font-semibold"
-                      >
-                        {toProperCase(contact.name)}
-                        <button
-                          onClick={(e) => handleRemoveBulkContact(contact.id, e)}
-                          className="hover:text-red-500 transition-colors"
+                    {bulkSelectedContacts.map(contact => {
+                      const isFocused = recipientKeyFocus === contact.phone;
+                      const isBulkActive = !!activeBulkMessage;
+
+                      return (
+                        <span
+                          key={contact.id}
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-semibold transition-all
+                            ${isFocused
+                              ? 'bg-[#2b83fa] text-white shadow-md scale-105'
+                              : isBulkActive
+                                ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/20 border border-[#2b83fa]/20 text-[#2b83fa] hover:bg-[#2b83fa]/20 cursor-pointer'
+                                : 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/20 border border-[#2b83fa]/20 text-[#2b83fa]'
+                            }
+                          `}
+                          onClick={(e) => {
+                            if (isBulkActive) {
+                              e.stopPropagation();
+                              setRecipientKeyFocus(isFocused ? undefined : contact.phone);
+                            }
+                          }}
+                          title={isBulkActive ? (isFocused ? "Clear Filter" : "Filter history for this contact") : ""}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </span>
-                    ))}
+                          {toProperCase(contact.name)}
+                          {!isBulkActive && (
+                            <button
+                              onClick={(e) => handleRemoveBulkContact(contact.id, e)}
+                              className="hover:text-red-500 transition-colors"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          )}
+                          {isFocused && (
+                            <div className="ml-1 hover:text-white/80" onClick={(e) => { e.stopPropagation(); setRecipientKeyFocus(undefined); }}>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          )}
+                        </span>
+                      );
+                    })}
                     <input
                       type="text"
                       value={searchQuery}

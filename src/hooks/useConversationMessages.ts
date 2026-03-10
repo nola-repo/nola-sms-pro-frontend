@@ -24,16 +24,21 @@ const parseFirestoreDate = (raw: unknown): Date => {
  * Replaces the old useMessages (per phone number) +
  * useGroupMessages (per recipient_key) pair.
  */
-export const useConversationMessages = (conversationId: string | undefined) => {
+export const useConversationMessages = (conversationId: string | undefined, recipientKey?: string) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const isInitialLoad = useRef(true);
 
+    // Create a composite cache key if filtering by recipientKey
+    const cacheKey = conversationId && recipientKey
+        ? `${conversationId}_filter_${recipientKey}`
+        : conversationId;
+
     const fetchHistory = useCallback(async (showLoading = true) => {
         // Load from cache first for instant display
-        if (conversationId) {
-            const cached = getCachedMessages(conversationId);
+        if (cacheKey) {
+            const cached = getCachedMessages(cacheKey);
             if (cached && cached.length > 0) {
                 setMessages(cached);
             }
@@ -45,7 +50,7 @@ export const useConversationMessages = (conversationId: string | undefined) => {
         setError(null);
 
         try {
-            const rows = await fetchMessagesByConversationId(conversationId);
+            const rows = await fetchMessagesByConversationId(conversationId, 100, recipientKey);
 
             // Sort oldest → newest for chronological display
             const sorted = [...rows].sort(
@@ -65,7 +70,7 @@ export const useConversationMessages = (conversationId: string | undefined) => {
             }));
 
             // Merge optimistic "temp-" messages that haven't been confirmed yet
-            const cached = getCachedMessages(conversationId) || [];
+            const cached = cacheKey ? (getCachedMessages(cacheKey) || []) : [];
             const tempOnly = cached.filter(
                 (m) =>
                     m.id.startsWith("temp-") &&
@@ -78,14 +83,16 @@ export const useConversationMessages = (conversationId: string | undefined) => {
 
             const merged = [...formatted, ...tempOnly];
             setMessages(merged);
-            setCachedMessages(conversationId, merged);
+            if (cacheKey) {
+                setCachedMessages(cacheKey, merged);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to load messages");
         } finally {
             setLoading(false);
             isInitialLoad.current = false;
         }
-    }, [conversationId]);
+    }, [conversationId, recipientKey, cacheKey]);
 
     // Initial fetch
     useEffect(() => {

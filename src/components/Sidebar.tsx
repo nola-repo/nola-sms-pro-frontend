@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { fetchContacts } from "../api/contacts";
-import { fetchAllBulkMessages, fetchConversations } from "../api/sms";
+import { fetchAllBulkMessages, fetchConversations, renameConversation, deleteConversation } from "../api/sms";
+import { deleteContact as deleteContactBackend } from "../api/contacts";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
-import { getBulkMessageHistory, renameBulkMessage, deleteBulkMessage, deleteContact, getDeletedContactIds } from "../utils/storage";
+import { getBulkMessageHistory, renameBulkMessage, deleteBulkMessage, deleteContact as deleteContactLocal, getDeletedContactIds } from "../utils/storage";
 import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarRightCollapse } from "react-icons/tb";
 import { FiUsers, FiChevronDown, FiEdit2, FiTrash2, FiMoreVertical, FiHome, FiPlus, FiX } from "react-icons/fi";
 import GlareHover from "./GlareHover";
@@ -147,19 +148,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setEditingBulkName(item.customName || (item.recipientNames?.join(", ") || `${item.recipientCount} recipients`));
   };
 
-  const handleSaveEdit = (id: string) => {
+  const handleSaveEdit = async (id: string) => {
     if (editingBulkName.trim()) {
+      // 1. Rename in backend (Firestore)
+      // Bulk composite ID: bulk-db-{batch_id} -> we need the conversation_id: group_{batch_id}
+      const item = bulkHistory.find(h => h.id === id);
+      if (item && item.batchId) {
+        const conversationId = `group_${item.batchId}`;
+        await renameConversation(conversationId, editingBulkName.trim());
+      }
+
+      // 2. Rename in local storage (for offline/cache fallback)
       renameBulkMessage(id, editingBulkName.trim());
+
+      // 3. Update UI
       setBulkHistory(getBulkMessageHistory());
+      // Refresh list from server to ensure sync
+      loadContacts(false);
     }
     setEditingBulkId(null);
     setEditingBulkName("");
   };
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // 1. Delete in backend
+    const item = bulkHistory.find(h => h.id === id);
+    if (item && item.batchId) {
+      const conversationId = `group_${item.batchId}`;
+      await deleteConversation(conversationId);
+    }
+
+    // 2. Delete in local storage
     deleteBulkMessage(id);
+
+    // 3. Update UI
     setBulkHistory(getBulkMessageHistory());
+    loadContacts(false);
   };
 
   const handleDeleteContact = (id: string, e: React.MouseEvent) => {
@@ -167,9 +193,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setDeletingContactId(id);
   };
 
-  const confirmDeleteContact = () => {
+  const confirmDeleteContact = async () => {
     if (deletingContactId) {
-      deleteContact(deletingContactId);
+      // 1. Delete from backend (GHL/Firestore) if it's not a manual contact
+      if (!deletingContactId.startsWith('manual-')) {
+        try {
+          await deleteContactBackend(deletingContactId);
+        } catch (err) {
+          console.error('Failed to delete contact from backend:', err);
+        }
+      }
+
+      // 2. Local soft-delete (adds to deleted IDs list in storage)
+      deleteContactLocal(deletingContactId);
+
+      // 3. Clear from UI
       setContacts(contacts.filter(c => c.id !== deletingContactId));
       setDeletingContactId(null);
     }

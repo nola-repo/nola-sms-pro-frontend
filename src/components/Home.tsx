@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FiHome, FiPlus, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock } from "react-icons/fi";
+import { FiHome, FiPlus, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX } from "react-icons/fi";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
 import { fetchConversations } from "../api/sms";
@@ -19,6 +19,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [contactsCount, setContactsCount] = useState<number>(0);
     const [loading, setLoading] = useState(true);
+    const [showAllActivity, setShowAllActivity] = useState(false);
 
     useEffect(() => {
         const loadHomeData = async () => {
@@ -242,9 +243,19 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
 
                     {/* Recent Activity */}
                     <AnimatedContent delay={0.5} distance={50} direction="vertical">
-                        <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-5 flex items-center gap-2">
-                            Recent Activity
-                        </h3>
+                        <div className="flex items-center justify-between mb-5">
+                            <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
+                                Recent Activity
+                            </h3>
+                            {conversations.length > 5 && (
+                                <button
+                                    onClick={() => setShowAllActivity(true)}
+                                    className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                >
+                                    See All
+                                </button>
+                            )}
+                        </div>
                         <div className="space-y-2">
                             {loading ? (
                                 [1, 2, 3].map(i => (
@@ -259,7 +270,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                     >
                                         <div className="flex items-center gap-3 overflow-hidden">
                                             <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold shadow-sm ${conv.type === 'bulk' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa]'}`}>
-                                                {conv.type === 'bulk' ? <FiUsers size={18} /> : (conv.name || conv.id.replace(/^conv_/, '')).charAt(0).toUpperCase()}
+                                                {conv.type === 'bulk' ? <FiUsers size={18} /> : (conv.name ? conv.name.charAt(0).toUpperCase() : <FiUser size={18} />)}
                                             </div>
                                             <div className="min-w-0">
                                                 <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px] truncate">
@@ -290,6 +301,58 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     </AnimatedContent>
                 </div>
             </div>
+
+            {/* All Activity Popup */}
+            {showAllActivity && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div
+                        className="bg-white dark:bg-[#1c1e21] w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-[0.98] duration-200 border border-[#0000000a] dark:border-[#ffffff0a]"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between p-5 border-b border-[#00000005] dark:border-[#ffffff05]">
+                            <h3 className="text-[17px] font-bold text-[#111111] dark:text-white">All Recent Activity</h3>
+                            <button
+                                onClick={() => setShowAllActivity(false)}
+                                className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-transparent hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors active:scale-95"
+                            >
+                                <FiX size={20} />
+                            </button>
+                        </div>
+                        <div className="p-2 overflow-y-auto custom-scrollbar flex-1">
+                            {conversations.map(conv => (
+                                <button
+                                    key={`modal-${conv.id}`}
+                                    onClick={() => {
+                                        handleRecentClick(conv);
+                                        setShowAllActivity(false);
+                                    }}
+                                    className="w-full p-3.5 rounded-2xl bg-transparent hover:bg-black-[0.02] dark:hover:bg-white/[0.02] transition-all text-left flex items-center justify-between group mb-1"
+                                >
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold shadow-sm ${conv.type === 'bulk' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa]'}`}>
+                                            {conv.type === 'bulk' ? <FiUsers size={18} /> : (conv.name ? conv.name.charAt(0).toUpperCase() : <FiUser size={18} />)}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px] truncate">
+                                                {conv.type === 'bulk' ? 'Bulk Message' : toProperCase(conv.name || conv.id.replace(/^conv_/, ''))}
+                                            </h4>
+                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate max-w-[200px] font-medium">
+                                                {conv.last_message || "No messages yet"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                        <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                                            <FiClock size={10} />
+                                            {conv.last_message_at ? new Date(conv.last_message_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : "--"}
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

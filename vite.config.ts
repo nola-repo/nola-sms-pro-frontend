@@ -76,10 +76,18 @@ const smsProxyPlugin = () => ({
 
     server.middlewares.use('/api/messages', async (req, res) => {
       try {
-        // Forward query params to the real backend
         const url = new URL(req.url || '', 'http://localhost');
         const queryString = url.search || '';
-        const cloudRunUrl = `https://smspro-api.nolacrm.io/api/messages${queryString}`;
+        const action = url.searchParams.get('action');
+
+        let cloudRunUrl;
+        if (action === 'fetch_conversations') {
+          cloudRunUrl = `https://smspro-api.nolacrm.io/api/conversations`;
+        } else if (action === 'fetch_bulk_messages') {
+          cloudRunUrl = `https://smspro-api.nolacrm.io/api/bulk-campaigns`;
+        } else {
+          cloudRunUrl = `https://smspro-api.nolacrm.io/api/messages${queryString}`;
+        }
 
         console.log('Dev proxy GET:', cloudRunUrl);
 

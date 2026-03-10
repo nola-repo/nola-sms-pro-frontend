@@ -207,13 +207,20 @@ export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => 
  */
 export const fetchMessagesByConversationId = async (
   conversationId: string,
-  limit = 100
+  limit = 100,
+  recipientKey?: string
 ): Promise<FirestoreMessage[]> => {
   if (!conversationId) return [];
 
   try {
-    const DIRECT_MESSAGES_URL = `${API_CONFIG.messages}?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`;
-    const res = await fetch(DIRECT_MESSAGES_URL);
+    let url = `${API_CONFIG.messages}?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`;
+
+    // If recipientKey is provided, we're isolating a single user's history within a bulk campaign
+    if (recipientKey) {
+      url += `&recipient_key=${encodeURIComponent(recipientKey)}`;
+    }
+
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`Failed to fetch conversation messages: ${res.status}`);
     const data = await res.json();
     return (data.data || data || []) as FirestoreMessage[];
@@ -289,5 +296,44 @@ export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> 
   } catch (error) {
     console.error("[fetchAllBulkMessages] Error:", error);
     return [];
+  }
+};
+/**
+ * Rename a conversation (bulk or direct) in the backend.
+ */
+export const renameConversation = async (conversationId: string, newName: string): Promise<boolean> => {
+  if (!conversationId || !newName) return false;
+
+  try {
+    const res = await fetch(API_CONFIG.messages, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: conversationId, name: newName }),
+    });
+
+    if (!res.ok) throw new Error(`Failed to rename conversation: ${res.status}`);
+    return true;
+  } catch (error) {
+    console.error('[renameConversation] Error:', error);
+    return false;
+  }
+};
+
+/**
+ * Delete a conversation (bulk or direct) in the backend.
+ */
+export const deleteConversation = async (conversationId: string): Promise<boolean> => {
+  if (!conversationId) return false;
+
+  try {
+    const res = await fetch(`${API_CONFIG.messages}?conversation_id=${encodeURIComponent(conversationId)}`, {
+      method: 'DELETE',
+    });
+
+    if (!res.ok) throw new Error(`Failed to delete conversation: ${res.status}`);
+    return true;
+  } catch (error) {
+    console.error('[deleteConversation] Error:', error);
+    return false;
   }
 };
