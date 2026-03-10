@@ -1,20 +1,28 @@
-# Stage 1: Build React frontend
-FROM node:20-alpine AS build
-
+# Stage 1: Build
+FROM node:18 AS builder
 WORKDIR /app
 
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install
 
+# Copy all files and build
 COPY . .
 RUN npm run build
 
-# Stage 2: Serve the build with Nginx
-FROM nginx:stable-alpine
-COPY --from=build /app/build /usr/share/nginx/html
+# Stage 2: Serve built files
+FROM node:18-alpine
+WORKDIR /app
 
-# Expose Cloud Run port
-EXPOSE 8080
+# Install serve globally
+RUN npm install -g serve
 
-# Start Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Copy dist folder from build stage
+COPY --from=builder /app/dist ./dist
+
+# Use the PORT environment variable provided by Cloud Run
+ENV PORT 8080
+EXPOSE $PORT
+
+# Start the server
+CMD ["serve", "-s", "dist", "-l", "env:PORT"]
