@@ -1,6 +1,8 @@
 import type { SmsLog, BulkMessageHistoryItem, FirestoreMessage, Conversation } from "../types/Sms";
 
-const WEBHOOK_URL = `${import.meta.env.VITE_API_BASE}/api/messages`;
+import { API_CONFIG } from "../config";
+
+const WEBHOOK_URL = API_CONFIG.messages;
 
 export type SenderId = string;
 
@@ -121,7 +123,7 @@ export const sendSms = async (
     },
   };
 
-  const SEND_SMS_URL = "/webhook/send_sms";
+  const SEND_SMS_URL = "/api/sms";
   console.log("Sending SMS payload via proxy:", payload);
   console.log("Sending to:", SEND_SMS_URL);
 
@@ -210,7 +212,7 @@ export const fetchMessagesByConversationId = async (
   if (!conversationId) return [];
 
   try {
-    const DIRECT_MESSAGES_URL = `${import.meta.env.VITE_API_BASE}/api/messages?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`;
+    const DIRECT_MESSAGES_URL = `${API_CONFIG.messages}?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`;
     const res = await fetch(DIRECT_MESSAGES_URL);
     if (!res.ok) throw new Error(`Failed to fetch conversation messages: ${res.status}`);
     const data = await res.json();
@@ -227,7 +229,7 @@ export const fetchMessagesByConversationId = async (
  */
 export const fetchConversations = async (): Promise<Conversation[]> => {
   try {
-    const CONVERSATIONS_URL = `${import.meta.env.VITE_API_BASE}/api/messages?action=fetch_conversations`;
+    const CONVERSATIONS_URL = `${API_CONFIG.messages}?action=fetch_conversations`;
     const res = await fetch(CONVERSATIONS_URL);
     if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
     const data = await res.json();
@@ -258,7 +260,7 @@ export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise
 // Fetch all bulk messages from Firestore (grouped by batch)
 export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> => {
   try {
-    const BULK_CAMPAIGNS_URL = `${import.meta.env.VITE_API_BASE}/api/messages?action=fetch_bulk_messages`;
+    const BULK_CAMPAIGNS_URL = `${API_CONFIG.messages}?action=fetch_bulk_messages`;
     const res = await fetch(BULK_CAMPAIGNS_URL);
     console.log('[fetchAllBulkMessages] Response status:', res.status);
     if (!res.ok) {
