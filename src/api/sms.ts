@@ -236,7 +236,7 @@ export const fetchMessagesByConversationId = async (
  */
 export const fetchConversations = async (): Promise<Conversation[]> => {
   try {
-    const CONVERSATIONS_URL = `${API_CONFIG.messages}?action=fetch_conversations`;
+    const CONVERSATIONS_URL = API_CONFIG.conversations;
     const res = await fetch(CONVERSATIONS_URL);
     if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
     const data = await res.json();
@@ -267,7 +267,7 @@ export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise
 // Fetch all bulk messages from Firestore (grouped by batch)
 export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> => {
   try {
-    const BULK_CAMPAIGNS_URL = `${API_CONFIG.messages}?action=fetch_bulk_messages`;
+    const BULK_CAMPAIGNS_URL = API_CONFIG.bulk_campaigns;
     const res = await fetch(BULK_CAMPAIGNS_URL);
     console.log('[fetchAllBulkMessages] Response status:', res.status);
     if (!res.ok) {

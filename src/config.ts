@@ -19,6 +19,7 @@ export const API_CONFIG = {
     contacts: `${API_BASE}/api/ghl-contacts`,
     messages: `${API_BASE}/api/messages`,
     conversations: `${API_BASE}/api/conversations`,
+    bulk_campaigns: `${API_BASE}/api/bulk-campaigns`,
 };
 
 export default API_CONFIG;

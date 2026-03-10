@@ -6,6 +6,46 @@ import type { ViteDevServer } from 'vite'
 const smsProxyPlugin = () => ({
   name: 'sms-proxy',
   configureServer(server: ViteDevServer) {
+    server.middlewares.use('/api', async (req, res, next) => {
+      // If it's a POST/PUT/DELETE or specific GET that we want to proxy to the real backend
+      const url = new URL(req.url || '', `http://${req.headers.host}`);
+      const path = url.pathname;
+
+      // We already have specific handlers for some paths, but let's make a generic one for /api/*
+      // that forwards to https://smspro-api.nolacrm.io/api/*
+
+      // Skip if already handled by other specific middlewares (though next() would be called anyway)
+      if (['/api/sms', '/webhook/send_sms', '/api/credits', '/api/ghl-contacts'].some(p => path.startsWith(p))) {
+        return next();
+      }
+
+      try {
+        const cloudRunUrl = `https://smspro-api.nolacrm.io${path}${url.search}`;
+        console.log('Dev proxy (API):', cloudRunUrl);
+
+        const response = await fetch(cloudRunUrl, {
+          method: req.method || 'GET',
+          headers: {
+            'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
+            'Content-Type': 'application/json',
+            ...(req.headers['x-ghl-location-id'] ? { 'X-GHL-Location-ID': req.headers['x-ghl-location-id'] as string } : {}),
+          },
+          body: (req.method !== 'GET' && req.method !== 'HEAD') ? req : undefined,
+          // @ts-ignore - fetch in node handles stream bodies
+          duplex: 'half'
+        });
+
+        const data = await response.json();
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(data));
+      } catch (error) {
+        // Only log if it's not a 404 which might be handled by next()
+        console.error(`Dev proxy error for ${path}:`, error);
+        next();
+      }
+    });
+
+    // Keeping specific ones for SMS because of payload wrapping logic
     server.middlewares.use('/api/sms', async (req, res) => {
       if (req.method === 'POST') {
         let body = '';
@@ -74,40 +114,6 @@ const smsProxyPlugin = () => ({
       }
     });
 
-    server.middlewares.use('/api/messages', async (req, res) => {
-      try {
-        const url = new URL(req.url || '', 'http://localhost');
-        const queryString = url.search || '';
-        const action = url.searchParams.get('action');
-
-        let cloudRunUrl;
-        if (action === 'fetch_conversations') {
-          cloudRunUrl = `https://smspro-api.nolacrm.io/api/conversations`;
-        } else if (action === 'fetch_bulk_messages') {
-          cloudRunUrl = `https://smspro-api.nolacrm.io/api/bulk-campaigns`;
-        } else {
-          cloudRunUrl = `https://smspro-api.nolacrm.io/api/messages${queryString}`;
-        }
-
-        console.log('Dev proxy GET:', cloudRunUrl);
-
-        const response = await fetch(cloudRunUrl, {
-          method: 'GET',
-          headers: {
-            'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
-            'Content-Type': 'application/json',
-          },
-        });
-
-        const data = await response.json();
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify(data));
-      } catch (error) {
-        console.error('Dev proxy error for /api/messages:', error);
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ status: 'error', message: 'Failed to fetch messages from backend' }));
-      }
-    });
 
     server.middlewares.use('/api/credits', async (_req, res) => {
       try {
