@@ -22,29 +22,36 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
 
     useEffect(() => {
         const loadHomeData = async () => {
-            try {
-                // 1. Fetch Balance
-                const credRes = await fetch(`${import.meta.env.VITE_API_BASE}/api/credits`, {
-                    headers: {
-                        'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
-                        'Content-Type': 'application/json',
-                    }
-                });
-                const credData = await credRes.json();
-                setBalance(credData.balance || credData.data?.balance || 0);
+            setLoading(true);
 
-                // 2. Fetch Conversations for stats and recent activity
-                const convs = await fetchConversations();
-                setConversations(convs);
+            // Run all three fetches independently — one failure won't block the others
+            const [credData, convs, contacts] = await Promise.allSettled([
+                // 1. Fetch Balance (use relative path; nginx/Vite proxies to backend)
+                fetch('/api/credits', {
+                    headers: { 'Content-Type': 'application/json' }
+                }).then(r => r.ok ? r.json() : null).catch(() => null),
 
-                // 3. Fetch Contacts count
-                const contacts = await fetchContacts();
-                setContactsCount(contacts.length);
-            } catch (error) {
-                console.error("Failed to load home data", error);
-            } finally {
-                setLoading(false);
+                // 2. Fetch Conversations
+                fetchConversations().catch(() => []),
+
+                // 3. Fetch Contacts
+                fetchContacts().catch(() => []),
+            ]);
+
+            if (credData.status === 'fulfilled' && credData.value) {
+                const d = credData.value;
+                setBalance(d.balance ?? d.credit_balance ?? d.data?.balance ?? 0);
             }
+
+            if (convs.status === 'fulfilled') {
+                setConversations(convs.value as Conversation[]);
+            }
+
+            if (contacts.status === 'fulfilled') {
+                setContactsCount((contacts.value as any[]).length);
+            }
+
+            setLoading(false);
         };
 
         loadHomeData();
