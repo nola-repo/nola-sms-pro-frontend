@@ -6,46 +6,7 @@ import type { ViteDevServer } from 'vite'
 const smsProxyPlugin = () => ({
   name: 'sms-proxy',
   configureServer(server: ViteDevServer) {
-    server.middlewares.use('/api', async (req, res, next) => {
-      // If it's a POST/PUT/DELETE or specific GET that we want to proxy to the real backend
-      const url = new URL(req.url || '', `http://${req.headers.host}`);
-      const path = url.pathname;
-
-      // We already have specific handlers for some paths, but let's make a generic one for /api/*
-      // that forwards to https://smspro-api.nolacrm.io/api/*
-
-      // Skip if already handled by other specific middlewares (though next() would be called anyway)
-      if (['/api/sms', '/webhook/send_sms', '/api/credits', '/api/ghl-contacts'].some(p => path.startsWith(p))) {
-        return next();
-      }
-
-      try {
-        const cloudRunUrl = `https://smspro-api.nolacrm.io${path}${url.search}`;
-        console.log('Dev proxy (API):', cloudRunUrl);
-
-        const response = await fetch(cloudRunUrl, {
-          method: req.method || 'GET',
-          headers: {
-            'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
-            'Content-Type': 'application/json',
-            ...(req.headers['x-ghl-location-id'] ? { 'X-GHL-Location-ID': req.headers['x-ghl-location-id'] as string } : {}),
-          },
-          body: (req.method !== 'GET' && req.method !== 'HEAD') ? req : undefined,
-          // @ts-ignore - fetch in node handles stream bodies
-          duplex: 'half'
-        });
-
-        const data = await response.json();
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify(data));
-      } catch (error) {
-        // Only log if it's not a 404 which might be handled by next()
-        console.error(`Dev proxy error for ${path}:`, error);
-        next();
-      }
-    });
-
-    // Keeping specific ones for SMS because of payload wrapping logic
+    // 1. Specific handler for SMS (needs payload wrapping)
     server.middlewares.use('/api/sms', async (req, res) => {
       if (req.method === 'POST') {
         let body = '';
@@ -56,8 +17,6 @@ const smsProxyPlugin = () => ({
         req.on('end', async () => {
           try {
             const { number, message, sendername } = JSON.parse(body);
-
-            // Rebuild the body with the customData wrapper as JSON
             const payload = {
               customData: {
                 number: number || '',
@@ -79,15 +38,15 @@ const smsProxyPlugin = () => ({
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify(data));
           } catch (error) {
-            console.error('Vite Proxy Error:', error);
+            console.error('Vite Proxy Error (/api/sms):', error);
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ status: 'error', message: 'Failed to send SMS via proxy' }));
+            res.end(JSON.stringify({ status: 'error', message: 'Failed to send SMS' }));
           }
         });
       }
     });
 
-    // Dev proxy for /webhook/send_sms (matches the relative path used by sms.ts)
+    // 2. Specific handler for /webhook/send_sms
     server.middlewares.use('/webhook/send_sms', async (req, res) => {
       if (req.method === 'POST') {
         let body = '';
@@ -106,7 +65,7 @@ const smsProxyPlugin = () => ({
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify(data));
           } catch (error) {
-            console.error('Dev proxy error for /webhook/send_sms:', error);
+            console.error('Vite Proxy Error (/webhook/send_sms):', error);
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ status: 'error', message: 'Failed to send SMS' }));
           }
@@ -114,28 +73,7 @@ const smsProxyPlugin = () => ({
       }
     });
 
-
-    server.middlewares.use('/api/credits', async (_req, res) => {
-      try {
-        const cloudRunUrl = 'https://smspro-api.nolacrm.io/api/credits';
-        const response = await fetch(cloudRunUrl, {
-          method: 'GET',
-          headers: {
-            'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
-            'Content-Type': 'application/json',
-          },
-        });
-
-        const data = await response.json();
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify(data));
-      } catch (error) {
-        console.error('Dev proxy error for /api/credits:', error);
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ status: 'error', message: 'Failed to fetch credits from backend' }));
-      }
-    });
-
+    // 3. Mock Contacts (Legacy/Internal)
     server.middlewares.use('/api/contacts', (_req, res) => {
       const mockContacts = [
         { id: '1', name: 'Raely Ivan Reyes', phone: '0976 173 1036' },
@@ -148,26 +86,42 @@ const smsProxyPlugin = () => ({
       res.end(JSON.stringify(mockContacts));
     });
 
-    // Dev proxy for /api/ghl-contacts → forwards to real backend
-    server.middlewares.use('/api/ghl-contacts', async (req, res) => {
+    // 4. Generic API Proxy for /api/* (handles /api/conversations, /api/bulk-campaigns, /api/ghl-contacts, /api/credits, etc.)
+    server.middlewares.use('/api', async (req, res, next) => {
+      const url = new URL(req.url || '', `http://${req.headers.host}`);
+      const path = url.pathname;
+
       try {
-        const url = new URL(req.url || '', 'http://localhost');
-        const cloudRunUrl = `https://smspro-api.nolacrm.io/api/ghl-contacts${url.search}`;
+        const cloudRunUrl = `https://smspro-api.nolacrm.io/api${path}${url.search}`;
+        console.log('Dev proxy (Generic):', cloudRunUrl);
+
         const response = await fetch(cloudRunUrl, {
           method: req.method || 'GET',
           headers: {
             'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
             'Content-Type': 'application/json',
             ...(req.headers['x-ghl-location-id'] ? { 'X-GHL-Location-ID': req.headers['x-ghl-location-id'] as string } : {}),
+            ...(req.headers['authorization'] ? { 'Authorization': req.headers['authorization'] as string } : {}),
           },
+          body: (req.method !== 'GET' && req.method !== 'HEAD') ? req : undefined,
+          // @ts-ignore
+          duplex: 'half'
         });
-        const data = await response.json();
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify(data));
+
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify(data));
+        } else {
+          const text = await response.text();
+          console.error(`Backend non-JSON response for ${path}:`, response.status);
+          res.statusCode = response.status;
+          res.end(text);
+        }
       } catch (error) {
-        console.error('Dev proxy error for /api/ghl-contacts:', error);
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ status: 'error', message: 'Failed to fetch GHL contacts' }));
+        console.error(`Dev proxy error for /api${path}:`, error);
+        next(); // Fallback to SPA if it really blows up
       }
     });
   },
