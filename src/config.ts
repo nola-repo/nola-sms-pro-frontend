@@ -1,13 +1,13 @@
 /**
  * Centralized API configuration for NOLA SMS Pro.
- * Handles auto-switching between Vite proxy (dev) and direct backend URL (prod).
+ * All API calls use same-origin relative paths.
+ *   - Dev:  Vite dev server middleware proxies /api/* and /webhook/* to the backend.
+ *   - Prod: nginx (in Docker/Cloud Run) proxies /api/* and /webhook/* to the backend.
+ * This eliminates CORS entirely — the browser never makes a cross-origin request.
  */
 
-const isDev = import.meta.env.DEV;
-
-// In Dev, we use relative paths to trigger Vite dev server proxy middleware
-// In Prod, we use the absolute Cloud Run URL (VITE_API_BASE)
-const API_BASE = isDev ? "" : import.meta.env.VITE_API_BASE;
+// Always use relative paths so nginx/Vite can proxy server-side
+const API_BASE = "";
 
 export const API_CONFIG = {
     // Primary API Base

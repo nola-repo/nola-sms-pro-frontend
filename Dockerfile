@@ -10,19 +10,17 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# Stage 2: Serve built files
-FROM node:18-alpine
+# Stage 2: Serve with nginx (supports API proxying to avoid CORS)
+FROM nginx:alpine
 WORKDIR /app
 
-# Install serve globally
-RUN npm install -g serve
+# Copy the built SPA
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy dist folder from build stage
-COPY --from=builder /app/dist ./dist
+# Copy custom nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Use the PORT environment variable provided by Cloud Run
-ENV PORT 8080
-EXPOSE $PORT
+# Cloud Run provides PORT env var; nginx listens on 8080 (set in nginx.conf)
+EXPOSE 8080
 
-# Start the server using the shell form to ensure $PORT is expanded correctly
-CMD ["sh", "-c", "serve -s dist -l $PORT"]
+CMD ["nginx", "-g", "daemon off;"]

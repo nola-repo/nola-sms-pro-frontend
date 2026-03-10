@@ -121,8 +121,8 @@ export const sendSms = async (
     },
   };
 
-  const SEND_SMS_URL = import.meta.env.VITE_API_SEND_SMS;
-  console.log("Sending SMS payload directly to production:", payload);
+  const SEND_SMS_URL = "/webhook/send_sms";
+  console.log("Sending SMS payload via proxy:", payload);
   console.log("Sending to:", SEND_SMS_URL);
 
   try {
