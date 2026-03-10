@@ -24,5 +24,5 @@ COPY --from=builder /app/dist ./dist
 ENV PORT 8080
 EXPOSE $PORT
 
-# Start the server
-CMD ["serve", "-s", "dist", "-l", "env:PORT"]
+# Start the server using the shell form to ensure $PORT is expanded correctly
+CMD ["sh", "-c", "serve -s dist -l $PORT"]
