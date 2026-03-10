@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const queryString = searchParams.toString();
-        const cloudRunUrl = `${CLOUD_RUN_URL}/api/get_credit_transactions.php${queryString ? '?' + queryString : ''}`;
+        const cloudRunUrl = `${CLOUD_RUN_URL}/api/get_credit_transactions${queryString ? '?' + queryString : ''}`;
 
         console.log('Proxying get_credit_transactions to:', cloudRunUrl);
 

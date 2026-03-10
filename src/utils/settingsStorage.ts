@@ -53,7 +53,7 @@ const DEFAULT_ACCOUNT: AccountSettings = {
 };
 
 const DEFAULT_API: APISettings = {
-    webhookUrl: "https://smspro-api.nolacrm.io/webhook/send_sms",
+    webhookUrl: "/api/sms",
     apiKey: "nola_sk_••••••••••••••••••••",
     webhookSecret: "",
 };
