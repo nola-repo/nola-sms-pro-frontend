@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FiLoader, FiCheckCircle, FiXCircle } from 'react-icons/fi';
-import { getAPISettings, getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
+import { API_CONFIG } from '../config';
+import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 
 // Change this to match the Redirect URI you set in GHL Marketplace
 const REDIRECT_URI = window.location.origin + window.location.pathname; // If they go to /?code=...
@@ -29,11 +30,10 @@ export const GhlCallback: React.FC = () => {
             }
 
             try {
-                const apiSettings = getAPISettings();
                 const accountSettings = getAccountSettings();
 
                 // Call our PHP backend to exchange code for token
-                const response = await fetch(`${apiSettings.webhookUrl.replace('/send_sms', '')}/ghl_oauth.php`, {
+                const response = await fetch(`${API_CONFIG.base}/api/ghl_oauth`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code, redirectUri: REDIRECT_URI })

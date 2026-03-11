@@ -14,9 +14,9 @@ export const API_CONFIG = {
     base: API_BASE,
 
     // Specific Endpoints
-    sms: `${API_BASE}/webhook/send_sms`,
+    sms: `${API_BASE}/api/send_sms`,
     credits: `${API_BASE}/api/credits`,
-    contacts: `${API_BASE}/api/ghl-contacts`,
+    contacts: `${API_BASE}/api/ghl_contacts`,
     messages: `${API_BASE}/api/messages`,
     conversations: `${API_BASE}/api/conversations`,
     bulk_campaigns: `${API_BASE}/api/bulk-campaigns`,

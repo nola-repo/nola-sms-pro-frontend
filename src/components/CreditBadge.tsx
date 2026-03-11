@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { FiCreditCard, FiRefreshCw, FiZap, FiPlus } from "react-icons/fi";
-import { API_CONFIG } from "../config";
+import { fetchCreditBalance } from "../api/credits";
 
 export const CreditBadge = () => {
     const [balance, setBalance] = useState<number | null>(null);
@@ -15,14 +15,8 @@ export const CreditBadge = () => {
     const fetchBalance = async () => {
         setLoading(true);
         try {
-            const res = await fetch(API_CONFIG.credits, {
-                headers: {
-                    'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
-                    'Content-Type': 'application/json',
-                }
-            });
-            const data = await res.json();
-            setBalance(data.credit_balance ?? data.balance ?? data.data?.balance ?? 0);
+            const newBalance = await fetchCreditBalance();
+            setBalance(newBalance);
         } catch (error) {
             console.error("Failed to fetch balance", error);
         } finally {

@@ -1,6 +1,7 @@
 import type { SmsLog, BulkMessageHistoryItem, FirestoreMessage, Conversation } from "../types/Sms";
 
 import { API_CONFIG } from "../config";
+import { getAccountSettings } from "../utils/settingsStorage";
 
 const WEBHOOK_URL = API_CONFIG.messages;
 
@@ -55,9 +56,15 @@ export const fetchSmsLogs = async (phoneNumber: string): Promise<SmsLog[]> => {
   if (!formattedNumber) return [];
 
   try {
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {};
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
     // Fetch ALL outbound messages (without number filter)
     // Then filter client-side by checking if phoneNumber is in the numbers array
-    const res = await fetch(`${WEBHOOK_URL}?direction=outbound&limit=500`);
+    const res = await fetch(`${WEBHOOK_URL}?direction=outbound&limit=500`, { headers });
     if (!res.ok) throw new Error("Failed to fetch message history");
     const data = await res.json();
     console.log('SMS Logs Response:', data);
@@ -128,11 +135,17 @@ export const sendSms = async (
   console.log("Sending to:", SEND_SMS_URL);
 
   try {
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
     const res = await fetch(SEND_SMS_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
@@ -189,7 +202,13 @@ export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => 
   if (!batchId) return [];
 
   try {
-    const res = await fetch(`${WEBHOOK_URL}?batch_id=${batchId}&limit=500`);
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {};
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
+    const res = await fetch(`${WEBHOOK_URL}?batch_id=${batchId}&limit=500`, { headers });
     if (!res.ok) throw new Error("Failed to fetch batch messages");
     const data = await res.json();
     return data.data || [];
@@ -213,6 +232,12 @@ export const fetchMessagesByConversationId = async (
   if (!conversationId) return [];
 
   try {
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {};
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
     let url = `${API_CONFIG.messages}?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`;
 
     // If recipientKey is provided, we're isolating a single user's history within a bulk campaign
@@ -220,7 +245,7 @@ export const fetchMessagesByConversationId = async (
       url += `&recipient_key=${encodeURIComponent(recipientKey)}`;
     }
 
-    const res = await fetch(url);
+    const res = await fetch(url, { headers });
     if (!res.ok) throw new Error(`Failed to fetch conversation messages: ${res.status}`);
     const data = await res.json();
     return (data.data || data || []) as FirestoreMessage[];
@@ -236,8 +261,14 @@ export const fetchMessagesByConversationId = async (
  */
 export const fetchConversations = async (): Promise<Conversation[]> => {
   try {
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {};
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
     const CONVERSATIONS_URL = API_CONFIG.conversations;
-    const res = await fetch(CONVERSATIONS_URL);
+    const res = await fetch(CONVERSATIONS_URL, { headers });
     if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
     const data = await res.json();
     // Data may be { data: [...] } or a plain array or { conversations: [...] }
@@ -253,7 +284,13 @@ export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise
   if (!recipientKey) return [];
 
   try {
-    const res = await fetch(`${WEBHOOK_URL}?recipient_key=${encodeURIComponent(recipientKey)}&limit=500`);
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {};
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
+    const res = await fetch(`${WEBHOOK_URL}?recipient_key=${encodeURIComponent(recipientKey)}&limit=500`, { headers });
     if (!res.ok) throw new Error("Failed to fetch messages by recipient_key");
     const data = await res.json();
     // Handle both array response and {data: [...]} response
@@ -267,8 +304,14 @@ export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise
 // Fetch all bulk messages from Firestore (grouped by batch)
 export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> => {
   try {
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {};
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
     const BULK_CAMPAIGNS_URL = API_CONFIG.bulk_campaigns;
-    const res = await fetch(BULK_CAMPAIGNS_URL);
+    const res = await fetch(BULK_CAMPAIGNS_URL, { headers });
     console.log('[fetchAllBulkMessages] Response status:', res.status);
     if (!res.ok) {
       const errorText = await res.text();
@@ -305,9 +348,15 @@ export const renameConversation = async (conversationId: string, newName: string
   if (!conversationId || !newName) return false;
 
   try {
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
     const res = await fetch(API_CONFIG.messages, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ id: conversationId, name: newName }),
     });
 
@@ -326,8 +375,15 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
   if (!conversationId) return false;
 
   try {
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {};
+    if (accountSettings.ghlLocationId) {
+      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    }
+
     const res = await fetch(`${API_CONFIG.messages}?conversation_id=${encodeURIComponent(conversationId)}`, {
       method: 'DELETE',
+      headers,
     });
 
     if (!res.ok) throw new Error(`Failed to delete conversation: ${res.status}`);

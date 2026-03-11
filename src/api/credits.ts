@@ -1,4 +1,5 @@
 import { API_CONFIG } from "../config";
+import { getAccountSettings } from "../utils/settingsStorage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface CreditTransaction {
@@ -20,7 +21,16 @@ export interface CreditTransaction {
  */
 export async function fetchCreditBalance(): Promise<number> {
     try {
-        const res = await fetch(API_CONFIG.credits);
+        const accountSettings = getAccountSettings();
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+
+        if (accountSettings.ghlLocationId) {
+            headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+        }
+
+        const res = await fetch(API_CONFIG.credits, { headers });
         if (!res.ok) return 0;
         const data = await res.json();
         return data.credit_balance ?? data.balance ?? data.data?.balance ?? 0;
@@ -38,8 +48,18 @@ export async function fetchCreditTransactions(
     limit = 50,
 ): Promise<CreditTransaction[]> {
     try {
+        const accountSettings = getAccountSettings();
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+
+        if (accountSettings.ghlLocationId) {
+            headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+        }
+
         const res = await fetch(
-            `${API_CONFIG.base}/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`
+            `${API_CONFIG.base}/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`,
+            { headers }
         );
         if (!res.ok) return [];
         const data = await res.json();

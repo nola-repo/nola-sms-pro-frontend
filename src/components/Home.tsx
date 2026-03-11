@@ -4,6 +4,7 @@ import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
 import { fetchConversations, type SenderId } from "../api/sms";
 import { fetchContacts } from "../api/contacts";
+import { fetchCreditBalance } from "../api/credits";
 import SplitText from "./SplitText";
 import AnimatedContent from "./AnimatedContent";
 import FadeContent from "./FadeContent";
@@ -28,11 +29,9 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
             setLoading(true);
 
             // Run all three fetches independently — one failure won't block the others
-            const [credData, convs, contacts] = await Promise.allSettled([
-                // 1. Fetch Balance (use relative path; nginx/Vite proxies to backend)
-                fetch('/api/credits', {
-                    headers: { 'Content-Type': 'application/json' }
-                }).then(r => r.ok ? r.json() : null).catch(() => null),
+            const [credPrice, convs, contacts] = await Promise.allSettled([
+                // 1. Fetch Balance
+                fetchCreditBalance(),
 
                 // 2. Fetch Conversations
                 fetchConversations().catch(() => []),
@@ -41,9 +40,8 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                 fetchContacts().catch(() => []),
             ]);
 
-            if (credData.status === 'fulfilled' && credData.value) {
-                const d = credData.value;
-                setBalance(d.balance ?? d.credit_balance ?? d.data?.balance ?? 0);
+            if (credPrice.status === 'fulfilled') {
+                setBalance(credPrice.value);
             }
 
             if (convs.status === 'fulfilled') {
