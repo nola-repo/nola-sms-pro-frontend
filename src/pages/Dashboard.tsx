@@ -6,9 +6,9 @@ import type { ViewTab } from "../components/Sidebar";
 import { Composer } from "../components/Composer";
 import { ContactsTab } from "../components/ContactsTab";
 import { Settings } from "./Settings";
-import { TbLayoutSidebarRightCollapse } from "react-icons/tb";
 import { FiMenu } from "react-icons/fi";
 import { Home } from "../components/Home";
+import { getAccountSettings } from "../utils/settingsStorage";
 
 interface DashboardProps {
   isMobileMenuOpen?: boolean;
