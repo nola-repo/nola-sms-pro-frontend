@@ -6,7 +6,7 @@ import type { ViewTab } from "../components/Sidebar";
 import { Composer } from "../components/Composer";
 import { ContactsTab } from "../components/ContactsTab";
 import { Settings } from "./Settings";
-import { FiMenu } from "react-icons/fi";
+import { FiMenu, FiSettings } from "react-icons/fi";
 import { Home } from "../components/Home";
 import { getAccountSettings } from "../utils/settingsStorage";
 
@@ -174,24 +174,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             </div>
             <span className="font-bold text-[15px] text-[#111111] dark:text-white tracking-tight">NOLA SMS Pro</span>
           </div>
-          {/* Dark Mode Toggle in Mobile Header */}
-          {toggleDarkMode && (
+          <div className="flex items-center gap-1">
             <button
-              onClick={toggleDarkMode}
-              className="p-2 rounded-lg hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] transition-colors"
-              aria-label="Toggle theme"
+              onClick={() => handleTabChange('settings')}
+              className="p-2 rounded-lg hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] transition-colors settings-icon-rotate"
+              aria-label="Settings"
             >
-              {darkMode ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-              )}
+              <FiSettings className="h-5 w-5" strokeWidth={1.5} />
             </button>
-          )}
+            {toggleDarkMode && (
+              <button
+                onClick={toggleDarkMode}
+                className="p-2 rounded-lg hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] transition-colors"
+                aria-label="Toggle theme"
+              >
+                {darkMode ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Missing Location Alert */}

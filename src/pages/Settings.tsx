@@ -161,7 +161,7 @@ const AccountSection: React.FC = () => {
     };
 
     const handleConnectGhl = () => {
-        const clientId = "6999da2b8f278296d95f7274-mm9wv85e";
+        const clientId = form.ghlClientId || "6999da2b8f278296d95f7274-mm9wv85e";
         const redirectUri = window.location.origin + window.location.pathname;
         const scopes = "contacts.readonly contacts.write conversations.readonly conversations/message.readonly conversations/message.write locations.readonly";
         const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&client_id=${clientId}&scope=${encodeURIComponent(scopes)}`;
@@ -247,6 +247,13 @@ const AccountSection: React.FC = () => {
                         </div>
 
                         <div className="space-y-3">
+                            <InputField
+                                label="GHL Client ID"
+                                id="ghlClientId"
+                                placeholder="Paste your GHL Client ID here"
+                                {...field("ghlClientId")}
+                                hint="Matches GHL_CLIENT_ID in your backend environment."
+                            />
                             <InputField
                                 label="GHL Location ID"
                                 id="ghlLocationId"

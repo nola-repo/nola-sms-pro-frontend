@@ -17,6 +17,15 @@
   .btn-new-message:active {
     transform: scale(0.95);
   }
+
+  @keyframes gear-rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(180deg); }
+  }
+
+  .settings-icon-rotate:hover svg {
+    animation: gear-rotate 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
 }
 
 html {

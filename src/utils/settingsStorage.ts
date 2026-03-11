@@ -16,6 +16,7 @@ export interface AccountSettings {
     creditBalance: number;
     ghlLocationId: string;
     ghlOAuthConnected?: boolean;
+    ghlClientId?: string;
 }
 
 export interface APISettings {
@@ -50,6 +51,7 @@ const DEFAULT_ACCOUNT: AccountSettings = {
     creditBalance: 500,
     ghlLocationId: "",
     ghlOAuthConnected: false,
+    ghlClientId: "69aa6cc3412b25467476d5de-mmehrtt9", // Default: Raely end
 };
 
 const DEFAULT_API: APISettings = {
