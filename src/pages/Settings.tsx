@@ -646,6 +646,20 @@ const CreditsSection: React.FC = () => {
 
     const handleTopUp = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Open the checkout link in a popup window
+        const checkoutUrl = "https://sms.nolawebsolutions.com/nola-sms-pro-500-credits";
+        const width = 1200;
+        const height = 660;
+        const left = (window.screen.width / 2) - (width / 2);
+        const top = (window.screen.height / 2) - (height / 2);
+        
+        window.open(
+            checkoutUrl, 
+            "Checkout", 
+            `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+        );
+
         setSubmitted(true);
         setTimeout(() => setSubmitted(false), 2500);
     };
@@ -730,7 +744,7 @@ const CreditsSection: React.FC = () => {
                     </div>
                     {submitted ? (
                         <div className="flex items-center justify-center gap-2 py-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl text-emerald-600 dark:text-emerald-400 font-semibold text-[13px]">
-                            <FiCheck className="w-4 h-4" /> Top-up request submitted! Admin will review shortly.
+                            <FiCheck className="w-4 h-4" /> Checkout window opened. Please complete your payment
                         </div>
                     ) : (
                         <button type="submit" className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-semibold text-[14px] transition-all shadow-md shadow-blue-500/20">

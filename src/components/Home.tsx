@@ -149,10 +149,20 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
                                     <FiCreditCard className="h-5 w-5" />
                                 </div>
-                                <p className="text-[13px] font-bold text-white/70 uppercase tracking-widest mb-1">Available Credits</p>
-                                <h2 className="text-3xl font-black text-white">
-                                    {loading ? "---" : balance?.toLocaleString()}
-                                </h2>
+                                 <p className="text-[13px] font-bold text-white/70 uppercase tracking-widest mb-1">Available Credits</p>
+                                <div className="flex items-center justify-between gap-4">
+                                    <h2 className="text-3xl font-black text-white">
+                                        {loading ? "---" : balance?.toLocaleString()}
+                                    </h2>
+                                    <button
+                                        onClick={() => {
+                                            window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }));
+                                        }}
+                                        className="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold transition-all flex items-center gap-1.5"
+                                    >
+                                        <FiPlus className="w-3 h-3" /> Top Up
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </AnimatedContent>
