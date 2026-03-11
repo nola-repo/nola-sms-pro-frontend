@@ -47,26 +47,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const cloudRunUrl = `${CLOUD_RUN_URL}/api/conversations`;
       console.log('Proxying fetch_conversations to:', cloudRunUrl);
 
-      try {
-        const response = await fetch(cloudRunUrl, {
-          method: 'GET',
-          headers: {
-            'X-Webhook-Secret': WEBHOOK_SECRET,
-            'Content-Type': 'application/json',
-            ...(forwardedLocationId ? { 'X-GHL-Location-ID': forwardedLocationId } : {}),
-          },
-        });
+      const response = await fetch(cloudRunUrl, {
+        method: 'GET',
+        headers: {
+          'X-Webhook-Secret': WEBHOOK_SECRET,
+          'Content-Type': 'application/json',
+          ...(forwardedLocationId ? { 'X-GHL-Location-ID': forwardedLocationId } : {}),
+        },
+      });
 
-        if (!response.ok) {
-          // Endpoint not yet deployed — return empty array so frontend falls back silently
-          return res.status(200).json([]);
-        }
-
-        const data = await response.json();
-        return res.status(200).json(data);
-      } catch {
-        return res.status(200).json([]);
-      }
+      const data = await response.json();
+      return res.status(response.status).json(data);
     }
 
     // Route based on method
