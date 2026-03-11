@@ -14,12 +14,12 @@ export const API_CONFIG = {
     base: API_BASE,
 
     // Specific Endpoints
-    sms: `${API_BASE}/api/send_sms`,
+    sms: `${API_BASE}/api/sms`,
     credits: `${API_BASE}/api/credits`,
-    contacts: `${API_BASE}/api/ghl_contacts`,
+    contacts: `${API_BASE}/api/contacts`,
     messages: `${API_BASE}/api/messages`,
-    conversations: `${API_BASE}/api/conversations`,
-    bulk_campaigns: `${API_BASE}/api/bulk-campaigns`,
+    conversations: `${API_BASE}/api/messages?action=fetch_conversations`,
+    bulk_campaigns: `${API_BASE}/api/messages?action=fetch_bulk_messages`,
 };
 
 export default API_CONFIG;
