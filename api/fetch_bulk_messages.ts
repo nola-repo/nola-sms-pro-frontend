@@ -16,6 +16,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const locationId = req.headers['x-ghl-location-id'] || req.query.location_id;
+    const forwardedLocationId = Array.isArray(locationId) ? locationId[0] : locationId;
+
     const possibleUrls = [
       `${CLOUD_RUN_URL}/api/bulk-campaigns`,
     ];
@@ -30,6 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           method: 'GET',
           headers: {
             'X-Webhook-Secret': WEBHOOK_SECRET,
+            ...(forwardedLocationId ? { 'X-GHL-Location-ID': forwardedLocationId } : {}),
           },
         });
 
