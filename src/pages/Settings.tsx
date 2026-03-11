@@ -160,13 +160,6 @@ const AccountSection: React.FC = () => {
         setTimeout(() => setSaved(false), 2000);
     };
 
-    const handleConnectGhl = () => {
-        const clientId = form.ghlClientId || "6999da2b8f278296d95f7274-mm9wv85e";
-        const redirectUri = window.location.origin + window.location.pathname;
-        const scopes = "contacts.readonly contacts.write conversations.readonly conversations/message.readonly conversations/message.write locations.readonly";
-        const authUrl = `https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&client_id=${clientId}&scope=${encodeURIComponent(scopes)}`;
-        window.location.href = authUrl;
-    };
 
     const statusCfg = STATUS_CONFIG[form.accountStatus];
 
@@ -262,15 +255,6 @@ const AccountSection: React.FC = () => {
                                 hint="Found in GHL Settings > Business Profile"
                             />
 
-                            {form.ghlLocationId && (
-                                <button
-                                    onClick={handleConnectGhl}
-                                    type="button"
-                                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#2b83fa] hover:bg-[#1d6bd4] text-white rounded-xl font-semibold text-[13px] transition-colors shadow-sm"
-                                >
-                                    <FiGlobe className="w-4 h-4" /> Connect API with GoHighLevel
-                                </button>
-                            )}
                         </div>
                     </div>
                 )}
