@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { FiHome, FiPlus, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX } from "react-icons/fi";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
-import { fetchConversations } from "../api/sms";
+import { fetchConversations, type SenderId } from "../api/sms";
 import { fetchContacts } from "../api/contacts";
 import SplitText from "./SplitText";
 import AnimatedContent from "./AnimatedContent";
 import FadeContent from "./FadeContent";
+import { SenderSelector } from "./SenderSelector";
 
 interface HomeProps {
     onTabChange: (tab: any) => void;
@@ -20,6 +21,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
     const [contactsCount, setContactsCount] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [showAllActivity, setShowAllActivity] = useState(false);
+    const [senderName, setSenderName] = useState<SenderId>("NOLACRM");
 
     useEffect(() => {
         const loadHomeData = async () => {
@@ -102,8 +104,8 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         <div className="h-full flex flex-col overflow-y-auto custom-scrollbar bg-[#f9fafb] dark:bg-[#111111]">
             <div className="max-w-5xl mx-auto w-full px-6 py-8 sm:py-12">
                 {/* Header Section */}
-                <div className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="flex items-center gap-4 mb-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center shadow-[0_8px_25px_rgba(43,131,250,0.4)]">
                             <FiHome className="h-6 w-6 text-white" />
                         </div>
@@ -127,6 +129,14 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 <p className="text-[#6e6e73] dark:text-[#a0a0ab] font-medium">Welcome back to NOLA SMS PRO</p>
                             </FadeContent>
                         </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <SenderSelector
+                            value={senderName}
+                            onChange={setSenderName}
+                            align="right"
+                        />
                     </div>
                 </div>
 
@@ -284,7 +294,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                         <div className="flex flex-col items-end gap-1 flex-shrink-0">
                                             <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
                                                 <FiClock size={10} />
-                                                {conv.last_message_at ? new Date(conv.last_message_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : "--"}
+                                                {conv.last_message_at ? new Date(conv.last_message_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "--"}
                                             </div>
                                             <div className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa] text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
                                                 View
@@ -344,7 +354,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                                         <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
                                             <FiClock size={10} />
-                                            {conv.last_message_at ? new Date(conv.last_message_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : "--"}
+                                            {conv.last_message_at ? new Date(conv.last_message_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "--"}
                                         </div>
                                     </div>
                                 </button>

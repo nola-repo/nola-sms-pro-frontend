@@ -11,6 +11,18 @@ interface ContactsTabProps {
   onViewMessages?: (contact: Contact) => void;
 }
 
+const ContactSkeleton = () => (
+  <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl bg-white/50 dark:bg-[#1a1b1e]/50 border border-gray-100 dark:border-white/5 animate-pulse mb-2">
+    <div className="w-6 h-6 rounded-lg bg-gray-200 dark:bg-white/10 flex-shrink-0" />
+    <div className="w-9 sm:w-11 h-9 sm:h-11 rounded-xl sm:rounded-2xl bg-gray-200 dark:bg-white/10 flex-shrink-0" />
+    <div className="flex-1 space-y-2 min-w-0">
+      <div className="h-4 w-1/3 bg-gray-200 dark:bg-white/10 rounded-md" />
+      <div className="h-3 w-1/4 bg-gray-100 dark:bg-white/5 rounded-md" />
+    </div>
+    <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 flex-shrink-0" />
+  </div>
+);
+
 export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onViewMessages }) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
@@ -226,16 +238,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
 
   const isAllSelected = filteredContacts.length > 0 && selectedContacts.length === filteredContacts.length;
 
-  if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-[#f7f7f7] dark:bg-[#18191d]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-[#2b83fa]/30 border-t-[#2b83fa] rounded-full animate-spin"></div>
-          <span className="text-[14px] text-gray-500 dark:text-gray-400 font-medium">Loading contacts...</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-full bg-[#f7f7f7] dark:bg-[#111111]">
@@ -344,7 +346,13 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
               </svg>
             </div>
           )}
-          {groupedContacts.length === 0 ? (
+          {loading ? (
+            <div className="space-y-1">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <ContactSkeleton key={i} />
+              ))}
+            </div>
+          ) : groupedContacts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
               <div className="w-16 h-16 mb-4 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center">
                 <FiSearch className="h-8 w-8 text-gray-400" />

@@ -73,37 +73,35 @@ const smsProxyPlugin = () => ({
       }
     });
 
-    // 3. Mock Contacts (Legacy/Internal)
-    server.middlewares.use('/api/contacts', (_req, res) => {
-      const mockContacts = [
-        { id: '1', name: 'Raely Ivan Reyes', phone: '0976 173 1036' },
-        { id: '2', name: 'David Monzon', phone: '0970 812 9927' },
-        { id: '3', name: 'Nola Support', phone: '09987654321' },
-        { id: '4', name: 'John Doe', phone: '09223334445' },
-        { id: '5', name: 'Jane Smith', phone: '09556667778' },
-      ];
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify(mockContacts));
-    });
-
-    // 4. Generic API Proxy for /api/* (handles /api/conversations, /api/bulk-campaigns, /api/ghl-contacts, /api/credits, etc.)
+    // 3. Generic API Proxy for /api/* 
     server.middlewares.use('/api', async (req, res, next) => {
       const url = new URL(req.url || '', `http://${req.headers.host}`);
-      const path = url.pathname;
+      let path = url.pathname;
+      const method = req.method || 'GET';
 
       try {
-        const cloudRunUrl = `https://smspro-api.nolacrm.io/api${path}${url.search}`;
-        console.log('Dev proxy (Generic):', cloudRunUrl);
+        let cloudRunUrl = `https://smspro-api.nolacrm.io/api${path}${url.search}`;
+
+        // Specific Rerouting Logic
+        if (path === '/contacts') {
+          // Map /api/contacts to backend /api/ghl-contacts
+          cloudRunUrl = `https://smspro-api.nolacrm.io/api/ghl-contacts${url.search}`;
+        } else if (path === '/messages' && (method === 'PUT' || method === 'DELETE')) {
+          // Map /api/messages (PUT/DELETE) to backend /api/conversations
+          cloudRunUrl = `https://smspro-api.nolacrm.io/api/conversations${url.search}`;
+        }
+
+        console.log(`Dev proxy (${method}):`, cloudRunUrl);
 
         const response = await fetch(cloudRunUrl, {
-          method: req.method || 'GET',
+          method: method,
           headers: {
             'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
             'Content-Type': 'application/json',
             ...(req.headers['x-ghl-location-id'] ? { 'X-GHL-Location-ID': req.headers['x-ghl-location-id'] as string } : {}),
             ...(req.headers['authorization'] ? { 'Authorization': req.headers['authorization'] as string } : {}),
           },
-          body: (req.method !== 'GET' && req.method !== 'HEAD') ? req : undefined,
+          body: (method !== 'GET' && method !== 'HEAD') ? req : undefined,
           // @ts-ignore
           duplex: 'half'
         });

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { FiPlus, FiX, FiCheck } from "react-icons/fi";
 import { addSenderId, type StoredSenderId } from "../utils/settingsStorage";
 
@@ -41,8 +42,8 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
         }, 3000);
     };
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    return createPortal(
+        <div className="fixed inset-0 z-[100] grid place-items-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose} />
             <div className="relative w-full max-w-md bg-white dark:bg-[#18191d] rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200 overflow-hidden">
                 <div className="flex items-center justify-between mb-5">
@@ -114,6 +115,7 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                     </form>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };

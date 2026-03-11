@@ -91,13 +91,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const handleTabChange = (tab: ViewTab) => {
     setCurrentView(tab);
     localStorage.setItem('nola_active_tab', tab);
-    if (tab === 'compose') {
-      setSelectedContacts([]);
-      setActiveContact(null);
-      setActiveBulkMessage(null);
-      localStorage.removeItem('nola_active_contact');
-      localStorage.removeItem('nola_active_bulk_message');
-    }
+
+    // Clear selection for ALL tab changes to ensure Sidebar highlights are removed
+    setSelectedContacts([]);
+    setActiveContact(null);
+    setActiveBulkMessage(null);
+    localStorage.removeItem('nola_active_contact');
+    localStorage.removeItem('nola_active_bulk_message');
+
     // On mobile, close sidebar when selecting any tab
     if (window.innerWidth < 768 && onMobileMenuToggle) {
       onMobileMenuToggle();

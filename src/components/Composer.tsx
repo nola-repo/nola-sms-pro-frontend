@@ -164,40 +164,29 @@ export const Composer: React.FC<ComposerProps> = ({
     scrollToBottom();
   }, [messages]);
 
-  // Reset when active contact changes
+  // Consolidated effect to sync internal state with props and handle "New Message" (reset)
   useEffect(() => {
     if (activeContact) {
       setBulkSelectedContacts([activeContact]);
-    }
-  }, [activeContact]);
-
-  // Handle pre-selected contacts from ContactsTab (bulk selection)
-  useEffect(() => {
-    if (selectedContacts.length > 0) {
-      if (selectedContacts.length === 1 && !activeContact) {
-        setBulkSelectedContacts(selectedContacts);
-        setComposeMode("single");
-      } else if (selectedContacts.length > 1) {
-        setBulkSelectedContacts(selectedContacts);
-        setComposeMode("bulk");
-      }
-    }
-  }, [selectedContacts]);
-
-  // Handle selected bulk message from Sidebar
-  useEffect(() => {
-    if (activeBulkMessage) {
+      setComposeMode("single");
+    } else if (activeBulkMessage) {
       setComposeMode("bulk");
-      // Derive contacts from activeBulkMessage numbers if possible
-      // For now, we at least set the mode so useGroupMessages triggers
       const derivedContacts: Contact[] = activeBulkMessage.recipientNumbers.map((num, i) => ({
         id: `bulk-derive-${num}`,
         name: activeBulkMessage.recipientNames?.[i] || num,
         phone: num
       }));
       setBulkSelectedContacts(derivedContacts);
+    } else if (selectedContacts.length > 0) {
+      setBulkSelectedContacts(selectedContacts);
+      setComposeMode(selectedContacts.length > 1 ? "bulk" : "single");
+    } else {
+      // Clear state for "New Message" or when selection is removed in Dashboard
+      setBulkSelectedContacts([]);
+      setComposeMode("single");
+      setMessage("");
     }
-  }, [activeBulkMessage]);
+  }, [activeContact, selectedContacts, activeBulkMessage]);
 
   // Reset bulkSelectedContacts when switching from bulk to single mode
   useEffect(() => {

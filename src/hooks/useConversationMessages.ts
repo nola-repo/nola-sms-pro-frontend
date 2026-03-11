@@ -44,7 +44,10 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             }
         }
 
-        if (!conversationId) return;
+        if (!conversationId) {
+            setMessages([]);
+            return;
+        }
 
         if (showLoading) setLoading(true);
         setError(null);

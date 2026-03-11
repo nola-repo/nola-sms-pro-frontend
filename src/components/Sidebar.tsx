@@ -23,6 +23,16 @@ interface SidebarProps {
   onCloseMobile?: () => void;
 }
 
+const SidebarSkeleton = () => (
+  <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg animate-pulse mb-0.5">
+    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-white/10 flex-shrink-0" />
+    <div className="flex-1 min-w-0 space-y-2">
+      <div className="h-3 w-2/3 bg-gray-200 dark:bg-white/10 rounded" />
+      <div className="h-2 w-full bg-gray-100 dark:bg-white/5 rounded" />
+    </div>
+  </div>
+);
+
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
@@ -35,6 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile
 }) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [directHistory, setDirectHistory] = useState<Contact[]>([]);
   const [bulkHistory, setBulkHistory] = useState<BulkMessageHistoryItem[]>(() => getBulkMessageHistory());
   const [directMessagesExpanded, setDirectMessagesExpanded] = useState(true);
   const [bulkMessagesExpanded, setBulkMessagesExpanded] = useState(true);
@@ -43,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const touchStartY = useRef<number>(0);
   const contactsListRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +89,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
         // 3. New conversations collection (highest priority for server truth)
         try {
           const conversations = await fetchConversations();
+
+          // Handle Direct Conversations
+          const directConvs = conversations.filter(c => c.type === 'direct' || !c.type);
+          const historyContacts: Contact[] = directConvs.map(conv => {
+            const phone = conv.id.replace(/^conv_/, '');
+            return {
+              id: conv.id,
+              name: conv.name || phone,
+              phone: phone,
+              lastMessage: conv.last_message,
+              lastSentAt: conv.last_message_at || conv.updated_at || undefined
+            };
+          }).sort((a, b) => {
+            const timeA = new Date(a.lastSentAt || 0).getTime();
+            const timeB = new Date(b.lastSentAt || 0).getTime();
+            return timeB - timeA;
+          });
+          setDirectHistory(historyContacts);
+
+          // Handle Bulk Conversations
           conversations
             .filter(c => c.type === 'bulk')
             .forEach(conv => {
@@ -112,6 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       console.error(e);
     } finally {
       if (showSpinner) setIsRefreshing(false);
+      setLoading(false);
     }
   }, []);
 
@@ -395,7 +428,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Direct Messages Header - Sticky */}
             <div
-              className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer border-t border-[#00000005] dark:border-[#ffffff05] pt-2"
+              className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer border-t border-[#00000005] dark:border-[#ffffff05] pt-2"
               onClick={() => setDirectMessagesExpanded(!directMessagesExpanded)}
             >
               <div className="flex items-center gap-2">
@@ -404,13 +437,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 <h3 className="text-[13px] font-semibold text-[#3c4043] dark:text-[#e8eaed]">Direct Messages</h3>
               </div>
-              <span className="text-[11px] font-medium text-[#5f6368] dark:text-[#9aa0a6] bg-[#f1f3f4] dark:bg-[#3c4043] px-1.5 py-0.5 rounded">{contacts.length}</span>
+              <span className="text-[11px] font-medium text-[#5f6368] dark:text-[#9aa0a6] bg-[#f1f3f4] dark:bg-[#3c4043] px-1.5 py-0.5 rounded">
+                {directHistory.length}
+              </span>
             </div>
 
             {/* Direct Messages Content - Pull to refresh + Independent scrollable area */}
             <div
               ref={contactsListRef}
-              className={`overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-300 pb-4 ${directMessagesExpanded ? 'max-h-[35vh] opacity-100 mb-2' : 'max-h-0 opacity-0'}`}
+              className={`overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-300 pb-0 ${directMessagesExpanded ? 'max-h-[35vh] opacity-100 mb-2' : 'max-h-0 opacity-0'}`}
               onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; }}
               onTouchEnd={(e) => {
                 const delta = e.changedTouches[0].clientY - touchStartY.current;
@@ -428,99 +463,103 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               )}
               <div className="flex flex-col gap-0.5">
-                {contacts.map(contact => (
-                  <div
-                    key={contact.id}
-                    className={`
+                {loading ? (
+                  [1, 2, 3, 4, 5].map(i => <SidebarSkeleton key={i} />)
+                ) : (
+                  directHistory.map(contact => (
+                    <div
+                      key={contact.id}
+                      className={`
                       group relative transition-all duration-300 overflow-visible
                       px-2 py-1.5 rounded-lg cursor-pointer mb-0.5
                       ${activeContactId === contact.id
-                        ? 'bg-white dark:bg-[#1c1e21] shadow-[0_4px_15px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] ring-1 ring-[#00000005] dark:ring-[#ffffff05]'
-                        : 'hover:bg-black/[0.015] dark:hover:bg-white/[0.015]'}
+                          ? 'bg-white dark:bg-[#1c1e21] shadow-[0_4px_15px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] ring-1 ring-[#00000005] dark:ring-[#ffffff05]'
+                          : 'hover:bg-black/[0.015] dark:hover:bg-white/[0.015]'}
                     `}
-                    onClick={() => {
-                      onTabChange('compose');
-                      onSelectContact(contact);
-                    }}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="relative flex-shrink-0">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all duration-300 shadow-inner
+                      onClick={() => {
+                        onTabChange('compose');
+                        onSelectContact(contact);
+                      }}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative flex-shrink-0">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all duration-300 shadow-inner
                         ${activeContactId === contact.id
-                            ? 'bg-[#2b83fa] text-white shadow-[0_4px_8px_rgba(43,131,250,0.2)]'
-                            : 'bg-[#f0f0f0] dark:bg-[#202123] text-[#6e6e73] dark:text-[#ececf1] group-hover:bg-[#e8e8e8] dark:group-hover:bg-[#25262a]'}
+                              ? 'bg-[#2b83fa] text-white shadow-[0_4px_8px_rgba(43,131,250,0.2)]'
+                              : 'bg-[#f0f0f0] dark:bg-[#202123] text-[#6e6e73] dark:text-[#ececf1] group-hover:bg-[#e8e8e8] dark:group-hover:bg-[#25262a]'}
                         `}>
-                          {(contact.name || contact.phone).charAt(0).toUpperCase()}
-                        </div>
-                        <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#121415] shadow-sm transition-opacity duration-300
+                            {(contact.name || contact.phone).charAt(0).toUpperCase()}
+                          </div>
+                          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#121415] shadow-sm transition-opacity duration-300
                         ${activeContactId === contact.id ? 'bg-green-500 opacity-100' : 'bg-gray-300 dark:bg-gray-600 opacity-0 group-hover:opacity-100'}
                       `}></span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-baseline">
-                          <span className={`text-[12.5px] truncate transition-colors duration-200 ${activeContactId === contact.id ? 'font-bold text-[#111111] dark:text-white' : 'font-semibold text-[#37352f] dark:text-[#ececf1]'}`}>
-                            {toProperCase(contact.name || contact.phone)}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {deletingContactId === contact.id ? (
-                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                <button
-                                  onClick={confirmDeleteContact}
-                                  className="p-1 rounded bg-red-500 text-white hover:bg-red-600"
-                                >
-                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={cancelDeleteContact}
-                                  className="p-1 rounded bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500"
-                                >
-                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="relative">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenMenuId(openMenuId === contact.id ? null : contact.id);
-                                  }}
-                                  className="p-1 rounded hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043]"
-                                >
-                                  <FiMoreVertical className="w-3.5 h-3.5 text-[#5f6368] dark:text-[#9aa0a6]" />
-                                </button>
-                                {openMenuId === contact.id && (
-                                  <div
-                                    className="absolute right-0 top-full mt-1 bg-white dark:bg-[#2d2d2d] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[100px] z-[9999] overflow-visible"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteContact(contact.id, e);
-                                        setOpenMenuId(null);
-                                      }}
-                                      className="w-full px-3 py-1 text-left text-[11px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
-                                    >
-                                      <FiTrash2 className="w-3 h-3" />
-                                      Delete
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
                         </div>
-                        <div className={`text-[11px] truncate leading-tight transition-colors duration-200 ${activeContactId === contact.id ? 'text-[#6e6e73] dark:text-[#a0a0ab]' : 'text-[#a2a2a7] dark:text-[#6e6e73]'}`}>
-                          {contact.lastMessage || `Click to message ${contact.phone}`}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-baseline">
+                            <span className={`text-[12.5px] truncate transition-colors duration-200 ${activeContactId === contact.id ? 'font-bold text-[#111111] dark:text-white' : 'font-semibold text-[#37352f] dark:text-[#ececf1]'}`}>
+                              {toProperCase(contact.name || contact.phone)}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {deletingContactId === contact.id ? (
+                                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    onClick={confirmDeleteContact}
+                                    className="p-1 rounded bg-red-500 text-white hover:bg-red-600"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={cancelDeleteContact}
+                                    className="p-1 rounded bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(openMenuId === contact.id ? null : contact.id);
+                                    }}
+                                    className="p-1 rounded hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043]"
+                                  >
+                                    <FiMoreVertical className="w-3.5 h-3.5 text-[#5f6368] dark:text-[#9aa0a6]" />
+                                  </button>
+                                  {openMenuId === contact.id && (
+                                    <div
+                                      className="absolute right-0 top-full mt-1 bg-white dark:bg-[#2d2d2d] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[100px] z-[9999] overflow-visible"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteContact(contact.id, e);
+                                          setOpenMenuId(null);
+                                        }}
+                                        className="w-full px-3 py-1 text-left text-[11px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                                      >
+                                        <FiTrash2 className="w-3 h-3" />
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className={`text-[11px] truncate leading-tight transition-colors duration-200 ${activeContactId === contact.id ? 'text-[#6e6e73] dark:text-[#a0a0ab]' : 'text-[#a2a2a7] dark:text-[#6e6e73]'}`}>
+                            {contact.lastMessage}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div> {/* end contacts scrollable */}
 
@@ -542,7 +581,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* Bulk Messages Content - Independent scrollable area */}
               <div className={`overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-300 pb-4 ${bulkMessagesExpanded ? 'max-h-[35vh] opacity-100' : 'max-h-0 opacity-0'}`}>
                 <div className="flex flex-col gap-0.5">
-                  {bulkHistory.length > 0 ? (
+                  {loading ? (
+                    [1, 2, 3].map(i => <SidebarSkeleton key={i} />)
+                  ) : bulkHistory.length > 0 ? (
                     bulkHistory.map(item => {
                       const isActive = activeBulkMessageId === item.id;
                       return (
