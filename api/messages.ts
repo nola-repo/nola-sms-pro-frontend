@@ -15,6 +15,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
+  // Get Location ID from headers or query
+  const locationId = req.headers['x-ghl-location-id'] || req.query.location_id;
+  const forwardedLocationId = Array.isArray(locationId) ? locationId[0] : locationId;
+
   try {
     // Route based on action parameter
     const action = req.query.action as string;
@@ -29,6 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         headers: {
           'X-Webhook-Secret': WEBHOOK_SECRET,
           'Content-Type': 'application/json',
+          ...(forwardedLocationId ? { 'X-GHL-Location-ID': forwardedLocationId } : {}),
         },
       });
 
@@ -48,6 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           headers: {
             'X-Webhook-Secret': WEBHOOK_SECRET,
             'Content-Type': 'application/json',
+            ...(forwardedLocationId ? { 'X-GHL-Location-ID': forwardedLocationId } : {}),
           },
         });
 
@@ -81,6 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         headers: {
           'X-Webhook-Secret': WEBHOOK_SECRET,
           'Content-Type': 'application/json',
+          ...(forwardedLocationId ? { 'X-GHL-Location-ID': forwardedLocationId } : {}),
         },
       });
 
@@ -98,6 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         headers: {
           'X-Webhook-Secret': WEBHOOK_SECRET,
           'Content-Type': 'application/json',
+          ...(forwardedLocationId ? { 'X-GHL-Location-ID': forwardedLocationId } : {}),
         },
         body: JSON.stringify(req.body),
       });
@@ -115,6 +123,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         headers: {
           'X-Webhook-Secret': WEBHOOK_SECRET,
           'Content-Type': 'application/json',
+          ...(forwardedLocationId ? { 'X-GHL-Location-ID': forwardedLocationId } : {}),
         },
         body: JSON.stringify(req.body),
       });
@@ -138,6 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         headers: {
           'X-Webhook-Secret': WEBHOOK_SECRET,
           'Content-Type': 'application/json',
+          ...(forwardedLocationId ? { 'X-GHL-Location-ID': forwardedLocationId } : {}),
         },
       });
 

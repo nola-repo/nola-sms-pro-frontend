@@ -43,6 +43,9 @@ export default async function handler(
       }
     }
 
+    const locationId = req.headers['x-ghl-location-id'] || req.query.location_id;
+    const forwardedLocationId = Array.isArray(locationId) ? locationId[0] : locationId;
+
     const targetUrl = `${CLOUD_RUN_URL}/webhook/send_sms`;
     console.log('Proxying SMS to:', targetUrl);
 
@@ -51,6 +54,7 @@ export default async function handler(
       headers: {
         'Content-Type': 'application/json',
         'X-Webhook-Secret': WEBHOOK_SECRET,
+        ...(forwardedLocationId ? { 'X-GHL-Location-ID': forwardedLocationId } : {}),
       },
       body: JSON.stringify(payload),
     });

@@ -29,6 +29,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const queryString = searchParams.toString();
+        const locationId = req.headers['x-ghl-location-id'] || req.query.location_id;
+        const forwardedLocationId = Array.isArray(locationId) ? locationId[0] : locationId;
+
         const cloudRunUrl = `${CLOUD_RUN_URL}/api/get_credit_transactions${queryString ? '?' + queryString : ''}`;
 
         console.log('Proxying get_credit_transactions to:', cloudRunUrl);
@@ -38,6 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             headers: {
                 'X-Webhook-Secret': WEBHOOK_SECRET,
                 'Content-Type': 'application/json',
+                ...(forwardedLocationId ? { 'X-GHL-Location-ID': forwardedLocationId } : {}),
             },
         });
 
