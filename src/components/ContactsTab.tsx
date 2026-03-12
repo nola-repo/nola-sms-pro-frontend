@@ -69,7 +69,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
 
   // Convert name to proper case (title case)
   const toProperCase = (name: string): string => {
-    if (!name) return "";
     return name.replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
@@ -78,8 +77,8 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
     const lowerQ = searchQuery.toLowerCase();
     return contacts.filter(
       (c) =>
-        (c.name || "").toLowerCase().includes(lowerQ) ||
-        (c.phone || "").includes(lowerQ)
+        c.name.toLowerCase().includes(lowerQ) ||
+        c.phone.includes(lowerQ)
     );
   }, [searchQuery, contacts]);
 
@@ -87,13 +86,12 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
   const groupedContacts = useMemo(() => {
     const groups: Record<string, Contact[]> = {};
     filteredContacts.forEach((contact) => {
-      const nameStr = contact.name || contact.phone || "?";
       // If name looks like a phone number, use the first digit for grouping
       let firstLetter: string;
-      if (/^\d/.test(nameStr)) {
-        firstLetter = nameStr.charAt(0);
+      if (/^\d/.test(contact.name)) {
+        firstLetter = contact.name.charAt(0);
       } else {
-        firstLetter = nameStr.charAt(0).toUpperCase();
+        firstLetter = contact.name.charAt(0).toUpperCase();
       }
       if (!groups[firstLetter]) {
         groups[firstLetter] = [];
@@ -418,8 +416,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                                 );
                               }
                               // Otherwise show initials
-                              const nameStr = contact.name || contact.phone || "?";
-                              const parts = nameStr.split(" ").filter((p) => p.length > 0);
+                              const parts = contact.name.split(" ").filter((p) => p.length > 0);
                               const first = parts[0]?.charAt(0) || "";
                               const last = parts.length > 1 ? parts[parts.length - 1]?.charAt(0) || "" : "";
                               return (first + last).toUpperCase() || "?";
@@ -435,7 +432,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                                   ${isSelected ? "text-[#2b83fa]" : "text-[#111111] dark:text-[#ececf1]"}
                                 `}
                               >
-                                {toProperCase(contact.name || contact.phone || "?")}
+                                {toProperCase(contact.name)}
                               </p>
                             </div>
                             <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate">

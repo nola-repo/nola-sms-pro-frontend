@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { fetchMessagesByRecipientKey, normalizePHNumber } from "../api/sms";
+import { fetchMessagesByRecipientKey } from "../api/sms";
 import type { Message } from "../types/Sms";
 
 // Helper to parse date from Firestore timestamp or string
@@ -17,6 +17,35 @@ const parseDate = (dateField: unknown): number => {
     } catch {
         return Date.now();
     }
+};
+
+// Normalize phone number to 09XXXXXXXXX format for consistent comparison
+const normalizePHNumber = (input: string): string | null => {
+    if (!input) return null;
+    
+    const digits = input.replace(/\D/g, "");
+    
+    // 09XXXXXXXXX → valid
+    if (digits.startsWith("09") && digits.length === 11) {
+        return digits;
+    }
+    
+    // 9XXXXXXXXX → 09XXXXXXXXX
+    if (digits.startsWith("9") && digits.length === 10) {
+        return "0" + digits;
+    }
+    
+    // 639XXXXXXXXX → 09XXXXXXXXX
+    if (digits.startsWith("639") && digits.length === 12) {
+        return "0" + digits.substring(2);
+    }
+    
+    // +639XXXXXXXXX (already digits only)
+    if (digits.startsWith("639") && digits.length === 12) {
+        return "0" + digits.substring(2);
+    }
+    
+    return null;
 };
 
 export const useGroupMessages = (recipientKey?: string, recipientNumbers?: string[], batchId?: string) => {

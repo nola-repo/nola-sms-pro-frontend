@@ -15,51 +15,40 @@ interface SendSmsResponse {
   number?: string;
 }
 
-import { PhoneNumberUtil, PhoneNumberFormat } from 'google-libphonenumber';
-
-const phoneUtil = PhoneNumberUtil.getInstance();
-
 /**
  * Normalize Philippine phone numbers to 09XXXXXXXXX
- * using google-libphonenumber for accurate parsing
+ * This matches the backend's clean_numbers function
  */
-export const normalizePHNumber = (input: string): string | null => {
+const normalizePHNumber = (input: string): string | null => {
   if (!input) return null;
 
-  try {
-    // Parse the number, defaulting to 'PH' region if country code is missing
-    const parsedNumber = phoneUtil.parseAndKeepRawInput(input, 'PH');
-    
-    // Check if it's a valid number
-    if (!phoneUtil.isValidNumber(parsedNumber)) {
-      return null;
-    }
+  const digits = input.replace(/\D/g, "");
 
-    // Format to E.164 (+639XXXXXXXXX)
-    const e164 = phoneUtil.format(parsedNumber, PhoneNumberFormat.E164);
-    
-    // NOLA SMS Pro backend expects the format 09XXXXXXXXX
-    if (e164.startsWith('+63')) {
-      return '0' + e164.substring(3);
-    }
-    
-    // Fallback if not a PH number (might not be reachable, but formatted)
-    // You could also enforce PH only by checking parsedNumber.getCountryCode() === 63
-    return e164;
-  } catch (error) {
-    // Parsing error (e.g. invalid characters not handled by libphonenumber)
-    return null;
+  // 09XXXXXXXXX → valid
+  if (digits.startsWith("09") && digits.length === 11) {
+    return digits;
   }
+
+  // 9XXXXXXXXX → 09XXXXXXXXX
+  if (digits.startsWith("9") && digits.length === 10) {
+    return "0" + digits;
+  }
+
+  // 639XXXXXXXXX → 09XXXXXXXXX
+  if (digits.startsWith("639") && digits.length === 12) {
+    return "0" + digits.substring(2);
+  }
+
+  // +639XXXXXXXXX (already digits only)
+  if (digits.startsWith("639") && digits.length === 12) {
+    return "0" + digits.substring(2);
+  }
+
+  return null;
 };
 
-const isValidPHNumber = (input: string): boolean => {
-  if (!input) return false;
-  try {
-    const parsedNumber = phoneUtil.parseAndKeepRawInput(input, 'PH');
-    return phoneUtil.isValidNumber(parsedNumber);
-  } catch (error) {
-    return false;
-  }
+const isValidPHNumber = (number: string): boolean => {
+  return /^09\d{9}$/.test(number);
 };
 
 export const fetchSmsLogs = async (phoneNumber: string): Promise<SmsLog[]> => {
