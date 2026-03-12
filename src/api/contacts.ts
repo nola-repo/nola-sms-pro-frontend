@@ -58,11 +58,33 @@ export const fetchContacts = async (): Promise<Contact[]> => {
     }
 
     console.log('Contacts fetched:', contacts.length);
+
+    // Normalize GHL raw contact format → our Contact shape
+    // GHL returns: contactName, firstName, lastName, phone, email, id
+    // We need:     name, phone, email, id
+    contacts = contacts.map((c: any) => {
+      const name = c.name
+        || c.contactName
+        || [c.firstName, c.lastName].filter(Boolean).join(' ').trim()
+        || c.firstNameRaw
+        || c.phone
+        || 'Unknown';
+      return {
+        id: c.id ?? String(Math.random()),
+        name,
+        phone: c.phone ?? c.mobileNumber ?? '',
+        email: c.email ?? '',
+        lastMessage: c.lastMessage ?? undefined,
+        lastSentAt: c.lastSentAt ?? undefined,
+      };
+    });
+
     if (contacts.length > 0) {
       console.log('NOLA SMS: First contact sample:', JSON.stringify(contacts[0]));
       console.log('NOLA SMS: All contact names/phones:', contacts.map((c: any) => `${c.name} (${c.phone})`));
     }
     return contacts;
+
   } catch (error) {
     console.error('Failed to fetch contacts:', error);
     return [];
