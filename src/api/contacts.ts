@@ -6,24 +6,39 @@ const CONTACTS_API_URL = API_CONFIG.contacts;
 
 export const fetchContacts = async (): Promise<Contact[]> => {
   try {
-    const accountSettings = getAccountSettings();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
+    // 1. Detect locationId from URL params (GHL may send either key)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlLocationId =
+      urlParams.get('locationId') ||
+      urlParams.get('location_id');
 
-    if (accountSettings.ghlLocationId) {
-      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    // 2. Fall back to saved settings if URL doesn't have it
+    const accountSettings = getAccountSettings();
+    const locationId = urlLocationId || accountSettings.ghlLocationId || null;
+
+    console.log('NOLA SMS: Detected GHL Location:', locationId);
+
+    if (!locationId) {
+      console.warn('NOLA SMS: No locationId detected in URL.');
+      return [];
     }
 
-    const res = await fetch(CONTACTS_API_URL, { headers });
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-GHL-Location-ID': locationId,
+    };
+
+    // 3. Send locationId as a query param AND as a header
+    const url = `${CONTACTS_API_URL}?locationId=${encodeURIComponent(locationId)}`;
+    const res = await fetch(url, { headers });
 
     if (!res.ok) {
-      console.error('Contacts API returned error:', res.status, res.statusText);
+      console.error('NOLA SMS: Contacts API error:', res.status, res.statusText);
       return [];
     }
 
     const data = await res.json();
-    console.log('[fetchContacts] Data received:', data);
+    console.log('NOLA SMS: Contacts API response:', data);
 
     // Handle various response formats: 
     // - Array of contacts

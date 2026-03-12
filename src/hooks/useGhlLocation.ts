@@ -46,7 +46,11 @@ export function useGhlLocation() {
             }
         }
 
-        console.log("NOLA SMS: Detected GHL Location URL Param:", urlLocation, "Full URL:", window.location.href);
+        if (urlLocation) {
+            console.log("NOLA SMS: Detected GHL Location:", urlLocation);
+        } else {
+            console.warn("NOLA SMS: No locationId detected in URL. Full URL:", window.location.href);
+        }
 
         if (urlLocation && urlLocation !== locationId) {
             setLocationId(urlLocation);
