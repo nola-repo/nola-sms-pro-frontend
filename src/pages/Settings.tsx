@@ -588,8 +588,8 @@ const CreditsSection: React.FC = () => {
     const [txLoading, setTxLoading] = useState(true);
     const [topUpAmount, setTopUpAmount] = useState(500);
     const [submitted, setSubmitted] = useState(false);
-    const [showThankYou, setShowThankYou] = useState(false);
-    const [thankYouCountdown, setThankYouCountdown] = useState(5);
+    const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+    const [currentCheckoutUrl, setCurrentCheckoutUrl] = useState("");
     const mountedRef = useRef(true);
     const popupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -622,7 +622,8 @@ const CreditsSection: React.FC = () => {
                 event.data?.type === 'nola-payment-success'
             ) {
                 setSubmitted(false);
-                triggerThankYou();
+                setIsCheckoutModalOpen(false);
+                load(); // Auto-refresh credits on success
             }
         };
         window.addEventListener('message', handlePaymentMessage);
@@ -637,21 +638,6 @@ const CreditsSection: React.FC = () => {
         };
     }, [load]);
 
-    const triggerThankYou = () => {
-        setShowThankYou(true);
-        setThankYouCountdown(5);
-        let count = 5;
-        if (countdownRef.current) clearInterval(countdownRef.current);
-        countdownRef.current = setInterval(() => {
-            count -= 1;
-            setThankYouCountdown(count);
-            if (count <= 0) {
-                clearInterval(countdownRef.current!);
-                setShowThankYou(false);
-                load();
-            }
-        }, 1000);
-    };
 
     const displayBalance = balance ?? 0;
     const usagePercent = Math.min(100, (displayBalance / 1000) * 100);
@@ -673,39 +659,68 @@ const CreditsSection: React.FC = () => {
         if (!selectedPackage) return;
 
         const checkoutUrl = selectedPackage.link;
-        const width = 1200;
-        const height = 660;
-        const left = (window.screen.width / 2) - (width / 2);
-        const top = (window.screen.height / 2) - (height / 2);
-        
-        window.open(
-            checkoutUrl, 
-            "Checkout", 
-            `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-        );
-
+        setCurrentCheckoutUrl(checkoutUrl);
+        setIsCheckoutModalOpen(true);
         setSubmitted(true);
-        // submitted state stays until payment success message or user navigates away
     };
 
     return (
         <div className="space-y-5">
             <SectionHeader title="Credits & Billing" subtitle="Monitor your SMS credit balance and request top-ups." />
 
-            {/* Thank You Overlay */}
-            {showThankYou && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#1a1b1e] rounded-3xl p-10 flex flex-col items-center gap-5 shadow-2xl border border-white/10 animate-in zoom-in-95 duration-300 max-w-sm w-full mx-4">
-                        <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                            <FiCheck className="w-10 h-10 text-emerald-500" />
+            {/* In-App Checkout Modal */}
+            {isCheckoutModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-[#1a1b1e] rounded-[32px] overflow-hidden shadow-2xl border border-white/10 animate-in zoom-in-95 duration-500 max-w-xl w-full h-[85vh] mx-4 relative flex flex-col">
+                        {/* Modal Header */}
+                        <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-between bg-white dark:bg-[#1a1b1e] shrink-0">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
+                                    <FiCreditCard className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-[17px] font-black text-[#111111] dark:text-white leading-tight">Secure Checkout</h3>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="text-[12px] font-bold text-[#2b83fa] bg-[#2b83fa]/10 px-2 py-0.5 rounded-md">
+                                            {topUpAmount.toLocaleString()} Credits
+                                        </span>
+                                        <span className="text-[12px] font-bold text-[#6e6e73] dark:text-[#94959b]">
+                                            ₱{PACKAGES.find(p => p.credits === topUpAmount)?.price}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    setIsCheckoutModalOpen(false);
+                                    setSubmitted(false);
+                                }}
+                                className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all active:scale-90"
+                            >
+                                <FiPlus className="w-5 h-5 rotate-45" />
+                            </button>
                         </div>
-                        <div className="text-center">
-                            <h3 className="text-[22px] font-black text-[#111111] dark:text-white mb-2">Thank You!</h3>
-                            <p className="text-[14px] text-[#6e6e73] dark:text-[#94959b]">Your payment was received. Your credits will be refreshed shortly.</p>
+
+                        {/* Iframe Content */}
+                        <div className="flex-1 min-h-0 bg-[#f7f7f7] dark:bg-[#0d0e10] relative">
+                            <iframe 
+                                src={currentCheckoutUrl} 
+                                className="w-full h-full border-none"
+                                title="Secure Checkout"
+                            />
                         </div>
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 dark:bg-emerald-900/20">
-                            <FiRefreshCw className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-spin" />
-                            <span className="text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">Refreshing in {thankYouCountdown}s...</span>
+
+                        {/* Modal Footer */}
+                        <div className="px-6 py-4 border-t border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] shrink-0">
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="flex items-center gap-2">
+                                    <FiCheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                                    <span className="text-[12px] font-bold text-[#111111] dark:text-white">SSL Encrypted Transaction</span>
+                                </div>
+                                <p className="text-[11px] text-[#9aa0a6]">
+                                    Your payment information is processed securely by NOLA Solutions.
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
