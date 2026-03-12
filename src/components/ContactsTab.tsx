@@ -126,8 +126,21 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
   };
 
   const handleAddContact = async () => {
-    const digits = newContactPhone.replace(/\D/g, "");
-    if (!newContactName.trim() || digits.length < 7) return;
+    let digits = newContactPhone.replace(/\D/g, "");
+    // Normalize: strip leading country code so we always send 10-digit local number
+    if (digits.startsWith("639")) digits = digits.slice(2);      // 639XXXXXXXXX → 9XXXXXXXXX
+    else if (digits.startsWith("63")) digits = digits.slice(2);  // 63XXXXXXXXX  → XXXXXXXXX
+    else if (digits.startsWith("0")) digits = digits.slice(1);   // 09XXXXXXXXX  → 9XXXXXXXXX
+    if (!newContactName.trim() || digits.length < 9) return;
+
+    const formattedPhone = "+63" + digits;
+
+    // Check for duplicates
+    const isDuplicate = contacts.some(c => c.phone === formattedPhone);
+    if (isDuplicate) {
+      setError("A contact with this phone number already exists.");
+      return;
+    }
 
     setIsSubmitting(true);
     setError(null);
@@ -136,7 +149,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
       // Add to GHL
       const newContact = await addContact({
         name: newContactName.trim(),
-        phone: "+63" + digits,
+        phone: formattedPhone,
       });
 
       if (newContact) {
@@ -166,6 +179,15 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
     else if (digits.startsWith("0")) digits = digits.slice(1);   // 09XXXXXXXXX  → 9XXXXXXXXX
     if (!editingContact.name.trim() || digits.length < 9) return;
 
+    const formattedPhone = "+63" + digits;
+
+    // Check for duplicates (excluding the current contact being edited)
+    const isDuplicate = contacts.some(c => c.phone === formattedPhone && c.id !== editingContact.id);
+    if (isDuplicate) {
+      setError("A contact with this phone number already exists.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -175,7 +197,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
         const updated = await updateContact({
           id: editingContact.id,
           name: editingContact.name.trim(),
-          phone: "+63" + digits,
+          phone: formattedPhone,
         });
 
         if (updated) {
