@@ -57,6 +57,10 @@ export const fetchContacts = async (): Promise<Contact[]> => {
     }
 
     console.log('Contacts fetched:', contacts.length);
+    if (contacts.length > 0) {
+      console.log('NOLA SMS: First contact sample:', JSON.stringify(contacts[0]));
+      console.log('NOLA SMS: All contact names/phones:', contacts.map((c: any) => `${c.name} (${c.phone})`));
+    }
     return contacts;
   } catch (error) {
     console.error('Failed to fetch contacts:', error);
