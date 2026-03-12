@@ -622,17 +622,21 @@ const CreditsSection: React.FC = () => {
     const { sentToday, creditsUsedToday, creditsUsedMonth } = deriveStats(transactions);
 
     const PACKAGES = [
-        { credits: 500, price: 500 },
-        { credits: 1100, price: 1000 },
-        { credits: 2750, price: 2500 },
-        { credits: 6000, price: 5000 },
+        { credits: 10, price: 10, link: "https://sms.nolawebsolutions.com/nola-sms-pro-10-credits" },
+        { credits: 500, price: 500, link: "https://sms.nolawebsolutions.com/nola-sms-pro-500-credits" },
+        { credits: 1100, price: 1000, link: "https://sms.nolawebsolutions.com/nola-sms-pro-1100-credits" },
+        { credits: 2750, price: 2500, link: "https://sms.nolawebsolutions.com/nola-sms-pro-2750-credits" },
+        { credits: 6000, price: 5000, link: "https://sms.nolawebsolutions.com/nola-sms-pro-6000-credits" },
     ];
 
     const handleTopUp = (e: React.FormEvent) => {
         e.preventDefault();
         
+        const selectedPackage = PACKAGES.find(p => p.credits === topUpAmount);
+        if (!selectedPackage) return;
+
         // Open the checkout link in a popup window
-        const checkoutUrl = "https://sms.nolawebsolutions.com/nola-sms-pro-500-credits";
+        const checkoutUrl = selectedPackage.link;
         const width = 1200;
         const height = 660;
         const left = (window.screen.width / 2) - (width / 2);
