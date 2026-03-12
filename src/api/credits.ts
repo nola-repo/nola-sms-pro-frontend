@@ -30,7 +30,12 @@ export async function fetchCreditBalance(): Promise<number> {
             headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
         }
 
-        const res = await fetch(API_CONFIG.credits, { headers });
+        let url = API_CONFIG.credits;
+        if (accountSettings.ghlLocationId) {
+            url += `?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+        }
+
+        const res = await fetch(url, { headers });
         if (!res.ok) return 0;
         const data = await res.json();
         return data.credit_balance ?? data.balance ?? data.data?.balance ?? 0;
@@ -57,10 +62,12 @@ export async function fetchCreditTransactions(
             headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
         }
 
-        const res = await fetch(
-            `${API_CONFIG.base}/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`,
-            { headers }
-        );
+        let url = `${API_CONFIG.base}/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`;
+        if (accountSettings.ghlLocationId) {
+            url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+        }
+
+        const res = await fetch(url, { headers });
         if (!res.ok) return [];
         const data = await res.json();
 

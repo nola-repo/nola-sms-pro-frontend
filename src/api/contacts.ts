@@ -28,8 +28,8 @@ export const fetchContacts = async (): Promise<Contact[]> => {
       'X-GHL-Location-ID': locationId,
     };
 
-    // 3. Send locationId as a query param AND as a header
-    const url = `${CONTACTS_API_URL}?locationId=${encodeURIComponent(locationId)}`;
+    // 3. Send location_id as a query param AND as a header
+    const url = `${CONTACTS_API_URL}?location_id=${encodeURIComponent(locationId)}`;
     const res = await fetch(url, { headers });
 
     if (!res.ok) {

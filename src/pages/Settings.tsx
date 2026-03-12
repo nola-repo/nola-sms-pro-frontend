@@ -588,7 +588,11 @@ const CreditsSection: React.FC = () => {
     const [txLoading, setTxLoading] = useState(true);
     const [topUpAmount, setTopUpAmount] = useState(500);
     const [submitted, setSubmitted] = useState(false);
+    const [showThankYou, setShowThankYou] = useState(false);
+    const [thankYouCountdown, setThankYouCountdown] = useState(5);
     const mountedRef = useRef(true);
+    const popupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const load = useCallback(async () => {
         setBalanceLoading(true);
@@ -609,12 +613,45 @@ const CreditsSection: React.FC = () => {
         load();
         window.addEventListener('sms-sent', load);
         window.addEventListener('bulk-message-sent', load);
+
+        // Listen for payment success signal from the checkout popup
+        const handlePaymentMessage = (event: MessageEvent) => {
+            // Accept messages from the checkout domain
+            if (
+                (event.origin === 'https://sms.nolawebsolutions.com' || event.origin === window.location.origin) &&
+                event.data?.type === 'nola-payment-success'
+            ) {
+                setSubmitted(false);
+                triggerThankYou();
+            }
+        };
+        window.addEventListener('message', handlePaymentMessage);
+
         return () => {
             mountedRef.current = false;
             window.removeEventListener('sms-sent', load);
             window.removeEventListener('bulk-message-sent', load);
+            window.removeEventListener('message', handlePaymentMessage);
+            if (popupPollRef.current) clearInterval(popupPollRef.current);
+            if (countdownRef.current) clearInterval(countdownRef.current);
         };
     }, [load]);
+
+    const triggerThankYou = () => {
+        setShowThankYou(true);
+        setThankYouCountdown(5);
+        let count = 5;
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        countdownRef.current = setInterval(() => {
+            count -= 1;
+            setThankYouCountdown(count);
+            if (count <= 0) {
+                clearInterval(countdownRef.current!);
+                setShowThankYou(false);
+                load();
+            }
+        }, 1000);
+    };
 
     const displayBalance = balance ?? 0;
     const usagePercent = Math.min(100, (displayBalance / 1000) * 100);
@@ -635,7 +672,6 @@ const CreditsSection: React.FC = () => {
         const selectedPackage = PACKAGES.find(p => p.credits === topUpAmount);
         if (!selectedPackage) return;
 
-        // Open the checkout link in a popup window
         const checkoutUrl = selectedPackage.link;
         const width = 1200;
         const height = 660;
@@ -649,12 +685,31 @@ const CreditsSection: React.FC = () => {
         );
 
         setSubmitted(true);
-        setTimeout(() => setSubmitted(false), 2500);
+        // submitted state stays until payment success message or user navigates away
     };
 
     return (
         <div className="space-y-5">
             <SectionHeader title="Credits & Billing" subtitle="Monitor your SMS credit balance and request top-ups." />
+
+            {/* Thank You Overlay */}
+            {showThankYou && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] rounded-3xl p-10 flex flex-col items-center gap-5 shadow-2xl border border-white/10 animate-in zoom-in-95 duration-300 max-w-sm w-full mx-4">
+                        <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                            <FiCheck className="w-10 h-10 text-emerald-500" />
+                        </div>
+                        <div className="text-center">
+                            <h3 className="text-[22px] font-black text-[#111111] dark:text-white mb-2">Thank You!</h3>
+                            <p className="text-[14px] text-[#6e6e73] dark:text-[#94959b]">Your payment was received. Your credits will be refreshed shortly.</p>
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 dark:bg-emerald-900/20">
+                            <FiRefreshCw className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-spin" />
+                            <span className="text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">Refreshing in {thankYouCountdown}s...</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Balance Card */}
             <div className="bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] rounded-2xl p-5 text-white shadow-lg shadow-blue-500/25">

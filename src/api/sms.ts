@@ -64,7 +64,11 @@ export const fetchSmsLogs = async (phoneNumber: string): Promise<SmsLog[]> => {
 
     // Fetch ALL outbound messages (without number filter)
     // Then filter client-side by checking if phoneNumber is in the numbers array
-    const res = await fetch(`${WEBHOOK_URL}?direction=outbound&limit=500`, { headers });
+    let url = `${WEBHOOK_URL}?direction=outbound&limit=500`;
+    if (accountSettings.ghlLocationId) {
+      url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    }
+    const res = await fetch(url, { headers });
     if (!res.ok) throw new Error("Failed to fetch message history");
     const data = await res.json();
     console.log('SMS Logs Response:', data);
@@ -130,10 +134,6 @@ export const sendSms = async (
     },
   };
 
-  const SEND_SMS_URL = API_CONFIG.sms;
-  console.log("Sending SMS payload via proxy:", payload);
-  console.log("Sending to:", SEND_SMS_URL);
-
   try {
     const accountSettings = getAccountSettings();
     const headers: Record<string, string> = {
@@ -142,6 +142,13 @@ export const sendSms = async (
     if (accountSettings.ghlLocationId) {
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
+
+    const SEND_SMS_URL = accountSettings.ghlLocationId 
+      ? `${API_CONFIG.sms}?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`
+      : API_CONFIG.sms;
+
+    console.log("Sending SMS payload via proxy:", payload);
+    console.log("Sending to:", SEND_SMS_URL);
 
     const res = await fetch(SEND_SMS_URL, {
       method: "POST",
@@ -208,7 +215,11 @@ export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => 
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
 
-    const res = await fetch(`${WEBHOOK_URL}?batch_id=${batchId}&limit=500`, { headers });
+    let url = `${WEBHOOK_URL}?batch_id=${encodeURIComponent(batchId)}&limit=500`;
+    if (accountSettings.ghlLocationId) {
+      url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    }
+    const res = await fetch(url, { headers });
     if (!res.ok) throw new Error("Failed to fetch batch messages");
     const data = await res.json();
     return data.data || [];
@@ -239,6 +250,9 @@ export const fetchMessagesByConversationId = async (
     }
 
     let url = `${API_CONFIG.messages}?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`;
+    if (accountSettings.ghlLocationId) {
+      url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    }
 
     // If recipientKey is provided, we're isolating a single user's history within a bulk campaign
     if (recipientKey) {
@@ -267,7 +281,10 @@ export const fetchConversations = async (): Promise<Conversation[]> => {
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
 
-    const CONVERSATIONS_URL = API_CONFIG.conversations;
+    let CONVERSATIONS_URL = API_CONFIG.conversations;
+    if (accountSettings.ghlLocationId) {
+      CONVERSATIONS_URL += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    }
     const res = await fetch(CONVERSATIONS_URL, { headers });
     if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
     const data = await res.json();
@@ -290,7 +307,11 @@ export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
 
-    const res = await fetch(`${WEBHOOK_URL}?recipient_key=${encodeURIComponent(recipientKey)}&limit=500`, { headers });
+    let url = `${WEBHOOK_URL}?recipient_key=${encodeURIComponent(recipientKey)}&limit=500`;
+    if (accountSettings.ghlLocationId) {
+      url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    }
+    const res = await fetch(url, { headers });
     if (!res.ok) throw new Error("Failed to fetch messages by recipient_key");
     const data = await res.json();
     // Handle both array response and {data: [...]} response
@@ -310,7 +331,10 @@ export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> 
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
 
-    const BULK_CAMPAIGNS_URL = API_CONFIG.bulk_campaigns;
+    let BULK_CAMPAIGNS_URL = API_CONFIG.bulk_campaigns;
+    if (accountSettings.ghlLocationId) {
+      BULK_CAMPAIGNS_URL += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    }
     const res = await fetch(BULK_CAMPAIGNS_URL, { headers });
     console.log('[fetchAllBulkMessages] Response status:', res.status);
     if (!res.ok) {
@@ -354,7 +378,12 @@ export const renameConversation = async (conversationId: string, newName: string
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
 
-    const res = await fetch(API_CONFIG.messages, {
+    let url = API_CONFIG.messages;
+    if (accountSettings.ghlLocationId) {
+      url += `?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    }
+
+    const res = await fetch(url, {
       method: 'PUT',
       headers,
       body: JSON.stringify({ id: conversationId, name: newName }),
@@ -381,7 +410,12 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
 
-    const res = await fetch(`${API_CONFIG.messages}?conversation_id=${encodeURIComponent(conversationId)}`, {
+    let url = `${API_CONFIG.messages}?conversation_id=${encodeURIComponent(conversationId)}`;
+    if (accountSettings.ghlLocationId) {
+      url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    }
+
+    const res = await fetch(url, {
       method: 'DELETE',
       headers,
     });
