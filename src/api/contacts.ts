@@ -2,7 +2,8 @@ import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
 import type { Contact } from "../types/Contact";
 
-const CONTACTS_API_URL = API_CONFIG.contacts;
+// Use the GHL contacts proxy endpoint (calls GoHighLevel API directly)
+const CONTACTS_API_URL = API_CONFIG.ghl_contacts;
 
 export const fetchContacts = async (): Promise<Contact[]> => {
   try {
@@ -28,8 +29,8 @@ export const fetchContacts = async (): Promise<Contact[]> => {
       'X-GHL-Location-ID': locationId,
     };
 
-    // 3. Send location_id as a query param AND as a header
-    const url = `${CONTACTS_API_URL}?location_id=${encodeURIComponent(locationId)}`;
+    // 3. Send locationId as query param (primary) AND location_id as fallback, plus header
+    const url = `${CONTACTS_API_URL}?locationId=${encodeURIComponent(locationId)}&location_id=${encodeURIComponent(locationId)}`;
     const res = await fetch(url, { headers });
 
     if (!res.ok) {
@@ -85,7 +86,11 @@ export const addContact = async (params: AddContactParams): Promise<Contact | nu
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
 
-    const res = await fetch(CONTACTS_API_URL, {
+    const url = accountSettings.ghlLocationId 
+      ? `${CONTACTS_API_URL}?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`
+      : CONTACTS_API_URL;
+
+    const res = await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(params),
@@ -125,7 +130,11 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
 
-    const res = await fetch(CONTACTS_API_URL, {
+    const url = accountSettings.ghlLocationId 
+      ? `${CONTACTS_API_URL}?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`
+      : CONTACTS_API_URL;
+
+    const res = await fetch(url, {
       method: 'PUT',
       headers,
       body: JSON.stringify(params),
@@ -155,7 +164,12 @@ export const deleteContact = async (id: string): Promise<boolean> => {
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
 
-    const res = await fetch(`${CONTACTS_API_URL}?id=${encodeURIComponent(id)}`, {
+    let url = `${CONTACTS_API_URL}?id=${encodeURIComponent(id)}`;
+    if (accountSettings.ghlLocationId) {
+      url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    }
+
+    const res = await fetch(url, {
       method: 'DELETE',
       headers,
     });
