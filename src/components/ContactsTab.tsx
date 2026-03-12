@@ -86,12 +86,14 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
   const groupedContacts = useMemo(() => {
     const groups: Record<string, Contact[]> = {};
     filteredContacts.forEach((contact) => {
+      // Guard against null/undefined names from GHL raw API
+      const safeName = contact.name || contact.phone || '?';
       // If name looks like a phone number, use the first digit for grouping
       let firstLetter: string;
-      if (/^\d/.test(contact.name)) {
-        firstLetter = contact.name.charAt(0);
+      if (/^\d/.test(safeName)) {
+        firstLetter = safeName.charAt(0) || '#';
       } else {
-        firstLetter = contact.name.charAt(0).toUpperCase();
+        firstLetter = (safeName.charAt(0) || '#').toUpperCase();
       }
       if (!groups[firstLetter]) {
         groups[firstLetter] = [];
