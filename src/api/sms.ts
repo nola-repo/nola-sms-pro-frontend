@@ -299,8 +299,13 @@ export const fetchMessagesByConversationId = async (
 
   if (!res.ok) {
     const status = res.status;
+    const backendError = parsedBody && (parsedBody.error || parsedBody.error_message);
+    const backendDetail = parsedBody && (parsedBody.message || parsedBody.details);
+    // Prefer detailed message when "error" is generic.
     const backendMessage =
-      (parsedBody && (parsedBody.error || parsedBody.message)) || rawBody || "";
+      (backendError && backendDetail && backendError === "Failed to fetch messages"
+        ? backendDetail
+        : (backendError || backendDetail)) || rawBody || "";
     const message = `Failed to fetch conversation messages: ${status}${
       backendMessage ? ` - ${backendMessage}` : ""
     }`;
