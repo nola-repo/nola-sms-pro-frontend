@@ -145,7 +145,6 @@ export const Composer: React.FC<ComposerProps> = ({
     messages: phoneLogMessages,
     loading: phoneLogLoading,
     error: phoneLogError,
-    refresh: refreshPhoneLog,
   } = usePhoneMessages(activePhoneNumber);
 
   const [useRawLogView, setUseRawLogView] = useState(false);
@@ -1066,8 +1065,9 @@ export const Composer: React.FC<ComposerProps> = ({
 
                 if (isGroupView) {
                   const campaigns: { [key: string]: Message[] } = {};
-                  messages.forEach(m => {
-                    const bid = (m as any).batch_id || m.id?.toString().slice(0, 20) || 'no-batch';
+                  const allMessages = conversationMessages as Message[];
+                  allMessages.forEach((m: Message & { batch_id?: string }) => {
+                    const bid = m.batch_id || m.id?.toString().slice(0, 20) || "no-batch";
                     if (!campaigns[bid]) campaigns[bid] = [];
                     campaigns[bid].push(m);
                   });
