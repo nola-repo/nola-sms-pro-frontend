@@ -76,19 +76,46 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         console.log('All letters have animated!');
     };
 
+    const isPhoneLike = (s: string): boolean => /^[\d+\-() ]+$/.test(s);
+
     const getDisplayName = (conv: Conversation): string => {
-        if (conv.name) return conv.name;
-        if (conv.type === 'bulk') return 'Bulk Message';
-        
-        const phone = conv.id.replace(/^conv_/, '');
+        const phone = conv.id.replace(/^conv_/, '').replace(/^group_/, '');
         const cleanPhone = phone.replace(/\D/g, "");
         
-        // Try to find in contacts
-        const contact = contacts.find((c: Contact) => 
-            c.phone === phone || c.phone.replace(/\D/g, "") === cleanPhone
-        );
-        
-        return contact ? contact.name : toProperCase(phone);
+        // Always try contacts first for direct conversations
+        if (conv.type !== 'bulk') {
+            const contact = contacts.find((c: Contact) => {
+                const cp = c.phone.replace(/\D/g, "");
+                return c.phone === phone || cp === cleanPhone
+                    || (cleanPhone.startsWith('0') && cp === '+63' + cleanPhone.slice(1))
+                    || (cleanPhone.startsWith('09') && cp === cleanPhone.slice(1));
+            });
+            if (contact) return toProperCase(contact.name);
+        }
+
+        // Use conv.name only if it's a real name (not a phone number)
+        if (conv.name && !isPhoneLike(conv.name)) return toProperCase(conv.name);
+
+        if (conv.type === 'bulk') {
+            // For bulk, try resolving member names
+            if (conv.members && conv.members.length > 0) {
+                const memberNames = conv.members.slice(0, 3).map(m => {
+                    const cm = m.replace(/\D/g, "");
+                    const c = contacts.find((ct: Contact) => {
+                        const ctp = ct.phone.replace(/\D/g, "");
+                        return ct.phone === m || ctp === cm;
+                    });
+                    return c ? toProperCase(c.name) : null;
+                }).filter(Boolean);
+                if (memberNames.length > 0) {
+                    const extra = conv.members.length - memberNames.length;
+                    return memberNames.join(', ') + (extra > 0 ? ` +${extra}` : '');
+                }
+            }
+            return 'Bulk Message';
+        }
+
+        return phone;
     };
 
     const handleRecentClick = (conv: Conversation) => {
@@ -307,7 +334,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                     >
                                         <div className="flex items-center gap-3 overflow-hidden">
                                             <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold shadow-sm ${conv.type === 'bulk' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa]'}`}>
-                                                {conv.type === 'bulk' ? <FiUsers size={18} /> : (conv.name ? conv.name.charAt(0).toUpperCase() : <FiUser size={18} />)}
+                                                {conv.type === 'bulk' ? <FiUsers size={18} /> : (() => { const dn = getDisplayName(conv); return dn ? dn.charAt(0).toUpperCase() : <FiUser size={18} />; })()}
                                             </div>
                                             <div className="min-w-0">
                                                 <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px] truncate">
@@ -367,7 +394,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 >
                                     <div className="flex items-center gap-3 overflow-hidden">
                                         <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold shadow-sm ${conv.type === 'bulk' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa]'}`}>
-                                            {conv.type === 'bulk' ? <FiUsers size={18} /> : (conv.name ? conv.name.charAt(0).toUpperCase() : <FiUser size={18} />)}
+                                            {conv.type === 'bulk' ? <FiUsers size={18} /> : (() => { const dn = getDisplayName(conv); return dn ? dn.charAt(0).toUpperCase() : <FiUser size={18} />; })()}
                                         </div>
                                         <div className="min-w-0">
                                             <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px] truncate">

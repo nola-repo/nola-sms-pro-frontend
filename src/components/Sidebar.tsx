@@ -60,6 +60,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [showRenameModal, setShowRenameModal] = useState(false);
   const touchStartY = useRef<number>(0);
   const contactsListRef = useRef<HTMLDivElement>(null);
+  // Track last_message per conversation to detect new messages and notify the Composer
+  const lastMessageTracker = useRef<Map<string, string>>(new Map());
 
   const loadContacts = useCallback(async (showSpinner = false) => {
     if (showSpinner) setIsRefreshing(true);
@@ -156,6 +158,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
         const combined = Array.from(mergedBulk.values())
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         setBulkHistory(combined);
+
+        // Detect new messages and notify the Composer for immediate refresh
+        const prevTracker = lastMessageTracker.current;
+        const newTracker = new Map<string, string>();
+
+        // Track direct conversations
+        historyContacts.forEach(c => {
+          if (c.lastMessage) newTracker.set(c.id, c.lastMessage);
+        });
+        // Track bulk conversations
+        combined.forEach(b => {
+          const convId = b.batchId ? `group_${b.batchId}` : b.id;
+          if (b.message) newTracker.set(convId, b.message);
+        });
+
+        // Compare and dispatch events for changed conversations
+        if (prevTracker.size > 0) {
+          newTracker.forEach((msg, convId) => {
+            const prev = prevTracker.get(convId);
+            if (prev !== undefined && prev !== msg) {
+              // This conversation has a new message
+              window.dispatchEvent(new CustomEvent('conversation-updated', {
+                detail: { conversationId: convId }
+              }));
+            }
+          });
+          // Also fire for brand-new conversations not in prev tracker
+          newTracker.forEach((_msg, convId) => {
+            if (!prevTracker.has(convId)) {
+              window.dispatchEvent(new CustomEvent('conversation-updated', {
+                detail: { conversationId: convId }
+              }));
+            }
+          });
+        }
+        lastMessageTracker.current = newTracker;
       } catch (err) {
         console.error('Error loading history:', err);
         // Fallback to local bulk history if server fails

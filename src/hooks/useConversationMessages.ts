@@ -3,7 +3,7 @@ import { fetchMessagesByConversationId, ConversationMessagesError } from "../api
 import type { Message } from "../types/Sms";
 import { getCachedMessages, setCachedMessages, updateMessageInCache } from "../utils/storage";
 
-const POLL_INTERVAL = 5000;
+const POLL_INTERVAL = 3000;
 
 /** Parse a Firestore timestamp (string or _seconds object) to a JS Date */
 const parseFirestoreDate = (raw: unknown): Date => {
@@ -135,6 +135,22 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         const interval = setInterval(() => fetchHistory(false), POLL_INTERVAL);
         return () => clearInterval(interval);
     }, [conversationId, fetchHistory, errorStatus]);
+
+    // Listen for sidebar-triggered refresh events (e.g. new automation message detected)
+    useEffect(() => {
+        if (!conversationId) return;
+
+        const handleConversationUpdated = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            // If no specific conversation targeted, or it matches ours, refresh immediately
+            if (!detail?.conversationId || detail.conversationId === conversationId) {
+                fetchHistory(false);
+            }
+        };
+
+        window.addEventListener('conversation-updated', handleConversationUpdated);
+        return () => window.removeEventListener('conversation-updated', handleConversationUpdated);
+    }, [conversationId, fetchHistory]);
 
     const addOptimisticMessage = (text: string, senderName: string): string => {
         const id = `temp-${Date.now()}`;
