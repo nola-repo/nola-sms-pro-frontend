@@ -421,8 +421,6 @@ const CreditsSection: React.FC = () => {
         { credits: 6000, price: 5000, link: "https://sms.nolawebsolutions.com/nola-sms-pro-6000-credits" },
     ];
 
-    const popupRef = useRef<Window | null>(null);
-
     const handleTopUp = (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -431,44 +429,18 @@ const CreditsSection: React.FC = () => {
 
         const checkoutUrl = selectedPackage.link;
         setCurrentCheckoutUrl(checkoutUrl);
-        setSubmitted(true);
-
-        // Open in a full new browser tab (not a restricted popup — payment providers block those too)
-        const newTab = window.open(checkoutUrl, '_blank');
-        popupRef.current = newTab;
-
-        // If browser blocked the tab, show the modal with a direct link
-        if (!newTab || newTab.closed) {
-            setIsCheckoutModalOpen(true);
-            return;
-        }
-
         setIsCheckoutModalOpen(true);
-
-        // Poll to detect when the tab is closed, then refresh credits
-        if (popupPollRef.current) clearInterval(popupPollRef.current);
-        popupPollRef.current = setInterval(() => {
-            if (!popupRef.current || popupRef.current.closed) {
-                if (popupPollRef.current) clearInterval(popupPollRef.current);
-                popupRef.current = null;
-                // Auto-refresh credits after tab closes (payment may have succeeded)
-                setTimeout(() => {
-                    load();
-                    setSubmitted(false);
-                    setIsCheckoutModalOpen(false);
-                }, 1500);
-            }
-        }, 500);
+        setSubmitted(true);
     };
 
     return (
         <div className="space-y-5">
             <SectionHeader title="Credits & Billing" subtitle="Monitor your SMS credit balance and request top-ups." />
 
-            {/* Checkout Popup Status Modal */}
+            {/* In-App Checkout Modal */}
             {isCheckoutModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white dark:bg-[#1a1b1e] rounded-[32px] overflow-hidden shadow-2xl border border-white/10 animate-in zoom-in-95 duration-500 max-w-md w-full mx-4 relative flex flex-col">
+                    <div className="bg-white dark:bg-[#1a1b1e] rounded-[32px] overflow-hidden shadow-2xl border border-white/10 animate-in zoom-in-95 duration-500 max-w-xl w-full h-[85vh] mx-4 relative flex flex-col">
                         {/* Modal Header */}
                         <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-between bg-white dark:bg-[#1a1b1e] shrink-0">
                             <div className="flex items-center gap-4">
@@ -491,7 +463,6 @@ const CreditsSection: React.FC = () => {
                                 onClick={() => {
                                     setIsCheckoutModalOpen(false);
                                     setSubmitted(false);
-                                    if (popupPollRef.current) clearInterval(popupPollRef.current);
                                 }}
                                 className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all active:scale-90"
                             >
@@ -499,46 +470,16 @@ const CreditsSection: React.FC = () => {
                             </button>
                         </div>
 
-                        {/* Content - Waiting for payment */}
-                        <div className="px-6 py-10 flex flex-col items-center gap-6 text-center">
-                            <div className="w-20 h-20 rounded-full bg-[#2b83fa]/10 flex items-center justify-center">
-                                <FiCreditCard className="w-10 h-10 text-[#2b83fa] animate-pulse" />
-                            </div>
-                            <div>
-                                <h4 className="text-[16px] font-bold text-[#111111] dark:text-white mb-2">Complete Payment in Checkout Window</h4>
-                                <p className="text-[13px] text-[#6e6e73] dark:text-[#94959b] max-w-xs mx-auto leading-relaxed">
-                                    A checkout window has been opened. Please complete your payment there. Your credits will be added automatically.
-                                </p>
-                            </div>
-
-                            {/* Fallback link if popup was blocked */}
-                            <div className="flex flex-col items-center gap-3 w-full">
-                                <button
-                                    onClick={() => {
-                                        const tab = window.open(currentCheckoutUrl, '_blank');
-                                        if (tab) popupRef.current = tab;
-                                    }}
-                                    className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-semibold text-[14px] transition-all shadow-md shadow-blue-500/20"
-                                >
-                                    <FiZap className="w-4 h-4" />
-                                    Open Checkout Window
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setIsCheckoutModalOpen(false);
-                                        setSubmitted(false);
-                                        if (popupPollRef.current) clearInterval(popupPollRef.current);
-                                        load(); // Refresh credits
-                                    }}
-                                    className="text-[13px] font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 transition-colors flex items-center gap-1.5"
-                                >
-                                    <FiCheck className="w-4 h-4" />
-                                    I've completed my payment
-                                </button>
-                            </div>
+                        {/* Iframe Content */}
+                        <div className="flex-1 min-h-0 bg-[#f7f7f7] dark:bg-[#0d0e10] relative">
+                            <iframe 
+                                src={currentCheckoutUrl} 
+                                className="w-full h-full border-none"
+                                title="Secure Checkout"
+                            />
                         </div>
 
-                        {/* Footer */}
+                        {/* Modal Footer */}
                         <div className="px-6 py-4 border-t border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] shrink-0">
                             <div className="flex flex-col items-center gap-2">
                                 <div className="flex items-center gap-2">
