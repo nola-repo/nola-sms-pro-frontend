@@ -25,7 +25,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (action === 'fetch_bulk_messages') {
       // Fetch all bulk messages from Firestore
-      const cloudRunUrl = `${CLOUD_RUN_URL}/api/bulk-campaigns`;
+      const cloudRunUrl = forwardedLocationId
+        ? `${CLOUD_RUN_URL}/api/bulk-campaigns?location_id=${encodeURIComponent(forwardedLocationId)}`
+        : `${CLOUD_RUN_URL}/api/bulk-campaigns`;
       console.log('Proxying fetch_bulk_messages to:', cloudRunUrl);
 
       const response = await fetch(cloudRunUrl, {
@@ -44,7 +46,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'fetch_conversations') {
       // Fetch all conversations from Firestore.
       // Returns [] gracefully if the Cloud Run endpoint isn't deployed yet.
-      const cloudRunUrl = `${CLOUD_RUN_URL}/api/conversations`;
+      const cloudRunUrl = forwardedLocationId 
+        ? `${CLOUD_RUN_URL}/api/conversations?location_id=${encodeURIComponent(forwardedLocationId)}`
+        : `${CLOUD_RUN_URL}/api/conversations`;
       console.log('Proxying fetch_conversations to:', cloudRunUrl);
 
       const response = await fetch(cloudRunUrl, {
