@@ -6,8 +6,8 @@ const WEBHOOK_SECRET = "f7RkQ2pL9zV3tX8cB1nS4yW6";
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers for the response
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'X-Webhook-Secret, Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Webhook-Secret, Content-Type, X-GHL-Location-ID');
   res.setHeader('Content-Type', 'application/json');
 
   // Handle preflight

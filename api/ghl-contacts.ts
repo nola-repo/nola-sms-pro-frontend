@@ -6,7 +6,7 @@ const WEBHOOK_SECRET = "f7RkQ2pL9zV3tX8cB1nS4yW6";
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Webhook-Secret, X-GHL-Location-ID');
 
   if (req.method === 'OPTIONS') {
@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const response = await fetch(cloudRunUrl, {
       method: req.method || 'GET',
       headers,
-      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+      body: (req.method !== 'GET' && req.method !== 'DELETE') ? JSON.stringify(req.body) : undefined,
     });
 
     const data = await response.json();
