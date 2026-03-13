@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { fetchMessagesByConversationId } from "../api/sms";
+import { fetchMessagesByConversationId, ConversationMessagesError } from "../api/sms";
 import type { Message } from "../types/Sms";
 import { getCachedMessages, setCachedMessages, updateMessageInCache } from "../utils/storage";
 
@@ -28,7 +28,9 @@ export const useConversationMessages = (conversationId: string | undefined, reci
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
     const isInitialLoad = useRef(true);
+    const consecutiveServerErrors = useRef(0);
 
     // Create a composite cache key if filtering by recipientKey
     const cacheKey = conversationId && recipientKey
@@ -51,6 +53,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
 
         if (showLoading) setLoading(true);
         setError(null);
+        setErrorStatus(undefined);
 
         try {
             const rows = await fetchMessagesByConversationId(conversationId, 100, recipientKey);
@@ -89,8 +92,25 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             if (cacheKey) {
                 setCachedMessages(cacheKey, merged);
             }
+
+            // Successful fetch – reset error tracking and counters
+            consecutiveServerErrors.current = 0;
+            setError(null);
+            setErrorStatus(undefined);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to load messages");
+            if (err instanceof ConversationMessagesError) {
+                setError(err.message);
+                setErrorStatus(err.status);
+                if (typeof err.status === "number" && err.status >= 500) {
+                    consecutiveServerErrors.current += 1;
+                }
+            } else if (err instanceof Error) {
+                setError(err.message);
+                setErrorStatus(undefined);
+            } else {
+                setError("Failed to load messages");
+                setErrorStatus(undefined);
+            }
         } finally {
             setLoading(false);
             isInitialLoad.current = false;
@@ -106,9 +126,15 @@ export const useConversationMessages = (conversationId: string | undefined, reci
     // Background polling
     useEffect(() => {
         if (!conversationId) return;
+
+        // If the backend is consistently failing with 5xx, pause polling to avoid hammering it.
+        if (errorStatus && errorStatus >= 500 && consecutiveServerErrors.current >= 3) {
+            return;
+        }
+
         const interval = setInterval(() => fetchHistory(false), POLL_INTERVAL);
         return () => clearInterval(interval);
-    }, [conversationId, fetchHistory]);
+    }, [conversationId, fetchHistory, errorStatus]);
 
     const addOptimisticMessage = (text: string, senderName: string): string => {
         const id = `temp-${Date.now()}`;
@@ -145,6 +171,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         messages,
         loading: loading && isInitialLoad.current,
         error,
+        errorStatus,
         addOptimisticMessage,
         updateMessageStatus,
         refresh: fetchHistory,

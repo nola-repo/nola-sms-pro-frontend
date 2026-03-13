@@ -9,6 +9,7 @@ import { FiUser, FiUsers, FiMenu } from "react-icons/fi";
 import ShinyText from "./ShinyText";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useConversationMessages } from "../hooks/useConversationMessages";
+import { useMessages as usePhoneMessages } from "../hooks/useMessages";
 import { SenderSelector } from "./SenderSelector";
 import { CreditBadge } from "./CreditBadge";
 import { FiCheck, FiAlertCircle, FiLoader } from "react-icons/fi";
@@ -130,12 +131,24 @@ export const Composer: React.FC<ComposerProps> = ({
   }, [activePhoneNumber, activeBulkMessage]);
 
   const {
-    messages,
+    messages: conversationMessages,
     loading: historyLoading,
+    error: historyError,
+    errorStatus: historyErrorStatus,
     addOptimisticMessage,
     updateMessageStatus,
     refresh,
   } = useConversationMessages(conversationId, recipientKeyFocus);
+
+  // Optional per-contact fallback: raw outbound log view by phone number
+  const {
+    messages: phoneLogMessages,
+    loading: phoneLogLoading,
+    error: phoneLogError,
+    refresh: refreshPhoneLog,
+  } = usePhoneMessages(activePhoneNumber);
+
+  const [useRawLogView, setUseRawLogView] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -164,7 +177,12 @@ export const Composer: React.FC<ComposerProps> = ({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [conversationMessages, phoneLogMessages, useRawLogView]);
+
+  // Whenever the conversationId changes, reset the raw log view toggle
+  useEffect(() => {
+    setUseRawLogView(false);
+  }, [conversationId]);
 
   // Consolidated effect to sync internal state with props and handle "New Message" (reset)
   useEffect(() => {
@@ -849,11 +867,42 @@ export const Composer: React.FC<ComposerProps> = ({
               </svg>
             </div>
           )}
-          {historyLoading && messages.length === 0 ? (
+          {/* Error vs empty vs normal states */}
+          {historyError && !useRawLogView && conversationMessages.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <div className="w-24 h-24 mb-4 rounded-[2.5rem] bg-red-50 dark:bg-red-900/20 flex items-center justify-center border border-red-200/60 dark:border-red-500/40 shadow-inner">
+                <FiAlertCircle className="h-10 w-10 text-red-500" />
+              </div>
+              <h3 className="text-[18px] font-bold text-[#111111] dark:text-[#ececf1] mb-2 tracking-tight">
+                Unable to load message history
+              </h3>
+              <p className="text-[14px] text-gray-500 dark:text-gray-400 text-center max-w-sm leading-relaxed mb-4">
+                {historyErrorStatus
+                  ? `The server returned an error (${historyErrorStatus}). This is likely a temporary issue with the backend, not your browser.`
+                  : historyError}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => refresh(true)}
+                  className="px-4 py-2 rounded-xl bg-[#2b83fa] text-white text-[13px] font-bold hover:bg-[#1d6bd4] transition-colors"
+                >
+                  Retry
+                </button>
+                {activePhoneNumber && (
+                  <button
+                    onClick={() => setUseRawLogView(true)}
+                    className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-white/10 text-[13px] font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors"
+                  >
+                    View raw outbound log for this contact
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : historyLoading && !useRawLogView && conversationMessages.length === 0 ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2b83fa]"></div>
             </div>
-          ) : messages.length === 0 ? (
+          ) : !useRawLogView && conversationMessages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center">
               {isNewMessage && !lottieError ? (
                 <DotLottieReact
@@ -878,6 +927,136 @@ export const Composer: React.FC<ComposerProps> = ({
                   ? "Start a professional conversation by typing your first message below."
                   : (composeMode === "bulk" ? "Select contacts to send a synchronized update across your network." : "Type a message below to start a new professional conversation.")}
               </p>
+            </div>
+          ) : useRawLogView ? (
+            <div className="space-y-1 max-w-4xl mx-auto w-full">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                    Raw outbound log view
+                  </span>
+                  {phoneLogLoading && (
+                    <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                      <FiLoader className="h-3 w-3 animate-spin" /> Loading…
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    setUseRawLogView(false);
+                  }}
+                  className="text-[11px] font-semibold text-[#2b83fa] hover:text-[#1d6bd4]"
+                >
+                  Back to conversation view
+                </button>
+              </div>
+              {phoneLogError && (
+                <div className="mb-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-700/40 text-[12px] text-amber-800 dark:text-amber-300">
+                  {phoneLogError}
+                </div>
+              )}
+              {phoneLogMessages.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center py-8">
+                  <p className="text-[14px] text-gray-500 dark:text-gray-400">
+                    No outbound messages found for this number.
+                  </p>
+                </div>
+              ) : (
+                (phoneLogMessages as any[]).map((msg, index) => {
+                  const isExpanded = expandedMessageId === msg.id;
+                  const prevMsg = phoneLogMessages[index - 1];
+                  const nextMsg = phoneLogMessages[index + 1];
+
+                  const msgDateStr = new Date(msg.timestamp).toDateString();
+                  const showDateSeparator =
+                    !prevMsg || new Date(prevMsg.timestamp).toDateString() !== msgDateStr;
+
+                  const isPrevSameGroup = !showDateSeparator;
+                  const isNextSameGroup =
+                    nextMsg && new Date(nextMsg.timestamp).toDateString() === msgDateStr;
+
+                  let roundingClasses = "rounded-[20px]";
+                  if (isPrevSameGroup && isNextSameGroup) {
+                    roundingClasses = "rounded-[20px] rounded-tr-[4px] rounded-br-[4px]";
+                  } else if (isPrevSameGroup && !isNextSameGroup) {
+                    roundingClasses = "rounded-[20px] rounded-tr-[4px]";
+                  } else if (!isPrevSameGroup && isNextSameGroup) {
+                    roundingClasses = "rounded-[20px] rounded-br-[4px]";
+                  }
+
+                  return (
+                    <div key={msg.id} className="w-full flex flex-col items-end">
+                      {showDateSeparator && (
+                        <div className="w-full flex items-center justify-center my-4">
+                          <span className="px-3 py-1 bg-gray-100 dark:bg-white/10 rounded-full text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                            {new Date(msg.timestamp).toLocaleDateString([], {
+                              weekday: "long",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        </div>
+                      )}
+                      <div
+                        className="max-w-[85%] flex flex-col items-end group mb-1 cursor-pointer"
+                        onClick={() => setExpandedMessageId(isExpanded ? null : msg.id)}
+                      >
+                        <div
+                          className={`bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white px-4 py-2.5 shadow-lg shadow-blue-500/10 transition-transform group-hover:scale-[1.01] ${roundingClasses}`}
+                        >
+                          <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">
+                            {msg.text}
+                          </p>
+                        </div>
+                        <div
+                          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                            isExpanded ? "max-h-20 opacity-100 mt-1 mb-1 px-1" : "max-h-0 opacity-0"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                              {msg.senderName}
+                            </span>
+                            <span className="text-[10px] text-gray-400">•</span>
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+                              {new Date(msg.timestamp).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            <span className="text-[10px] text-gray-400">•</span>
+                            <span
+                              className={`text-[10px] font-bold capitalize tracking-wider ${
+                                msg.status === "sent"
+                                  ? "text-green-500"
+                                  : msg.status === "delivered"
+                                  ? "text-blue-400"
+                                  : msg.status === "failed"
+                                  ? "text-red-500"
+                                  : "text-gray-400"
+                              }`}
+                            >
+                              {msg.status === "sending"
+                                ? "⟳"
+                                : msg.status === "sent"
+                                ? "✓"
+                                : msg.status === "delivered"
+                                ? "✓✓"
+                                : (
+                                    <FiAlertCircle
+                                      size={10}
+                                      className="inline mb-0.5"
+                                    />
+                                  )}{" "}
+                              {msg.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           ) : (
             <div className={`space-y-1 ${composeMode === 'bulk' && bulkSelectedContacts.length > 1 ? 'max-w-4xl mx-auto w-full' : ''}`}>
@@ -972,10 +1151,11 @@ export const Composer: React.FC<ComposerProps> = ({
                   });
                 }
 
-                return (messages as any[]).map((msg, index) => {
+                const sourceMessages = conversationMessages as any[];
+                return sourceMessages.map((msg, index) => {
                   const isExpanded = expandedMessageId === msg.id;
-                  const prevMsg = messages[index - 1];
-                  const nextMsg = messages[index + 1];
+                  const prevMsg = sourceMessages[index - 1];
+                  const nextMsg = sourceMessages[index + 1];
 
                   const msgDateStr = new Date(msg.timestamp).toDateString();
                   const showDateSeparator = !prevMsg || new Date(prevMsg.timestamp).toDateString() !== msgDateStr;

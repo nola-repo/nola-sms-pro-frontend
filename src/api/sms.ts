@@ -7,6 +7,18 @@ const WEBHOOK_URL = API_CONFIG.messages;
 
 export type SenderId = string;
 
+export class ConversationMessagesError extends Error {
+  status?: number;
+  details?: unknown;
+
+  constructor(message: string, status?: number, details?: unknown) {
+    super(message);
+    this.name = "ConversationMessagesError";
+    this.status = status;
+    this.details = details;
+  }
+}
+
 interface SendSmsResponse {
   success?: boolean;
   message?: string;
@@ -242,31 +254,63 @@ export const fetchMessagesByConversationId = async (
 ): Promise<FirestoreMessage[]> => {
   if (!conversationId) return [];
 
-  try {
-    const accountSettings = getAccountSettings();
-    const headers: Record<string, string> = {};
-    if (accountSettings.ghlLocationId) {
-      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
-    }
-
-    let url = `${API_CONFIG.messages}?conversation_id=${encodeURIComponent(conversationId)}&limit=${limit}`;
-    if (accountSettings.ghlLocationId) {
-      url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
-    }
-
-    // If recipientKey is provided, we're isolating a single user's history within a bulk campaign
-    if (recipientKey) {
-      url += `&recipient_key=${encodeURIComponent(recipientKey)}`;
-    }
-
-    const res = await fetch(url, { headers });
-    if (!res.ok) throw new Error(`Failed to fetch conversation messages: ${res.status}`);
-    const data = await res.json();
-    return (data.data || data || []) as FirestoreMessage[];
-  } catch (error) {
-    console.error('[fetchMessagesByConversationId] Error:', error);
-    return [];
+  const accountSettings = getAccountSettings();
+  const headers: Record<string, string> = {};
+  if (accountSettings.ghlLocationId) {
+    headers["X-GHL-Location-ID"] = accountSettings.ghlLocationId;
   }
+
+  let url = `${API_CONFIG.messages}?conversation_id=${encodeURIComponent(
+    conversationId
+  )}&limit=${limit}`;
+  if (accountSettings.ghlLocationId) {
+    url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+  }
+
+  // If recipientKey is provided, we're isolating a single user's history within a bulk campaign
+  if (recipientKey) {
+    url += `&recipient_key=${encodeURIComponent(recipientKey)}`;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(url, { headers });
+  } catch (err) {
+    console.error("[fetchMessagesByConversationId] Network error:", err);
+    throw new ConversationMessagesError(
+      "Network error while fetching conversation messages",
+      undefined,
+      err
+    );
+  }
+
+  let rawBody: string | null = null;
+  let parsedBody: any = null;
+
+  try {
+    rawBody = await res.text();
+    parsedBody = rawBody ? JSON.parse(rawBody) : null;
+  } catch (err) {
+    // If JSON parsing fails we still want to surface some diagnostics
+    console.error("[fetchMessagesByConversationId] Failed to parse JSON:", err);
+  }
+
+  if (!res.ok) {
+    const status = res.status;
+    const backendMessage =
+      (parsedBody && (parsedBody.error || parsedBody.message)) || rawBody || "";
+    const message = `Failed to fetch conversation messages: ${status}${
+      backendMessage ? ` - ${backendMessage}` : ""
+    }`;
+    console.error("[fetchMessagesByConversationId] Error response:", {
+      status,
+      backendMessage,
+    });
+    throw new ConversationMessagesError(message, status, parsedBody ?? rawBody);
+  }
+
+  const data = parsedBody ?? {};
+  return (data.data || data || []) as FirestoreMessage[];
 };
 
 /**
