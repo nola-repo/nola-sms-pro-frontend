@@ -121,8 +121,9 @@ export const addContact = async (params: AddContactParams): Promise<Contact | nu
     if (!res.ok) {
       const error = await res.json();
       console.error('Failed to add contact:', error);
-      // Return error details for display
-      throw new Error(error.details || error.error || 'Failed to add contact');
+      // GHL returns { message: [...], error: 'Unprocessable Entity' }
+      const msg = Array.isArray(error.message) ? error.message.join(', ') : (error.message || error.details || error.error || 'Failed to add contact');
+      throw new Error(msg);
     }
 
     const contact = await res.json();
@@ -165,7 +166,8 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
     if (!res.ok) {
       const error = await res.json();
       console.error('Failed to update contact:', error);
-      throw new Error(error.details || error.error || 'Failed to update contact');
+      const msg = Array.isArray(error.message) ? error.message.join(', ') : (error.message || error.details || error.error || 'Failed to update contact');
+      throw new Error(msg);
     }
 
     const contact = await res.json();

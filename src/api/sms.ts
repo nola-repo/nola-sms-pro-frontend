@@ -283,7 +283,7 @@ export const fetchConversations = async (): Promise<Conversation[]> => {
 
     let CONVERSATIONS_URL = API_CONFIG.conversations;
     if (accountSettings.ghlLocationId) {
-      CONVERSATIONS_URL += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+      CONVERSATIONS_URL += `?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
     }
     const res = await fetch(CONVERSATIONS_URL, { headers });
     if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
@@ -333,7 +333,7 @@ export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> 
 
     let BULK_CAMPAIGNS_URL = API_CONFIG.bulk_campaigns;
     if (accountSettings.ghlLocationId) {
-      BULK_CAMPAIGNS_URL += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+      BULK_CAMPAIGNS_URL += `?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
     }
     const res = await fetch(BULK_CAMPAIGNS_URL, { headers });
     console.log('[fetchAllBulkMessages] Response status:', res.status);

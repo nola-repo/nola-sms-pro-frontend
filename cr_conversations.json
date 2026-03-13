@@ -1,0 +1,18 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": "conv_09761731036",
+            "type": "direct",
+            "members": [
+                "09761731036"
+            ],
+            "name": "raely ivan reyes",
+            "last_message": "j",
+            "last_message_at": "2026-03-13T02:17:25.723992Z",
+            "updated_at": "2026-03-13T02:17:25.723992Z"
+        }
+    ],
+    "limit": 50,
+    "offset": 0
+}

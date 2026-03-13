@@ -1,0 +1,21 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": "266326369",
+            "direction": "outbound",
+            "message_id": "266326369",
+            "numbers": [
+                "09761731036"
+            ],
+            "message": "j",
+            "sender_id": "NOLACRM",
+            "status": "Pending",
+            "date_created": "2026-03-13T02:17:25.723992Z",
+            "source": "semaphore"
+        }
+    ],
+    "total": 1,
+    "limit": 50,
+    "offset": 0
+}
