@@ -200,23 +200,99 @@ export const sendBulkSms = async (
   phoneNumbers: string[],
   message: string,
   senderName: string = "NOLACRM",
-  contacts: { phone: string, name: string }[] = [],
+  _contacts: { phone: string, name: string }[] = [],
   recipientKey?: string,
   existingBatchId?: string
 ): Promise<{ results: SendSmsResponse[], batchId: string }> => {
-  const results: SendSmsResponse[] = [];
-  // Use existing batchId if provided, otherwise create a new one
-  // Firestore shows conversation IDs like group_batch-<timestamp>, so default to dash-style.
-  // Keep existing IDs as-is to avoid breaking threads.
-  const batchId = existingBatchId || `batch-${Date.now()}`;
-
+  // Normalize and validate all phone numbers up front
+  const normalizedNumbers: string[] = [];
   for (const phone of phoneNumbers) {
-    const contact = contacts.find(c => normalizePHNumber(c.phone) === normalizePHNumber(phone));
-    const result = await sendSms(phone, message, senderName, batchId, contact?.name, recipientKey);
-    results.push(result);
+    const normalized = normalizePHNumber(phone);
+    if (normalized && isValidPHNumber(normalized)) {
+      if (!normalizedNumbers.includes(normalized)) {
+        normalizedNumbers.push(normalized);
+      }
+    }
   }
 
-  return { results, batchId };
+  if (!message || normalizedNumbers.length === 0) {
+    return {
+      results: normalizedNumbers.map((n) => ({
+        success: false,
+        number: n,
+        message: !message
+          ? "Message text is required"
+          : "No valid Philippine mobile numbers to send",
+      })),
+      batchId: existingBatchId || `batch-${Date.now()}`,
+    };
+  }
+
+  // Use existing batchId if provided, otherwise create a new one (dash style to match backend docs)
+  const batchId = existingBatchId || `batch-${Date.now()}`;
+
+  try {
+    const accountSettings = getAccountSettings();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (accountSettings.ghlLocationId) {
+      headers["X-GHL-Location-ID"] = accountSettings.ghlLocationId;
+    }
+
+    const SEND_SMS_URL = accountSettings.ghlLocationId
+      ? `${API_CONFIG.sms}?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`
+      : API_CONFIG.sms;
+
+    // Single bulk payload: send all numbers in one request.
+    const payload = {
+      customData: {
+        number: normalizedNumbers.join(","), // send_sms.php clean_numbers() handles comma-separated
+        message,
+        sendername: senderName,
+        batch_id: batchId,
+        recipient_key: recipientKey,
+      },
+    };
+
+    console.log("Sending BULK SMS payload via proxy:", payload);
+    console.log("Sending to:", SEND_SMS_URL);
+
+    const res = await fetch(SEND_SMS_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errorText}`);
+    }
+
+    const data = await res.json();
+    console.log("BULK SMS API Response:", data);
+
+    const overallSuccess = data?.status === "success";
+    const baseMessage =
+      data?.message ||
+      (overallSuccess ? "Bulk messages sent successfully" : "Bulk SMS sending failed");
+
+    const results: SendSmsResponse[] = normalizedNumbers.map((number) => ({
+      success: overallSuccess,
+      number,
+      message: baseMessage,
+    }));
+
+    return { results, batchId };
+  } catch (error) {
+    console.error("[sendBulkSms] Error:", error);
+    const results: SendSmsResponse[] = normalizedNumbers.map((number) => ({
+      success: false,
+      number,
+      message: error instanceof Error ? error.message : "Bulk SMS failed",
+    }));
+    return { results, batchId };
+  }
 };
 
 export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => {
