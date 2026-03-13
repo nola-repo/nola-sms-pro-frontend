@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { fetchContacts } from "../api/contacts";
-import { fetchAllBulkMessages, fetchConversations, renameConversation, deleteConversation } from "../api/sms";
+import { fetchConversations, renameConversation, deleteConversation } from "../api/sms";
 import { deleteContact as deleteContactBackend } from "../api/contacts";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
@@ -66,78 +66,89 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const filtered = data.filter(c => !deletedIds.includes(c.id));
       setContacts(filtered);
 
-      // Load bulk messages: try Firestore conversations first, fall back to sms_logs bulk endpoint
+      // Load conversations from server
       try {
+        const conversations = await fetchConversations();
+        
+        // Build a phone -> name lookup map from contacts
+        const contactMap = new Map<string, string>();
+        contacts.forEach(c => contactMap.set(c.phone, c.name));
+        // Also map normalized versions just in case
+        contacts.forEach(c => {
+          const cleaned = c.phone.replace(/\D/g, "");
+          if (cleaned) contactMap.set(cleaned, c.name);
+        });
+
+        // Handle Direct Conversations
+        const directConvs = conversations.filter(c => c.type === 'direct' || !c.type);
+        const historyContacts: Contact[] = directConvs.map(conv => {
+          const phone = conv.id.replace(/^conv_/, '');
+          const cleanPhone = phone.replace(/\D/g, "");
+          // Resolve name: prioritize server metadata, then contact list, then phone
+          const name = conv.name || contactMap.get(phone) || contactMap.get(cleanPhone) || phone;
+          
+          return {
+            id: conv.id,
+            name: name,
+            phone: phone,
+            lastMessage: conv.last_message,
+            lastSentAt: conv.last_message_at || conv.updated_at || undefined
+          };
+        }).sort((a, b) => {
+          const timeA = new Date(a.lastSentAt || 0).getTime();
+          const timeB = new Date(b.lastSentAt || 0).getTime();
+          return timeB - timeA;
+        });
+        setDirectHistory(historyContacts);
+
+        // Handle Bulk Conversations
         const mergedBulk = new Map<string, BulkMessageHistoryItem>();
 
-        // 1. Local storage (lowest priority – user renames/deletions tracked here)
+        // 1. Local storage fallback
         getBulkMessageHistory().forEach(msg => {
           const key = msg.batchId || msg.id;
           mergedBulk.set(key, msg);
         });
 
-        // 2. Old sms_logs-based bulk endpoint (fallback)
-        try {
-          const dbBulkMessages = await fetchAllBulkMessages();
-          dbBulkMessages.forEach(msg => {
-            const key = msg.batchId || msg.id;
-            // Only override if not already in local storage (local keeps custom names)
-            if (!mergedBulk.has(key)) mergedBulk.set(key, msg);
-          });
-        } catch { /* ignore */ }
+        // 2. Map server conversations to BulkMessageHistoryItem
+        conversations
+          .filter(c => c.type === 'bulk')
+          .forEach(conv => {
+            const batchId = conv.id.replace(/^group_/, '');
+            const key = batchId;
+            const existing = mergedBulk.get(key);
+            
+            // Resolve recipient names from contact list if not present
+            let recipientNames = existing?.recipientNames || [];
+            if (recipientNames.length === 0 && conv.members.length > 0) {
+              recipientNames = conv.members.map(phone => {
+                const clean = phone.replace(/\D/g, "");
+                return contactMap.get(phone) || contactMap.get(clean) || phone;
+              });
+            }
 
-        // 3. New conversations collection (highest priority for server truth)
-        try {
-          const conversations = await fetchConversations();
-
-          // Handle Direct Conversations
-          const directConvs = conversations.filter(c => c.type === 'direct' || !c.type);
-          const historyContacts: Contact[] = directConvs.map(conv => {
-            const phone = conv.id.replace(/^conv_/, '');
-            return {
-              id: conv.id,
-              name: conv.name || phone,
-              phone: phone,
-              lastMessage: conv.last_message,
-              lastSentAt: conv.last_message_at || conv.updated_at || undefined
+            const item: BulkMessageHistoryItem = {
+              id: existing?.id || `bulk-db-${batchId}`,
+              message: conv.last_message || existing?.message || '',
+              recipientCount: conv.members.length,
+              recipientNames: recipientNames,
+              recipientNumbers: conv.members,
+              recipientKey: existing?.recipientKey || batchId,
+              customName: conv.name || existing?.customName, // Prioritize server-side renamed group
+              timestamp: conv.last_message_at || conv.updated_at || existing?.timestamp || new Date().toISOString(),
+              status: existing?.status || 'sent',
+              batchId,
+              fromDatabase: true,
             };
-          }).sort((a, b) => {
-            const timeA = new Date(a.lastSentAt || 0).getTime();
-            const timeB = new Date(b.lastSentAt || 0).getTime();
-            return timeB - timeA;
+            mergedBulk.set(key, item);
           });
-          setDirectHistory(historyContacts);
-
-          // Handle Bulk Conversations
-          conversations
-            .filter(c => c.type === 'bulk')
-            .forEach(conv => {
-              // conversation id format: group_batch_xxx  → batchId = batch_xxx
-              const batchId = conv.id.replace(/^group_/, '');
-              const key = batchId;
-              const existing = mergedBulk.get(key);
-              const item: BulkMessageHistoryItem = {
-                id: existing?.id || `bulk-db-${batchId}`,
-                message: conv.last_message || existing?.message || '',
-                recipientCount: conv.members.length,
-                recipientNames: existing?.recipientNames,
-                recipientNumbers: conv.members,
-                recipientKey: existing?.recipientKey || batchId,
-                customName: existing?.customName,
-                timestamp: conv.last_message_at || conv.updated_at || existing?.timestamp || new Date().toISOString(),
-                status: existing?.status || 'sent',
-                batchId,
-                fromDatabase: true,
-              };
-              mergedBulk.set(key, item);
-            });
-        } catch { /* conversations endpoint not yet deployed – silently ignore */ }
 
         const combined = Array.from(mergedBulk.values())
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         setBulkHistory(combined);
-      } catch (bulkErr) {
-        console.error('Error loading bulk messages:', bulkErr);
+      } catch (err) {
+        console.error('Error loading history:', err);
+        // Fallback to local bulk history if server fails
         setBulkHistory(getBulkMessageHistory());
       }
     } catch (e) {
@@ -146,7 +157,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (showSpinner) setIsRefreshing(false);
       setLoading(false);
     }
-  }, []);
+  }, [contacts]);
 
   useEffect(() => {
     loadContacts();
@@ -421,282 +432,296 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className={`flex-1 min-h-0 flex flex-col mt-4 overflow-hidden ${isCollapsed ? 'items-center' : ''}`}>
         {!isCollapsed && (
           <div className="flex-1 flex flex-col px-2 pb-4 overflow-hidden min-h-0">
-            {/* Messages Section Header - Sticky at top */}
-            <div className="px-2 py-2 pt-2 border-t border-[#00000005] dark:border-[#ffffff05]">
-              <h2 className="text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Messages</h2>
-            </div>
-
-            {/* Direct Messages Header - Sticky */}
-            <div
-              className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer border-t border-[#00000005] dark:border-[#ffffff05] pt-2"
-              onClick={() => setDirectMessagesExpanded(!directMessagesExpanded)}
-            >
-              <div className="flex items-center gap-2">
-                <div className={`transition-transform duration-200 ${directMessagesExpanded ? 'rotate-0' : '-rotate-90'}`}>
-                  <FiChevronDown className="w-4 h-4 text-[#5f6368] dark:text-[#9aa0a6]" />
+            {/* Messages Content */}
+            {!loading && directHistory.length === 0 && bulkHistory.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-16 h-16 rounded-[20px] bg-[#2b83fa]/10 flex items-center justify-center mb-4 relative group">
+                  <div className="absolute inset-0 bg-[#2b83fa]/20 rounded-[20px] blur-xl opacity-50 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <FiPlus className="w-8 h-8 text-[#2b83fa] relative z-10" />
                 </div>
-                <h3 className="text-[13px] font-semibold text-[#3c4043] dark:text-[#e8eaed]">Direct Messages</h3>
+                <h3 className="text-[14px] font-bold text-[#111111] dark:text-white mb-1.5">Start a new conversation</h3>
+                <p className="text-[11.5px] leading-relaxed text-gray-500 dark:text-gray-400 max-w-[160px]">
+                  Click the <span className="text-[#2b83fa] font-bold">New Message</span> button above to send your first SMS.
+                </p>
               </div>
-              <span className="text-[11px] font-medium text-[#5f6368] dark:text-[#9aa0a6] bg-[#f1f3f4] dark:bg-[#3c4043] px-1.5 py-0.5 rounded">
-                {directHistory.length}
-              </span>
-            </div>
-
-            {/* Direct Messages Content - Pull to refresh + Independent scrollable area */}
-            <div
-              ref={contactsListRef}
-              className={`overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-300 pb-0 ${directMessagesExpanded ? 'max-h-[35vh] opacity-100 mb-2' : 'max-h-0 opacity-0'}`}
-              onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; }}
-              onTouchEnd={(e) => {
-                const delta = e.changedTouches[0].clientY - touchStartY.current;
-                const atTop = (contactsListRef.current?.scrollTop ?? 0) === 0;
-                if (delta > 60 && atTop) loadContacts(true);
-              }}
-            >
-              {/* Pull-to-refresh indicator */}
-              {isRefreshing && (
-                <div className="flex justify-center items-center py-2">
-                  <svg className="animate-spin h-4 w-4 text-[#2b83fa]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                  </svg>
+            ) : (
+              <>
+                {/* Messages Section Header - Sticky at top */}
+                <div className="px-2 py-2 pt-2 border-t border-[#00000005] dark:border-[#ffffff05]">
+                  <h2 className="text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Messages</h2>
                 </div>
-              )}
-              <div className="flex flex-col gap-0.5">
-                {loading ? (
-                  [1, 2, 3, 4, 5].map(i => <SidebarSkeleton key={i} />)
-                ) : (
-                  directHistory.map(contact => (
-                    <div
-                      key={contact.id}
-                      className={`
-                      group relative transition-all duration-300 overflow-visible
-                      px-2 py-1.5 rounded-lg cursor-pointer mb-0.5
-                      ${activeContactId === contact.id
-                          ? 'bg-white dark:bg-[#1c1e21] shadow-[0_4px_15px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] ring-1 ring-[#00000005] dark:ring-[#ffffff05]'
-                          : 'hover:bg-black/[0.015] dark:hover:bg-white/[0.015]'}
-                    `}
-                      onClick={() => {
-                        onTabChange('compose');
-                        onSelectContact(contact);
-                      }}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="relative flex-shrink-0">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all duration-300 shadow-inner
-                        ${activeContactId === contact.id
-                              ? 'bg-[#2b83fa] text-white shadow-[0_4px_8px_rgba(43,131,250,0.2)]'
-                              : 'bg-[#f0f0f0] dark:bg-[#202123] text-[#6e6e73] dark:text-[#ececf1] group-hover:bg-[#e8e8e8] dark:group-hover:bg-[#25262a]'}
-                        `}>
-                            {(contact.name || contact.phone).charAt(0).toUpperCase()}
-                          </div>
-                          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#121415] shadow-sm transition-opacity duration-300
-                        ${activeContactId === contact.id ? 'bg-green-500 opacity-100' : 'bg-gray-300 dark:bg-gray-600 opacity-0 group-hover:opacity-100'}
-                      `}></span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-baseline">
-                            <span className={`text-[12.5px] truncate transition-colors duration-200 ${activeContactId === contact.id ? 'font-bold text-[#111111] dark:text-white' : 'font-semibold text-[#37352f] dark:text-[#ececf1]'}`}>
-                              {toProperCase(contact.name || contact.phone)}
-                            </span>
-                            <div className="flex items-center gap-1">
-                              {deletingContactId === contact.id ? (
-                                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    onClick={confirmDeleteContact}
-                                    className="p-1 rounded bg-red-500 text-white hover:bg-red-600"
-                                  >
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    onClick={cancelDeleteContact}
-                                    className="p-1 rounded bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500"
-                                  >
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="relative">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setOpenMenuId(openMenuId === contact.id ? null : contact.id);
-                                    }}
-                                    className="p-1 rounded hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043]"
-                                  >
-                                    <FiMoreVertical className="w-3.5 h-3.5 text-[#5f6368] dark:text-[#9aa0a6]" />
-                                  </button>
-                                  {openMenuId === contact.id && (
-                                    <div
-                                      className="absolute right-0 top-full mt-1 bg-white dark:bg-[#2d2d2d] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[100px] z-[9999] overflow-visible"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
+
+                {/* Direct Messages Header - Sticky */}
+                <div
+                  className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer border-t border-[#00000005] dark:border-[#ffffff05] pt-2"
+                  onClick={() => setDirectMessagesExpanded(!directMessagesExpanded)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`transition-transform duration-200 ${directMessagesExpanded ? 'rotate-0' : '-rotate-90'}`}>
+                      <FiChevronDown className="w-4 h-4 text-[#5f6368] dark:text-[#9aa0a6]" />
+                    </div>
+                    <h3 className="text-[13px] font-semibold text-[#3c4043] dark:text-[#e8eaed]">Direct Messages</h3>
+                  </div>
+                  <span className="text-[11px] font-medium text-[#5f6368] dark:text-[#9aa0a6] bg-[#f1f3f4] dark:bg-[#3c4043] px-1.5 py-0.5 rounded">
+                    {directHistory.length}
+                  </span>
+                </div>
+
+                {/* Direct Messages Content - Pull to refresh + Independent scrollable area */}
+                <div
+                  ref={contactsListRef}
+                  className={`overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-300 pb-0 ${directMessagesExpanded ? 'max-h-[35vh] opacity-100 mb-2' : 'max-h-0 opacity-0'}`}
+                  onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; }}
+                  onTouchEnd={(e) => {
+                    const delta = e.changedTouches[0].clientY - touchStartY.current;
+                    const atTop = (contactsListRef.current?.scrollTop ?? 0) === 0;
+                    if (delta > 60 && atTop) loadContacts(true);
+                  }}
+                >
+                  {/* Pull-to-refresh indicator */}
+                  {isRefreshing && (
+                    <div className="flex justify-center items-center py-2">
+                      <svg className="animate-spin h-4 w-4 text-[#2b83fa]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-0.5">
+                    {loading ? (
+                      [1, 2, 3, 4, 5].map(i => <SidebarSkeleton key={i} />)
+                    ) : (
+                      directHistory.map(contact => (
+                        <div
+                          key={contact.id}
+                          className={`
+                          group relative transition-all duration-300 overflow-visible
+                          px-2 py-1.5 rounded-lg cursor-pointer mb-0.5
+                          ${activeContactId === contact.id
+                              ? 'bg-white dark:bg-[#1c1e21] shadow-[0_4px_15px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] ring-1 ring-[#00000005] dark:ring-[#ffffff05]'
+                              : 'hover:bg-black/[0.015] dark:hover:bg-white/[0.015]'}
+                        `}
+                          onClick={() => {
+                            onTabChange('compose');
+                            onSelectContact(contact);
+                          }}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className="relative flex-shrink-0">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all duration-300 shadow-inner
+                            ${activeContactId === contact.id
+                                  ? 'bg-[#2b83fa] text-white shadow-[0_4px_8px_rgba(43,131,250,0.2)]'
+                                  : 'bg-[#f0f0f0] dark:bg-[#202123] text-[#6e6e73] dark:text-[#ececf1] group-hover:bg-[#e8e8e8] dark:group-hover:bg-[#25262a]'}
+                            `}>
+                                {(contact.name || contact.phone).charAt(0).toUpperCase()}
+                              </div>
+                              <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#121415] shadow-sm transition-opacity duration-300
+                            ${activeContactId === contact.id ? 'bg-green-500 opacity-100' : 'bg-gray-300 dark:bg-gray-600 opacity-0 group-hover:opacity-100'}
+                          `}></span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-baseline mb-0.5">
+                                <span className={`text-[12.5px] truncate transition-colors duration-200 ${activeContactId === contact.id ? 'font-bold text-[#111111] dark:text-white' : 'font-semibold text-[#37352f] dark:text-[#ececf1]'}`}>
+                                  {toProperCase(contact.name || contact.phone)}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  {deletingContactId === contact.id ? (
+                                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                      <button
+                                        onClick={confirmDeleteContact}
+                                        className="p-1 rounded bg-red-500 text-white hover:bg-red-600 shadow-sm transition-all"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                      </button>
+                                      <button
+                                        onClick={cancelDeleteContact}
+                                        className="p-1 rounded bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 shadow-sm transition-all"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="relative">
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleDeleteContact(contact.id, e);
-                                          setOpenMenuId(null);
+                                          setOpenMenuId(openMenuId === contact.id ? null : contact.id);
                                         }}
-                                        className="w-full px-3 py-1 text-left text-[11px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                                        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043] transition-all"
                                       >
-                                        <FiTrash2 className="w-3 h-3" />
-                                        Delete
+                                        <FiMoreVertical className="w-3 h-3 text-[#5f6368] dark:text-[#9aa0a6]" />
                                       </button>
+                                      {openMenuId === contact.id && (
+                                        <div
+                                          className="absolute right-0 top-full mt-1 bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-[#0000000a] dark:border-[#ffffff0a] py-1.5 min-w-[110px] z-[9999] animate-in zoom-in-95 duration-150 origin-top-right"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDeleteContact(contact.id, e);
+                                              setOpenMenuId(null);
+                                            }}
+                                            className="w-full px-3 py-1.5 text-left text-[11.5px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                                          >
+                                            <FiTrash2 className="w-3 h-3" />
+                                            Delete
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className={`text-[11px] truncate leading-tight transition-colors duration-200 ${activeContactId === contact.id ? 'text-[#6e6e73] dark:text-[#a0a0ab]' : 'text-[#a2a2a7] dark:text-[#6e6e73]'}`}>
-                            {contact.lastMessage}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div> {/* end contacts scrollable */}
-
-            {/* Bulk Messages Header */}
-            <>
-              <div
-                className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer mt-2 border-t border-gray-100 dark:border-white/5 pt-2"
-                onClick={() => setBulkMessagesExpanded(!bulkMessagesExpanded)}
-              >
-                <div className="flex items-center gap-2">
-                  <div className={`transition-transform duration-200 ${bulkMessagesExpanded ? 'rotate-0' : '-rotate-90'}`}>
-                    <FiChevronDown className="w-4 h-4 text-[#5f6368] dark:text-[#9aa0a6]" />
-                  </div>
-                  <h3 className="text-[13px] font-semibold text-[#3c4043] dark:text-[#e8eaed]">Bulk Messages</h3>
-                </div>
-                <span className="text-[11px] font-medium text-[#5f6368] dark:text-[#9aa0a6] bg-[#f1f3f4] dark:bg-[#3c4043] px-1.5 py-0.5 rounded">{bulkHistory.length}</span>
-              </div>
-
-              {/* Bulk Messages Content - Independent scrollable area */}
-              <div className={`overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-300 pb-4 ${bulkMessagesExpanded ? 'max-h-[35vh] opacity-100' : 'max-h-0 opacity-0'}`}>
-                <div className="flex flex-col gap-0.5">
-                  {loading ? (
-                    [1, 2, 3].map(i => <SidebarSkeleton key={i} />)
-                  ) : bulkHistory.length > 0 ? (
-                    bulkHistory.map(item => {
-                      const isActive = activeBulkMessageId === item.id;
-                      return (
-                        <div
-                          key={item.id}
-                          className={`
-                            group relative transition-all duration-200 rounded-lg mx-1
-                            px-2 py-1.5 cursor-pointer overflow-visible
-                            ${isActive
-                              ? 'bg-white dark:bg-[#1c1e21] shadow-[0_4px_15px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] ring-1 ring-[#00000005] dark:ring-[#ffffff05]'
-                              : 'hover:bg-[#f1f3f4] dark:hover:bg-[#303134]'
-                            }
-                          `}
-                          onClick={() => {
-                            onTabChange('compose');
-                            if (onSelectBulkMessage) {
-                              onSelectBulkMessage(item);
-                            }
-                          }}
-                        >
-                          <div className="flex items-center gap-3 overflow-visible">
-                            <div className="relative flex-shrink-0">
-                              <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200
-                                ${isActive
-                                  ? 'bg-[#7c3aed] text-white shadow-[0_4px_8px_rgba(124,58,237,0.2)]'
-                                  : 'bg-[#ede9fe] text-[#7c3aed] group-hover:bg-[#ddd6fe]'
-                                }
-                              `}>
-                                <FiUsers className="w-4 h-4" />
+                              </div>
+                              <div className={`text-[11px] truncate leading-normal transition-colors duration-200 opacity-80 ${activeContactId === contact.id ? 'text-[#2b83fa] dark:text-[#60a5fa]' : 'text-[#6e6e73] dark:text-[#94959b]'}`}>
+                                {contact.lastMessage || "(No message yet)"}
                               </div>
                             </div>
-                            <div className="flex-1 min-w-0 overflow-visible">
-                              {editingBulkId === item.id ? (
-                                <input
-                                  type="text"
-                                  value={editingBulkName}
-                                  onChange={(e) => setEditingBulkName(e.target.value)}
-                                  onBlur={() => handleSaveEdit(item.id)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleSaveEdit(item.id);
-                                    if (e.key === 'Escape') setEditingBulkId(null);
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                  autoFocus
-                                  className="w-full text-[12.5px] font-medium text-[#3c4043] dark:text-[#e8eaed] bg-white dark:bg-[#3c4043] px-1 py-0.5 rounded border border-[#2b83fa] outline-none"
-                                />
-                              ) : (
-                                <>
-                                  <div className="flex justify-between items-baseline overflow-visible">
-                                    <span className={`text-[12.5px] truncate font-medium ${isActive ? 'font-bold text-[#111111] dark:text-white' : 'text-[#3c4043] dark:text-[#e8eaed]'}`}>
-                                      {getBulkDisplayName(item)}
-                                    </span>
-                                    <div className="flex items-center gap-1 overflow-visible">
-                                      <div className="relative">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setOpenMenuId(openMenuId === item.id ? null : item.id);
-                                          }}
-                                          className="p-1 px-1.5 rounded hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043]"
-                                        >
-                                          <FiMoreVertical className="w-3.5 h-3.5 text-[#5f6368] dark:text-[#9aa0a6]" />
-                                        </button>
-                                        {openMenuId === item.id && (
-                                          <div
-                                            className="absolute right-0 top-full mt-1 bg-white dark:bg-[#2d2d2d] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[100px] z-[9999] overflow-visible"
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleStartEdit(item);
-                                                setOpenMenuId(null);
-                                              }}
-                                              className="w-full px-3 py-1 text-left text-[11px] text-[#5f6368] dark:text-[#9aa0a6] hover:bg-[#f1f3f4] dark:hover:bg-[#3c4043] flex items-center gap-2"
-                                            >
-                                              <FiEdit2 className="w-3 h-3" />
-                                              Edit
-                                            </button>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDelete(item.id, e);
-                                                setOpenMenuId(null);
-                                              }}
-                                              className="w-full px-3 py-1 text-left text-[11px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
-                                            >
-                                              <FiTrash2 className="w-3 h-3" />
-                                              Delete
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className={`text-[11px] truncate leading-tight ${isActive ? 'text-[#6e6e73] dark:text-[#a0a0ab]' : 'text-[#5f6368] dark:text-[#9aa0a6]'}`}>
-                                    {item.message.length > 30 ? item.message.substring(0, 30) + '...' : item.message}
-                                  </div>
-                                </>
-                              )}
-                            </div>
                           </div>
                         </div>
-                      );
-                    })
-                  ) : (
-                    <div className="text-[12px] text-[#9aa0a6] dark:text-[#6e6e73] px-3 py-2 italic">
-                      No bulk messages yet
-                    </div>
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
-              </div>
-            </>
+
+                {/* Bulk Messages Header */}
+                <div
+                  className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer mt-2 border-t border-gray-100 dark:border-white/5 pt-2"
+                  onClick={() => setBulkMessagesExpanded(!bulkMessagesExpanded)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className={`transition-transform duration-200 ${bulkMessagesExpanded ? 'rotate-0' : '-rotate-90'}`}>
+                      <FiChevronDown className="w-4 h-4 text-[#5f6368] dark:text-[#9aa0a6]" />
+                    </div>
+                    <h3 className="text-[13px] font-semibold text-[#3c4043] dark:text-[#e8eaed]">Bulk Messages</h3>
+                  </div>
+                  <span className="text-[11px] font-medium text-[#5f6368] dark:text-[#9aa0a6] bg-[#f1f3f4] dark:bg-[#3c4043] px-1.5 py-0.5 rounded">{bulkHistory.length}</span>
+                </div>
+
+                {/* Bulk Messages Content - Independent scrollable area */}
+                <div className={`overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-300 pb-4 ${bulkMessagesExpanded ? 'max-h-[35vh] opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <div className="flex flex-col gap-0.5">
+                    {loading ? (
+                      [1, 2, 3].map(i => <SidebarSkeleton key={i} />)
+                    ) : bulkHistory.length > 0 ? (
+                      bulkHistory.map(item => {
+                        const isActive = activeBulkMessageId === item.id;
+                        return (
+                          <div
+                            key={item.id}
+                            className={`
+                              group relative transition-all duration-200 rounded-lg mx-1
+                              px-2 py-1.5 cursor-pointer overflow-visible
+                              ${isActive
+                                ? 'bg-white dark:bg-[#1c1e21] shadow-[0_4px_15px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] ring-1 ring-[#00000005] dark:ring-[#ffffff05]'
+                                : 'hover:bg-[#f1f3f4] dark:hover:bg-[#303134]'
+                              }
+                            `}
+                            onClick={() => {
+                              onTabChange('compose');
+                              if (onSelectBulkMessage) {
+                                onSelectBulkMessage(item);
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-3 overflow-visible">
+                              <div className="relative flex-shrink-0">
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200
+                                  ${isActive
+                                    ? 'bg-[#7c3aed] text-white shadow-[0_4px_8px_rgba(124,58,237,0.2)]'
+                                    : 'bg-[#ede9fe] text-[#7c3aed] group-hover:bg-[#ddd6fe]'
+                                  }
+                                `}>
+                                  <FiUsers className="w-4 h-4" />
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0 overflow-visible">
+                                {editingBulkId === item.id ? (
+                                  <input
+                                    type="text"
+                                    value={editingBulkName}
+                                    onChange={(e) => setEditingBulkName(e.target.value)}
+                                    onBlur={() => handleSaveEdit(item.id)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveEdit(item.id);
+                                      if (e.key === 'Escape') setEditingBulkId(null);
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    autoFocus
+                                    className="w-full text-[12.5px] font-medium text-[#3c4043] dark:text-[#e8eaed] bg-white dark:bg-[#3c4043] px-1 py-0.5 rounded border border-[#2b83fa] outline-none"
+                                  />
+                                ) : (
+                                  <>
+                                    <div className="flex justify-between items-baseline mb-0.5">
+                                      <span className={`text-[12.5px] truncate transition-colors duration-200 ${isActive ? 'font-bold text-[#111111] dark:text-white' : 'font-semibold text-[#3c4043] dark:text-[#e8eaed]'}`}>
+                                        {getBulkDisplayName(item)}
+                                      </span>
+                                      <div className="flex items-center gap-1">
+                                        <div className="relative">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setOpenMenuId(openMenuId === item.id ? null : item.id);
+                                            }}
+                                            className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043] transition-all"
+                                          >
+                                            <FiMoreVertical className="w-3 h-3 text-[#5f6368] dark:text-[#9aa0a6]" />
+                                          </button>
+                                          {openMenuId === item.id && (
+                                            <div
+                                              className="absolute right-0 top-full mt-1 bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-[#0000000a] dark:border-[#ffffff0a] py-1.5 min-w-[110px] z-[9999] animate-in zoom-in-95 duration-150 origin-top-right"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleStartEdit(item);
+                                                  setOpenMenuId(null);
+                                                }}
+                                                className="w-full px-3 py-1.5 text-left text-[11.5px] text-[#5f6368] dark:text-[#9aa0a6] hover:bg-[#f1f3f4] dark:hover:bg-white/5 flex items-center gap-2 transition-colors"
+                                              >
+                                                <FiEdit2 className="w-3 h-3" />
+                                                Rename
+                                              </button>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDelete(item.id, e);
+                                                  setOpenMenuId(null);
+                                                }}
+                                                className="w-full px-3 py-1.5 text-left text-[11.5px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                                              >
+                                                <FiTrash2 className="w-3 h-3" />
+                                                Delete
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className={`text-[11px] truncate leading-normal opacity-80 ${isActive ? 'text-[#7c3aed] dark:text-[#a78bfa]' : 'text-[#6e6e73] dark:text-[#94959b]'}`}>
+                                      {item.message || "(No message sent)"}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="text-[12px] text-[#9aa0a6] dark:text-[#6e6e73] px-3 py-2 italic">
+                        No bulk messages yet
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

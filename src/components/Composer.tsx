@@ -31,8 +31,10 @@ const StatusBadgeSummary: React.FC<{ stats: { sent: number, pending: number, fai
 
     return (
       <div className="flex items-center gap-1.5 text-[10px] font-bold">
-        {isFailed ? (
-          <span className="text-red-500 uppercase tracking-wider">✗ Failed</span>
+        {stats.failed > 0 ? (
+          <span className="text-red-500 uppercase tracking-wider flex items-center gap-1">
+            <FiAlertCircle size={11} className="animate-pulse" /> {isFailed ? 'Failed' : `${stats.failed} Failed`}
+          </span>
         ) : isFullySent ? (
           <span className="text-green-500 flex items-center gap-0.5">
             <FiCheck size={11} className="text-blue-400" />
@@ -1007,6 +1009,12 @@ export const Composer: React.FC<ComposerProps> = ({
                           <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                         </div>
 
+                        {!isExpanded && msg.status === 'failed' && (
+                          <div className="mt-1 flex items-center gap-1 text-red-500 font-bold text-[10px]">
+                            <FiAlertCircle size={10} className="animate-pulse" /> Failed to send
+                          </div>
+                        )}
+
                         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-20 opacity-100 mt-1 mb-1 px-1' : 'max-h-0 opacity-0'}`}>
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
@@ -1018,7 +1026,7 @@ export const Composer: React.FC<ComposerProps> = ({
                             </span>
                             <span className="text-[10px] text-gray-400">•</span>
                             <span className={`text-[10px] font-bold capitalize tracking-wider ${msg.status === 'sent' ? 'text-green-500' : msg.status === 'delivered' ? 'text-blue-400' : msg.status === 'failed' ? 'text-red-500' : 'text-gray-400'}`}>
-                              {msg.status === 'sending' ? '⟳' : msg.status === 'sent' ? '✓' : msg.status === 'delivered' ? '✓✓' : '✗'} {msg.status}
+                              {msg.status === 'sending' ? '⟳' : msg.status === 'sent' ? '✓' : msg.status === 'delivered' ? '✓✓' : <FiAlertCircle size={10} className="inline mb-0.5" />} {msg.status}
                             </span>
                           </div>
                         </div>

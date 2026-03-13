@@ -106,7 +106,13 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                                 className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 resize-none"
                             />
                         </div>
-                        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+                        <div className="mt-6 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                            <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-normal text-center font-medium">
+                                <strong>Note:</strong> It may take a few business days for your sender name to be approved by the carrier network.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
                             <button type="button" onClick={onClose} className="flex-1 py-2.5 text-[13px] font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors">Cancel</button>
                             <button type="submit" className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-semibold text-[13px] transition-all shadow-md shadow-blue-500/20">
                                 Submit Request

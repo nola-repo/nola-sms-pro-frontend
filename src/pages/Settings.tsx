@@ -2,24 +2,22 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { fetchCreditBalance, fetchCreditTransactions } from "../api/credits";
 import type { CreditTransaction } from "../api/credits";
 import {
-    FiUser, FiSend, FiCode, FiBell, FiCreditCard,
-    FiSave, FiPlus, FiTrash2, FiCopy, FiCheck,
+    FiUser, FiSend, FiBell, FiCreditCard,
+    FiSave, FiPlus, FiTrash2, FiCheck,
     FiGlobe, FiMapPin, FiBriefcase, FiCheckCircle, FiAlertCircle, FiClock,
-    FiEye, FiEyeOff, FiRefreshCw, FiZap,
+    FiRefreshCw, FiZap,
 } from "react-icons/fi";
 import {
-    getAccountSettings, saveAccountSettings,
-    getAPISettings, saveAPISettings,
+    getAccountSettings,
     getNotificationSettings, saveNotificationSettings,
     getStoredSenderIds, deleteSenderId,
-    TIMEZONES, CURRENCIES,
-    type AccountSettings, type APISettings, type NotificationSettings, type StoredSenderId,
+    type AccountSettings, type NotificationSettings, type StoredSenderId,
 } from "../utils/settingsStorage";
 import { SenderRequestModal } from "../components/SenderRequestModal";
 import { useGhlLocation } from "../hooks/useGhlLocation";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-type SettingsTab = "account" | "senderIds" | "api" | "notifications" | "credits";
+type SettingsTab = "account" | "senderIds" | "notifications" | "credits";
 
 interface SettingsProps {
     darkMode: boolean;
@@ -32,7 +30,6 @@ interface SettingsProps {
 const TABS: { id: SettingsTab; label: string; icon: React.ReactNode; description: string }[] = [
     { id: "account", label: "Account", icon: <FiUser />, description: "Profile & organization info" },
     { id: "senderIds", label: "Sender IDs", icon: <FiSend />, description: "Manage approved sender IDs" },
-    { id: "api", label: "API & Webhooks", icon: <FiCode />, description: "Integration endpoints & keys" },
     { id: "notifications", label: "Notifications", icon: <FiBell />, description: "Alert & report preferences" },
     { id: "credits", label: "Credits", icon: <FiCreditCard />, description: "Balance & billing" },
 ];
@@ -87,181 +84,63 @@ const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void; id: s
     </button>
 );
 
-const InputField: React.FC<{
-    label: string; id: string; value: string; onChange: (v: string) => void;
-    type?: string; placeholder?: string; hint?: string; disabled?: boolean;
-    suffix?: React.ReactNode;
-}> = ({ label, id, value, onChange, type = "text", placeholder, hint, disabled, suffix }) => (
-    <div>
-        <label htmlFor={id} className="block text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">{label}</label>
-        <div className="relative">
-            <input
-                id={id}
-                type={type}
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                placeholder={placeholder}
-                disabled={disabled}
-                className={`w-full px-4 py-2.5 rounded-xl text-[14px] border transition-all duration-150
-          bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a]
-          text-[#111111] dark:text-[#ececf1] placeholder-gray-400
-          focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 focus:border-[#2b83fa]/40
-          disabled:opacity-50 disabled:cursor-not-allowed
-          ${suffix ? "pr-12" : ""}
-        `}
-            />
-            {suffix && <div className="absolute right-3 top-1/2 -translate-y-1/2">{suffix}</div>}
-        </div>
-        {hint && <p className="text-[11px] text-[#9aa0a6] mt-1">{hint}</p>}
-    </div>
-);
 
-const SelectField: React.FC<{
-    label: string; id: string; value: string; onChange: (v: string) => void; options: string[];
-}> = ({ label, id, value, onChange, options }) => (
-    <div>
-        <label htmlFor={id} className="block text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">{label}</label>
-        <select
-            id={id}
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-xl text-[14px] border transition-all duration-150
-        bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a]
-        text-[#111111] dark:text-[#ececf1]
-        focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 focus:border-[#2b83fa]/40
-        appearance-none cursor-pointer"
-        >
-            {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-        </select>
-    </div>
-);
 
 // ─── Section: Account ───────────────────────────────────────────────────────
 const AccountSection: React.FC = () => {
-    const [form, setForm] = useState<AccountSettings>(getAccountSettings);
-    const [saved, setSaved] = useState(false);
+    const [form] = useState<AccountSettings>(getAccountSettings);
     const ghlLocationIdFromHook = useGhlLocation();
 
-    useEffect(() => {
-        // Automatically update local form if hook detects a new GHL Location ID
-        if (ghlLocationIdFromHook && ghlLocationIdFromHook !== form.ghlLocationId) {
-            setForm(prev => ({ ...prev, ghlLocationId: ghlLocationIdFromHook }));
-        }
-    }, [ghlLocationIdFromHook, form.ghlLocationId]);
-
-    const field = (key: keyof AccountSettings) => ({
-        value: String(form[key]),
-        onChange: (v: string) => setForm(prev => ({ ...prev, [key]: v })),
-    });
-
-    const handleSave = () => {
-        saveAccountSettings(form);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
-    };
-
+    // Use most up-to-date values, prioritize hook for locationId
+    const subaccountName = form.displayName || "N/A";
+    const subaccountEmail = form.email || "N/A";
+    const currentLocationId = ghlLocationIdFromHook || form.ghlLocationId || "Not detected";
 
     const statusCfg = STATUS_CONFIG[form.accountStatus];
 
     return (
         <div className="space-y-5">
-            <SectionHeader title="Account" subtitle="Manage your profile and organization settings." />
+            <SectionHeader title="Account Details" subtitle="View your workspace and GoHighLevel connection information." />
 
             {/* Status Banner */}
             <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border ${statusCfg.bg} border-transparent`}>
                 <span className={statusCfg.color}>{statusCfg.icon}</span>
                 <span className={`text-[13px] font-semibold ${statusCfg.color}`}>
-                    Account Status: {statusCfg.label}
+                    Workspace Status: {statusCfg.label}
                 </span>
             </div>
 
             <Card>
-                <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] mb-4 uppercase tracking-wider">Profile</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <InputField label="Display Name" id="displayName" placeholder="Your name or org name" {...field("displayName")} />
-                    <InputField label="Email Address" id="email" type="email" placeholder="admin@example.com" {...field("email")} />
-                </div>
-            </Card>
-
-            <Card>
-                <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] mb-4 uppercase tracking-wider">Localization</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <SelectField label="Timezone" id="timezone" {...field("timezone")} options={TIMEZONES} />
-                    <SelectField label="Currency" id="currency" {...field("currency")} options={CURRENCIES} />
-                </div>
-            </Card>
-
-            <Card>
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider">GHL Integration & API</h3>
-                    {form.ghlOAuthConnected ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400">
-                            <FiCheck className="w-3.5 h-3.5" /> API Connected
-                        </span>
-                    ) : form.ghlLocationId ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
-                            <FiBriefcase className="w-3.5 h-3.5" /> App Installed
-                        </span>
-                    ) : null}
-                </div>
-
-                {form.ghlLocationId && form.ghlOAuthConnected ? (
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a]">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                                <FiCheckCircle className="w-5 h-5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-[13px] font-semibold text-[#111111] dark:text-[#ececf1]">Successfully Connected to GoHighLevel</p>
-                                <p className="text-[12px] font-mono text-[#9aa0a6] mt-0.5 truncate">Location: {form.ghlLocationId}</p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => setForm(prev => ({ ...prev, ghlOAuthConnected: false }))}
-                            className="text-[11px] text-gray-400 hover:text-red-500 transition-colors"
-                        >
-                            Disconnect or Change Location
-                        </button>
+                <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 rounded-2xl bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
+                        <FiUser className="w-6 h-6" />
                     </div>
-                ) : (
-                    <div className="space-y-4">
-                        <div className="flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30">
-                            <FiAlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                                <p className="text-[13px] font-semibold text-amber-800 dark:text-amber-300">
-                                    {form.ghlLocationId ? "API Authorization Required" : "Location ID Required"}
-                                </p>
-                                <p className="text-[12px] text-amber-700 dark:text-amber-400 mt-1">
-                                    {form.ghlLocationId
-                                        ? "The app is installed, but it needs API access to read contacts and conversations."
-                                        : "Please enter your GHL Location ID manually if it was not auto-detected."}
-                                </p>
-                            </div>
-                        </div>
+                    <div>
+                        <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">{subaccountName}</h3>
+                        <p className="text-[12px] text-[#9aa0a6]">{subaccountEmail}</p>
+                    </div>
+                </div>
 
-                        <div className="space-y-3">
-                            <InputField
-                                label="GHL Client ID"
-                                id="ghlClientId"
-                                placeholder="Paste your GHL Client ID here"
-                                {...field("ghlClientId")}
-                                hint="Matches GHL_CLIENT_ID in your backend environment."
-                            />
-                            <InputField
-                                label="GHL Location ID"
-                                id="ghlLocationId"
-                                placeholder="Paste your Location ID here"
-                                {...field("ghlLocationId")}
-                                hint="Found in GHL Settings > Business Profile"
-                            />
-
+                <div className="space-y-4 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
+                    <div>
+                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">GoHighLevel Subaccount</label>
+                        <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-medium">
+                            {subaccountName}
                         </div>
                     </div>
-                )}
+                    <div>
+                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">GHL Location ID</label>
+                        <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono">
+                            {currentLocationId}
+                        </div>
+                    </div>
+                </div>
             </Card>
 
-            <div className="flex justify-end">
-                <SaveButton onClick={handleSave} saved={saved} />
+            <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20">
+                <p className="text-[12px] text-blue-700 dark:text-blue-300 leading-relaxed">
+                    <strong>Note:</strong> Account information is automatically synced from your GoHighLevel workspace. To update these details, please change them in your GHL Business Profile.
+                </p>
             </div>
         </div>
     );
@@ -363,116 +242,6 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
 
 
 
-
-// ─── Section: API & Webhooks ────────────────────────────────────────────────
-const APISection: React.FC = () => {
-    const [form, setForm] = useState<APISettings>(getAPISettings);
-    const [saved, setSaved] = useState(false);
-    const [copied, setCopied] = useState<string | null>(null);
-    const [showKey, setShowKey] = useState(false);
-
-    const field = (key: keyof APISettings) => ({
-        value: form[key],
-        onChange: (v: string) => setForm(prev => ({ ...prev, [key]: v })),
-    });
-
-    const handleSave = () => {
-        saveAPISettings(form);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
-    };
-
-    const handleCopy = (text: string, id: string) => {
-        navigator.clipboard.writeText(text).then(() => {
-            setCopied(id);
-            setTimeout(() => setCopied(null), 2000);
-        });
-    };
-
-    const ENDPOINT_ROWS = [
-        { label: "Send SMS", method: "POST", path: "/api/v1/accounts/{id}/messages" },
-        { label: "List Messages", method: "GET", path: "/api/v1/accounts/{id}/messages" },
-        { label: "List Sender IDs", method: "GET", path: "/api/v1/accounts/{id}/sender-ids" },
-        { label: "Credit Balance", method: "GET", path: "/api/v1/accounts/{id}/credits" },
-        { label: "GHL Webhook", method: "POST", path: "/webhook/send_sms" },
-        { label: "Receive SMS", method: "POST", path: "/webhook/receive_sms" },
-    ];
-
-    return (
-        <div className="space-y-5">
-            <SectionHeader title="API & Webhooks" subtitle="Configure your integration endpoints and manage API credentials." />
-
-            <Card>
-                <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] mb-4 uppercase tracking-wider">Webhook Configuration</h3>
-                <div className="space-y-4">
-                    <InputField
-                        label="Webhook Base URL"
-                        id="webhookUrl"
-                        placeholder="https://smspro-api.nolacrm.io"
-                        hint="Base URL of your NOLA SMS Pro API server."
-                        {...field("webhookUrl")}
-                    />
-                    <InputField
-                        label="Webhook Secret"
-                        id="webhookSecret"
-                        type="password"
-                        placeholder="Enter webhook verification secret"
-                        hint="Secret token used to verify webhook payloads from GHL or partners."
-                        {...field("webhookSecret")}
-                    />
-                </div>
-            </Card>
-
-            <Card>
-                <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] mb-4 uppercase tracking-wider">API Key</h3>
-                <div>
-                    <label className="block text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Your API Key</label>
-                    <div className="relative flex gap-2">
-                        <input
-                            type={showKey ? "text" : "password"}
-                            value={form.apiKey}
-                            readOnly
-                            className="flex-1 px-4 py-2.5 rounded-xl text-[13px] font-mono border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none cursor-default select-all"
-                        />
-                        <button onClick={() => setShowKey(v => !v)} className="p-2.5 rounded-xl border border-[#e0e0e0] dark:border-[#ffffff0a] bg-[#f7f7f7] dark:bg-[#0d0e10] text-gray-500 hover:text-[#2b83fa] transition-colors" title={showKey ? "Hide" : "Show"}>
-                            {showKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                        </button>
-                        <button onClick={() => handleCopy(form.apiKey, "apiKey")} className="p-2.5 rounded-xl border border-[#e0e0e0] dark:border-[#ffffff0a] bg-[#f7f7f7] dark:bg-[#0d0e10] text-gray-500 hover:text-[#2b83fa] transition-colors" title="Copy">
-                            {copied === "apiKey" ? <FiCheck className="w-4 h-4 text-emerald-500" /> : <FiCopy className="w-4 h-4" />}
-                        </button>
-                    </div>
-                    <p className="text-[11px] text-[#9aa0a6] mt-1.5">API keys are managed server-side. Contact your admin to regenerate.</p>
-                </div>
-            </Card>
-
-            <Card>
-                <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] mb-4 uppercase tracking-wider">API Endpoints Reference</h3>
-                <div className="space-y-1.5">
-                    {ENDPOINT_ROWS.map(ep => (
-                        <div key={`${ep.method}-${ep.path}`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] group">
-                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider flex-shrink-0 ${ep.method === "POST" ? "bg-[#2b83fa]/10 text-[#2b83fa]" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}>
-                                {ep.method}
-                            </span>
-                            <span className="flex-1 text-[12px] font-mono text-[#37352f] dark:text-[#ececf1] truncate">{ep.path}</span>
-                            <span className="text-[11px] text-[#9aa0a6] hidden sm:block">{ep.label}</span>
-                            <button
-                                onClick={() => handleCopy(`${form.webhookUrl}${ep.path}`, ep.path)}
-                                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-400 hover:text-[#2b83fa] transition-all"
-                                title="Copy full URL"
-                            >
-                                {copied === ep.path ? <FiCheck className="w-3.5 h-3.5 text-emerald-500" /> : <FiCopy className="w-3.5 h-3.5" />}
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            </Card>
-
-            <div className="flex justify-end">
-                <SaveButton onClick={handleSave} saved={saved} />
-            </div>
-        </div>
-    );
-};
 
 // ─── Section: Notifications ─────────────────────────────────────────────────
 const NotificationsSection: React.FC = () => {
@@ -882,7 +651,6 @@ export const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, in
         switch (activeTab) {
             case "account": return <AccountSection />;
             case "senderIds": return <SenderIdsSection autoOpenAddModal={autoOpenAddModal && activeTab === "senderIds"} />;
-            case "api": return <APISection />;
             case "notifications": return <NotificationsSection />;
             case "credits": return <CreditsSection />;
         }

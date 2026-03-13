@@ -19,8 +19,8 @@ export const API_CONFIG = {
     contacts: `${API_BASE}/api/contacts`,         // local Firestore contacts (add/edit/delete)
     ghl_contacts: `${API_BASE}/api/ghl-contacts`,  // GHL live contacts proxy
     messages: `${API_BASE}/api/messages`,
-    conversations: `${API_BASE}/api/messages?action=fetch_conversations`,
-    bulk_campaigns: `${API_BASE}/api/messages?action=fetch_bulk_messages`,
+    conversations: `${API_BASE}/api/conversations`,
+    bulk_campaigns: `${API_BASE}/api/bulk-campaigns`,
 };
 
 export default API_CONFIG;

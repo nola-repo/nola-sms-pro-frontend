@@ -40,7 +40,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const [currentView, setCurrentView] = useState<ViewTab>(
     () => (localStorage.getItem('nola_active_tab') as ViewTab) || 'home'
   );
-  const [settingsTab, setSettingsTab] = useState<"account" | "senderIds" | "api" | "notifications" | "credits" | undefined>(undefined);
+  const [settingsTab, setSettingsTab] = useState<"account" | "senderIds" | "notifications" | "credits" | undefined>(undefined);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [settingsOpen] = useState(false);
 

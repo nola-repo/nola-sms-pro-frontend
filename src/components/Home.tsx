@@ -19,6 +19,7 @@ interface HomeProps {
 export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSelectBulkMessage }) => {
     const [balance, setBalance] = useState<number | null>(null);
     const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [contacts, setContacts] = useState<Contact[]>([]);
     const [contactsCount, setContactsCount] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [showAllActivity, setShowAllActivity] = useState(false);
@@ -49,7 +50,9 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
             }
 
             if (contacts.status === 'fulfilled') {
-                setContactsCount((contacts.value as any[]).length);
+                const data = contacts.value as Contact[];
+                setContacts(data);
+                setContactsCount(data.length);
             }
 
             setLoading(false);
@@ -73,6 +76,21 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         console.log('All letters have animated!');
     };
 
+    const getDisplayName = (conv: Conversation): string => {
+        if (conv.name) return conv.name;
+        if (conv.type === 'bulk') return 'Bulk Message';
+        
+        const phone = conv.id.replace(/^conv_/, '');
+        const cleanPhone = phone.replace(/\D/g, "");
+        
+        // Try to find in contacts
+        const contact = contacts.find((c: Contact) => 
+            c.phone === phone || c.phone.replace(/\D/g, "") === cleanPhone
+        );
+        
+        return contact ? contact.name : toProperCase(phone);
+    };
+
     const handleRecentClick = (conv: Conversation) => {
         if (conv.type === 'bulk') {
             const batchId = conv.id.replace(/^group_/, '');
@@ -89,9 +107,10 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
             });
         } else {
             const phone = conv.id.replace(/^conv_/, '');
+            const displayName = getDisplayName(conv);
             onSelectContact({
                 id: conv.id,
-                name: conv.name || phone,
+                name: displayName,
                 phone: phone,
                 lastMessage: conv.last_message
             });
@@ -292,7 +311,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                             </div>
                                             <div className="min-w-0">
                                                 <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px] truncate">
-                                                    {conv.type === 'bulk' ? 'Bulk Message' : toProperCase(conv.name || conv.id.replace(/^conv_/, ''))}
+                                                    {getDisplayName(conv)}
                                                 </h4>
                                                 <p className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate max-w-[200px] font-medium">
                                                     {conv.last_message || "No messages yet"}
@@ -352,7 +371,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                         </div>
                                         <div className="min-w-0">
                                             <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px] truncate">
-                                                {conv.type === 'bulk' ? 'Bulk Message' : toProperCase(conv.name || conv.id.replace(/^conv_/, ''))}
+                                                {getDisplayName(conv)}
                                             </h4>
                                             <p className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate max-w-[200px] font-medium">
                                                 {conv.last_message || "No messages yet"}

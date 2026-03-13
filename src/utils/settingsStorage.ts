@@ -10,8 +10,6 @@ const KEYS = {
 export interface AccountSettings {
     displayName: string;
     email: string;
-    timezone: string;
-    currency: string;
     accountStatus: "approved" | "pending" | "rejected";
     creditBalance: number;
     ghlLocationId: string;
@@ -45,8 +43,6 @@ export interface StoredSenderId {
 const DEFAULT_ACCOUNT: AccountSettings = {
     displayName: "NOLA Admin",
     email: "admin@nolacrm.io",
-    timezone: "Asia/Manila",
-    currency: "PHP",
     accountStatus: "approved",
     creditBalance: 500,
     ghlLocationId: "",
@@ -171,25 +167,3 @@ export const deleteSenderId = (id: string): void => {
     const updated = getStoredSenderIds().filter((s) => s.id !== id);
     saveStoredSenderIds(updated);
 };
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-export const TIMEZONES = [
-    "Asia/Manila",
-    "Asia/Singapore",
-    "Asia/Tokyo",
-    "Asia/Hong_Kong",
-    "Asia/Kolkata",
-    "Asia/Dubai",
-    "Europe/London",
-    "Europe/Paris",
-    "Europe/Berlin",
-    "America/New_York",
-    "America/Chicago",
-    "America/Denver",
-    "America/Los_Angeles",
-    "America/Sao_Paulo",
-    "Australia/Sydney",
-    "Pacific/Auckland",
-];
-
-export const CURRENCIES = ["PHP", "USD", "EUR", "SGD", "AUD", "GBP", "JPY"];

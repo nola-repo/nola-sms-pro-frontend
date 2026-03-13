@@ -6,63 +6,51 @@ export function useGhlLocation() {
 
     useEffect(() => {
         let urlLocation: string | null = null;
-        const possibleKeys = ['location', 'locationId', 'location_id', 'id'];
+        let urlName: string | null = null;
+        let urlEmail: string | null = null;
 
-        // 1. Parse standard URL search parameters
+        const locKeys = ['location', 'locationId', 'location_id', 'id'];
+        const nameKeys = ['name', 'userName', 'user_name'];
+        const emailKeys = ['email', 'userEmail', 'user_email'];
+
         const searchParams = new URLSearchParams(window.location.search);
-        for (const key of possibleKeys) {
-            if (searchParams.get(key)) {
-                urlLocation = searchParams.get(key);
-                break;
-            }
-        }
+        const hashParams = window.location.hash.includes('?') 
+            ? new URLSearchParams(window.location.hash.split('?')[1]) 
+            : null;
 
-        // 2. Parse hash string if search params didn't have it (e.g. #/settings?location=123)
-        if (!urlLocation && window.location.hash.includes('?')) {
-            const hashString = window.location.hash.split('?')[1];
-            if (hashString) {
-                const hashParams = new URLSearchParams(hashString);
-                for (const key of possibleKeys) {
-                    if (hashParams.get(key)) {
-                        urlLocation = hashParams.get(key);
-                        break;
-                    }
-                }
-            }
-        }
+        const getParam = (key: string) => (searchParams.get(key) || hashParams?.get(key)) || null;
 
-        // 3. Fallback: Check the entire href just in case
-        if (!urlLocation) {
-            try {
-                const url = new URL(window.location.href);
-                for (const key of possibleKeys) {
-                    if (url.searchParams.get(key)) {
-                        urlLocation = url.searchParams.get(key);
-                        break;
-                    }
-                }
-            } catch (e) {
-                // Ignore URL parsing errors
-            }
-        }
+        for (const k of locKeys) { const val = getParam(k); if (val) { urlLocation = val; break; } }
+        for (const k of nameKeys) { const val = getParam(k); if (val) { urlName = val; break; } }
+        for (const k of emailKeys) { const val = getParam(k); if (val) { urlEmail = val; break; } }
 
         if (urlLocation) {
             console.log("NOLA SMS: Detected GHL Location:", urlLocation);
-        } else {
-            console.warn("NOLA SMS: No locationId detected in URL. Full URL:", window.location.href);
         }
 
-        if (urlLocation && urlLocation !== locationId) {
-            setLocationId(urlLocation);
+        const accountSettings = getAccountSettings();
+        let changed = false;
 
-            // Auto-save to local storage if it's different from what we had
-            const accountSettings = getAccountSettings();
-            if (accountSettings.ghlLocationId !== urlLocation) {
-                saveAccountSettings({
-                    ...accountSettings,
-                    ghlLocationId: urlLocation,
-                });
-            }
+        const newSettings = { ...accountSettings };
+
+        if (urlLocation && urlLocation !== accountSettings.ghlLocationId) {
+            newSettings.ghlLocationId = urlLocation;
+            setLocationId(urlLocation);
+            changed = true;
+        }
+
+        if (urlName && urlName !== accountSettings.displayName) {
+            newSettings.displayName = urlName;
+            changed = true;
+        }
+
+        if (urlEmail && urlEmail !== accountSettings.email) {
+            newSettings.email = urlEmail;
+            changed = true;
+        }
+
+        if (changed) {
+            saveAccountSettings(newSettings);
         }
     }, [locationId]);
 
