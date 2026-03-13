@@ -70,13 +70,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       try {
         const conversations = await fetchConversations();
         
-        // Build a phone -> name lookup map from contacts
+        // Build a phone -> name lookup map from freshly-fetched contacts (not stale state)
         const contactMap = new Map<string, string>();
-        contacts.forEach(c => contactMap.set(c.phone, c.name));
-        // Also map normalized versions just in case
-        contacts.forEach(c => {
+        data.forEach(c => {
+          contactMap.set(c.phone, c.name);
           const cleaned = c.phone.replace(/\D/g, "");
-          if (cleaned) contactMap.set(cleaned, c.name);
+          if (cleaned) {
+            contactMap.set(cleaned, c.name);
+            // Also map +63 variants for GHL phone format matching
+            if (cleaned.startsWith('0')) contactMap.set('+63' + cleaned.slice(1), c.name);
+            if (cleaned.startsWith('9')) contactMap.set('+63' + cleaned, c.name);
+          }
         });
 
         // Handle Direct Conversations
@@ -84,8 +88,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         const historyContacts: Contact[] = directConvs.map(conv => {
           const phone = conv.id.replace(/^conv_/, '');
           const cleanPhone = phone.replace(/\D/g, "");
-          // Resolve name: prioritize server metadata, then contact list, then phone
-          const name = conv.name || contactMap.get(phone) || contactMap.get(cleanPhone) || phone;
+          // Resolve name: prefer contact name, then server metadata (only if it's a real name, not a phone number), then phone
+          const isPhoneNumber = (s: string) => /^[\d+\-() ]+$/.test(s);
+          const contactName = contactMap.get(phone) || contactMap.get(cleanPhone) || contactMap.get('+63' + cleanPhone);
+          const serverName = conv.name && !isPhoneNumber(conv.name) ? conv.name : null;
+          const name = contactName || serverName || conv.name || phone;
           
           return {
             id: conv.id,
@@ -157,7 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (showSpinner) setIsRefreshing(false);
       setLoading(false);
     }
-  }, [contacts]);
+  }, []);
 
   useEffect(() => {
     loadContacts();
