@@ -112,10 +112,14 @@ export const addContact = async (params: AddContactParams): Promise<Contact | nu
       ? `${CONTACTS_API_URL}?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`
       : CONTACTS_API_URL;
 
+    // Strip empty optional fields — GHL rejects email: "" with "email must be an email"
+    const body: Record<string, string> = { name: params.name, phone: params.phone };
+    if (params.email) body.email = params.email;
+
     const res = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify(params),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
@@ -157,10 +161,14 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
       ? `${CONTACTS_API_URL}?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`
       : CONTACTS_API_URL;
 
+    // Strip empty optional fields — GHL rejects email: "" with "email must be an email"
+    const body: Record<string, string> = { id: params.id, name: params.name, phone: params.phone };
+    if (params.email) body.email = params.email;
+
     const res = await fetch(url, {
       method: 'PUT',
       headers,
-      body: JSON.stringify(params),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
