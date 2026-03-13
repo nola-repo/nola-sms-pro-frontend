@@ -562,10 +562,23 @@ export const Composer: React.FC<ComposerProps> = ({
               </div>
               <div className="flex flex-col min-w-0">
                 <h2 className="text-[15px] sm:text-[17px] font-bold text-[#111111] dark:text-[#ececf1] leading-tight tracking-tight truncate">
-                  {activeBulkMessage.customName ||
-                    (activeBulkMessage.recipientNames && activeBulkMessage.recipientNames.length > 0
-                      ? activeBulkMessage.recipientNames.slice(0, 3).join(', ') + (activeBulkMessage.recipientNames.length > 3 ? ` +${activeBulkMessage.recipientNames.length - 3}` : '')
-                      : `${activeBulkMessage.recipientCount} recipients`)}
+                  {(() => {
+                    const custom = activeBulkMessage.customName;
+                    const looksLikeBatchId = !!custom && (/^batch[-_]\d+$/i.test(custom) || /^batch[-_]/i.test(custom));
+                    const usableCustom = custom && !looksLikeBatchId ? custom : undefined;
+
+                    if (usableCustom) return usableCustom;
+
+                    const names = (activeBulkMessage.recipientNames || []).filter(Boolean);
+                    if (names.length > 0) {
+                      return (
+                        names.slice(0, 3).join(", ") +
+                        (names.length > 3 ? ` +${names.length - 3}` : "")
+                      );
+                    }
+
+                    return `${activeBulkMessage.recipientCount} recipients`;
+                  })()}
                 </h2>
                 <span className="text-[12px] sm:text-[13px] text-gray-500 dark:text-gray-400 font-medium truncate">
                   {activeBulkMessage.recipientCount} recipient{activeBulkMessage.recipientCount !== 1 ? 's' : ''}

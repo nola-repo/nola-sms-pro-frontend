@@ -206,6 +206,8 @@ export const sendBulkSms = async (
 ): Promise<{ results: SendSmsResponse[], batchId: string }> => {
   const results: SendSmsResponse[] = [];
   // Use existing batchId if provided, otherwise create a new one
+  // Firestore shows conversation IDs like group_batch-<timestamp>, so default to dash-style.
+  // Keep existing IDs as-is to avoid breaking threads.
   const batchId = existingBatchId || `batch-${Date.now()}`;
 
   for (const phone of phoneNumbers) {
