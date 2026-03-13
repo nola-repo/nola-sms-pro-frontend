@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { fetchContacts } from "../api/contacts";
 import { fetchConversations, renameConversation, deleteConversation } from "../api/sms";
 import { deleteContact as deleteContactBackend } from "../api/contacts";
@@ -53,8 +54,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [editingBulkName, setEditingBulkName] = useState("");
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<{ x: number, y: number } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showRenameModal, setShowRenameModal] = useState(false);
   const touchStartY = useRef<number>(0);
   const contactsListRef = useRef<HTMLDivElement>(null);
 
@@ -197,6 +200,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleStartEdit = (item: BulkMessageHistoryItem) => {
     setEditingBulkId(item.id);
     setEditingBulkName(item.customName || (item.recipientNames?.join(", ") || `${item.recipientCount} recipients`));
+    setShowRenameModal(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingBulkId(null);
+    setEditingBulkName("");
+    setShowRenameModal(false);
   };
 
   const handleSaveEdit = async (id: string) => {
@@ -219,6 +229,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
     setEditingBulkId(null);
     setEditingBulkName("");
+    setShowRenameModal(false);
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
@@ -567,15 +578,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          setOpenMenuId(openMenuId === contact.id ? null : contact.id);
+                                          if (openMenuId === contact.id) {
+                                            setOpenMenuId(null);
+                                          } else {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            setMenuAnchor({ x: rect.right, y: rect.bottom });
+                                            setOpenMenuId(contact.id);
+                                          }
                                         }}
                                         className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043] transition-all"
                                       >
                                         <FiMoreVertical className="w-3 h-3 text-[#5f6368] dark:text-[#9aa0a6]" />
                                       </button>
-                                      {openMenuId === contact.id && (
+                                      {openMenuId === contact.id && menuAnchor && createPortal(
                                         <div
-                                          className="absolute right-0 top-full mt-1 bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-[#0000000a] dark:border-[#ffffff0a] py-1.5 min-w-[110px] z-[9999] animate-in zoom-in-95 duration-150 origin-top-right"
+                                          className="fixed bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-[#0000000a] dark:border-[#ffffff0a] py-1.5 min-w-[110px] z-[99999] animate-in zoom-in-95 duration-150"
+                                          style={{ top: menuAnchor.y + 4, left: menuAnchor.x, transform: 'translateX(-100%)', transformOrigin: 'top right' }}
                                           onClick={(e) => e.stopPropagation()}
                                         >
                                           <button
@@ -589,7 +607,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             <FiTrash2 className="w-3 h-3" />
                                             Delete
                                           </button>
-                                        </div>
+                                        </div>,
+                                        document.body
                                       )}
                                     </div>
                                   )}
@@ -658,21 +677,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 </div>
                               </div>
                               <div className="flex-1 min-w-0 overflow-visible">
-                                {editingBulkId === item.id ? (
-                                  <input
-                                    type="text"
-                                    value={editingBulkName}
-                                    onChange={(e) => setEditingBulkName(e.target.value)}
-                                    onBlur={() => handleSaveEdit(item.id)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') handleSaveEdit(item.id);
-                                      if (e.key === 'Escape') setEditingBulkId(null);
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    autoFocus
-                                    className="w-full text-[12.5px] font-medium text-[#3c4043] dark:text-[#e8eaed] bg-white dark:bg-[#3c4043] px-1 py-0.5 rounded border border-[#2b83fa] outline-none"
-                                  />
-                                ) : (
                                   <>
                                     <div className="flex justify-between items-baseline mb-0.5">
                                       <span className={`text-[12.5px] truncate transition-colors duration-200 ${isActive ? 'font-bold text-[#111111] dark:text-white' : 'font-semibold text-[#3c4043] dark:text-[#e8eaed]'}`}>
@@ -683,15 +687,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              setOpenMenuId(openMenuId === item.id ? null : item.id);
+                                              if (openMenuId === item.id) {
+                                                setOpenMenuId(null);
+                                              } else {
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                setMenuAnchor({ x: rect.right, y: rect.bottom });
+                                                setOpenMenuId(item.id);
+                                              }
                                             }}
                                             className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043] transition-all"
                                           >
                                             <FiMoreVertical className="w-3 h-3 text-[#5f6368] dark:text-[#9aa0a6]" />
                                           </button>
-                                          {openMenuId === item.id && (
+                                          {openMenuId === item.id && menuAnchor && createPortal(
                                             <div
-                                              className="absolute right-0 top-full mt-1 bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-[#0000000a] dark:border-[#ffffff0a] py-1.5 min-w-[110px] z-[9999] animate-in zoom-in-95 duration-150 origin-top-right"
+                                              className="fixed bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-[#0000000a] dark:border-[#ffffff0a] py-1.5 min-w-[110px] z-[99999] animate-in zoom-in-95 duration-150"
+                                              style={{ top: menuAnchor.y + 4, left: menuAnchor.x, transform: 'translateX(-100%)', transformOrigin: 'top right' }}
                                               onClick={(e) => e.stopPropagation()}
                                             >
                                               <button
@@ -716,7 +727,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                 <FiTrash2 className="w-3 h-3" />
                                                 Delete
                                               </button>
-                                            </div>
+                                            </div>,
+                                            document.body
                                           )}
                                         </div>
                                       </div>
@@ -725,7 +737,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       {item.message || "(No message sent)"}
                                     </div>
                                   </>
-                                )}
                               </div>
                             </div>
                           </div>
@@ -765,6 +776,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!isCollapsed && <span className="font-semibold text-[13px]">Settings</span>}
         </button>
       </div>
+
+      {/* Rename Modal Portal */}
+      {showRenameModal && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#1e1f23] rounded-2xl shadow-xl border border-[#0000001a] dark:border-[#ffffff1a] w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-5 pb-4">
+              <h3 className="text-lg font-bold text-[#111111] dark:text-white mb-4">Rename Conversation</h3>
+              <input
+                type="text"
+                value={editingBulkName}
+                onChange={(e) => setEditingBulkName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveEdit(editingBulkId!);
+                  if (e.key === 'Escape') handleCancelEdit();
+                }}
+                autoFocus
+                placeholder="Enter new name"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-black/20 text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all font-medium"
+              />
+            </div>
+            <div className="flex bg-gray-50 dark:bg-black/40 border-t border-gray-100 dark:border-white/5 p-4 gap-3 justify-end mt-2">
+              <button
+                onClick={handleCancelEdit}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSaveEdit(editingBulkId!)}
+                className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-[#2b83fa] hover:bg-[#1d6ee6] shadow-sm transition-all"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
