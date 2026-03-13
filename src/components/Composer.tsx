@@ -564,7 +564,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 <h2 className="text-[15px] sm:text-[17px] font-bold text-[#111111] dark:text-[#ececf1] leading-tight tracking-tight truncate">
                   {activeBulkMessage.customName ||
                     (activeBulkMessage.recipientNames && activeBulkMessage.recipientNames.length > 0
-                      ? activeBulkMessage.recipientNames.slice(0, 2).join(', ') + (activeBulkMessage.recipientNames.length > 2 ? ` +${activeBulkMessage.recipientNames.length - 2}` : '')
+                      ? activeBulkMessage.recipientNames.slice(0, 3).join(', ') + (activeBulkMessage.recipientNames.length > 3 ? ` +${activeBulkMessage.recipientNames.length - 3}` : '')
                       : `${activeBulkMessage.recipientCount} recipients`)}
                 </h2>
                 <span className="text-[12px] sm:text-[13px] text-gray-500 dark:text-gray-400 font-medium truncate">
@@ -1064,37 +1064,70 @@ export const Composer: React.FC<ComposerProps> = ({
                 const isGroupView = (composeMode === 'bulk' && bulkSelectedContacts.length > 1) || activeBulkMessage;
 
                 if (isGroupView) {
-                  const campaigns: { [key: string]: Message[] } = {};
-                  const allMessages = conversationMessages as Message[];
-                  allMessages.forEach((m: Message & { batch_id?: string }) => {
-                    const bid = m.batch_id || m.id?.toString().slice(0, 20) || "no-batch";
-                    if (!campaigns[bid]) campaigns[bid] = [];
-                    campaigns[bid].push(m);
+                  // In a bulk conversation, many per-recipient rows share the same text.
+                  // Group them into "send events" so the thread shows the correct (latest) message(s).
+                  const allMessages = (conversationMessages as Message[]).slice().sort((a, b) => {
+                    return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
                   });
 
-                  const campaignEntries = Object.keys(campaigns);
-                  return campaignEntries.map((bid, index) => {
-                    const campaignMsgs = campaigns[bid];
-                    const firstMsg = campaignMsgs[0];
-                    const prevBid = campaignEntries[index - 1];
-                    const nextBid = campaignEntries[index + 1];
+                  type BulkSendGroup = {
+                    id: string;
+                    messageText: string;
+                    timestamp: Date;
+                    rows: Message[];
+                  };
 
-                    const date = firstMsg.timestamp instanceof Date ? firstMsg.timestamp : new Date(firstMsg.timestamp);
+                  const groups: BulkSendGroup[] = [];
+                  const GAP_MS = 2 * 60 * 1000; // 2 minutes
+
+                  for (const row of allMessages) {
+                    const rowText = (row.text || (row as any).message || "").toString();
+                    const rowTime = new Date(row.timestamp);
+
+                    const last = groups[groups.length - 1];
+                    const canMerge =
+                      !!last &&
+                      last.messageText === rowText &&
+                      Math.abs(rowTime.getTime() - last.timestamp.getTime()) <= GAP_MS;
+
+                    if (canMerge) {
+                      last.rows.push(row);
+                      // Keep group's timestamp near the center of the send event (latest row time)
+                      if (rowTime.getTime() > last.timestamp.getTime()) {
+                        last.timestamp = rowTime;
+                      }
+                    } else {
+                      const groupId = `bulkgrp-${rowTime.getTime()}-${groups.length}`;
+                      groups.push({
+                        id: groupId,
+                        messageText: rowText,
+                        timestamp: rowTime,
+                        rows: [row],
+                      });
+                    }
+                  }
+
+                  // Render groups newest → oldest (chat-like)
+                  const renderGroups = groups.slice().sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+                  return renderGroups.map((grp, index) => {
+                    const date = grp.timestamp;
+                    const prev = renderGroups[index - 1];
+                    const next = renderGroups[index + 1];
 
                     const msgDateStr = date.toDateString();
-                    const prevFirstMsg = prevBid ? campaigns[prevBid][0] : null;
-                    const prevDateStr = prevFirstMsg ? (prevFirstMsg.timestamp instanceof Date ? prevFirstMsg.timestamp.toDateString() : new Date(prevFirstMsg.timestamp).toDateString()) : null;
+                    const prevDateStr = prev ? prev.timestamp.toDateString() : null;
                     const showDateSeparator = !prevDateStr || prevDateStr !== msgDateStr;
 
                     const campaignStats = {
-                      sent: campaignMsgs.filter(m => (m.status || '').toLowerCase() === 'sent' || (m.status || '').toLowerCase() === 'delivered').length,
-                      pending: campaignMsgs.filter(m => (m.status || '').toLowerCase() === 'pending' || (m.status || '').toLowerCase() === 'queued').length,
-                      failed: campaignMsgs.filter(m => ['failed', 'error'].includes((m.status || '').toLowerCase())).length,
-                      total: campaignMsgs.length
+                      sent: grp.rows.filter(m => (m.status || '').toLowerCase() === 'sent' || (m.status || '').toLowerCase() === 'delivered').length,
+                      pending: grp.rows.filter(m => (m.status || '').toLowerCase() === 'pending' || (m.status || '').toLowerCase() === 'queued').length,
+                      failed: grp.rows.filter(m => ['failed', 'error'].includes((m.status || '').toLowerCase())).length,
+                      total: grp.rows.length
                     };
 
-                    const isExpanded = expandedMessageId === bid;
-                    const isNextSameDay = nextBid && (campaigns[nextBid][0].timestamp instanceof Date ? campaigns[nextBid][0].timestamp.toDateString() : new Date(campaigns[nextBid][0].timestamp).toDateString()) === msgDateStr;
+                    const isExpanded = expandedMessageId === grp.id;
+                    const isNextSameDay = next && next.timestamp.toDateString() === msgDateStr;
 
                     let roundingClasses = "rounded-[20px]";
                     if (!showDateSeparator && isNextSameDay) {
@@ -1106,7 +1139,7 @@ export const Composer: React.FC<ComposerProps> = ({
                     }
 
                     return (
-                      <div key={bid} className="flex flex-col items-end w-full mb-1">
+                      <div key={grp.id} className="flex flex-col items-end w-full mb-1">
                         {showDateSeparator && (
                           <div className="w-full flex items-center justify-center my-4">
                             <span className="px-3 py-1 bg-gray-100 dark:bg-white/10 rounded-full text-[11px] font-medium text-gray-500 dark:text-gray-400">
@@ -1117,11 +1150,11 @@ export const Composer: React.FC<ComposerProps> = ({
 
                         <div
                           className="max-w-[85%] flex flex-col items-end group cursor-pointer"
-                          onClick={() => setExpandedMessageId(isExpanded ? null : bid)}
+                          onClick={() => setExpandedMessageId(isExpanded ? null : grp.id)}
                         >
                           <div className={`bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white px-4 py-2.5 shadow-lg shadow-blue-500/10 transition-transform group-hover:scale-[1.01] ${roundingClasses}`}>
                             <div className="text-[14.5px] whitespace-pre-wrap leading-relaxed">
-                              {firstMsg.text || firstMsg.message}
+                              {grp.messageText}
                             </div>
                           </div>
 
@@ -1129,7 +1162,7 @@ export const Composer: React.FC<ComposerProps> = ({
                             <div className="flex flex-col items-end gap-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                                  {(firstMsg as any).senderName || (firstMsg as any).sender_id || 'NOLACRM'}
+                                  {(grp.rows[0] as any).senderName || (grp.rows[0] as any).sender_id || 'NOLACRM'}
                                 </span>
                                 <span className="text-[10px] text-gray-400">•</span>
                                 <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">

@@ -269,9 +269,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const getBulkDisplayName = (item: BulkMessageHistoryItem): string => {
-    if (item.customName) return item.customName;
+    const toProperCase = (name: string): string => {
+      return name.replace(/\b\w/g, (char) => char.toUpperCase());
+    };
+
+    // Avoid showing auto-generated batch IDs as the "name"
+    if (item.customName) {
+      const looksLikeBatchId = /^batch[-_]\d+$/i.test(item.customName) || /^batch[-_]/i.test(item.customName);
+      if (!looksLikeBatchId) return item.customName;
+    }
     if (item.recipientNames && item.recipientNames.length > 0) {
-      return item.recipientNames.join(", ");
+      const names = item.recipientNames.map((n) => toProperCase(n)).filter(Boolean);
+      const shown = names.slice(0, 3);
+      const extra = Math.max(0, names.length - shown.length);
+      return extra > 0 ? `${shown.join(", ")} +${extra}` : shown.join(", ");
     }
     return `${item.recipientCount} recipient${item.recipientCount !== 1 ? 's' : ''}`;
   };
