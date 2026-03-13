@@ -690,7 +690,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                     inputMode="tel"
                     value={newContactPhone}
                     onChange={(e) => setNewContactPhone(formatPhoneInput(e.target.value))}
-                    placeholder="0917-123-4567"
+                    placeholder="09XX XXX XXXX"
                     className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 focus:border-[#2b83fa] transition-all"
                   />
                 </div>
