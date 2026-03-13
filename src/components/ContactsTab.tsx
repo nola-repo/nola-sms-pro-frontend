@@ -4,7 +4,34 @@ import { deleteContact as deleteContactLocal } from "../utils/storage";
 import type { Contact } from "../types/Contact";
 import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader } from "react-icons/fi";
 
+// Normalize any PH phone to 09XXXXXXXXX (aligned with send_sms.php clean_numbers)
+const normalizePHPhone = (input: string): string => {
+  const digits = input.replace(/\D/g, "");
+  if (/^09\d{9}$/.test(digits)) return digits;
+  if (/^9\d{9}$/.test(digits)) return '0' + digits;
+  if (/^639\d{9}$/.test(digits)) return '0' + digits.slice(2);
+  return digits;
+};
 
+// Format phone for display: 0917-123-4567
+const formatDisplayPhone = (phone: string): string => {
+  const d = normalizePHPhone(phone);
+  if (d.length === 11 && d.startsWith('0')) {
+    return `${d.slice(0, 4)}-${d.slice(4, 7)}-${d.slice(7)}`;
+  }
+  return phone;
+};
+
+// Format input as user types: XXXX-XXX-XXXX
+const formatPhoneInput = (raw: string): string => {
+  const digits = raw.replace(/\D/g, "").substring(0, 11);
+  if (digits.length > 7) {
+    return `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+  } else if (digits.length > 4) {
+    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  }
+  return digits;
+};
 
 interface ContactsTabProps {
   onSendToComposer: (contacts: Contact[]) => void;
@@ -128,17 +155,14 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
   };
 
   const handleAddContact = async () => {
-    let digits = newContactPhone.replace(/\D/g, "");
-    // Normalize: strip leading country code so we always send 10-digit local number
-    if (digits.startsWith("639")) digits = digits.slice(2);      // 639XXXXXXXXX → 9XXXXXXXXX
-    else if (digits.startsWith("63")) digits = digits.slice(2);  // 63XXXXXXXXX  → XXXXXXXXX
-    else if (digits.startsWith("0")) digits = digits.slice(1);   // 09XXXXXXXXX  → 9XXXXXXXXX
-    if (!newContactName.trim() || digits.length < 9) return;
+    const normalized = normalizePHPhone(newContactPhone);
+    if (!newContactName.trim() || !/^09\d{9}$/.test(normalized)) {
+      setError("Please enter a valid Philippine mobile number (e.g. 0917-123-4567)");
+      return;
+    }
 
-    const formattedPhone = "+63" + digits;
-
-    // Check for duplicates
-    const isDuplicate = contacts.some(c => c.phone === formattedPhone);
+    // Check for duplicates (normalized comparison)
+    const isDuplicate = contacts.some(c => normalizePHPhone(c.phone) === normalized);
     if (isDuplicate) {
       setError("A contact with this phone number already exists.");
       return;
@@ -148,16 +172,17 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
     setError(null);
 
     try {
-      // Add to GHL
+      // Send +63 format to GHL API (strip leading 0, prepend +63)
+      const ghlPhone = '+63' + normalized.slice(1);
       const newContact = await addContact({
         name: newContactName.trim(),
-        phone: formattedPhone,
+        phone: ghlPhone,
       });
 
       if (newContact) {
-        // Add to local contacts list (don't select automatically)
+        // Normalize newly added contact phone for consistency
+        newContact.phone = normalizePHPhone(newContact.phone);
         setContacts((prev) => [...prev, newContact]);
-        // Clear search to show the new contact
         setSearchQuery("");
       }
     } catch (err: any) {
@@ -165,7 +190,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
       setError(err.message || "Failed to add contact to GHL");
     } finally {
       setIsSubmitting(false);
-      // Reset and close modal
       setNewContactName("");
       setNewContactPhone("");
       setIsAddModalOpen(false);
@@ -174,17 +198,14 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
 
   const handleEditContact = async () => {
     if (!editingContact) return;
-    let digits = editingContact.phone.replace(/\D/g, "");
-    // Normalize: strip leading country code so we always send 10-digit local number
-    if (digits.startsWith("639")) digits = digits.slice(2);      // 639XXXXXXXXX → 9XXXXXXXXX
-    else if (digits.startsWith("63")) digits = digits.slice(2);  // 63XXXXXXXXX  → XXXXXXXXX
-    else if (digits.startsWith("0")) digits = digits.slice(1);   // 09XXXXXXXXX  → 9XXXXXXXXX
-    if (!editingContact.name.trim() || digits.length < 9) return;
-
-    const formattedPhone = "+63" + digits;
+    const normalized = normalizePHPhone(editingContact.phone);
+    if (!editingContact.name.trim() || !/^09\d{9}$/.test(normalized)) {
+      setError("Please enter a valid Philippine mobile number (e.g. 0917-123-4567)");
+      return;
+    }
 
     // Check for duplicates (excluding the current contact being edited)
-    const isDuplicate = contacts.some(c => c.phone === formattedPhone && c.id !== editingContact.id);
+    const isDuplicate = contacts.some(c => normalizePHPhone(c.phone) === normalized && c.id !== editingContact.id);
     if (isDuplicate) {
       setError("A contact with this phone number already exists.");
       return;
@@ -196,10 +217,11 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
     try {
       // Only update if it's a GHL contact (has numeric ID, not starting with 'manual-')
       if (!editingContact.id.startsWith('manual-')) {
+        const ghlPhone = '+63' + normalized.slice(1);
         const updated = await updateContact({
           id: editingContact.id,
           name: editingContact.name.trim(),
-          phone: formattedPhone,
+          phone: ghlPhone,
         });
 
         if (updated) {
@@ -460,7 +482,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                               </p>
                             </div>
                             <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
-                              {contact.phone}
+                              {formatDisplayPhone(contact.phone)}
                             </p>
                           </div>
 
@@ -667,20 +689,8 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                     type="tel"
                     inputMode="tel"
                     value={newContactPhone}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "");
-                      let formatted = "";
-                      if (digits.length > 0) {
-                        formatted = digits.substring(0, 11);
-                        if (formatted.length > 7) {
-                          formatted = `${formatted.slice(0, 4)} ${formatted.slice(4, 7)} ${formatted.slice(7)}`;
-                        } else if (formatted.length > 3) {
-                          formatted = `${formatted.slice(0, 3)} ${formatted.slice(3)}`;
-                        }
-                      }
-                      setNewContactPhone(formatted);
-                    }}
-                    placeholder="09XX XXX XXXX"
+                    onChange={(e) => setNewContactPhone(formatPhoneInput(e.target.value))}
+                    placeholder="0917-123-4567"
                     className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 focus:border-[#2b83fa] transition-all"
                   />
                 </div>
@@ -766,21 +776,9 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                   <input
                     type="tel"
                     inputMode="tel"
-                    value={editingContact.phone}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "");
-                      let formatted = "";
-                      if (digits.length > 0) {
-                        formatted = digits.substring(0, 11);
-                        if (formatted.length > 7) {
-                          formatted = `${formatted.slice(0, 4)} ${formatted.slice(4, 7)} ${formatted.slice(7)}`;
-                        } else if (formatted.length > 3) {
-                          formatted = `${formatted.slice(0, 3)} ${formatted.slice(3)}`;
-                        }
-                      }
-                      setEditingContact({ ...editingContact, phone: formatted });
-                    }}
-                    placeholder="09XX XXX XXXX"
+                    value={formatPhoneInput(editingContact.phone)}
+                    onChange={(e) => setEditingContact({ ...editingContact, phone: formatPhoneInput(e.target.value) })}
+                    placeholder="0917-123-4567"
                     className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 focus:border-[#2b83fa] transition-all"
                   />
                 </div>

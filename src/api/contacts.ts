@@ -69,10 +69,21 @@ export const fetchContacts = async (): Promise<Contact[]> => {
         || c.firstNameRaw
         || c.phone
         || 'Unknown';
+
+      // Normalize phone to 09XXXXXXXXX format (aligned with send_sms.php clean_numbers)
+      let phone = c.phone ?? c.mobileNumber ?? '';
+      if (phone) {
+        const digits = phone.replace(/\D/g, '');
+        if (/^639\d{9}$/.test(digits)) phone = '0' + digits.slice(2);        // 639XXXXXXXXX → 09XXXXXXXXX
+        else if (/^9\d{9}$/.test(digits)) phone = '0' + digits;              // 9XXXXXXXXX   → 09XXXXXXXXX
+        else if (/^09\d{9}$/.test(digits)) phone = digits;                   // Already correct
+        else phone = digits || phone;  // fallback
+      }
+
       return {
         id: c.id ?? String(Math.random()),
         name,
-        phone: c.phone ?? c.mobileNumber ?? '',
+        phone,
         email: c.email ?? '',
         lastMessage: c.lastMessage ?? undefined,
         lastSentAt: c.lastSentAt ?? undefined,
