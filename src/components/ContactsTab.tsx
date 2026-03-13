@@ -13,22 +13,22 @@ const normalizePHPhone = (input: string): string => {
   return digits;
 };
 
-// Format phone for display: 0917-123-4567
+// Format phone for display: 0917 123 4567
 const formatDisplayPhone = (phone: string): string => {
   const d = normalizePHPhone(phone);
   if (d.length === 11 && d.startsWith('0')) {
-    return `${d.slice(0, 4)}-${d.slice(4, 7)}-${d.slice(7)}`;
+    return `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
   }
   return phone;
 };
 
-// Format input as user types: XXXX-XXX-XXXX
+// Format input as user types: XXXX XXX XXXX
 const formatPhoneInput = (raw: string): string => {
   const digits = raw.replace(/\D/g, "").substring(0, 11);
   if (digits.length > 7) {
-    return `${digits.slice(0, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+    return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`;
   } else if (digits.length > 4) {
-    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+    return `${digits.slice(0, 4)} ${digits.slice(4)}`;
   }
   return digits;
 };
