@@ -18,7 +18,7 @@ const parseFirestoreDate = (raw: unknown): Date => {
 /**
  * Load and poll messages for a single conversation by its conversation_id.
  *
- * Direct chat:  conversationId = "conv_09XXXXXXXXX"
+ * Direct chat:  conversationId = "{locationId}_conv_09XXXXXXXXX" (or legacy "conv_09XXXXXXXXX")
  * Bulk chat:    conversationId = "group_batch_xxx"
  *
  * Replaces the old useMessages (per phone number) +

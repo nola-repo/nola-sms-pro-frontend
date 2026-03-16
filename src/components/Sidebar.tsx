@@ -9,6 +9,7 @@ import { getBulkMessageHistory, renameBulkMessage, deleteBulkMessage, deleteCont
 import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarRightCollapse } from "react-icons/tb";
 import { FiUsers, FiChevronDown, FiEdit2, FiTrash2, FiMoreVertical, FiHome, FiPlus, FiX } from "react-icons/fi";
 import GlareHover from "./GlareHover";
+import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
 
 export type ViewTab = 'home' | 'compose' | 'contacts' | 'templates' | 'settings';
 
@@ -91,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         // Handle Direct Conversations
         const directConvs = conversations.filter(c => c.type === 'direct' || !c.type);
         const historyContacts: Contact[] = directConvs.map(conv => {
-          const phone = conv.id.replace(/^conv_/, '');
+          const phone = extractPhoneFromDirectConversationId(conv.id) || conv.id;
           const cleanPhone = phone.replace(/\D/g, "");
           // Resolve name: prefer contact name, then server metadata (only if it's a real name, not a phone number), then phone
           const isPhoneNumber = (s: string) => /^[\d+\-() ]+$/.test(s);
@@ -126,7 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         conversations
           .filter(c => c.type === 'bulk')
           .forEach(conv => {
-            const batchId = conv.id.replace(/^group_/, '');
+            const batchId = extractBatchIdFromGroupConversationId(conv.id) || conv.id.replace(/^group_/, '');
             const key = batchId;
             const existing = mergedBulk.get(key);
             

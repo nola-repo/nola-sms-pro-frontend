@@ -9,6 +9,7 @@ import SplitText from "./SplitText";
 import AnimatedContent from "./AnimatedContent";
 import FadeContent from "./FadeContent";
 import { SenderSelector } from "./SenderSelector";
+import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
 
 interface HomeProps {
     onTabChange: (tab: any) => void;
@@ -79,7 +80,10 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
     const isPhoneLike = (s: string): boolean => /^[\d+\-() ]+$/.test(s);
 
     const getDisplayName = (conv: Conversation): string => {
-        const phone = conv.id.replace(/^conv_/, '').replace(/^group_/, '');
+        const phone =
+            extractPhoneFromDirectConversationId(conv.id) ||
+            extractBatchIdFromGroupConversationId(conv.id) ||
+            conv.id.replace(/^conv_/, '').replace(/^group_/, '');
         const cleanPhone = phone.replace(/\D/g, "");
         
         // Always try contacts first for direct conversations
@@ -120,7 +124,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
 
     const handleRecentClick = (conv: Conversation) => {
         if (conv.type === 'bulk') {
-            const batchId = conv.id.replace(/^group_/, '');
+            const batchId = extractBatchIdFromGroupConversationId(conv.id) || conv.id.replace(/^group_/, '');
             onSelectBulkMessage({
                 id: `bulk-db-${batchId}`,
                 message: conv.last_message || '',
@@ -133,7 +137,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                 fromDatabase: true,
             });
         } else {
-            const phone = conv.id.replace(/^conv_/, '');
+            const phone = extractPhoneFromDirectConversationId(conv.id) || conv.id.replace(/^conv_/, '');
             const displayName = getDisplayName(conv);
             onSelectContact({
                 id: conv.id,

@@ -322,7 +322,7 @@ export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => 
 /**
  * Fetch messages for a single conversation (direct or bulk) by conversation_id.
  * This is the primary way to load chat history – avoids bulk mixing.
- * Direct:  conversation_id = conv_09XXXXXXXXX
+ * Direct:  conversation_id = {locationId}_conv_09XXXXXXXXX (or legacy conv_09XXXXXXXXX)
  * Bulk:    conversation_id = group_batch_xxx
  */
 export const fetchMessagesByConversationId = async (

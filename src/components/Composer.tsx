@@ -13,6 +13,9 @@ import { useMessages as usePhoneMessages } from "../hooks/useMessages";
 import { SenderSelector } from "./SenderSelector";
 import { CreditBadge } from "./CreditBadge";
 import { FiCheck, FiAlertCircle, FiLoader } from "react-icons/fi";
+import { getAccountSettings } from "../utils/settingsStorage";
+import { buildDirectConversationId } from "../utils/conversationId";
+import { estimateSmsSegments } from "../utils/smsSegments";
 
 interface ComposerProps {
   selectedContacts: Contact[];
@@ -109,19 +112,14 @@ export const Composer: React.FC<ComposerProps> = ({
 
   /**
    * Stable conversation_id for message fetching:
-   *  - Direct chat:             conv_{phone}
+   *  - Direct chat:             {locationId}_conv_{phone} (or legacy conv_{phone})
    *  - Existing bulk from sidebar: group_{batchId}  (batchId already contains "batch_" prefix from server)
    *  - New bulk in progress:    undefined (messages will appear after navigation to activeBulkMessage)
    */
   const conversationId = useMemo(() => {
     if (activePhoneNumber) {
-      // Normalise to 09XXXXXXXXX before building the key
-      const digits = activePhoneNumber.replace(/\D/g, "");
-      let normalized = activePhoneNumber;
-      if (digits.startsWith("09") && digits.length === 11) normalized = digits;
-      else if (digits.startsWith("9") && digits.length === 10) normalized = "0" + digits;
-      else if (digits.startsWith("639") && digits.length === 12) normalized = "0" + digits.substring(2);
-      return `conv_${normalized}`;
+      const { ghlLocationId } = getAccountSettings();
+      return buildDirectConversationId(activePhoneNumber, ghlLocationId) || undefined;
     }
     if (activeBulkMessage?.batchId) {
       // batchId from backend is e.g. "batch_abc123" → conversationId = "group_batch_abc123"
@@ -305,7 +303,7 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   // SMS length calculation
-  const smsSegments = message.length > 0 ? Math.ceil(message.length / 160) : 0;
+  const smsSegments = estimateSmsSegments(message).segments;
 
   // Get active recipients based on context
   const getActiveRecipients = (): Contact[] => {
