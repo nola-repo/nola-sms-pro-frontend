@@ -57,6 +57,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 status: (row.status as Message["status"]) || "sent",
                 batch_id: row.batch_id,
                 message: row.message,
+                errorReason: row.error_reason,
             }));
 
             // Preserve any in-flight optimistic "temp-" messages that haven't been confirmed yet

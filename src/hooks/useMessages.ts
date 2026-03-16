@@ -28,6 +28,7 @@ export const useMessages = (phoneNumber: string | undefined) => {
             timestamp: date,
             senderName: log.sender_id || 'NOLACRM',
             status: (log.status as Message['status']) || 'sent',
+            errorReason: log.error_reason,
         };
     };
 
@@ -91,11 +92,11 @@ export const useMessages = (phoneNumber: string | undefined) => {
         return id;
     };
 
-    const updateMessageStatus = (tempId: string, status: 'sent' | 'failed', realId?: string) => {
+    const updateMessageStatus = (tempId: string, status: 'sent' | 'failed', realId?: string, errorReason?: string) => {
         setMessages(prev =>
             prev.map(msg =>
                 msg.id === tempId
-                    ? { ...msg, status, id: realId || msg.id }
+                    ? { ...msg, status, id: realId || msg.id, errorReason }
                     : msg
             )
         );
