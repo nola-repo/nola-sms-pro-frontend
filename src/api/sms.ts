@@ -500,7 +500,24 @@ export const fetchConversations = async (): Promise<Conversation[]> => {
       }
     }
 
-    return [...Array.from(directDedup.values()), ...others];
+    // Only surface scoped direct conversations (LOC_conv_PHONE).
+    // Legacy unscoped (conv_PHONE) entries are silently hidden from the sidebar and
+    // recent activity — they had no location fingerprint so we can't trust which
+    // sub-account they belong to.
+    const currentLocationPrefix = accountSettings.ghlLocationId
+      ? `${accountSettings.ghlLocationId}_conv_`
+      : null;
+
+    const scopedDirectConvs = Array.from(directDedup.values()).filter(conv => {
+      // Keep if it is a scoped conversation matching this location
+      if (currentLocationPrefix && conv.id.startsWith(currentLocationPrefix)) return true;
+      // No location prefix set — fall back to showing any _conv_ entry
+      if (!currentLocationPrefix && conv.id.includes('_conv_')) return true;
+      // Drop all plain conv_PHONE (legacy unscoped) entries
+      return false;
+    });
+
+    return [...scopedDirectConvs, ...others];
   } catch (error) {
     console.error('[fetchConversations] Error:', error);
     return [];
