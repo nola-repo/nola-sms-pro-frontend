@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchMessagesByConversationId, ConversationMessagesError } from "../api/sms";
 import type { Message } from "../types/Sms";
-import { getCachedMessages, setCachedMessages, updateMessageInCache } from "../utils/storage";
-import { getAccountSettings } from "../utils/settingsStorage";
 
 const POLL_INTERVAL = 3000;
 
@@ -18,12 +16,10 @@ const parseFirestoreDate = (raw: unknown): Date => {
 
 /**
  * Load and poll messages for a single conversation by its conversation_id.
+ * No localStorage caching — always fetches fresh from the backend.
  *
  * Direct chat:  conversationId = "{locationId}_conv_09XXXXXXXXX" (or legacy "conv_09XXXXXXXXX")
  * Bulk chat:    conversationId = "group_batch_xxx"
- *
- * Replaces the old useMessages (per phone number) +
- * useGroupMessages (per recipient_key) pair.
  */
 export const useConversationMessages = (conversationId: string | undefined, recipientKey?: string) => {
     const [messages, setMessages] = useState<Message[]>([]);
@@ -33,26 +29,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
     const isInitialLoad = useRef(true);
     const consecutiveServerErrors = useRef(0);
 
-    // Cache must be tenant-scoped to avoid cross-account bleed in localStorage.
-    // Use the current URL-derived location id (see settingsStorage) as the namespace.
-    const tenantKey = getAccountSettings().ghlLocationId || "__no_location__";
-
-    // Create a composite cache key if filtering by recipientKey
-    const rawCacheKey = conversationId && recipientKey
-        ? `${conversationId}_filter_${recipientKey}`
-        : conversationId;
-
-    const cacheKey = rawCacheKey ? `${tenantKey}:${rawCacheKey}` : undefined;
-
     const fetchHistory = useCallback(async (showLoading = true) => {
-        // Load from cache first for instant display
-        if (cacheKey) {
-            const cached = getCachedMessages(cacheKey);
-            if (cached && cached.length > 0) {
-                setMessages(cached);
-            }
-        }
-
         if (!conversationId) {
             setMessages([]);
             return;
@@ -82,25 +59,20 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 message: row.message,
             }));
 
-            // Merge optimistic "temp-" messages that haven't been confirmed yet
-            const cached = cacheKey ? (getCachedMessages(cacheKey) || []) : [];
-            const tempOnly = cached.filter(
-                (m) =>
-                    m.id.startsWith("temp-") &&
-                    !formatted.some(
-                        (api) =>
-                            api.text === m.text &&
-                            Math.abs(api.timestamp.getTime() - m.timestamp.getTime()) < 60_000
-                    )
-            );
+            // Preserve any in-flight optimistic "temp-" messages that haven't been confirmed yet
+            setMessages(prev => {
+                const tempOnly = prev.filter(
+                    (m) =>
+                        m.id.startsWith("temp-") &&
+                        !formatted.some(
+                            (api) =>
+                                api.text === m.text &&
+                                Math.abs(api.timestamp.getTime() - m.timestamp.getTime()) < 60_000
+                        )
+                );
+                return [...formatted, ...tempOnly];
+            });
 
-            const merged = [...formatted, ...tempOnly];
-            setMessages(merged);
-            if (cacheKey) {
-                setCachedMessages(cacheKey, merged);
-            }
-
-            // Successful fetch – reset error tracking and counters
             consecutiveServerErrors.current = 0;
             setError(null);
             setErrorStatus(undefined);
@@ -122,19 +94,20 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             setLoading(false);
             isInitialLoad.current = false;
         }
-    }, [conversationId, recipientKey, cacheKey]);
+    }, [conversationId, recipientKey]);
 
-    // Initial fetch
+    // Initial fetch — reset state when conversation changes
     useEffect(() => {
         isInitialLoad.current = true;
+        setMessages([]);
         fetchHistory(true);
     }, [fetchHistory]);
 
-    // Background polling
+    // Background polling every 3 seconds
     useEffect(() => {
         if (!conversationId) return;
 
-        // If the backend is consistently failing with 5xx, pause polling to avoid hammering it.
+        // Pause polling if backend is consistently returning 5xx errors
         if (errorStatus && errorStatus >= 500 && consecutiveServerErrors.current >= 3) {
             return;
         }
@@ -149,7 +122,6 @@ export const useConversationMessages = (conversationId: string | undefined, reci
 
         const handleConversationUpdated = (e: Event) => {
             const detail = (e as CustomEvent).detail;
-            // If no specific conversation targeted, or it matches ours, refresh immediately
             if (!detail?.conversationId || detail.conversationId === conversationId) {
                 fetchHistory(false);
             }
@@ -168,11 +140,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             senderName,
             status: "sending",
         };
-        setMessages((prev) => {
-            const updated = [...prev, newMsg];
-            if (cacheKey) setCachedMessages(cacheKey, updated);
-            return updated;
-        });
+        setMessages((prev) => [...prev, newMsg]);
         return id;
     };
 
@@ -182,15 +150,13 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         realId?: string,
         errorReason?: string
     ) => {
-        setMessages((prev) => {
-            const updated = prev.map((m) =>
+        setMessages((prev) =>
+            prev.map((m) =>
                 m.id === tempId
                     ? { ...m, status, id: realId || m.id, errorReason }
                     : m
-            );
-            if (cacheKey) updateMessageInCache(cacheKey, tempId, status, realId);
-            return updated;
-        });
+            )
+        );
     };
 
     return {

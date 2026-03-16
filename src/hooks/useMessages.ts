@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchSmsLogs } from "../api/sms";
 import type { Message, SmsLog } from "../types/Sms";
-import { getCachedMessages, setCachedMessages, updateMessageInCache } from "../utils/storage";
 
 const POLL_INTERVAL = 5000; // 5 seconds
 
@@ -33,60 +32,49 @@ export const useMessages = (phoneNumber: string | undefined) => {
     };
 
     const fetchHistory = useCallback(async (showLoading = true) => {
-        // Try to load from cache first
-        if (phoneNumber) {
-            const cached = getCachedMessages(phoneNumber);
-            if (cached && cached.length > 0) {
-                setMessages(cached);
-            }
-        }
-
         if (!phoneNumber) {
+            setMessages([]);
             return;
         }
 
-        // Only show loading spinner on initial load, not background polls
-        if (showLoading) {
-            setLoading(true);
-        }
+        if (showLoading) setLoading(true);
         setError(null);
+
         try {
             const logs = await fetchSmsLogs(phoneNumber);
             const formattedMessages = logs.map(formatLogToMessage);
+            formattedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-            // Merge with locally-sent messages that aren't in the API yet
-            const cached = getCachedMessages(phoneNumber);
-            const localOnlyMessages = (cached || []).filter(msg =>
-                msg.id.startsWith('temp-') &&
-                !formattedMessages.some(apiMsg => apiMsg.text === msg.text &&
-                    Math.abs(apiMsg.timestamp.getTime() - msg.timestamp.getTime()) < 60000)
-            );
-
-            const mergedMessages = [...formattedMessages, ...localOnlyMessages];
-            mergedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-            setMessages(mergedMessages);
-            setCachedMessages(phoneNumber, mergedMessages);
+            // Preserve in-flight optimistic "temp-" messages not yet confirmed from API
+            setMessages(prev => {
+                const tempOnly = prev.filter(msg =>
+                    msg.id.startsWith('temp-') &&
+                    !formattedMessages.some(apiMsg =>
+                        apiMsg.text === msg.text &&
+                        Math.abs(apiMsg.timestamp.getTime() - msg.timestamp.getTime()) < 60000
+                    )
+                );
+                return [...formattedMessages, ...tempOnly];
+            });
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to load history");
         } finally {
             setLoading(false);
+            isInitialLoad.current = false;
         }
     }, [phoneNumber]);
 
-    // Initial fetch
+    // Initial fetch — clear messages when phone number changes
     useEffect(() => {
         isInitialLoad.current = true;
+        setMessages([]);
         fetchHistory(true);
     }, [fetchHistory]);
 
-    // Real-time polling - refresh every 10 seconds
+    // Background polling every 5 seconds
     useEffect(() => {
         if (!phoneNumber) return;
-
-        const interval = setInterval(() => {
-            fetchHistory(false); // Silent background refresh
-        }, POLL_INTERVAL);
-
+        const interval = setInterval(() => fetchHistory(false), POLL_INTERVAL);
         return () => clearInterval(interval);
     }, [phoneNumber, fetchHistory]);
 
@@ -99,30 +87,18 @@ export const useMessages = (phoneNumber: string | undefined) => {
             senderName,
             status: 'sending',
         };
-        setMessages(prev => {
-            const updated = [...prev, newMessage];
-            // Cache the updated messages
-            if (phoneNumber) {
-                setCachedMessages(phoneNumber, updated);
-            }
-            return updated;
-        });
+        setMessages(prev => [...prev, newMessage]);
         return id;
     };
 
     const updateMessageStatus = (tempId: string, status: 'sent' | 'failed', realId?: string) => {
-        setMessages(prev => {
-            const updated = prev.map(msg =>
+        setMessages(prev =>
+            prev.map(msg =>
                 msg.id === tempId
                     ? { ...msg, status, id: realId || msg.id }
                     : msg
-            );
-            // Cache the updated messages
-            if (phoneNumber) {
-                updateMessageInCache(phoneNumber, tempId, status, realId);
-            }
-            return updated;
-        });
+            )
+        );
     };
 
     return {
