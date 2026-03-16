@@ -87,24 +87,25 @@ function save<T>(key: string, data: T): void {
 export const getAccountSettings = (): AccountSettings => {
     const settings = load(KEYS.account, DEFAULT_ACCOUNT);
 
-    // ─── Iframe Fallback ───
-    // GHL loads the app in an iframe where localStorage is often blocked.
-    // If ghlLocationId is missing from storage, we MUST check the URL.
-    if (!settings.ghlLocationId && typeof window !== "undefined") {
+    // ─── Iframe / Multi-tenant Fallback ───
+    // GHL loads the app in an iframe and can open multiple sub-accounts in the same browser.
+    // We MUST always prefer the location from the current URL over any cached value
+    // to avoid leaking one sub-account's location_id into another.
+    if (typeof window !== "undefined") {
         const search = window.location.search;
         const hash = window.location.hash;
 
         const getParam = (query: string, key: string) => new URLSearchParams(query).get(key);
         const keys = ["location_id", "locationId", "location", "id"];
 
-        // Check standard search params
+        // Prefer location from URL if present (query or hash), regardless of stored value
         for (const k of keys) {
             const val = getParam(search, k);
             if (val) { settings.ghlLocationId = val; break; }
         }
 
         // Check hash params (e.g. #/dashboard?location_id=...)
-        if (!settings.ghlLocationId && hash.includes("?")) {
+        if ((!settings.ghlLocationId || settings.ghlLocationId === "") && hash.includes("?")) {
             const hashQuery = hash.split("?")[1];
             for (const k of keys) {
                 const val = getParam("?" + hashQuery, k);
