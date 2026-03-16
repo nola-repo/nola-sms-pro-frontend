@@ -395,10 +395,22 @@ export const fetchMessagesByConversationId = async (
   const data = parsedBody ?? {};
   const rows = (data.data || data || []) as FirestoreMessage[];
 
-  // Ensure we only show messages that truly belong to this conversation_id.
-  return rows.filter(
-    (row) => row.conversation_id === conversationId
-  );
+  // Ensure we only show messages that truly belong to this conversation_id
+  // Fallback to legacy unscoped `conv_` IDs for old messages until backend updates are complete.
+  return rows.filter((row) => {
+    if (row.conversation_id === conversationId) return true;
+    
+    // Extract phone from scoped ID to match legacy unscoped ID
+    let legacyDirectId = null;
+    if (conversationId && conversationId.includes('_conv_')) {
+      legacyDirectId = `conv_${conversationId.split('_conv_')[1]}`;
+    }
+    
+    if (legacyDirectId && row.conversation_id === legacyDirectId) {
+      return true;
+    }
+    return false;
+  });
 };
 
 /**
