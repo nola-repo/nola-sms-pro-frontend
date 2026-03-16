@@ -179,11 +179,14 @@ export const useConversationMessages = (conversationId: string | undefined, reci
     const updateMessageStatus = (
         tempId: string,
         status: "sent" | "failed",
-        realId?: string
+        realId?: string,
+        errorReason?: string
     ) => {
         setMessages((prev) => {
             const updated = prev.map((m) =>
-                m.id === tempId ? { ...m, status, id: realId || m.id } : m
+                m.id === tempId
+                    ? { ...m, status, id: realId || m.id, errorReason }
+                    : m
             );
             if (cacheKey) updateMessageInCache(cacheKey, tempId, status, realId);
             return updated;

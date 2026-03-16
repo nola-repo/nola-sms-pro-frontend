@@ -379,7 +379,7 @@ export const Composer: React.FC<ComposerProps> = ({
               setTimeout(() => onSelectContact(recipients[0]), 500);
             }
           } else {
-            updateMessageStatus(tempId, 'failed');
+            updateMessageStatus(tempId, 'failed', undefined, smsResult.message || "Failed to send message");
             setToastSeverity("error");
             setToastMessage(smsResult.message || "Failed to send message");
           }
@@ -1234,8 +1234,15 @@ export const Composer: React.FC<ComposerProps> = ({
                         </div>
 
                         {!isExpanded && msg.status === 'failed' && (
-                          <div className="mt-1 flex items-center gap-1 text-red-500 font-bold text-[10px]">
-                            <FiAlertCircle size={10} className="animate-pulse" /> Failed to send
+                          <div className="mt-1 flex flex-col items-end gap-0.5 text-[10px]">
+                            <div className="flex items-center gap-1 text-red-500 font-bold">
+                              <FiAlertCircle size={10} className="animate-pulse" /> Failed to send
+                            </div>
+                            {msg.errorReason && (
+                              <div className="text-red-400 font-medium max-w-[260px] text-right">
+                                {msg.errorReason}
+                              </div>
+                            )}
                           </div>
                         )}
 
