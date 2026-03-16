@@ -99,12 +99,25 @@ export const fetchSmsLogs = async (phoneNumber: string): Promise<SmsLog[]> => {
     });
 
     const filteredMessages = allMessages.filter(log => {
+      // Block messages from other sub-accounts (cross-account isolation)
+      if (log.location_id && accountSettings.ghlLocationId && log.location_id !== accountSettings.ghlLocationId) {
+        return false;
+      }
       const normalizedNumbers = (log.numbers || []).map(n => normalizePHNumber(n)).filter(Boolean);
       return normalizedNumbers.includes(formattedNumber);
     });
 
-    console.log(`✅ Filtered messages for ${formattedNumber}: ${filteredMessages.length} found`);
-    return filteredMessages;
+    // Deduplicate by message_id to prevent duplicate entries from legacy + scoped conversation docs
+    const seenMsgIds = new Set<string>();
+    const deduped = filteredMessages.filter(log => {
+      const key = log.message_id || `${log.message}_${log.date_created}`;
+      if (seenMsgIds.has(key)) return false;
+      seenMsgIds.add(key);
+      return true;
+    });
+
+    console.log(`✅ Filtered messages for ${formattedNumber}: ${deduped.length} found (${filteredMessages.length} before dedup)`);
+    return deduped;
   } catch (error) {
     console.error("Fetch Logs Error:", error);
     return [];
@@ -394,10 +407,17 @@ export const fetchMessagesByConversationId = async (
 
   const data = parsedBody ?? {};
   const rows = (data.data || data || []) as FirestoreMessage[];
+  const currentLocationId = accountSettings.ghlLocationId || null;
 
   // Ensure we only show messages that truly belong to this conversation_id
   // Fallback to legacy unscoped `conv_` IDs for old messages until backend updates are complete.
-  return rows.filter((row) => {
+  const filtered = rows.filter((row) => {
+    // If the message has a location_id AND it doesn't match ours — block it.
+    // (This is the primary cross-account bleed prevention gate.)
+    if (row.location_id && currentLocationId && row.location_id !== currentLocationId) {
+      return false;
+    }
+
     if (row.conversation_id === conversationId) return true;
     
     // Extract phone from scoped ID to match legacy unscoped ID
@@ -407,15 +427,29 @@ export const fetchMessagesByConversationId = async (
     }
     
     if (legacyDirectId && row.conversation_id === legacyDirectId) {
-      return true;
+      // Only allow legacy messages if they have no location_id (truly legacy pre-multi-tenancy)
+      // or their location_id matches ours.
+      const hasWrongLocation = row.location_id && currentLocationId && row.location_id !== currentLocationId;
+      return !hasWrongLocation;
     }
     return false;
+  });
+
+  // Deduplicate by message ID (prevents showing same message twice when legacy + scoped
+  // conversation docs exist in the backend for the same contact)
+  const seenIds = new Set<string>();
+  return filtered.filter(row => {
+    const key = row.id || `${row.message}_${row.created_at}`;
+    if (seenIds.has(key)) return false;
+    seenIds.add(key);
+    return true;
   });
 };
 
 /**
  * Fetch all conversation metadata from the `conversations` Firestore collection.
  * Used by Sidebar to build the direct/bulk message list from server state.
+ * Deduplicates conversations by phone number, preferring scoped IDs.
  */
 export const fetchConversations = async (): Promise<Conversation[]> => {
   try {
@@ -432,13 +466,47 @@ export const fetchConversations = async (): Promise<Conversation[]> => {
     const res = await fetch(CONVERSATIONS_URL, { headers });
     if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
     const data = await res.json();
-    // Data may be { data: [...] } or a plain array or { conversations: [...] }
-    return (Array.isArray(data) ? data : (data.data || data.conversations || [])) as Conversation[];
+    const raw = (Array.isArray(data) ? data : (data.data || data.conversations || [])) as Conversation[];
+
+    // Deduplicate direct conversations by phone number.
+    // When legacy (conv_PHONE) and scoped (LOC_conv_PHONE) exist for the same contact,
+    // prefer the scoped one so all new messages are correctly isolated to this sub-account.
+    const directDedup = new Map<string, Conversation>();
+    const others: Conversation[] = [];
+
+    for (const conv of raw) {
+      const scopedIdx = conv.id.lastIndexOf('_conv_');
+      if (scopedIdx !== -1) {
+        // Scoped direct conversation: LOC_conv_PHONE
+        const phone = conv.id.slice(scopedIdx + 6);
+        const existing = directDedup.get(phone);
+        if (!existing) {
+          directDedup.set(phone, conv);
+        } else {
+          // Both scoped — keep most recent
+          const newTime = new Date(conv.last_message_at || conv.updated_at || 0).getTime();
+          const existTime = new Date(existing.last_message_at || existing.updated_at || 0).getTime();
+          if (newTime >= existTime) directDedup.set(phone, conv);
+        }
+      } else if (conv.id.startsWith('conv_')) {
+        // Legacy unscoped: conv_PHONE — only add if no scoped version exists yet
+        const phone = conv.id.slice(5);
+        if (!directDedup.has(phone)) {
+          directDedup.set(phone, conv);
+        }
+      } else {
+        // Bulk or unknown — keep as-is
+        others.push(conv);
+      }
+    }
+
+    return [...Array.from(directDedup.values()), ...others];
   } catch (error) {
     console.error('[fetchConversations] Error:', error);
     return [];
   }
 };
+
 
 // Fetch messages by recipient_key (conversation key)
 export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise<SmsLog[]> => {

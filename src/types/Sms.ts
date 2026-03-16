@@ -17,6 +17,7 @@ export interface FirestoreMessage {
   batch_id?: string;
   created_at: string | { _seconds: number; _nanoseconds: number } | null;
   name?: string;
+  location_id?: string;
 }
 
 /** One row from the `conversations` Firestore collection */
@@ -56,6 +57,7 @@ export interface SmsLog {
   direction?: 'inbound' | 'outbound';
   batch_id?: string;
   recipient_key?: string;
+  location_id?: string;
 }
 
 export interface Message {

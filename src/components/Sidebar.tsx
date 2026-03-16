@@ -92,23 +92,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         // Handle Direct Conversations
         const directConvs = conversations.filter(c => c.type === 'direct' || !c.type);
-        const historyContacts: Contact[] = directConvs.map(conv => {
+        
+        // Deduplicate conversations by phone number (merge legacy and scoped UI items)
+        const dedupedDirectConvs = new Map<string, Contact>();
+        
+        directConvs.forEach(conv => {
           const phone = extractPhoneFromDirectConversationId(conv.id) || conv.id;
           const cleanPhone = phone.replace(/\D/g, "");
           // Resolve name: prefer contact name, then server metadata (only if it's a real name, not a phone number), then phone
           const isPhoneNumber = (s: string) => /^[\d+\-() ]+$/.test(s);
           const contactName = contactMap.get(phone) || contactMap.get(cleanPhone) || contactMap.get('+63' + cleanPhone);
-          const serverName = conv.name && !isPhoneNumber(conv.name) ? conv.name : null;
-          const name = contactName || serverName || conv.name || phone;
+          let serverName = conv.name && !isPhoneNumber(conv.name) ? conv.name : null;
           
-          return {
+          // Scrub accidental conversation IDs (e.g. "Name locationId_conv_09XX") from the server name
+          if (serverName && serverName.includes('_conv_')) {
+             let cleanName = serverName.split('_conv_')[0].trim();
+             // Remove the 20-character location ID if it's at the end
+             cleanName = cleanName.replace(/\b[a-zA-Z0-9]{20}\b$/, '').trim();
+             serverName = cleanName || null;
+          }
+          
+          const name = contactName || serverName || phone;
+          
+          const item: Contact = {
             id: conv.id,
             name: name,
             phone: phone,
             lastMessage: conv.last_message,
             lastSentAt: conv.last_message_at || conv.updated_at || undefined
           };
-        }).sort((a, b) => {
+          
+          if (dedupedDirectConvs.has(phone)) {
+            const existing = dedupedDirectConvs.get(phone)!;
+            const existingIsScoped = existing.id.includes('_conv_');
+            const newIsScoped = conv.id.includes('_conv_');
+            
+            if (newIsScoped && !existingIsScoped) {
+               // Prefer scoped ID over unscoped legacy ID
+               dedupedDirectConvs.set(phone, item);
+            } else if (!newIsScoped && existingIsScoped) {
+               // Keep existing scoped ID
+            } else {
+               // Both scoped or both unscoped, keep newest message
+               const newTime = new Date(item.lastSentAt || 0).getTime();
+               const existingTime = new Date(existing.lastSentAt || 0).getTime();
+               if (newTime > existingTime) {
+                 dedupedDirectConvs.set(phone, item);
+               }
+            }
+          } else {
+            dedupedDirectConvs.set(phone, item);
+          }
+        });
+
+        const historyContacts: Contact[] = Array.from(dedupedDirectConvs.values()).sort((a, b) => {
           const timeA = new Date(a.lastSentAt || 0).getTime();
           const timeB = new Date(b.lastSentAt || 0).getTime();
           return timeB - timeA;
