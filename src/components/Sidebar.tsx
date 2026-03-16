@@ -54,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [editingBulkId, setEditingBulkId] = useState<string | null>(null);
   const [editingBulkName, setEditingBulkName] = useState("");
   const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
+  const [deletingBulkId, setDeletingBulkId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<{ x: number, y: number } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -271,22 +272,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setShowRenameModal(false);
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
+  const startDeleteBulk = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    setDeletingBulkId(id);
+  };
+
+  const confirmDeleteBulk = async () => {
+    if (!deletingBulkId) return;
 
     // 1. Delete in backend
-    const item = bulkHistory.find(h => h.id === id);
+    const item = bulkHistory.find(h => h.id === deletingBulkId);
     if (item && item.batchId) {
       const conversationId = `group_${item.batchId}`;
       await deleteConversation(conversationId);
     }
 
     // 2. Delete in local storage
-    deleteBulkMessage(id);
+    deleteBulkMessage(deletingBulkId);
 
     // 3. Update UI
     setBulkHistory(getBulkMessageHistory());
     loadContacts(false);
+    setDeletingBulkId(null);
+  };
+
+  const cancelDeleteBulk = () => {
+    setDeletingBulkId(null);
   };
 
   const handleDeleteContact = (id: string, e: React.MouseEvent) => {
@@ -757,8 +768,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                               </button>
                                               <button
                                                 onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleDelete(item.id, e);
+                                                  startDeleteBulk(item.id, e);
                                                   setOpenMenuId(null);
                                                 }}
                                                 className="w-full px-3 py-1.5 text-left text-[11.5px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
@@ -847,6 +857,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-[#2b83fa] hover:bg-[#1d6ee6] shadow-sm transition-all"
               >
                 Save
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Delete Bulk Confirmation Modal */}
+      {deletingBulkId && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#1e1f23] rounded-2xl shadow-xl border border-[#0000001a] dark:border-[#ffffff1a] w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-5 pb-4">
+              <h3 className="text-lg font-bold text-[#111111] dark:text-white mb-2">Delete conversation?</h3>
+              <p className="text-[13px] text-gray-600 dark:text-gray-300">
+                This will remove the bulk conversation and its messages from this account&apos;s inbox. This action can&apos;t be undone.
+              </p>
+            </div>
+            <div className="flex bg-gray-50 dark:bg-black/40 border-t border-gray-100 dark:border-white/5 p-4 gap-3 justify-end mt-2">
+              <button
+                onClick={cancelDeleteBulk}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteBulk}
+                className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm transition-all"
+              >
+                Delete
               </button>
             </div>
           </div>
