@@ -260,7 +260,6 @@ const NotificationsSection: React.FC = () => {
     const ROWS: { key: keyof NotificationSettings; label: string; desc: string; icon: React.ReactNode }[] = [
         { key: "deliveryReports", label: "SMS Delivery Reports", desc: "Get notified when messages are delivered or fail.", icon: <FiCheckCircle className="w-4 h-4" /> },
         { key: "lowBalanceAlert", label: "Low Balance Alert", desc: "Alert when credit balance drops below threshold.", icon: <FiAlertCircle className="w-4 h-4" /> },
-        { key: "inboundSmsAlert", label: "Inbound SMS Alerts", desc: "Notify when an inbound SMS is received.", icon: <FiBell className="w-4 h-4" /> },
         { key: "marketingEmails", label: "Marketing & Updates", desc: "Product news and feature announcements via email.", icon: <FiGlobe className="w-4 h-4" /> },
     ];
 

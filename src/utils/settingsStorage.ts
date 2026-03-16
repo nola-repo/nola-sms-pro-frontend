@@ -27,7 +27,6 @@ export interface NotificationSettings {
     deliveryReports: boolean;
     lowBalanceAlert: boolean;
     lowBalanceThreshold: number;
-    inboundSmsAlert: boolean;
     marketingEmails: boolean;
 }
 
@@ -60,7 +59,6 @@ const DEFAULT_NOTIFICATIONS: NotificationSettings = {
     deliveryReports: true,
     lowBalanceAlert: true,
     lowBalanceThreshold: 50,
-    inboundSmsAlert: false,
     marketingEmails: false,
 };
 
