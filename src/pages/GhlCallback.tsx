@@ -45,17 +45,21 @@ export const GhlCallback: React.FC = () => {
                 }
 
                 const data = await response.json();
+                const locationName = data.locationName || data.name;
 
                 // Save success state locally
                 saveAccountSettings({
                     ...accountSettings,
                     ghlOAuthConnected: true,
-                    // If the backend returned the locationId, we can save it too, but we likely already have it.
+                    // Store the sub-account name if returned by backend
+                    displayName: locationName || accountSettings.displayName,
                     ghlLocationId: data.locationId || accountSettings.ghlLocationId
                 });
 
                 setStatus('success');
-                setMessage('Successfully connected to GoHighLevel! You can safely close this page or return to the app.');
+                setMessage(locationName 
+                    ? `Successfully connected to ${locationName}!` 
+                    : 'Successfully connected to GoHighLevel! You can safely close this page or return to the app.');
 
                 // Optionally redirect back to Settings after a few seconds
                 setTimeout(() => {

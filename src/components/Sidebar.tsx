@@ -10,6 +10,7 @@ import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarRightCollapse } from "react
 import { FiUsers, FiChevronDown, FiEdit2, FiTrash2, FiMoreVertical, FiHome, FiPlus, FiX } from "react-icons/fi";
 import GlareHover from "./GlareHover";
 import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
+import { getAccountSettings } from "../utils/settingsStorage";
 
 export type ViewTab = 'home' | 'compose' | 'contacts' | 'templates' | 'settings';
 
@@ -445,7 +446,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {!isCollapsed && (
               <div className="flex flex-col">
-                <h2 className="text-[14.5px] font-extrabold text-[#111111] dark:text-white tracking-tight leading-none">NOLA SMS Pro</h2>
+                <h2 className="text-[14.5px] font-extrabold text-[#111111] dark:text-white tracking-tight leading-none">
+                  {getAccountSettings().displayName || "NOLA SMS Pro"}
+                </h2>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="text-[10px] font-bold text-[#2b83fa] uppercase tracking-widest opacity-80">One Way SMS</span>
                 </div>
