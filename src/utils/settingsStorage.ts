@@ -105,7 +105,8 @@ export const getAccountSettings = (): AccountSettings => {
         }
 
         // Check hash params (e.g. #/dashboard?location_id=...)
-        if ((!settings.ghlLocationId || settings.ghlLocationId === "") && hash.includes("?")) {
+        // Also prefer hash value over cached storage if present.
+        if (hash.includes("?")) {
             const hashQuery = hash.split("?")[1];
             for (const k of keys) {
                 const val = getParam("?" + hashQuery, k);

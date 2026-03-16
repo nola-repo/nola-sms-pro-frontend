@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchMessagesByConversationId, ConversationMessagesError } from "../api/sms";
 import type { Message } from "../types/Sms";
 import { getCachedMessages, setCachedMessages, updateMessageInCache } from "../utils/storage";
+import { getAccountSettings } from "../utils/settingsStorage";
 
 const POLL_INTERVAL = 3000;
 
@@ -32,10 +33,16 @@ export const useConversationMessages = (conversationId: string | undefined, reci
     const isInitialLoad = useRef(true);
     const consecutiveServerErrors = useRef(0);
 
+    // Cache must be tenant-scoped to avoid cross-account bleed in localStorage.
+    // Use the current URL-derived location id (see settingsStorage) as the namespace.
+    const tenantKey = getAccountSettings().ghlLocationId || "__no_location__";
+
     // Create a composite cache key if filtering by recipientKey
-    const cacheKey = conversationId && recipientKey
+    const rawCacheKey = conversationId && recipientKey
         ? `${conversationId}_filter_${recipientKey}`
         : conversationId;
+
+    const cacheKey = rawCacheKey ? `${tenantKey}:${rawCacheKey}` : undefined;
 
     const fetchHistory = useCallback(async (showLoading = true) => {
         // Load from cache first for instant display
@@ -163,7 +170,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         };
         setMessages((prev) => {
             const updated = [...prev, newMsg];
-            if (conversationId) setCachedMessages(conversationId, updated);
+            if (cacheKey) setCachedMessages(cacheKey, updated);
             return updated;
         });
         return id;
@@ -178,7 +185,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             const updated = prev.map((m) =>
                 m.id === tempId ? { ...m, status, id: realId || m.id } : m
             );
-            if (conversationId) updateMessageInCache(conversationId, tempId, status, realId);
+            if (cacheKey) updateMessageInCache(cacheKey, tempId, status, realId);
             return updated;
         });
     };
