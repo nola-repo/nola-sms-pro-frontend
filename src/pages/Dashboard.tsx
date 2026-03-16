@@ -83,7 +83,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const handleViewMessages = (contact: Contact) => {
     setActiveContact(contact);
     setSelectedContacts([contact]);
+    setActiveBulkMessage(null);
     localStorage.setItem('nola_active_contact', JSON.stringify(contact));
+    localStorage.removeItem('nola_active_bulk_message');
     setCurrentView('compose');
     localStorage.setItem('nola_active_tab', 'compose');
   };

@@ -395,10 +395,9 @@ export const fetchMessagesByConversationId = async (
   const data = parsedBody ?? {};
   const rows = (data.data || data || []) as FirestoreMessage[];
 
-  // Extra safety: some legacy backends may return mixed rows.
   // Ensure we only show messages that truly belong to this conversation_id.
   return rows.filter(
-    (row) => !row.conversation_id || row.conversation_id === conversationId
+    (row) => row.conversation_id === conversationId
   );
 };
 
