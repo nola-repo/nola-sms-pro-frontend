@@ -132,6 +132,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     };
   }, []);
 
+  // When the GHL location / subaccount changes, auto-reset to Home and clear
+  // any active selections so the UI always starts fresh for that account.
+  useEffect(() => {
+    const handleLocationChanged = () => {
+      setCurrentView('home');
+      localStorage.setItem('nola_active_tab', 'home');
+
+      setSelectedContacts([]);
+      setActiveContact(null);
+      setActiveBulkMessage(null);
+      localStorage.removeItem('nola_active_contact');
+      localStorage.removeItem('nola_active_bulk_message');
+    };
+
+    window.addEventListener('ghl-location-changed', handleLocationChanged);
+    return () => {
+      window.removeEventListener('ghl-location-changed', handleLocationChanged);
+    };
+  }, []);
+
   return (
     <div className="flex h-screen bg-[#ffffff] dark:bg-[#202123] overflow-visible">
       {/* Sidebar - Left */}

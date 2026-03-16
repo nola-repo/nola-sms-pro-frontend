@@ -6,7 +6,7 @@ import { FiSettings } from "react-icons/fi";
 
 const App: React.FC = () => {
   // Initialize GHL Location detection at root level so it captures the URL immediately
-  useGhlLocation();
+  const locationId = useGhlLocation();
 
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
@@ -35,6 +35,15 @@ const App: React.FC = () => {
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
   };
+
+  // When the GHL subaccount / location changes, notify the app so it can reset
+  // state (e.g., return to Home, clear selections, and refetch data).
+  useEffect(() => {
+    if (!locationId) return;
+    window.dispatchEvent(
+      new CustomEvent("ghl-location-changed", { detail: { locationId } })
+    );
+  }, [locationId]);
 
   return (
     <div className="h-screen">
