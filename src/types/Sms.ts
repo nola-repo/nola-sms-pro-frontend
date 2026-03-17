@@ -30,6 +30,7 @@ export interface Conversation {
   last_message_at: string | null;
   name: string;
   updated_at: string | null;
+  location_id?: string;
 }
 
 export interface BulkMessageHistoryItem {
@@ -41,9 +42,10 @@ export interface BulkMessageHistoryItem {
   recipientKey: string;
   customName?: string;
   timestamp: string;
-  status: 'sent' | 'partial' | 'failed';
+  status: string;
   batchId?: string;
   fromDatabase?: boolean;
+  locationId?: string;
 }
 
 export interface SmsLog {

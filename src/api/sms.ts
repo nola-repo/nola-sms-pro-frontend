@@ -585,9 +585,10 @@ export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> 
       recipientNumbers: item.recipientNumbers || [],
       recipientKey: item.batch_id,
       timestamp: item.timestamp || new Date().toISOString(),
-      status: 'sent' as const,
+      status: item.status || 'sent',
       batchId: item.batch_id,
       fromDatabase: true,
+      locationId: item.location_id,
     }));
   } catch (error) {
     console.error("[fetchAllBulkMessages] Error:", error);
