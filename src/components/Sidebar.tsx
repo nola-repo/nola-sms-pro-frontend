@@ -58,7 +58,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [deletingBulkId, setDeletingBulkId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<{ x: number, y: number } | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const touchStartY = useRef<number>(0);
@@ -67,7 +66,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const lastMessageTracker = useRef<Map<string, string>>(new Map());
 
   const loadContacts = useCallback(async (showSpinner = false) => {
-    if (showSpinner) setIsRefreshing(true);
     try {
       const data = await fetchContacts();
       const deletedIds = getDeletedContactIds();
@@ -235,7 +233,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     } catch (e) {
       console.error(e);
     } finally {
-      if (showSpinner) setIsRefreshing(false);
       setLoading(false);
     }
   }, []);
@@ -580,15 +577,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     if (delta > 60 && atTop) loadContacts(true);
                   }}
                 >
-                  {/* Pull-to-refresh indicator */}
-                  {isRefreshing && (
-                    <div className="flex justify-center items-center py-2">
-                      <svg className="animate-spin h-4 w-4 text-[#2b83fa]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                      </svg>
-                    </div>
-                  )}
                   <div className="flex flex-col gap-0.5">
                     {loading ? (
                       [1, 2, 3, 4, 5].map(i => <SidebarSkeleton key={i} />)

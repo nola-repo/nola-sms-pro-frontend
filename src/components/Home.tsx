@@ -47,7 +47,12 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
             }
 
             if (convs.status === 'fulfilled') {
-                setConversations(convs.value as Conversation[]);
+                const sortedConvs = (convs.value as Conversation[]).sort((a, b) => {
+                    const timeA = new Date(a.last_message_at || a.updated_at || 0).getTime();
+                    const timeB = new Date(b.last_message_at || b.updated_at || 0).getTime();
+                    return timeB - timeA;
+                });
+                setConversations(sortedConvs);
             }
 
             if (contacts.status === 'fulfilled') {
