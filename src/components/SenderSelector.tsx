@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { FiChevronDown, FiCheck, FiGlobe, FiMapPin, FiBriefcase, FiPlus, FiTrash2, FiCheckCircle } from "react-icons/fi";
+import { FiChevronDown, FiCheck, FiGlobe, FiPlus, FiCheckCircle, FiLoader } from "react-icons/fi";
 import { type SenderId } from "../api/sms";
 import { SenderRequestModal } from "./SenderRequestModal";
 import { type StoredSenderId } from "../utils/settingsStorage";
+import { fetchAccountSenderConfig, type AccountSenderConfig } from "../api/senderRequests";
 
 interface SenderOption {
     id: SenderId;
@@ -21,13 +22,14 @@ interface SenderSelectorProps {
     onRequestSettings?: () => void;
 }
 
-const DEFAULT_OPTIONS: SenderOption[] = [
-    { id: "NOLACRM", name: "NOLACRM", description: "Default System Sender", icon: <FiGlobe />, color: "bg-blue-500" },
-    { id: "BRANCH1", name: "BRANCH1", description: "Standard Sender ID", icon: <FiMapPin />, color: "bg-purple-500" },
-    { id: "BRANCH2", name: "BRANCH2", description: "Alternate Sender ID", icon: <FiBriefcase />, color: "bg-orange-500" },
-];
-
-const ICONS = [<FiGlobe />, <FiMapPin />, <FiBriefcase />, <FiCheckCircle />];
+// Static fallback while loading
+const SYSTEM_DEFAULT: SenderOption = {
+    id: "NOLASMSPro",
+    name: "NOLASMSPro",
+    description: "System Default (Free Tier)",
+    icon: <FiGlobe />,
+    color: "bg-blue-500",
+};
 
 export const SenderSelector: React.FC<SenderSelectorProps> = ({
     value,
@@ -39,28 +41,50 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
-    const [customOptions, setCustomOptions] = useState<SenderOption[]>([]);
+    const [config, setConfig] = useState<AccountSenderConfig | null>(null);
+    const [configLoading, setConfigLoading] = useState(true);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Load custom options from localStorage
+    // Fetch account sender config on mount
     useEffect(() => {
-        const saved = localStorage.getItem("custom_sender_ids");
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                // Map back to components/icons
-                const mapped = parsed.map((opt: any, index: number) => ({
-                    ...opt,
-                    icon: ICONS[index % ICONS.length],
-                }));
-                setCustomOptions(mapped);
-            } catch (e) {
-                console.error("Failed to parse custom sender IDs", e);
+        let cancelled = false;
+        setConfigLoading(true);
+        fetchAccountSenderConfig().then(cfg => {
+            if (!cancelled) {
+                setConfig(cfg);
+                setConfigLoading(false);
             }
-        }
+        });
+        return () => { cancelled = true; };
     }, []);
 
-    const allOptions = useMemo(() => [...DEFAULT_OPTIONS, ...customOptions], [customOptions]);
+    // Build options dynamically from API config
+    const allOptions = useMemo<SenderOption[]>(() => {
+        const options: SenderOption[] = [];
+
+        // System default always first
+        const systemName = config?.system_default_sender || "NOLASMSPro";
+        options.push({
+            id: systemName,
+            name: systemName,
+            description: "System Default (Free Tier)",
+            icon: <FiGlobe />,
+            color: "bg-blue-500",
+        });
+
+        // Approved sender (if any)
+        if (config?.approved_sender_id) {
+            options.push({
+                id: config.approved_sender_id,
+                name: config.approved_sender_id,
+                description: "Your Approved Sender",
+                icon: <FiCheckCircle />,
+                color: "bg-emerald-500",
+            });
+        }
+
+        return options;
+    }, [config]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -72,39 +96,13 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const selectedOption = allOptions.find(opt => opt.id === value) || allOptions[0];
+    const selectedOption = allOptions.find(opt => opt.id === value) || allOptions[0] || SYSTEM_DEFAULT;
 
-    const handleSuccess = (newSender: StoredSenderId) => {
-        // Map StoredSenderId back to SenderOption with icon
-        const newOption: SenderOption = {
-            id: newSender.id,
-            name: newSender.name,
-            description: newSender.description,
-            color: newSender.color,
-            icon: ICONS[customOptions.length % ICONS.length],
-        };
-
-        const updated = [...customOptions, newOption];
-        setCustomOptions(updated);
-
-        // localStorage is already handled by addSenderId in the modal, 
-        // but we need to re-sync if the modal doesn't do it or if we want local state update
+    const handleSuccess = (_newSender: StoredSenderId) => {
+        // After a request is submitted, close the modal
+        // The sender won't appear in the dropdown until admin approves it
         setIsAdding(false);
         setIsOpen(false);
-        onChange(newOption.id);
-    };
-
-    const handleDelete = (e: React.MouseEvent, id: string) => {
-        e.stopPropagation();
-        const updated = customOptions.filter(opt => opt.id !== id);
-        setCustomOptions(updated);
-
-        const toSave = updated.map(({ icon, ...rest }) => rest);
-        localStorage.setItem("custom_sender_ids", JSON.stringify(toSave));
-
-        if (value === id) {
-            onChange(DEFAULT_OPTIONS[0].id);
-        }
     };
 
     return (
@@ -130,7 +128,7 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
                 >
                     <div className="flex items-center gap-2 min-w-0">
                         <div className={`flex-shrink-0 flex items-center justify-center rounded-lg text-white shadow-sm ${size === "sm" ? "w-5 h-5 text-[10px]" : "w-6 h-6 text-[12px]"} ${selectedOption.color}`}>
-                            {selectedOption.icon}
+                            {configLoading ? <FiLoader className="animate-spin" /> : selectedOption.icon}
                         </div>
                         <span className="text-[#37352f] dark:text-[#ececf1] truncate max-w-[80px] sm:max-w-[120px]">{selectedOption.name}</span>
                     </div>
@@ -151,7 +149,6 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
                         <div className="max-h-60 overflow-y-auto custom-scrollbar p-0.5">
                             {allOptions.map((option) => {
                                 const isSelected = option.id === value;
-                                const isCustom = customOptions.some(opt => opt.id === option.id);
                                 return (
                                     <button
                                         key={option.id}
@@ -177,16 +174,9 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
                                                 {option.description}
                                             </span>
                                         </div>
-                                        {isSelected ? (
+                                        {isSelected && (
                                             <FiCheck className="h-4 w-4 flex-shrink-0" />
-                                        ) : isCustom ? (
-                                            <button
-                                                onClick={(e) => handleDelete(e, option.id)}
-                                                className="opacity-100 sm:opacity-0 group-hover:opacity-100 p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-gray-400 hover:text-rose-500 rounded-lg transition-all"
-                                            >
-                                                <FiTrash2 className="h-3.5 w-3.5" />
-                                            </button>
-                                        ) : null}
+                                        )}
                                     </button>
                                 );
                             })}

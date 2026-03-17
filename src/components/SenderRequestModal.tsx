@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { FiPlus, FiX, FiCheck } from "react-icons/fi";
-import { addSenderId, type StoredSenderId } from "../utils/settingsStorage";
+import { FiPlus, FiX, FiCheck, FiLoader } from "react-icons/fi";
+import { submitSenderRequest } from "../api/senderRequests";
+import type { StoredSenderId } from "../utils/settingsStorage";
 
 interface SenderRequestModalProps {
     isOpen: boolean;
@@ -18,28 +19,47 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
     const [newId, setNewId] = useState("");
     const [newPurpose, setNewPurpose] = useState("");
     const [newSample, setNewSample] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     if (!isOpen) return null;
 
-    const handleAdd = (e: React.FormEvent) => {
+    const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newId.trim()) return;
+        if (!newId.trim() || isSubmitting) return;
 
-        const fullDesc = `Purpose: ${newPurpose} | Sample: ${newSample}`;
-        // Note: In real app, color index might need better management
-        const created = addSenderId(newId, fullDesc, SENDER_COLORS[Math.floor(Math.random() * SENDER_COLORS.length)]);
+        setIsSubmitting(true);
+        setError(null);
 
-        if (onSuccess) onSuccess(created);
-        setIsSubmitted(true);
+        try {
+            await submitSenderRequest(newId.trim(), newPurpose.trim(), newSample.trim());
 
-        setTimeout(() => {
-            setNewId("");
-            setNewPurpose("");
-            setNewSample("");
-            setIsSubmitted(false);
-            onClose();
-        }, 3000);
+            // Create a local representation for onSuccess callback
+            const created: StoredSenderId = {
+                id: newId.trim().toUpperCase(),
+                name: newId.trim().toUpperCase(),
+                description: `Purpose: ${newPurpose} | Sample: ${newSample}`,
+                color: SENDER_COLORS[Math.floor(Math.random() * SENDER_COLORS.length)],
+                status: "pending",
+            };
+
+            if (onSuccess) onSuccess(created);
+            setIsSubmitted(true);
+
+            setTimeout(() => {
+                setNewId("");
+                setNewPurpose("");
+                setNewSample("");
+                setIsSubmitted(false);
+                onClose();
+            }, 3000);
+        } catch (err) {
+            console.error("[SenderRequestModal] Submit error:", err);
+            setError(err instanceof Error ? err.message : "Failed to submit request. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return createPortal(
@@ -70,16 +90,22 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                     </div>
                 ) : (
                     <form onSubmit={handleAdd} className="space-y-4">
+                        {error && (
+                            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                                <p className="text-[12px] text-red-600 dark:text-red-400 font-medium">{error}</p>
+                            </div>
+                        )}
                         <div>
                             <label className="block text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Sender Name</label>
                             <input
                                 autoFocus
                                 value={newId}
                                 onChange={e => setNewId(e.target.value.toUpperCase())}
-                                placeholder="ex. NOLACRM"
+                                placeholder="ex. NOLASMSPro"
                                 maxLength={11}
                                 required
-                                className="w-full px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25"
+                                disabled={isSubmitting}
+                                className="w-full px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 disabled:opacity-50"
                             />
                             <p className="text-[11px] text-[#9aa0a6] mt-1">Max 11 characters. Alphanumeric only.</p>
                         </div>
@@ -91,7 +117,8 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                                 placeholder="What will you be using the sender name for?"
                                 required
                                 rows={3}
-                                className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 resize-none"
+                                disabled={isSubmitting}
+                                className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 resize-none disabled:opacity-50"
                             />
                             <p className="text-[11px] text-[#9aa0a6] mt-1">If your Sender Name does not clearly reflect your business name or brand it will not be approved. Please be specific.</p>
                         </div>
@@ -103,7 +130,8 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                                 placeholder="Please provide a specific example that accurately reflects the type of messages you will send."
                                 required
                                 rows={3}
-                                className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 resize-none"
+                                disabled={isSubmitting}
+                                className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 resize-none disabled:opacity-50"
                             />
                         </div>
                         <div className="mt-6 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
@@ -113,9 +141,16 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                         </div>
 
                         <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
-                            <button type="button" onClick={onClose} className="flex-1 py-2.5 text-[13px] font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors">Cancel</button>
-                            <button type="submit" className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-semibold text-[13px] transition-all shadow-md shadow-blue-500/20">
-                                Submit Request
+                            <button type="button" onClick={onClose} disabled={isSubmitting} className="flex-1 py-2.5 text-[13px] font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors disabled:opacity-50">Cancel</button>
+                            <button type="submit" disabled={isSubmitting} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-semibold text-[13px] transition-all shadow-md shadow-blue-500/20 disabled:opacity-70">
+                                {isSubmitting ? (
+                                    <>
+                                        <FiLoader className="w-4 h-4 animate-spin" />
+                                        Submitting...
+                                    </>
+                                ) : (
+                                    "Submit Request"
+                                )}
                             </button>
                         </div>
                     </form>

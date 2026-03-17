@@ -14,6 +14,7 @@ import { SenderSelector } from "./SenderSelector";
 import { CreditBadge } from "./CreditBadge";
 import { FiCheck, FiAlertCircle, FiLoader } from "react-icons/fi";
 import { getAccountSettings } from "../utils/settingsStorage";
+import { fetchAccountSenderConfig } from "../api/senderRequests";
 import { buildDirectConversationId } from "../utils/conversationId";
 import { estimateSmsSegments } from "../utils/smsSegments";
 
@@ -85,7 +86,21 @@ export const Composer: React.FC<ComposerProps> = ({
 }) => {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [senderName, setSenderName] = useState<SenderId>("NOLACRM");
+  const [senderName, setSenderName] = useState<SenderId>("NOLASMSPro");
+
+  // Dynamic sender default: prioritize user's approved sender if available
+  useEffect(() => {
+    let cancelled = false;
+    fetchAccountSenderConfig().then(cfg => {
+      if (cancelled) return;
+      if (cfg.approved_sender_id) {
+        setSenderName(cfg.approved_sender_id);
+      } else if (cfg.system_default_sender) {
+        setSenderName(cfg.system_default_sender);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
   const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null);
   const [lottieError, setLottieError] = useState(false);
 

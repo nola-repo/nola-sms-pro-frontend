@@ -21,6 +21,9 @@ export const API_CONFIG = {
     messages: `${API_BASE}/api/messages`,
     conversations: `${API_BASE}/api/conversations`,
     bulk_campaigns: `${API_BASE}/api/bulk-campaigns`,
+    sender_requests: `${API_BASE}/api/sender-requests`,
+    account_sender: `${API_BASE}/api/account-sender`,
+    account: `${API_BASE}/api/account`,
 };
 
 export default API_CONFIG;
