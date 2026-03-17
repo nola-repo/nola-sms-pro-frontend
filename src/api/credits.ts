@@ -13,6 +13,12 @@ export interface CreditTransaction {
     created_at: string;     // ISO 8601 timestamp
 }
 
+export interface CreditPackage {
+    credits: number;
+    price: number;
+    link: string;
+}
+
 // ─── API Calls ───────────────────────────────────────────────────────────────
 
 /**
@@ -79,4 +85,19 @@ export async function fetchCreditTransactions(
     } catch {
         return [];
     }
+}
+
+/**
+ * Fetch available credit packages.
+ * Returns a hardcoded list for now.
+ */
+export async function fetchCreditPackages(): Promise<CreditPackage[]> {
+    // These could be fetched from a remote config or database in the future
+    return [
+        { credits: 10, price: 10, link: "https://sms.nolawebsolutions.com/nola-sms-pro---500-credits-page-8465-657955" },
+        { credits: 500, price: 500, link: "https://sms.nolawebsolutions.com/nola-sms-pro---500-credits-page-8465" },
+        { credits: 1100, price: 1000, link: "https://sms.nolawebsolutions.com/nola-sms-pro---1000-credits" },
+        { credits: 2750, price: 2500, link: "https://sms.nolawebsolutions.com/nola-sms-pro-2750-credits" },
+        { credits: 6000, price: 5000, link: "https://sms.nolawebsolutions.com/nola-sms-pro-6000-credits" },
+    ];
 }
