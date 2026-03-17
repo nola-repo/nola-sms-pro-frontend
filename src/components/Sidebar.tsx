@@ -302,7 +302,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // 1. Delete in backend
     const item = bulkHistory.find(h => h.id === deletingBulkId);
     if (item && item.batchId) {
-      const conversationId = `group_${item.batchId}`;
+      let conversationId = `group_${item.batchId}`;
+      const prefix = item.locationId || getAccountSettings().ghlLocationId;
+      if (prefix) {
+        conversationId = `${prefix}_${conversationId}`;
+      }
       await deleteConversation(conversationId);
     }
 
