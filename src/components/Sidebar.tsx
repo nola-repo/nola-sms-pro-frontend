@@ -339,10 +339,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
 
     // 2. Delete Conversation from Backend
-    const normalized = normalizePHNumber(phone);
-    if (normalized) {
-      const convId = `conv_${normalized}`;
-      await deleteConversation(convId);
+    if (isConversationId) {
+      await deleteConversation(id);
+    } else {
+      const normalized = normalizePHNumber(phone);
+      if (normalized) {
+        const convId = `conv_${normalized}`;
+        await deleteConversation(convId);
+      }
     }
 
     // 3. Local soft-delete (adds to deleted IDs list in storage)

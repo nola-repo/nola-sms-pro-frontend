@@ -81,3 +81,44 @@ The frontend is already updated to:
 1.  Listen for `locationName` in the OAuth callback.
 2.  Store it as the `displayName` in local settings.
 3.  Display this name in the Sidebar header (replacing the generic "NOLA SMS Pro").
+
+---
+
+# Backend Handoff: API Conversation Deletion Bug
+
+The frontend was recently updated to fully support persistent deletion of direct and bulk messages in the Sidebar by hitting `/api/conversations` with a `DELETE` request. 
+
+However, testing shows the conversations are still appearing after reload, suggesting the backend `DELETE` handler isn't fully removing them.
+
+## The Bug
+In `api/conversations.php`, the frontend is correctly passing `?id=` to target the conversation for deletion:
+`DELETE /api/conversations?id={conversation_id}`
+
+The backend acknowledges the request, but the document continues to be returned in subsequent `fetch_conversations` calls.
+
+## Required Backend Changes (`api/conversations.php`)
+
+**1. Verify Firestore Deletion Execution**
+Ensure that the exact document ID passed in `$_GET['id']` is actually matching the document ID in the `conversations` collection and that `$docRef->delete();` is successfully removing it. 
+
+```php
+// Current code in api/conversations.php starting at line 100
+$id = $_GET['id'] ?? null;
+// ...
+$docRef = $db->collection('conversations')->document($id);
+if ($docRef->snapshot()->exists()) {
+    $docRef->delete();
+}
+```
+
+**2. Check for Soft Deletes vs Hard Deletes**
+If the backend architecture is designed around "soft deletes" (e.g., setting a `deleted` boolean or setting `updated_at` to null), the `GET` endpoint (lines 29-67) MUST filter out these soft-deleted rows.
+
+```php
+// If using soft deletes, modify the GET response loop:
+if (!empty($d['is_deleted'])) continue; 
+```
+*Note: If it's a hard delete (`->delete()`), ensure it's executing against the EXACT matching ID, accounting for scoped (`locationId_conv_phone`) vs unscoped (`conv_phone`) IDs.*
+
+**3. Cascading Deletion (Optional but Recommended)**
+When a conversation metadata document is deleted from the `conversations` collection, consider also wiping out the individual chat messages linked to that `conversation_id` inside the `messages` collection to prevent orphaned data.
