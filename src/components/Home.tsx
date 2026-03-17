@@ -27,18 +27,13 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
     const [senderName, setSenderName] = useState<SenderId>("NOLASMSPro");
 
     useEffect(() => {
-        const loadHomeData = async () => {
-            setLoading(true);
+        const loadHomeData = async (isInitial = false) => {
+            if (isInitial) setLoading(true);
 
             // Run all three fetches independently — one failure won't block the others
-            const [credPrice, convs, contacts] = await Promise.allSettled([
-                // 1. Fetch Balance
+            const [credPrice, convs, contactsRes] = await Promise.allSettled([
                 fetchCreditBalance(),
-
-                // 2. Fetch Conversations
                 fetchConversations().catch(() => []),
-
-                // 3. Fetch Contacts
                 fetchContacts().catch(() => []),
             ]);
 
@@ -47,28 +42,40 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
             }
 
             if (convs.status === 'fulfilled') {
-                const sortedConvs = (convs.value as Conversation[]).sort((a, b) => {
-                    const timeA = new Date(a.last_message_at || a.updated_at || 0).getTime();
-                    const timeB = new Date(b.last_message_at || b.updated_at || 0).getTime();
-                    return timeB - timeA;
+                const fetchedConvs = convs.value as Conversation[];
+                setConversations(prev => {
+                    // Sort the new conversations
+                    const sortedNew = [...fetchedConvs].sort((a, b) => {
+                        const timeA = new Date(a.last_message_at || a.updated_at || 0).getTime();
+                        const timeB = new Date(b.last_message_at || b.updated_at || 0).getTime();
+                        return timeB - timeA;
+                    });
+
+                    // If we have no previous conversations, just return the sorted ones
+                    if (prev.length === 0) return sortedNew;
+
+                    // If we have existing ones, React will diff them. 
+                    // To ensure "smooth" updates and "add new on top" feel, 
+                    // we'll just return the sorted ones, but React's reconciler 
+                    // handles the DOM stability if IDs are the same.
+                    return sortedNew;
                 });
-                setConversations(sortedConvs);
             }
 
-            if (contacts.status === 'fulfilled') {
-                const data = contacts.value as Contact[];
+            if (contactsRes.status === 'fulfilled') {
+                const data = contactsRes.value as Contact[];
                 setContacts(data);
                 setContactsCount(data.length);
             }
 
-            setLoading(false);
+            if (isInitial) setLoading(false);
         };
 
-        loadHomeData();
+        loadHomeData(true);
 
         // Real-time polling: refresh dashboard data every 15 seconds
         const interval = setInterval(() => {
-            loadHomeData();
+            loadHomeData(false);
         }, 15000);
 
         return () => clearInterval(interval);
@@ -337,9 +344,18 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                             )}
                         </div>
                         <div className="space-y-2">
-                            {loading ? (
+                            {loading && conversations.length === 0 ? (
                                 [1, 2, 3].map(i => (
-                                    <div key={i} className="w-full p-3 rounded-2xl bg-white/50 dark:bg-[#1c1e21]/50 border border-[#00000005] animate-pulse h-16" />
+                                    <div key={i} className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center justify-between">
+                                        <div className="flex items-center gap-3 w-full">
+                                            <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse flex-shrink-0" />
+                                            <div className="space-y-2 w-full max-w-[150px]">
+                                                <div className="h-3 w-3/4 bg-gray-100 dark:bg-gray-800 animate-pulse rounded" />
+                                                <div className="h-2 w-full bg-gray-50 dark:bg-gray-900 animate-pulse rounded opacity-60" />
+                                            </div>
+                                        </div>
+                                        <div className="w-16 h-3 bg-gray-50 dark:bg-gray-900 animate-pulse rounded opacity-60" />
+                                    </div>
                                 ))
                             ) : conversations.length > 0 ? (
                                 conversations.slice(0, 5).map(conv => (
