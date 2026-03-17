@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Snackbar, Alert, Slide } from "@mui/material";
-import { sendSms, sendBulkSms, type SenderId } from "../api/sms";
 import { fetchContacts } from "../api/contacts";
-import { saveBulkMessage, getRecipientKey } from "../utils/storage";
+import { sendSms, sendBulkSms, type SenderId } from "../api/sms";
+import { getRecipientKey } from "../utils/storage";
 import type { BulkMessageHistoryItem, Message } from "../types/Sms";
 import type { Contact } from "../types/Contact";
 import { FiUser, FiUsers, FiMenu } from "react-icons/fi";
@@ -412,29 +412,27 @@ export const Composer: React.FC<ComposerProps> = ({
         const { results, batchId } = await sendBulkSms(phones, messageText, senderName, recipients, recipientKey);
         const successCount = results.filter(r => r.success).length;
 
-        // Save to bulk message history
-        const recipientNumbers = recipients.map(r => r.phone);
-        const bulkItem: BulkMessageHistoryItem = {
-          id: `bulk-${Date.now()}`,
-          message: messageText,
-          recipientCount: recipients.length,
-          recipientNames: recipients.map(r => r.name),
-          recipientNumbers,
-          recipientKey,
-          timestamp: new Date().toISOString(),
-          status: successCount === recipients.length ? 'sent' : successCount > 0 ? 'partial' : 'failed',
-          batchId: batchId
-        };
-        saveBulkMessage(bulkItem);
-        window.dispatchEvent(new Event('bulk-message-sent'));
-
         if (successCount > 0) {
           setToastSeverity("success");
           setToastMessage(`Sent ${successCount} of ${recipients.length} messages`);
 
+          // Define item for navigation, but don't save to localStorage
+          const bulkItemForNav: BulkMessageHistoryItem = {
+            id: `bulk-db-${batchId}`,
+            message: messageText,
+            recipientCount: recipients.length,
+            recipientNames: recipients.map(r => r.name),
+            recipientNumbers: recipients.map(r => r.phone),
+            recipientKey: recipientKey,
+            timestamp: new Date().toISOString(),
+            status: 'sent',
+            batchId: batchId,
+            fromDatabase: true
+          };
+
           // First, navigate to bulk message view (this sets activeBulkMessage in Dashboard)
           if (onSelectBulkMessage) {
-            onSelectBulkMessage(bulkItem);
+            onSelectBulkMessage(bulkItemForNav);
           }
 
           // Refresh after navigation to fetch from Firestore

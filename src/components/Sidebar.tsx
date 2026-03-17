@@ -5,7 +5,7 @@ import { fetchConversations, renameConversation, deleteConversation } from "../a
 import { deleteContact as deleteContactBackend } from "../api/contacts";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
-import { getBulkMessageHistory, renameBulkMessage, deleteBulkMessage, deleteContact as deleteContactLocal, getDeletedContactIds } from "../utils/storage";
+import { renameBulkMessage, deleteBulkMessage, deleteContact as deleteContactLocal, getDeletedContactIds } from "../utils/storage";
 import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarRightCollapse } from "react-icons/tb";
 import { FiUsers, FiChevronDown, FiEdit2, FiTrash2, FiMoreVertical, FiHome, FiPlus, FiX } from "react-icons/fi";
 import GlareHover from "./GlareHover";
@@ -49,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [directHistory, setDirectHistory] = useState<Contact[]>([]);
-  const [bulkHistory, setBulkHistory] = useState<BulkMessageHistoryItem[]>(() => getBulkMessageHistory());
+  const [bulkHistory, setBulkHistory] = useState<BulkMessageHistoryItem[]>([]);
   const [directMessagesExpanded, setDirectMessagesExpanded] = useState(true);
   const [bulkMessagesExpanded, setBulkMessagesExpanded] = useState(true);
   const [editingBulkId, setEditingBulkId] = useState<string | null>(null);
@@ -153,14 +153,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         });
         setDirectHistory(historyContacts);
 
-        // Handle Bulk Conversations
+        // 1. Initial server-side only
         const mergedBulk = new Map<string, BulkMessageHistoryItem>();
-
-        // 1. Local storage fallback
-        getBulkMessageHistory().forEach(msg => {
-          const key = msg.batchId || msg.id;
-          mergedBulk.set(key, msg);
-        });
 
         // 2. Map server conversations to BulkMessageHistoryItem
         conversations
@@ -237,8 +231,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         lastMessageTracker.current = newTracker;
       } catch (err) {
         console.error('Error loading history:', err);
-        // Fallback to local bulk history if server fails
-        setBulkHistory(getBulkMessageHistory());
       }
     } catch (e) {
       console.error(e);
@@ -249,23 +241,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   useEffect(() => {
-    loadContacts();
-
-    // Poll for new contacts every 5 seconds
-    const contactInterval = setInterval(() => {
+    loadContacts(true);
+    // Real-time polling: refresh history and contacts every 15 seconds
+    const interval = setInterval(() => {
       loadContacts(false);
-    }, 5000);
+    }, 15000);
 
-    // Listen for bulk message sent events to refresh history
-    const handleBulkMessageSent = () => {
-      setBulkHistory(getBulkMessageHistory());
-    };
-    window.addEventListener('bulk-message-sent', handleBulkMessageSent);
-
-    return () => {
-      clearInterval(contactInterval);
-      window.removeEventListener('bulk-message-sent', handleBulkMessageSent);
-    };
+    return () => clearInterval(interval);
   }, [loadContacts]);
 
   // Close menu when clicking outside
@@ -302,7 +284,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       renameBulkMessage(id, editingBulkName.trim());
 
       // 3. Update UI
-      setBulkHistory(getBulkMessageHistory());
+      setBulkHistory(prev => prev.map(item => item.id === editingBulkId ? { ...item, customName: editingBulkName } : item));
       // Refresh list from server to ensure sync
       loadContacts(false);
     }
@@ -330,7 +312,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     deleteBulkMessage(deletingBulkId);
 
     // 3. Update UI
-    setBulkHistory(getBulkMessageHistory());
+    setBulkHistory(prev => prev.filter(item => item.id !== deletingBulkId));
     loadContacts(false);
     setDeletingBulkId(null);
   };

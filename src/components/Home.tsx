@@ -60,6 +60,13 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         };
 
         loadHomeData();
+
+        // Real-time polling: refresh dashboard data every 15 seconds
+        const interval = setInterval(() => {
+            loadHomeData();
+        }, 15000);
+
+        return () => clearInterval(interval);
     }, []);
 
     const getGreeting = () => {
