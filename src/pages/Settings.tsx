@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { fetchCreditBalance, fetchCreditTransactions } from "../api/credits";
-import type { CreditTransaction } from "../api/credits";
+import { fetchCreditBalance, fetchCreditTransactions, fetchCreditPackages } from "../api/credits";
+import type { CreditTransaction, CreditPackage } from "../api/credits";
 import {
     FiUser, FiSend, FiBell, FiCreditCard,
     FiSave, FiPlus, FiTrash2, FiCheck,
@@ -355,23 +355,30 @@ const CreditsSection: React.FC = () => {
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
     const [txLoading, setTxLoading] = useState(true);
     const [topUpAmount, setTopUpAmount] = useState(500);
+    const [packages, setPackages] = useState<CreditPackage[]>([]);
     const [submitted, setSubmitted] = useState(false);
-    const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
-    const [currentCheckoutUrl, setCurrentCheckoutUrl] = useState("");
     const mountedRef = useRef(true);
+    const popupRef = useRef<Window | null>(null);
     const popupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const load = useCallback(async () => {
         setBalanceLoading(true);
         setTxLoading(true);
-        const [bal, txs] = await Promise.all([
+        const [bal, txs, pkgs] = await Promise.all([
             fetchCreditBalance(),
             fetchCreditTransactions('default', 50),
+            fetchCreditPackages(),
         ]);
         if (!mountedRef.current) return;
         setBalance(bal);
         setTransactions(txs);
+        setPackages(pkgs);
+        
+        // Default topUpAmount to the second package if available, else first
+        if (pkgs.length > 0) {
+            setTopUpAmount(pkgs[1]?.credits || pkgs[0].credits);
+        }
         setBalanceLoading(false);
         setTxLoading(false);
     }, []);
@@ -390,7 +397,7 @@ const CreditsSection: React.FC = () => {
                 event.data?.type === 'nola-payment-success'
             ) {
                 setSubmitted(false);
-                setIsCheckoutModalOpen(false);
+                if (popupRef.current) popupRef.current.close();
                 load(); // Auto-refresh credits on success
             }
         };
@@ -412,23 +419,25 @@ const CreditsSection: React.FC = () => {
     const usageColor = displayBalance < 50 ? 'bg-red-500' : displayBalance < 200 ? 'bg-amber-400' : 'bg-emerald-500';
     const { sentToday, creditsUsedToday, creditsUsedMonth } = deriveStats(transactions);
 
-    const PACKAGES = [
-        { credits: 10, price: 10, link: "https://sms.nolawebsolutions.com/nola-sms-pro---500-credits-page-8465-657955" },
-        { credits: 500, price: 500, link: "https://sms.nolawebsolutions.com/nola-sms-pro---500-credits-page-8465" },
-        { credits: 1100, price: 1000, link: "https://sms.nolawebsolutions.com/nola-sms-pro---1000-credits" },
-        { credits: 2750, price: 2500, link: "https://sms.nolawebsolutions.com/nola-sms-pro-2750-credits" },
-        { credits: 6000, price: 5000, link: "https://sms.nolawebsolutions.com/nola-sms-pro-6000-credits" },
-    ];
 
     const handleTopUp = (e: React.FormEvent) => {
         e.preventDefault();
         
-        const selectedPackage = PACKAGES.find(p => p.credits === topUpAmount);
+        const selectedPackage = packages.find(p => p.credits === topUpAmount);
         if (!selectedPackage) return;
 
         const checkoutUrl = selectedPackage.link;
-        setCurrentCheckoutUrl(checkoutUrl);
-        setIsCheckoutModalOpen(true);
+        const width = 600;
+        const height = 850;
+        const left = (window.screen.width / 2) - (width / 2);
+        const top = (window.screen.height / 2) - (height / 2);
+        
+        popupRef.current = window.open(
+            checkoutUrl, 
+            "Checkout", 
+            `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+        );
+
         setSubmitted(true);
     };
 
@@ -436,63 +445,6 @@ const CreditsSection: React.FC = () => {
         <div className="space-y-5">
             <SectionHeader title="Credits & Billing" subtitle="Monitor your SMS credit balance and request top-ups." />
 
-            {/* In-App Checkout Modal */}
-            {isCheckoutModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white dark:bg-[#1a1b1e] rounded-[32px] overflow-hidden shadow-2xl border border-white/10 animate-in zoom-in-95 duration-500 max-w-xl w-full h-[85vh] mx-4 relative flex flex-col">
-                        {/* Modal Header */}
-                        <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-between bg-white dark:bg-[#1a1b1e] shrink-0">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-2xl bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
-                                    <FiCreditCard className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-[17px] font-black text-[#111111] dark:text-white leading-tight">Secure Checkout</h3>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <span className="text-[12px] font-bold text-[#2b83fa] bg-[#2b83fa]/10 px-2 py-0.5 rounded-md">
-                                            {topUpAmount.toLocaleString()} Credits
-                                        </span>
-                                        <span className="text-[12px] font-bold text-[#6e6e73] dark:text-[#94959b]">
-                                            ₱{PACKAGES.find(p => p.credits === topUpAmount)?.price}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => {
-                                    setIsCheckoutModalOpen(false);
-                                    setSubmitted(false);
-                                }}
-                                className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all active:scale-90"
-                            >
-                                <FiPlus className="w-5 h-5 rotate-45" />
-                            </button>
-                        </div>
-
-                        {/* Iframe Content */}
-                        <div className="flex-1 min-h-0 bg-[#f7f7f7] dark:bg-[#0d0e10] relative">
-                            <iframe 
-                                src={currentCheckoutUrl} 
-                                className="w-full h-full border-none"
-                                title="Secure Checkout"
-                            />
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="px-6 py-4 border-t border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] shrink-0">
-                            <div className="flex flex-col items-center gap-2">
-                                <div className="flex items-center gap-2">
-                                    <FiCheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                                    <span className="text-[12px] font-bold text-[#111111] dark:text-white">SSL Encrypted Transaction</span>
-                                </div>
-                                <p className="text-[11px] text-[#9aa0a6]">
-                                    Your payment information is processed securely by NOLA Solutions.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Balance Card */}
             <div className="bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] rounded-2xl p-5 text-white shadow-lg shadow-blue-500/25">
@@ -552,7 +504,7 @@ const CreditsSection: React.FC = () => {
                 <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider mb-4">Top Up Credits</h3>
                 <form onSubmit={handleTopUp} className="space-y-4">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {PACKAGES.map(pkg => (
+                        {packages.map(pkg => (
                             <button
                                 key={pkg.credits}
                                 type="button"
