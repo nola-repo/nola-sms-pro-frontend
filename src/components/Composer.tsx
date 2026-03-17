@@ -1187,7 +1187,7 @@ export const Composer: React.FC<ComposerProps> = ({
                             <div className="flex flex-col items-end gap-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                                  {(grp.rows[0] as any).senderName || (grp.rows[0] as any).sender_id || 'NOLACRM'}
+                                  {(grp.rows[0] as any).senderName || (grp.rows[0] as any).sender_id || 'NOLASMSPro'}
                                 </span>
                                 <span className="text-[10px] text-gray-400">•</span>
                                 <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">

@@ -24,7 +24,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
     const [contactsCount, setContactsCount] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [showAllActivity, setShowAllActivity] = useState(false);
-    const [senderName, setSenderName] = useState<SenderId>("NOLACRM");
+    const [senderName, setSenderName] = useState<SenderId>("NOLASMSPro");
 
     useEffect(() => {
         const loadHomeData = async () => {

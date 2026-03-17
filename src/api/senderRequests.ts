@@ -105,8 +105,9 @@ export const fetchAccountSenderConfig = async (): Promise<AccountSenderConfig> =
             console.error("[fetchAccountSenderConfig] Error:", res.status);
             return DEFAULT_CONFIG;
         }
-        const data = await res.json();
-        return { ...DEFAULT_CONFIG, ...data };
+        const raw = await res.json();
+        const inner = raw.data || raw;
+        return { ...DEFAULT_CONFIG, ...inner };
     } catch (error) {
         console.error("[fetchAccountSenderConfig] Network error:", error);
         return DEFAULT_CONFIG;

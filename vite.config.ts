@@ -21,7 +21,7 @@ const smsProxyPlugin = () => ({
               customData: {
                 number: number || '',
                 message: message || '',
-                sendername: sendername || 'NOLACRM',
+                sendername: sendername || 'NOLASMSPro',
               }
             };
 

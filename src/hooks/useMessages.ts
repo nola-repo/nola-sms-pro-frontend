@@ -26,7 +26,7 @@ export const useMessages = (phoneNumber: string | undefined) => {
             id: log.message_id || `msg-${Date.now()}`,
             text: log.message || '',
             timestamp: date,
-            senderName: log.sender_id || 'NOLACRM',
+            senderName: log.sender_id || 'NOLASMSPro',
             status: (log.status as Message['status']) || 'sent',
             errorReason: log.error_reason,
         };
