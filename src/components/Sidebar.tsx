@@ -54,6 +54,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [bulkMessagesExpanded, setBulkMessagesExpanded] = useState(true);
   const [editingBulkId, setEditingBulkId] = useState<string | null>(null);
   const [editingBulkName, setEditingBulkName] = useState("");
+  const [deletingBulkId, setDeletingBulkId] = useState<string | null>(null);
+  const [deletingContact, setDeletingContact] = useState<{id: string, phone: string} | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<{ x: number, y: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -288,27 +290,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setShowRenameModal(false);
   };
 
-  const handleDeleteBulk = async (id: string, e: React.MouseEvent) => {
+  const startDeleteBulk = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    setDeletingBulkId(id);
+    setOpenMenuId(null);
+  };
+
+  const confirmDeleteBulk = async () => {
+    if (!deletingBulkId) return;
     
     // 1. Delete in backend
-    const item = bulkHistory.find(h => h.id === id);
+    const item = bulkHistory.find(h => h.id === deletingBulkId);
     if (item && item.batchId) {
       const conversationId = `group_${item.batchId}`;
       await deleteConversation(conversationId);
     }
 
     // 2. Delete in local storage
-    deleteBulkMessage(id);
+    deleteBulkMessage(deletingBulkId);
 
     // 3. Update UI
-    setBulkHistory(prev => prev.filter(item => item.id !== id));
+    setBulkHistory(prev => prev.filter(item => item.id !== deletingBulkId));
     loadContacts();
+    setDeletingBulkId(null);
+  };
+
+  const cancelDeleteBulk = () => setDeletingBulkId(null);
+
+  const startDeleteContact = (id: string, phone: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeletingContact({ id, phone });
     setOpenMenuId(null);
   };
 
-  const handleDeleteContact = async (id: string, phone: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const confirmDeleteContact = async () => {
+    if (!deletingContact) return;
+    const { id, phone } = deletingContact;
     
     // 1. Delete from backend (GHL/Firestore) only if it's a real GHL contact ID
     //    Skip conversation-sourced IDs (e.g. "locationId_conv_09XXX" or "conv_09XXX")
@@ -331,10 +348,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // 3. Local soft-delete (adds to deleted IDs list in storage)
     deleteContactLocal(id);
 
-    // 4. Clear from UI
+    // 4. Clear from UI immediately
     setContacts(contacts.filter(c => c.id !== id));
-    setOpenMenuId(null);
+    setDirectHistory(prev => prev.filter(c => c.id !== id));
+    loadContacts(); // fetch fresh state just in case
+    setDeletingContact(null);
   };
+
+  const cancelDeleteContact = () => setDeletingContact(null);
 
   const getBulkDisplayName = (item: BulkMessageHistoryItem): string => {
     const toProperCase = (name: string): string => {
@@ -627,11 +648,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteContact(contact.id, contact.phone, e);
-                                            setOpenMenuId(null);
-                                          }}
+                                          onClick={(e) => startDeleteContact(contact.id, contact.phone, e)}
                                           className="w-full px-3 py-1.5 text-left text-[11.5px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
                                         >
                                           <FiTrash2 className="w-3 h-3" />
@@ -746,9 +763,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                 Rename
                                               </button>
                                               <button
-                                                onClick={(e) => {
-                                                  handleDeleteBulk(item.id, e);
-                                                }}
+                                                onClick={(e) => startDeleteBulk(item.id, e)}
                                                 className="w-full px-3 py-1.5 text-left text-[11.5px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
                                               >
                                                 <FiTrash2 className="w-3 h-3" />
@@ -842,6 +857,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
         document.body
       )}
 
+      {/* Delete Bulk Confirmation Modal */}
+      {deletingBulkId && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#1e1f23] rounded-2xl shadow-xl border border-[#0000001a] dark:border-[#ffffff1a] w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-5 pb-4">
+              <h3 className="text-lg font-bold text-[#111111] dark:text-white mb-2">Delete bulk message?</h3>
+              <p className="text-[13px] text-gray-600 dark:text-gray-300">
+                This will remove the bulk conversation and its messages from this account's inbox. This action can't be undone.
+              </p>
+            </div>
+            <div className="flex bg-gray-50 dark:bg-black/40 border-t border-gray-100 dark:border-white/5 p-4 gap-3 justify-end mt-2">
+              <button
+                onClick={cancelDeleteBulk}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteBulk}
+                className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm transition-all"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Delete DM Confirmation Modal */}
+      {deletingContact && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#1e1f23] rounded-2xl shadow-xl border border-[#0000001a] dark:border-[#ffffff1a] w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-5 pb-4">
+              <h3 className="text-lg font-bold text-[#111111] dark:text-white mb-2">Delete direct message?</h3>
+              <p className="text-[13px] text-gray-600 dark:text-gray-300">
+                This will remove the direct conversation and its messages from this account's inbox. The contact itself will remain. This action can't be undone.
+              </p>
+            </div>
+            <div className="flex bg-gray-50 dark:bg-black/40 border-t border-gray-100 dark:border-white/5 p-4 gap-3 justify-end mt-2">
+              <button
+                onClick={cancelDeleteContact}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteContact}
+                className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm transition-all"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

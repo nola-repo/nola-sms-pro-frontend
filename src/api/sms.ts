@@ -640,7 +640,7 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
 
-    let url = `${API_CONFIG.messages}?conversation_id=${encodeURIComponent(conversationId)}`;
+    let url = `${API_CONFIG.messages}?id=${encodeURIComponent(conversationId)}`;
     if (accountSettings.ghlLocationId) {
       url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
     }
