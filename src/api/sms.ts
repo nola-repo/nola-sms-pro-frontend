@@ -127,7 +127,7 @@ export const fetchSmsLogs = async (phoneNumber: string): Promise<SmsLog[]> => {
 export const sendSms = async (
   phoneNumber: string,
   message: string,
-  senderName: string = "NOLACRM",
+  senderName: string = "NOLASMSPro",
   batchId?: string,
   contactName?: string,
   recipientKey?: string
@@ -212,7 +212,7 @@ export const sendSms = async (
 export const sendBulkSms = async (
   phoneNumbers: string[],
   message: string,
-  senderName: string = "NOLACRM",
+  senderName: string = "NOLASMSPro",
   _contacts: { phone: string, name: string }[] = [],
   recipientKey?: string,
   existingBatchId?: string
