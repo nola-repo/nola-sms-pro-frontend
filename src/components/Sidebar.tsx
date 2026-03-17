@@ -310,8 +310,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleDeleteContact = async (id: string, phone: string, e: React.MouseEvent) => {
     e.stopPropagation();
     
-    // 1. Delete from backend (GHL/Firestore) if it's not a manual contact
-    if (!id.startsWith('manual-')) {
+    // 1. Delete from backend (GHL/Firestore) only if it's a real GHL contact ID
+    //    Skip conversation-sourced IDs (e.g. "locationId_conv_09XXX" or "conv_09XXX")
+    const isConversationId = id.includes('_conv_') || id.startsWith('conv_');
+    if (!id.startsWith('manual-') && !isConversationId) {
       try {
         await deleteContactBackend(id);
       } catch (err) {
