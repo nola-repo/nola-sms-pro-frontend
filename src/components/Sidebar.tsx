@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { fetchContacts } from "../api/contacts";
-import { fetchConversations, renameConversation, deleteConversation } from "../api/sms";
+import { fetchConversations, renameConversation, deleteConversation, normalizePHNumber } from "../api/sms";
 import { deleteContact as deleteContactBackend } from "../api/contacts";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
@@ -54,8 +54,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [bulkMessagesExpanded, setBulkMessagesExpanded] = useState(true);
   const [editingBulkId, setEditingBulkId] = useState<string | null>(null);
   const [editingBulkName, setEditingBulkName] = useState("");
-  const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
-  const [deletingBulkId, setDeletingBulkId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<{ x: number, y: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -290,61 +288,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setShowRenameModal(false);
   };
 
-  const startDeleteBulk = (id: string, e: React.MouseEvent) => {
+  const handleDeleteBulk = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setDeletingBulkId(id);
-  };
-
-  const confirmDeleteBulk = async () => {
-    if (!deletingBulkId) return;
-
+    
     // 1. Delete in backend
-    const item = bulkHistory.find(h => h.id === deletingBulkId);
+    const item = bulkHistory.find(h => h.id === id);
     if (item && item.batchId) {
       const conversationId = `group_${item.batchId}`;
       await deleteConversation(conversationId);
     }
 
     // 2. Delete in local storage
-    deleteBulkMessage(deletingBulkId);
+    deleteBulkMessage(id);
 
     // 3. Update UI
-    setBulkHistory(prev => prev.filter(item => item.id !== deletingBulkId));
+    setBulkHistory(prev => prev.filter(item => item.id !== id));
     loadContacts();
-    setDeletingBulkId(null);
+    setOpenMenuId(null);
   };
 
-  const cancelDeleteBulk = () => {
-    setDeletingBulkId(null);
-  };
-
-  const handleDeleteContact = (id: string, e: React.MouseEvent) => {
+  const handleDeleteContact = async (id: string, phone: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setDeletingContactId(id);
-  };
-
-  const confirmDeleteContact = async () => {
-    if (deletingContactId) {
-      // 1. Delete from backend (GHL/Firestore) if it's not a manual contact
-      if (!deletingContactId.startsWith('manual-')) {
-        try {
-          await deleteContactBackend(deletingContactId);
-        } catch (err) {
-          console.error('Failed to delete contact from backend:', err);
-        }
+    
+    // 1. Delete from backend (GHL/Firestore) if it's not a manual contact
+    if (!id.startsWith('manual-')) {
+      try {
+        await deleteContactBackend(id);
+      } catch (err) {
+        console.error('Failed to delete contact from backend:', err);
       }
-
-      // 2. Local soft-delete (adds to deleted IDs list in storage)
-      deleteContactLocal(deletingContactId);
-
-      // 3. Clear from UI
-      setContacts(contacts.filter(c => c.id !== deletingContactId));
-      setDeletingContactId(null);
     }
-  };
 
-  const cancelDeleteContact = () => {
-    setDeletingContactId(null);
+    // 2. Delete Conversation from Backend
+    const normalized = normalizePHNumber(phone);
+    if (normalized) {
+      const convId = `conv_${normalized}`;
+      await deleteConversation(convId);
+    }
+
+    // 3. Local soft-delete (adds to deleted IDs list in storage)
+    deleteContactLocal(id);
+
+    // 4. Clear from UI
+    setContacts(contacts.filter(c => c.id !== id));
+    setOpenMenuId(null);
   };
 
   const getBulkDisplayName = (item: BulkMessageHistoryItem): string => {
@@ -615,64 +602,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   {toProperCase(contact.name || contact.phone)}
                                 </span>
                                 <div className="flex items-center gap-1">
-                                  {deletingContactId === contact.id ? (
-                                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                      <button
-                                        onClick={confirmDeleteContact}
-                                        className="p-1 rounded bg-red-500 text-white hover:bg-red-600 shadow-sm transition-all"
+                                  <div className="relative">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (openMenuId === contact.id) {
+                                          setOpenMenuId(null);
+                                        } else {
+                                          const rect = e.currentTarget.getBoundingClientRect();
+                                          setMenuAnchor({ x: rect.right, y: rect.bottom });
+                                          setOpenMenuId(contact.id);
+                                        }
+                                      }}
+                                      className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043] transition-all"
+                                    >
+                                      <FiMoreVertical className="w-3 h-3 text-[#5f6368] dark:text-[#9aa0a6]" />
+                                    </button>
+                                    {openMenuId === contact.id && menuAnchor && createPortal(
+                                      <div
+                                        className="fixed bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-[#0000000a] dark:border-[#ffffff0a] py-1.5 min-w-[110px] z-[99999] animate-in zoom-in-95 duration-150"
+                                        style={{ top: menuAnchor.y + 4, left: menuAnchor.x, transform: 'translateX(-100%)', transformOrigin: 'top right' }}
+                                        onClick={(e) => e.stopPropagation()}
                                       >
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                        </svg>
-                                      </button>
-                                      <button
-                                        onClick={cancelDeleteContact}
-                                        className="p-1 rounded bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 shadow-sm transition-all"
-                                      >
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <div className="relative">
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (openMenuId === contact.id) {
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteContact(contact.id, contact.phone, e);
                                             setOpenMenuId(null);
-                                          } else {
-                                            const rect = e.currentTarget.getBoundingClientRect();
-                                            setMenuAnchor({ x: rect.right, y: rect.bottom });
-                                            setOpenMenuId(contact.id);
-                                          }
-                                        }}
-                                        className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043] transition-all"
-                                      >
-                                        <FiMoreVertical className="w-3 h-3 text-[#5f6368] dark:text-[#9aa0a6]" />
-                                      </button>
-                                      {openMenuId === contact.id && menuAnchor && createPortal(
-                                        <div
-                                          className="fixed bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-[#0000000a] dark:border-[#ffffff0a] py-1.5 min-w-[110px] z-[99999] animate-in zoom-in-95 duration-150"
-                                          style={{ top: menuAnchor.y + 4, left: menuAnchor.x, transform: 'translateX(-100%)', transformOrigin: 'top right' }}
-                                          onClick={(e) => e.stopPropagation()}
+                                          }}
+                                          className="w-full px-3 py-1.5 text-left text-[11.5px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
                                         >
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleDeleteContact(contact.id, e);
-                                              setOpenMenuId(null);
-                                            }}
-                                            className="w-full px-3 py-1.5 text-left text-[11.5px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
-                                          >
-                                            <FiTrash2 className="w-3 h-3" />
-                                            Delete
-                                          </button>
-                                        </div>,
-                                        document.body
-                                      )}
-                                    </div>
-                                  )}
+                                          <FiTrash2 className="w-3 h-3" />
+                                          Delete
+                                        </button>
+                                      </div>,
+                                      document.body
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                               <div className={`text-[11px] truncate leading-normal transition-colors duration-200 opacity-80 ${activeContactId === contact.id ? 'text-[#2b83fa] dark:text-[#60a5fa]' : 'text-[#6e6e73] dark:text-[#94959b]'}`}>
@@ -779,8 +745,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                               </button>
                                               <button
                                                 onClick={(e) => {
-                                                  startDeleteBulk(item.id, e);
-                                                  setOpenMenuId(null);
+                                                  handleDeleteBulk(item.id, e);
                                                 }}
                                                 className="w-full px-3 py-1.5 text-left text-[11.5px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
                                               >
@@ -875,34 +840,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         document.body
       )}
 
-      {/* Delete Bulk Confirmation Modal */}
-      {deletingBulkId && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#1e1f23] rounded-2xl shadow-xl border border-[#0000001a] dark:border-[#ffffff1a] w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-5 pb-4">
-              <h3 className="text-lg font-bold text-[#111111] dark:text-white mb-2">Delete conversation?</h3>
-              <p className="text-[13px] text-gray-600 dark:text-gray-300">
-                This will remove the bulk conversation and its messages from this account&apos;s inbox. This action can&apos;t be undone.
-              </p>
-            </div>
-            <div className="flex bg-gray-50 dark:bg-black/40 border-t border-gray-100 dark:border-white/5 p-4 gap-3 justify-end mt-2">
-              <button
-                onClick={cancelDeleteBulk}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDeleteBulk}
-                className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm transition-all"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
     </div>
   );
 };

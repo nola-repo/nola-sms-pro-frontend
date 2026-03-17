@@ -31,7 +31,7 @@ interface SendSmsResponse {
  * Normalize Philippine phone numbers to 09XXXXXXXXX
  * This matches the backend's clean_numbers function
  */
-const normalizePHNumber = (input: string): string | null => {
+export const normalizePHNumber = (input: string): string | null => {
   if (!input) return null;
 
   const digits = input.replace(/\D/g, "");
