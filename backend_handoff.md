@@ -98,8 +98,12 @@ The backend acknowledges the request, but the document continues to be returned 
 
 ## Required Backend Changes (`api/conversations.php`)
 
-**1. Verify Firestore Deletion Execution**
+**1. Verify Firestore Deletion Execution (Scoped IDs issues)**
 Ensure that the exact document ID passed in `$_GET['id']` is actually matching the document ID in the `conversations` collection and that `$docRef->delete();` is successfully removing it. 
+
+*Important Note on Scoped IDs:*
+The frontend has been updated to send the **exact literal document ID** it receives from the database (e.g., `HWfgmknLlE5JWOJWkVS2_conv_09761731036`). 
+If the backend `DELETE` handler is doing any string manipulation (like stripping out the location ID or manually prepending `conv_`), it will fail to find the document. The backend MUST respect and delete the exact literal ID sent by the frontend `?id=` parameter.
 
 ```php
 // Current code in api/conversations.php starting at line 100

@@ -301,8 +301,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     
     // 1. Delete in backend
     const item = bulkHistory.find(h => h.id === deletingBulkId);
-    if (item && item.batchId) {
-      const conversationId = `group_${item.batchId}`;
+    if (item) {
+      // Use the actual document ID from the database (which already includes the location_id prefix if applicable)
+      // Fallback to group_batchId if it's a locally generated ID
+      const conversationId = item.fromDatabase ? item.id : `group_${item.batchId}`;
       await deleteConversation(conversationId);
     }
 
