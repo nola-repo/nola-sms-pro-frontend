@@ -84,45 +84,58 @@ The frontend is already updated to:
 
 ---
 
-# Backend Handoff: API Conversation Deletion Bug
-
-The frontend was recently updated to fully support persistent deletion of direct and bulk messages in the Sidebar by hitting `/api/conversations` with a `DELETE` request. 
-
-However, testing shows the conversations are still appearing after reload, suggesting the backend `DELETE` handler isn't fully removing them.
-
-## The Bug
-In `api/conversations.php`, the frontend is correctly passing `?id=` to target the conversation for deletion:
-`DELETE /api/conversations?id={conversation_id}`
-
-The backend acknowledges the request, but the document continues to be returned in subsequent `fetch_conversations` calls.
+# Backend Handoff: API Conversation Deletion
 
 ## Required Backend Changes (`api/conversations.php`)
 
-**1. Verify Firestore Deletion Execution (Scoped IDs issues)**
-Ensure that the exact document ID passed in `$_GET['id']` is actually matching the document ID in the `conversations` collection and that `$docRef->delete();` is successfully removing it. 
-
-*Important Note on Scoped IDs:*
-The frontend has been updated to send the **exact literal document ID** it receives from the database (e.g., `HWfgmknLlE5JWOJWkVS2_conv_09761731036`). 
-If the backend `DELETE` handler is doing any string manipulation (like stripping out the location ID or manually prepending `conv_`), it will fail to find the document. The backend MUST respect and delete the exact literal ID sent by the frontend `?id=` parameter.
+### 1. Fix CORS Headers (Critical)
+The current `Access-Control-Allow-Methods` header in `api/conversations.php` is missing `DELETE` and `PUT`. This will cause browser preflights to fail.
 
 ```php
-// Current code in api/conversations.php starting at line 100
-$id = $_GET['id'] ?? null;
-// ...
-$docRef = $db->collection('conversations')->document($id);
-if ($docRef->snapshot()->exists()) {
-    $docRef->delete();
+// api/conversations.php - Update Line 11
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+```
+
+### 2. Verify Firestore Deletion Execution (Scoped IDs)
+The frontend sends the **exact literal document ID** it receives from the database (e.g., `HWfg..._conv_0976...` or `HWfg..._group_batch...`). 
+
+The backend MUST delete the exact string received in `$_GET['id']`. 
+
+**Action:** Add a debug log to verify the ID and check for existence before deletion.
+
+```php
+elseif ($method === 'DELETE') {
+    $id = $_GET['id'] ?? null;
+    
+    // DEBUG: Log the ID to see if it matches Firestore
+    // error_log("Attempting to delete conversation: " . $id);
+
+    if (!$id) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Missing id parameter']);
+        exit;
+    }
+
+    $docRef = $db->collection('conversations')->document($id);
+    if ($docRef->snapshot()->exists()) {
+        $docRef->delete();
+        echo json_encode(['success' => true, 'message' => "Deleted $id"]);
+    } else {
+        // If snapshot doesn't exist, the ID sent didn't match perfectly
+        http_response_code(404);
+        echo json_encode(['success' => false, 'error' => "Conversation $id not found"]);
+    }
+    exit;
 }
 ```
 
-**2. Check for Soft Deletes vs Hard Deletes**
-If the backend architecture is designed around "soft deletes" (e.g., setting a `deleted` boolean or setting `updated_at` to null), the `GET` endpoint (lines 29-67) MUST filter out these soft-deleted rows.
+### 3. Account for Scoped ID Format
+Based on Firestore Studio, IDs follow patterns like:
+- `{locationId}_{contactId}`
+- `{locationId}_conv_{phone}`
+- `{locationId}_group_{batchId}`
 
-```php
-// If using soft deletes, modify the GET response loop:
-if (!empty($d['is_deleted'])) continue; 
-```
-*Note: If it's a hard delete (`->delete()`), ensure it's executing against the EXACT matching ID, accounting for scoped (`locationId_conv_phone`) vs unscoped (`conv_phone`) IDs.*
+The frontend is now passing these strings **completely untouched**. The backend must ensures it doesn't try to strip the `location_id` prefix before calling `->document($id)`.
 
-**3. Cascading Deletion (Optional but Recommended)**
-When a conversation metadata document is deleted from the `conversations` collection, consider also wiping out the individual chat messages linked to that `conversation_id` inside the `messages` collection to prevent orphaned data.
+### 4. Cascading Deletion (Recommended)
+When a conversation is deleted, ensure all messages in the `messages` collection with matching `conversation_id` are removed.
