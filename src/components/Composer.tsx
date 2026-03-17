@@ -117,13 +117,14 @@ export const Composer: React.FC<ComposerProps> = ({
    *  - New bulk in progress:    undefined (messages will appear after navigation to activeBulkMessage)
    */
   const conversationId = useMemo(() => {
+    const { ghlLocationId } = getAccountSettings();
     if (activePhoneNumber) {
-      const { ghlLocationId } = getAccountSettings();
       return buildDirectConversationId(activePhoneNumber, ghlLocationId) || undefined;
     }
-    if (activeBulkMessage?.batchId) {
-      // batchId from backend is e.g. "batch_abc123" → conversationId = "group_batch_abc123"
-      return `group_${activeBulkMessage.batchId}`;
+    if (activeBulkMessage) {
+      // Backend expects scoped IDs: {locationId}_group_{batchId}
+      const prefix = activeBulkMessage.locationId || ghlLocationId;
+      return prefix ? `${prefix}_group_${activeBulkMessage.batchId}` : `group_${activeBulkMessage.batchId}`;
     }
     return undefined;
   }, [activePhoneNumber, activeBulkMessage]);

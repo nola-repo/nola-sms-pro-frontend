@@ -164,7 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         // 2. Map server conversations to BulkMessageHistoryItem
         conversations
-          .filter(c => c.type === 'bulk')
+          .filter(c => c.type === 'bulk' || c.type === 'group')
           .forEach(conv => {
             const batchId = extractBatchIdFromGroupConversationId(conv.id) || conv.id.replace(/^group_/, '');
             const key = batchId;
@@ -191,6 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               status: existing?.status || 'sent',
               batchId,
               fromDatabase: true,
+              locationId: conv.location_id, // Ensure location_id is used from the conversation object
             };
             mergedBulk.set(key, item);
           });

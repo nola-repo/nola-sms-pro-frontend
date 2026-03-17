@@ -24,7 +24,7 @@ export interface FirestoreMessage {
 /** One row from the `conversations` Firestore collection */
 export interface Conversation {
   id: string;             // e.g. conv_09XXXXXXXXX  |  group_batch_xxx
-  type: 'direct' | 'bulk';
+  type: 'direct' | 'bulk' | 'group' | null;
   members: string[];      // normalised phone numbers
   last_message: string;
   last_message_at: string | null;
