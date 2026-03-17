@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Track last_message per conversation to detect new messages and notify the Composer
   const lastMessageTracker = useRef<Map<string, string>>(new Map());
 
-  const loadContacts = useCallback(async (showSpinner = false) => {
+  const loadContacts = useCallback(async () => {
     try {
       const data = await fetchContacts();
       const deletedIds = getDeletedContactIds();
@@ -238,10 +238,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   useEffect(() => {
-    loadContacts(true);
+    loadContacts();
     // Real-time polling: refresh history and contacts every 15 seconds
     const interval = setInterval(() => {
-      loadContacts(false);
+      loadContacts();
     }, 15000);
 
     return () => clearInterval(interval);
@@ -283,7 +283,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       // 3. Update UI
       setBulkHistory(prev => prev.map(item => item.id === editingBulkId ? { ...item, customName: editingBulkName } : item));
       // Refresh list from server to ensure sync
-      loadContacts(false);
+      loadContacts();
     }
     setEditingBulkId(null);
     setEditingBulkName("");
@@ -310,7 +310,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     // 3. Update UI
     setBulkHistory(prev => prev.filter(item => item.id !== deletingBulkId));
-    loadContacts(false);
+    loadContacts();
     setDeletingBulkId(null);
   };
 
@@ -574,7 +574,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onTouchEnd={(e) => {
                     const delta = e.changedTouches[0].clientY - touchStartY.current;
                     const atTop = (contactsListRef.current?.scrollTop ?? 0) === 0;
-                    if (delta > 60 && atTop) loadContacts(true);
+                    if (delta > 60 && atTop) loadContacts();
                   }}
                 >
                   <div className="flex flex-col gap-0.5">
