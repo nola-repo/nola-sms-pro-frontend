@@ -105,7 +105,8 @@ const AccountSection: React.FC = () => {
                 
                 // Sync the true location name back to local storage if valid,
                 // so the Sidebar and other components can use the most up-to-date name.
-                if (profile.location_name !== "Unknown") {
+                // Sync back to storage if it's a valid, non-generic name we just fetched
+                if (!isGeneric(profile.location_name)) {
                     const currentSettings = getAccountSettings();
                     if (currentSettings.displayName !== profile.location_name) {
                         saveAccountSettings({
@@ -126,8 +127,11 @@ const AccountSection: React.FC = () => {
     }, [ghlLocationIdFromHook]);
 
     // Use most up-to-date values, prioritize hook for locationId
-    // If fetched name is literally "Unknown", skip it so it falls back to the form value (which might have been sniffed)
-    const subaccountName = (fetchedName && fetchedName !== "Unknown") ? fetchedName : (form.displayName || "N/A");
+    // Prioritize the locally stored/sniffed name (Sidebar name) if the API returns something generic or hasn't loaded.
+    const isGeneric = (name: string | null) => !name || name === "Unknown" || name === "NOLA SMS Pro" || name === "Sub Account";
+    const subaccountName = !isGeneric(form.displayName) 
+        ? form.displayName 
+        : (!isGeneric(fetchedName) ? fetchedName : "Sub Account");
     const subaccountEmail = form.email || "N/A";
     const currentLocationId = ghlLocationIdFromHook || form.ghlLocationId || "Not detected";
 
@@ -158,7 +162,7 @@ const AccountSection: React.FC = () => {
 
                 <div className="space-y-4 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
                     <div>
-                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">GoHighLevel Subaccount</label>
+                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Sub Account Name</label>
                         <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-medium flex items-center gap-2">
                             {isFetchingProfile ? (
                                 <>

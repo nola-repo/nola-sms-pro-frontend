@@ -40,7 +40,7 @@ export interface StoredSenderId {
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
 const DEFAULT_ACCOUNT: AccountSettings = {
-    displayName: "NOLA SMS Pro",
+    displayName: "Sub Account", // Neutral default to avoid "NOLA SMS Pro" sticking
     email: "admin@nolacrm.io",
     accountStatus: "approved",
     creditBalance: 500,
