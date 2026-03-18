@@ -215,9 +215,9 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
             if (cancelled) return;
             setConfig(cfg);
             // Mask existing API key for display
-            if (cfg.semaphore_api_key) {
-                const key = cfg.semaphore_api_key;
-                setApiKeyMasked(key.length > 8 ? "••••••••" + key.slice(-4) : "••••••••");
+            const apiKey = cfg.nola_pro_api_key || cfg.semaphore_api_key;
+            if (apiKey) {
+                setApiKeyMasked(apiKey.length > 8 ? "••••••••" + apiKey.slice(-4) : "••••••••");
             }
             setLoadingConfig(false);
         }).catch(err => {
