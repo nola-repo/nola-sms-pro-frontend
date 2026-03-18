@@ -8,7 +8,7 @@ import {
     FiRefreshCw, FiZap,
 } from "react-icons/fi";
 import {
-    getAccountSettings,
+    getAccountSettings, saveAccountSettings,
     getNotificationSettings, saveNotificationSettings,
     type AccountSettings, type NotificationSettings,
 } from "../utils/settingsStorage";
@@ -102,6 +102,20 @@ const AccountSection: React.FC = () => {
             const profile = await fetchAccountProfile();
             if (mounted && profile?.location_name) {
                 setFetchedName(profile.location_name);
+                
+                // Sync the true location name back to local storage if valid,
+                // so the Sidebar and other components can use the most up-to-date name.
+                if (profile.location_name !== "Unknown") {
+                    const currentSettings = getAccountSettings();
+                    if (currentSettings.displayName !== profile.location_name) {
+                        saveAccountSettings({
+                            ...currentSettings,
+                            displayName: profile.location_name
+                        });
+                        // Dispatch custom event if a component needs immediate live update
+                        window.dispatchEvent(new Event("account-settings-updated"));
+                    }
+                }
             }
             if (mounted) {
                 setIsFetchingProfile(false);
