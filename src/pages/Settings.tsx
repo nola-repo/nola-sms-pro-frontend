@@ -112,7 +112,8 @@ const AccountSection: React.FC = () => {
     }, [ghlLocationIdFromHook]);
 
     // Use most up-to-date values, prioritize hook for locationId
-    const subaccountName = fetchedName || form.displayName || "N/A";
+    // If fetched name is literally "Unknown", skip it so it falls back to the form value (which might have been sniffed)
+    const subaccountName = (fetchedName && fetchedName !== "Unknown") ? fetchedName : (form.displayName || "N/A");
     const subaccountEmail = form.email || "N/A";
     const currentLocationId = ghlLocationIdFromHook || form.ghlLocationId || "Not detected";
 
