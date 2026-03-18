@@ -27,13 +27,27 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newId.trim() || isSubmitting) return;
+        const trimmedId = newId.trim();
+        if (!trimmedId || isSubmitting) return;
+
+        // Validation Rules:
+        // 1. Length 3-11 characters
+        // 2. No spaces allowed
+        if (trimmedId.length < 3 || trimmedId.length > 11) {
+            setError("Sender name must be between 3 and 11 characters.");
+            return;
+        }
+
+        if (/\s/.test(trimmedId)) {
+            setError("Sender name cannot contain spaces.");
+            return;
+        }
 
         setIsSubmitting(true);
         setError(null);
 
         try {
-            await submitSenderRequest(newId.trim(), newPurpose.trim(), newSample.trim());
+            await submitSenderRequest(trimmedId, newPurpose.trim(), newSample.trim());
 
             // Create a local representation for onSuccess callback
             const created: StoredSenderId = {
@@ -107,7 +121,7 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                                 disabled={isSubmitting}
                                 className="w-full px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 disabled:opacity-50"
                             />
-                            <p className="text-[11px] text-[#9aa0a6] mt-1">Max 11 characters. Alphanumeric only.</p>
+                            <p className="text-[11px] text-[#9aa0a6] mt-1">3 to 11 characters. No spaces allowed.</p>
                         </div>
                         <div>
                             <label className="block text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Purpose</label>

@@ -180,7 +180,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
 
-    // Semaphore API Key state
+    // NOLA SMS Pro API Key state
     const [apiKeyInput, setApiKeyInput] = useState("");
     const [apiKeyMasked, setApiKeyMasked] = useState<string | null>(null);
     const [apiKeySaving, setApiKeySaving] = useState(false);
@@ -321,9 +321,9 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                 )}
             </Card>
 
-            {/* Semaphore API Key */}
+            {/* NOLA SMS Pro API Key */}
             <Card>
-                <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider mb-4">Semaphore API Key</h3>
+                <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider mb-4">NOLA SMS Pro API Key</h3>
                 <div className="space-y-3">
                     {apiKeyMasked && !apiKeyInput && (
                         <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/20">
@@ -337,7 +337,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                             type="text"
                             value={apiKeyInput}
                             onChange={e => { setApiKeyInput(e.target.value); setApiKeySaved(false); }}
-                            placeholder={apiKeyMasked ? "Enter new key to update..." : "Paste your Semaphore API key..."}
+                            placeholder={apiKeyMasked ? "Enter new key to update..." : "Paste your NOLA SMS Pro API key..."}
                             className="flex-1 px-4 py-2.5 rounded-xl text-[13px] font-mono border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25"
                         />
                         <button
@@ -352,9 +352,14 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                             {apiKeySaved ? <><FiCheck className="w-3.5 h-3.5" /> Saved</> : apiKeySaving ? <><FiClock className="w-3.5 h-3.5 animate-spin" /> Saving...</> : <><FiSave className="w-3.5 h-3.5" /> Save</>}
                         </button>
                     </div>
-                    <p className="text-[11px] text-[#9aa0a6] leading-relaxed">
-                        Your Semaphore API key is required to activate your approved Sender ID. Contact admin if you don't have one.
-                    </p>
+                    <div className="space-y-1.5 mt-3">
+                        <p className="text-[11px] text-[#9aa0a6] leading-relaxed">
+                            Your NOLA SMS Pro API key is required to activate your approved Sender ID. Contact admin if you don't have one.
+                        </p>
+                        <p className="text-[11px] font-medium text-[#2b83fa] dark:text-[#3b8ef6] leading-relaxed">
+                            API key will be provided once sender id is approved.
+                        </p>
+                    </div>
                 </div>
             </Card>
 
@@ -388,7 +393,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                             <div className="flex items-start gap-2.5 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
                                 <FiAlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
                                 <p className="text-[12px] text-red-600 dark:text-red-400 leading-relaxed">
-                                    <strong>Free limit reached.</strong> Register your own Sender ID and add your Semaphore API key to continue sending.
+                                    <strong>Free limit reached.</strong> Register your own Sender ID and add your NOLA SMS Pro API key to continue sending.
                                 </p>
                             </div>
                         )}
