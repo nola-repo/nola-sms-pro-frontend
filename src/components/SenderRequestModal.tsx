@@ -43,11 +43,6 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
             return;
         }
 
-        if (!/^[a-zA-Z0-9]+$/.test(trimmedId)) {
-            setError("Sender name must be alphanumeric (letters and numbers only).");
-            return;
-        }
-
         setIsSubmitting(true);
         setError(null);
 

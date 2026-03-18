@@ -14,8 +14,8 @@ export interface SenderRequest {
 
 export interface AccountSenderConfig {
     approved_sender_id: string | null;
-    nola_pro_api_key: string | null;
-    semaphore_api_key: string | null; // Compatibility fallback
+    nola_pro_api_key: string | null;     // Preferred field (new)
+    semaphore_api_key: string | null;    // Legacy fallback
     free_usage_count: number;
     system_default_sender: string;
 }
@@ -47,7 +47,7 @@ export const submitSenderRequest = async (
         headers,
         body: JSON.stringify({
             location_id: locationId,
-            requested_id: requestedId.trim(),
+            requested_id: requestedId.trim().toUpperCase(),
             purpose,
             sample_message: sampleMessage,
         }),
@@ -128,7 +128,7 @@ export const saveAccountApiKey = async (apiKey: string): Promise<boolean> => {
             headers,
             body: JSON.stringify({
                 location_id: locationId,
-                nola_pro_api_key: apiKey,
+                nola_pro_api_key: apiKey,  // Backend now standardized to nola_pro_api_key
             }),
         });
 

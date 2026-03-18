@@ -214,7 +214,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
         fetchAccountSenderConfig().then(cfg => {
             if (cancelled) return;
             setConfig(cfg);
-            // Mask existing API key for display
+            // Mask existing API key for display — prefer nola_pro_api_key, fallback to semaphore_api_key
             const apiKey = cfg.nola_pro_api_key || cfg.semaphore_api_key;
             if (apiKey) {
                 setApiKeyMasked(apiKey.length > 8 ? "••••••••" + apiKey.slice(-4) : "••••••••");
