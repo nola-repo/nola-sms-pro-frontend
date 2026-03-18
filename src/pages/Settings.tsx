@@ -93,20 +93,19 @@ const AccountSection: React.FC = () => {
     const ghlLocationIdFromHook = useGhlLocation();
     
     const [fetchedName, setFetchedName] = useState<string | null>(null);
-    const [isFetchingProfile, setIsFetchingProfile] = useState(false);
+
 
     useEffect(() => {
         let mounted = true;
         const loadProfile = async () => {
-            setIsFetchingProfile(true);
+
             const profile = await fetchAccountProfile();
             if (mounted && profile?.location_name) {
                 setFetchedName(profile.location_name);
                 
                 // Sync the true location name back to local storage if valid,
                 // so the Sidebar and other components can use the most up-to-date name.
-                // Sync back to storage if it's a valid, non-generic name we just fetched
-                if (!isGeneric(profile.location_name)) {
+                if (profile.location_name !== "Unknown") {
                     const currentSettings = getAccountSettings();
                     if (currentSettings.displayName !== profile.location_name) {
                         saveAccountSettings({
@@ -118,20 +117,15 @@ const AccountSection: React.FC = () => {
                     }
                 }
             }
-            if (mounted) {
-                setIsFetchingProfile(false);
-            }
+
         };
         loadProfile();
         return () => { mounted = false; };
     }, [ghlLocationIdFromHook]);
 
     // Use most up-to-date values, prioritize hook for locationId
-    // Prioritize the locally stored/sniffed name (Sidebar name) if the API returns something generic or hasn't loaded.
-    const isGeneric = (name: string | null) => !name || name === "Unknown" || name === "NOLA SMS Pro" || name === "Sub Account";
-    const subaccountName = !isGeneric(form.displayName) 
-        ? form.displayName 
-        : (!isGeneric(fetchedName) ? fetchedName : "Sub Account");
+    // If fetched name is literally "Unknown", skip it so it falls back to the form value (which might have been sniffed)
+    const subaccountName = (fetchedName && fetchedName !== "Unknown") ? fetchedName : (form.displayName || "N/A");
     const subaccountEmail = form.email || "N/A";
     const currentLocationId = ghlLocationIdFromHook || form.ghlLocationId || "Not detected";
 
@@ -161,19 +155,7 @@ const AccountSection: React.FC = () => {
                 </div>
 
                 <div className="space-y-4 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
-                    <div>
-                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Sub Account Name</label>
-                        <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-medium flex items-center gap-2">
-                            {isFetchingProfile ? (
-                                <>
-                                    <FiClock className="w-3.5 h-3.5 animate-spin text-[#9aa0a6]" />
-                                    <span className="text-[#9aa0a6]">Loading...</span>
-                                </>
-                            ) : (
-                                subaccountName
-                            )}
-                        </div>
-                    </div>
+
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">GHL Location ID</label>
                         <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono">
