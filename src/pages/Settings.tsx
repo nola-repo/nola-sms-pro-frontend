@@ -177,7 +177,8 @@ const AccountSection: React.FC = () => {
 const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAddModal }) => {
     const [senderRequests, setSenderRequests] = useState<SenderRequest[]>([]);
     const [config, setConfig] = useState<AccountSenderConfig | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loadingRequests, setLoadingRequests] = useState(true);
+    const [loadingConfig, setLoadingConfig] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
 
     // NOLA SMS Pro API Key state
@@ -196,18 +197,34 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
     // Fetch data from API
     useEffect(() => {
         let cancelled = false;
-        setLoading(true);
-        Promise.all([fetchSenderRequests(), fetchAccountSenderConfig()]).then(([requests, cfg]) => {
+        
+        // Fetch Sender Requests
+        setLoadingRequests(true);
+        fetchSenderRequests().then(requests => {
             if (cancelled) return;
             setSenderRequests(requests);
+            setLoadingRequests(false);
+        }).catch(err => {
+            console.error("Failed to fetch sender requests:", err);
+            if (!cancelled) setLoadingRequests(false);
+        });
+
+        // Fetch Account Sender Config
+        setLoadingConfig(true);
+        fetchAccountSenderConfig().then(cfg => {
+            if (cancelled) return;
             setConfig(cfg);
             // Mask existing API key for display
             if (cfg.semaphore_api_key) {
                 const key = cfg.semaphore_api_key;
                 setApiKeyMasked(key.length > 8 ? "••••••••" + key.slice(-4) : "••••••••");
             }
-            setLoading(false);
+            setLoadingConfig(false);
+        }).catch(err => {
+            console.error("Failed to fetch account sender config:", err);
+            if (!cancelled) setLoadingConfig(false);
         });
+
         return () => { cancelled = true; };
     }, []);
 
@@ -280,7 +297,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                     </button>
                 </div>
 
-                {loading ? (
+                {loadingRequests ? (
                     <div className="space-y-2">
                         {[1, 2].map(i => (
                             <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse">
@@ -324,49 +341,56 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
             {/* NOLA SMS Pro API Key */}
             <Card>
                 <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider mb-4">NOLA SMS Pro API Key</h3>
-                <div className="space-y-3">
-                    {apiKeyMasked && !apiKeyInput && (
-                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/20">
-                            <FiCheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                            <span className="text-[13px] font-mono text-emerald-700 dark:text-emerald-400">{apiKeyMasked}</span>
-                            <span className="text-[11px] text-emerald-500/70 ml-auto">Configured</span>
+                {loadingConfig ? (
+                    <div className="space-y-3 animate-pulse">
+                        <div className="h-10 bg-gray-100 dark:bg-[#0d0e10] rounded-xl w-full" />
+                        <div className="h-4 bg-gray-50 dark:bg-[#1e1f22] rounded w-3/4" />
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {apiKeyMasked && !apiKeyInput && (
+                            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/20">
+                                <FiCheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                                <span className="text-[13px] font-mono text-emerald-700 dark:text-emerald-400">{apiKeyMasked}</span>
+                                <span className="text-[11px] text-emerald-500/70 ml-auto">Configured</span>
+                            </div>
+                        )}
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={apiKeyInput}
+                                onChange={e => { setApiKeyInput(e.target.value); setApiKeySaved(false); }}
+                                placeholder={apiKeyMasked ? "Enter new key to update..." : "Paste your NOLA SMS Pro API key..."}
+                                className="flex-1 px-4 py-2.5 rounded-xl text-[13px] font-mono border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25"
+                            />
+                            <button
+                                onClick={handleSaveApiKey}
+                                disabled={!apiKeyInput.trim() || apiKeySaving}
+                                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold text-[12px] transition-all duration-300 flex-shrink-0 ${
+                                    apiKeySaved
+                                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
+                                        : "bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white shadow-md shadow-blue-500/20 hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] disabled:opacity-50 disabled:shadow-none"
+                                }`}
+                            >
+                                {apiKeySaved ? <><FiCheck className="w-3.5 h-3.5" /> Saved</> : apiKeySaving ? <><FiClock className="w-3.5 h-3.5 animate-spin" /> Saving...</> : <><FiSave className="w-3.5 h-3.5" /> Save</>}
+                            </button>
                         </div>
-                    )}
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={apiKeyInput}
-                            onChange={e => { setApiKeyInput(e.target.value); setApiKeySaved(false); }}
-                            placeholder={apiKeyMasked ? "Enter new key to update..." : "Paste your NOLA SMS Pro API key..."}
-                            className="flex-1 px-4 py-2.5 rounded-xl text-[13px] font-mono border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25"
-                        />
-                        <button
-                            onClick={handleSaveApiKey}
-                            disabled={!apiKeyInput.trim() || apiKeySaving}
-                            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold text-[12px] transition-all duration-300 flex-shrink-0 ${
-                                apiKeySaved
-                                    ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
-                                    : "bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white shadow-md shadow-blue-500/20 hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] disabled:opacity-50 disabled:shadow-none"
-                            }`}
-                        >
-                            {apiKeySaved ? <><FiCheck className="w-3.5 h-3.5" /> Saved</> : apiKeySaving ? <><FiClock className="w-3.5 h-3.5 animate-spin" /> Saving...</> : <><FiSave className="w-3.5 h-3.5" /> Save</>}
-                        </button>
+                        <div className="space-y-1.5 mt-3">
+                            <p className="text-[11px] text-[#9aa0a6] leading-relaxed">
+                                Your NOLA SMS Pro API key is required to activate your approved Sender ID. Contact admin if you don't have one.
+                            </p>
+                            <p className="text-[11px] font-medium text-[#2b83fa] dark:text-[#3b8ef6] leading-relaxed">
+                                API key will be provided once sender id is approved.
+                            </p>
+                        </div>
                     </div>
-                    <div className="space-y-1.5 mt-3">
-                        <p className="text-[11px] text-[#9aa0a6] leading-relaxed">
-                            Your NOLA SMS Pro API key is required to activate your approved Sender ID. Contact admin if you don't have one.
-                        </p>
-                        <p className="text-[11px] font-medium text-[#2b83fa] dark:text-[#3b8ef6] leading-relaxed">
-                            API key will be provided once sender id is approved.
-                        </p>
-                    </div>
-                </div>
+                )}
             </Card>
 
             {/* Free Credits Indicator */}
             <Card>
                 <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider mb-4">Free Messages</h3>
-                {loading ? (
+                {loadingConfig ? (
                     <div className="h-16 bg-gray-100 dark:bg-[#0d0e10] rounded-xl animate-pulse" />
                 ) : (
                     <div className="space-y-3">

@@ -1,11 +1,38 @@
-import React, { useState } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCheck, FiX, FiRefreshCw, FiKey, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
+
+const ADMIN_API = '/api/admin_sender_requests.php';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface SenderRequest {
+    id: string;
+    location_id: string;
+    requested_id: string;
+    purpose?: string;
+    sample_message?: string;
+    status: 'pending' | 'approved' | 'rejected';
+    rejection_note?: string;
+    created_at?: string;
+}
+
+interface Account {
+    id: string;
+    location_id: string;
+    display_name?: string;
+    approved_sender_id?: string;
+    nola_pro_api_key?: string;
+    credits?: number;
+    free_usage_count?: number;
+}
 
 interface AdminLayoutProps {
     darkMode: boolean;
     toggleDarkMode: () => void;
 }
+
+// ─── Admin Login ─────────────────────────────────────────────────────────────
 
 const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     const [username, setUsername] = useState('');
@@ -15,7 +42,6 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        // Simple hardcoded credentials for now. Can be replaced with backend auth.
         if (username === 'admin' && password === 'admin123') {
             onLogin();
             setError(false);
@@ -47,10 +73,7 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                             type="text"
                             autoFocus
                             value={username}
-                            onChange={(e) => {
-                                setUsername(e.target.value);
-                                if (error) setError(false);
-                            }}
+                            onChange={(e) => { setUsername(e.target.value); if (error) setError(false); }}
                             placeholder="e.g. admin"
                             className="w-full px-4 py-3 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
                         />
@@ -63,10 +86,7 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                             <input
                                 type={showPassword ? "text" : "password"}
                                 value={password}
-                                onChange={(e) => {
-                                    setPassword(e.target.value);
-                                    if (error) setError(false);
-                                }}
+                                onChange={(e) => { setPassword(e.target.value); if (error) setError(false); }}
                                 placeholder="••••••••"
                                 className="w-full px-4 py-3 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow pr-10"
                             />
@@ -100,6 +120,8 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
         </div>
     );
 };
+
+// ─── Admin Layout Shell ───────────────────────────────────────────────────────
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -147,7 +169,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                 </nav>
 
                 <div className="p-4 border-t border-[#00000005] dark:border-[#ffffff05]">
-                    <button 
+                    <button
                         onClick={() => setIsAuthenticated(false)}
                         className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-bold text-[#6e6e73] dark:text-[#94959b] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                     >
@@ -161,7 +183,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                 <header className="px-8 py-5 bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border-b border-[#0000000a] dark:border-[#ffffff0a] flex-shrink-0 flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-bold text-[#111111] dark:text-white capitalize tracking-tight">
-                            {activeTab.replace('-', ' ')}
+                            {activeTab === 'requests' ? 'Sender Requests' : activeTab === 'accounts' ? 'All Accounts' : 'System Settings'}
                         </h2>
                         <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">
                             Management overview and administrative actions.
@@ -181,37 +203,335 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
     );
 };
 
-// ─── Placeholder Components for Admin Views ─────────────────────────────────
+// ─── Sender Requests View ─────────────────────────────────────────────────────
 
-const AdminSenderRequests: React.FC = () => (
-    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
-        <h3 className="text-[16px] font-bold text-[#111111] dark:text-white mb-2">Pending Sender ID Requests</h3>
-        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-6">
-            Review and approve requests submitted by users. Once approved, you will generate and input their NOLA SMS Pro API Key here.
-        </p>
-        
-        <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
-            <FiSend className="w-8 h-8 mx-auto mb-3 opacity-30" />
-            <p className="text-[14px] font-semibold">Table of pending requests will be populated by the backend API.</p>
-            <p className="text-[12px] font-mono mt-2 opacity-70">GET /admin/all-sender-requests</p>
-        </div>
-    </div>
-);
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+    const styles: Record<string, string> = {
+        pending: 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/10 dark:text-yellow-400 dark:border-yellow-800/30',
+        approved: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/10 dark:text-green-400 dark:border-green-800/30',
+        rejected: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30',
+    };
+    return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${styles[status] || styles.pending}`}>
+            {status}
+        </span>
+    );
+};
 
-const AdminAccounts: React.FC = () => (
-    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
-        <h3 className="text-[16px] font-bold text-[#111111] dark:text-white mb-2">All User Accounts</h3>
-        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-6">
-            Overview of all mapped GHL subaccounts, credit balances, and their currently active Sender IDs.
-        </p>
-        
-        <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
-            <FiUsers className="w-8 h-8 mx-auto mb-3 opacity-30" />
-            <p className="text-[14px] font-semibold">Table of all user accounts will be populated by the backend API.</p>
-            <p className="text-[12px] font-mono mt-2 opacity-70">GET /admin/accounts</p>
+const AdminSenderRequests: React.FC = () => {
+    const [requests, setRequests] = useState<SenderRequest[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [rejectNote, setRejectNote] = useState('');
+    const [apiKeyInput, setApiKeyInput] = useState('');
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+    const fetchRequests = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(ADMIN_API);
+            const json = await res.json();
+            if (json.success) {
+                setRequests(json.data || []);
+            } else {
+                setError(json.message || 'Failed to load requests.');
+            }
+        } catch {
+            setError('Network error. Could not reach the backend.');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+    const doAction = async (action: string, requestId: string, extra: Record<string, string> = {}) => {
+        setActionLoading(requestId + action);
+        try {
+            const res = await fetch(ADMIN_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, request_id: requestId, ...extra }),
+            });
+            const json = await res.json();
+            if (json.success) {
+                setSuccessMsg(json.message || 'Action completed.');
+                setTimeout(() => setSuccessMsg(null), 3000);
+                fetchRequests();
+                setExpandedId(null);
+                setRejectNote('');
+                setApiKeyInput('');
+            } else {
+                setError(json.message || 'Action failed.');
+            }
+        } catch {
+            setError('Network error.');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    return (
+        <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+                <div>
+                    <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">Pending Sender ID Requests</h3>
+                    <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Review, approve, or reject sender name registration requests.</p>
+                </div>
+                <button onClick={fetchRequests} className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all">
+                    <FiRefreshCw className="w-4 h-4" />
+                </button>
+            </div>
+
+            {successMsg && (
+                <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 text-green-700 dark:text-green-400 text-[13px] font-medium">
+                    <FiCheck className="w-4 h-4 flex-shrink-0" /> {successMsg}
+                </div>
+            )}
+
+            {error && (
+                <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 text-[13px] font-medium">
+                    <FiAlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+                </div>
+            )}
+
+            {loading ? (
+                <div className="space-y-3">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="h-16 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />
+                    ))}
+                </div>
+            ) : requests.length === 0 ? (
+                <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
+                    <FiSend className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                    <p className="text-[14px] font-semibold">No sender requests found.</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {requests.map(req => {
+                        const isExpanded = expandedId === req.id;
+                        const isActing = actionLoading?.startsWith(req.id);
+                        return (
+                            <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all">
+                                {/* Row Header */}
+                                <div className="flex items-center gap-4 px-4 py-3 bg-[#fafafa] dark:bg-[#111214]">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-bold text-[14px] text-[#111111] dark:text-white font-mono">{req.requested_id}</span>
+                                            <StatusBadge status={req.status} />
+                                        </div>
+                                        <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5 truncate">{req.location_id}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        {req.status === 'pending' && (
+                                            <>
+                                                <button
+                                                    disabled={!!isActing}
+                                                    onClick={() => doAction('approve', req.id)}
+                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20 border border-green-200 dark:border-green-800/30 transition-all disabled:opacity-50"
+                                                >
+                                                    <FiCheck className="w-3 h-3" /> Approve
+                                                </button>
+                                                <button
+                                                    disabled={!!isActing}
+                                                    onClick={() => setExpandedId(isExpanded ? null : req.id)}
+                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800/30 transition-all"
+                                                >
+                                                    <FiX className="w-3 h-3" /> Reject
+                                                </button>
+                                            </>
+                                        )}
+                                        {req.status === 'approved' && (
+                                            <button
+                                                onClick={() => setExpandedId(isExpanded ? null : req.id)}
+                                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-[#2b83fa]/10 text-[#2b83fa] hover:bg-[#2b83fa]/20 border border-[#2b83fa]/20 transition-all"
+                                            >
+                                                <FiKey className="w-3 h-3" /> Inject API Key
+                                            </button>
+                                        )}
+                                        <button onClick={() => setExpandedId(isExpanded ? null : req.id)} className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-black/5 dark:hover:bg-white/5 transition-all">
+                                            {isExpanded ? <FiChevronUp className="w-4 h-4" /> : <FiChevronDown className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Expanded Panel */}
+                                {isExpanded && (
+                                    <div className="px-4 py-4 border-t border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] space-y-4">
+                                        {req.purpose && (
+                                            <div>
+                                                <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Purpose</p>
+                                                <p className="text-[13px] text-[#37352f] dark:text-[#ececf1]">{req.purpose}</p>
+                                            </div>
+                                        )}
+                                        {req.sample_message && (
+                                            <div>
+                                                <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Sample Message</p>
+                                                <p className="text-[13px] text-[#37352f] dark:text-[#ececf1] italic">"{req.sample_message}"</p>
+                                            </div>
+                                        )}
+                                        {/* Reject with note */}
+                                        {req.status === 'pending' && (
+                                            <div className="space-y-2">
+                                                <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Rejection Note (optional)</p>
+                                                <textarea
+                                                    value={rejectNote}
+                                                    onChange={e => setRejectNote(e.target.value)}
+                                                    rows={2}
+                                                    placeholder="Reason for rejection..."
+                                                    className="w-full px-3 py-2 text-[13px] border rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow"
+                                                />
+                                                <button
+                                                    disabled={!!isActing}
+                                                    onClick={() => doAction('reject', req.id, { rejection_note: rejectNote })}
+                                                    className="w-full py-2 rounded-xl text-[13px] font-bold bg-red-500 hover:bg-red-600 text-white transition-all disabled:opacity-50"
+                                                >
+                                                    Confirm Rejection
+                                                </button>
+                                            </div>
+                                        )}
+                                        {/* Inject API Key */}
+                                        {req.status === 'approved' && (
+                                            <div className="space-y-2">
+                                                <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Assign NOLA SMS Pro API Key</p>
+                                                <input
+                                                    type="text"
+                                                    value={apiKeyInput}
+                                                    onChange={e => setApiKeyInput(e.target.value)}
+                                                    placeholder="Paste API key from Semaphore..."
+                                                    className="w-full px-3 py-2 text-[13px] border rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
+                                                />
+                                                <button
+                                                    disabled={!apiKeyInput.trim() || !!isActing}
+                                                    onClick={() => doAction('inject_key', req.id, { nola_pro_api_key: apiKeyInput.trim() })}
+                                                    className="w-full py-2 rounded-xl text-[13px] font-bold bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white transition-all shadow-md shadow-blue-500/20 hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] disabled:opacity-50 disabled:shadow-none"
+                                                >
+                                                    Inject API Key
+                                                </button>
+                                            </div>
+                                        )}
+                                        {req.rejection_note && (
+                                            <div>
+                                                <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Rejection Note</p>
+                                                <p className="text-[13px] text-red-500">{req.rejection_note}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
-    </div>
-);
+    );
+};
+
+// ─── Accounts View ────────────────────────────────────────────────────────────
+
+const AdminAccounts: React.FC = () => {
+    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchAccounts = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(`${ADMIN_API}?action=accounts`);
+            const json = await res.json();
+            if (json.success) {
+                setAccounts(json.data || []);
+            } else {
+                setError(json.message || 'Failed to load accounts.');
+            }
+        } catch {
+            setError('Network error. Could not reach the backend.');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
+
+    return (
+        <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+                <div>
+                    <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">All User Accounts</h3>
+                    <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Overview of all mapped GHL subaccounts, credits, and active Sender IDs.</p>
+                </div>
+                <button onClick={fetchAccounts} className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all">
+                    <FiRefreshCw className="w-4 h-4" />
+                </button>
+            </div>
+
+            {error && (
+                <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 text-[13px] font-medium">
+                    <FiAlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+                </div>
+            )}
+
+            {loading ? (
+                <div className="space-y-3">
+                    {[1, 2, 3, 4].map(i => <div key={i} className="h-14 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)}
+                </div>
+            ) : accounts.length === 0 ? (
+                <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
+                    <FiUsers className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                    <p className="text-[14px] font-semibold">No accounts found.</p>
+                </div>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-[#e5e5e5] dark:border-white/5">
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Account / Location ID</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Sender ID</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">API Key</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Credits</th>
+                                <th className="pb-3 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Free Used</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
+                            {accounts.map(acc => (
+                                <tr key={acc.id} className="hover:bg-[#f7f7f7] dark:hover:bg-white/[0.015] transition-colors">
+                                    <td className="py-3 pr-4">
+                                        <p className="font-semibold text-[13px] text-[#111111] dark:text-white">{acc.display_name || '—'}</p>
+                                        <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] font-mono truncate max-w-[200px]">{acc.location_id}</p>
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                        {acc.approved_sender_id
+                                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-400 text-[12px] font-bold border border-green-200 dark:border-green-800/30">{acc.approved_sender_id}</span>
+                                            : <span className="text-[12px] text-[#9aa0a6]">—</span>}
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                        {acc.nola_pro_api_key
+                                            ? <span className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] font-mono">{acc.nola_pro_api_key.substring(0, 8)}••••</span>
+                                            : <span className="text-[12px] text-[#9aa0a6]">Not set</span>}
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                        <span className="text-[13px] font-semibold text-[#111111] dark:text-white">{acc.credits ?? '—'}</span>
+                                    </td>
+                                    <td className="py-3">
+                                        <span className={`text-[13px] font-semibold ${(acc.free_usage_count ?? 0) >= 10 ? 'text-red-500' : 'text-[#111111] dark:text-white'}`}>
+                                            {acc.free_usage_count ?? 0} / 10
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ─── System Settings View ─────────────────────────────────────────────────────
 
 const AdminSettings: React.FC = () => (
     <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
@@ -219,7 +539,7 @@ const AdminSettings: React.FC = () => (
         <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-6">
             Global settings like the master fallback Sender ID and free tier limits.
         </p>
-        
+
         <div className="space-y-5 max-w-md">
             <div>
                 <label className="block text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">System Default Sender ID</label>

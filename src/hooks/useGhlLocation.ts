@@ -10,7 +10,7 @@ export function useGhlLocation() {
         let urlEmail: string | null = null;
 
         const locKeys = ['location', 'locationId', 'location_id', 'id'];
-        const nameKeys = ['name', 'userName', 'user_name'];
+        const nameKeys = ['name', 'userName', 'user_name', 'locationName', 'location_name'];
         const emailKeys = ['email', 'userEmail', 'user_email'];
 
         const searchParams = new URLSearchParams(window.location.search);
