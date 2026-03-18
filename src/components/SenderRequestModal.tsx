@@ -51,8 +51,8 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
 
             // Create a local representation for onSuccess callback
             const created: StoredSenderId = {
-                id: newId.trim().toUpperCase(),
-                name: newId.trim().toUpperCase(),
+                id: trimmedId,
+                name: trimmedId,
                 description: `Purpose: ${newPurpose} | Sample: ${newSample}`,
                 color: SENDER_COLORS[Math.floor(Math.random() * SENDER_COLORS.length)],
                 status: "pending",
@@ -114,7 +114,7 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                             <input
                                 autoFocus
                                 value={newId}
-                                onChange={e => setNewId(e.target.value.toUpperCase())}
+                                onChange={e => setNewId(e.target.value)}
                                 placeholder="ex. NOLASMSPro"
                                 maxLength={11}
                                 required
