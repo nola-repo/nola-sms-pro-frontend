@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCheck, FiX, FiRefreshCw, FiKey, FiChevronDown, FiChevronUp, FiHome, FiClock, FiActivity } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCheck, FiX, FiRefreshCw, FiKey, FiChevronDown, FiChevronUp, FiHome, FiClock, FiActivity, FiMessageSquare } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
@@ -212,6 +212,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
 const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNavigate }) => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [requests, setRequests] = useState<SenderRequest[]>([]);
+    const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -219,8 +220,9 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
         setLoading(true);
         Promise.all([
             fetch(`${ADMIN_API}?action=accounts`).then(r => r.json()).catch(() => ({ status: 'error', data: [] })),
+            fetch(`${ADMIN_API}?action=logs`).then(r => r.json()).catch(() => ({ status: 'error', data: [] })),
             fetch(ADMIN_API).then(r => r.json()).catch(() => ({ status: 'error', data: [] }))
-        ]).then(([accJson, reqJson]) => {
+        ]).then(([accJson, logsJson, reqJson]) => {
             if (cancelled) return;
             if (accJson.status === 'success') {
                 const mapped = (accJson.data || []).map((item: any) => item.data ? { id: item.id, ...item.data } : item)
@@ -229,6 +231,9 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
             }
             if (reqJson.status === 'success') {
                 setRequests(reqJson.data || []);
+            }
+            if (logsJson.status === 'success') {
+                setLogs(logsJson.data || []);
             }
             setLoading(false);
         });
@@ -296,6 +301,58 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
                     </div>
                 </div>
 
+                {/* Platform Activity Logs */}
+                <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col h-[400px]">
+                    <div className="flex items-center justify-between mb-5">
+                        <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
+                            <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Platform Activity
+                        </h3>
+                    </div>
+                    <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2">
+                        {loading ? (
+                            [1,2,3,4].map(i => <div key={i} className="h-14 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)
+                        ) : logs.length === 0 ? (
+                            <div className="py-10 text-center">
+                                <FiMessageSquare className="w-8 h-8 mx-auto mb-2 text-[#d0d0d0] dark:text-[#3a3b3f]" />
+                                <p className="text-[13px] text-[#9aa0a6]">No logs recorded yet.</p>
+                            </div>
+                        ) : logs.map(log => {
+                            const isSent = log.status === 'sent' || log.status === 'delivered';
+                            return (
+                                <div key={log.id} className="flex items-start gap-3 p-3 rounded-xl hover:bg-[#f7f7f7] dark:hover:bg-[#0d0e10] transition-colors border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/5 group">
+                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-[14px] flex-shrink-0 ${
+                                        isSent ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'
+                                        : log.status === 'failed' ? 'bg-red-50 dark:bg-red-900/20 text-red-600'
+                                        : 'bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa]'
+                                    }`}>
+                                        <FiMessageSquare className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between mb-0.5">
+                                            <p className="text-[13px] font-bold text-[#111111] dark:text-white truncate pr-2">To: <span className="font-mono text-[12px] opacity-90">{log.number || log.to || 'Unknown'}</span></p>
+                                            <span className="text-[10px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap">
+                                                {log.date_created ? new Date(log.date_created).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                            </span>
+                                        </div>
+                                        <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mb-1.5">{log.message}</p>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                                                isSent ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' :
+                                                log.status === 'failed' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30' :
+                                                'bg-blue-50 text-[#2b83fa] border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30'
+                                            }`}>{log.status || 'unknown'}</span>
+                                            {log.sendername && <span className="text-[10px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 px-1.5 py-0.5 rounded">Via: {log.sendername}</span>}
+                                            {log.location_id && <span className="text-[10px] font-mono text-gray-400 bg-gray-100 dark:bg-white/5 px-1.5 py-0.5 rounded truncate max-w-[100px]" title={log.location_id}>Loc: {log.location_id.substring(0,8)}...</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Recent Sender Requests */}
                 <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
                     <div className="flex items-center justify-between mb-5">
