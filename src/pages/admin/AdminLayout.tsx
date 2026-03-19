@@ -127,7 +127,7 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'accounts' | 'requests' | 'settings'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'accounts' | 'requests' | 'logs' | 'settings'>('dashboard');
 
     if (!isAuthenticated) {
         return <AdminLogin onLogin={() => setIsAuthenticated(true)} />;
@@ -150,6 +150,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                     {[
                         { id: 'dashboard', label: 'Dashboard', icon: <FiHome /> },
                         { id: 'requests', label: 'Sender Requests', icon: <FiSend /> },
+                        { id: 'logs', label: 'Platform Activity', icon: <FiActivity /> },
                         { id: 'accounts', label: 'All Accounts', icon: <FiUsers /> },
                         { id: 'settings', label: 'System Settings', icon: <FiSettings /> },
                     ].map(tab => {
@@ -199,6 +200,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                         {activeTab === 'dashboard' && <AdminDashboard onNavigate={setActiveTab} />}
                         {activeTab === 'requests' && <AdminSenderRequests />}
                         {activeTab === 'accounts' && <AdminAccounts />}
+                        {activeTab === 'logs' && <AdminLogs />}
                         {activeTab === 'settings' && <AdminSettings />}
                     </div>
                 </main>
@@ -344,6 +346,7 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
                     <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
                         <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Platform Activity
                     </h3>
+                    <button onClick={() => onNavigate('logs')} className="text-[11px] font-bold text-[#2b83fa] hover:underline">See All</button>
                 </div>
                 <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2">
                     {loading ? (
@@ -847,3 +850,175 @@ const AdminSettings: React.FC = () => (
         </div>
     </div>
 );
+
+// ─── Platform Activity Logs View ─────────────────────────────────────────────
+
+const AdminLogs: React.FC = () => {
+    const [logs, setLogs] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchLogs = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await fetch(`${ADMIN_API}?action=logs`);
+            const data = await res.json();
+            if (data.status === 'success') {
+                setLogs(data.data || []);
+            }
+        } catch (error) {
+            console.error('Failed to load logs:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
+
+    return (
+        <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-sm flex flex-col min-h-[600px]">
+            <div className="p-6 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-between">
+                <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Activity Timeline
+                </h3>
+                <button
+                    onClick={fetchLogs}
+                    className="p-2 text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-[#0d0e10] rounded-xl transition-colors"
+                >
+                    <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+            </div>
+            
+            <div className="p-6">
+                <div className="space-y-3">
+                    {loading ? (
+                        [...Array(10)].map((_, i) => <div key={i} className="h-[76px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)
+                    ) : logs.length === 0 ? (
+                        <div className="py-20 text-center">
+                            <FiActivity className="w-12 h-12 mx-auto mb-4 text-[#d0d0d0] dark:text-[#3a3b3f]" />
+                            <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-1">No Activity Found</h3>
+                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6]">Platform logs will appear here as activity occurs.</p>
+                        </div>
+                    ) : (
+                        logs.map(log => {
+                            // Determine type based on explicit type or fallback properties
+                            const type = log.type || (
+                                log.requested_id ? 'sender_request' :
+                                log.amount ? 'credit_purchase' :
+                                'message'
+                            );
+                            
+                            // Get unified timestamp
+                            const timestamp = log.timestamp || log.date_created || log.created_at;
+                            const timeString = timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                            const dateString = timestamp ? new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                            
+                            // Message Event
+                            if (type === 'message') {
+                                const isSent = log.status === 'sent' || log.status === 'delivered';
+                                return (
+                                    <div key={log.id || Math.random().toString()} className="flex items-start gap-4 p-4 rounded-xl bg-[#fdfdfd] dark:bg-[#151618] border border-[#e5e5e5] dark:border-white/5 hover:border-[#d0d0d0] dark:hover:border-white/10 transition-colors">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 ${
+                                            isSent ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'
+                                            : log.status === 'failed' ? 'bg-red-50 dark:bg-red-900/20 text-red-600'
+                                            : 'bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa]'
+                                        }`}>
+                                            <FiMessageSquare className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between mb-0.5">
+                                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">Message to <span className="font-mono text-[13px] opacity-90">{log.number || log.to || 'Unknown'}</span></p>
+                                                <div className="text-right">
+                                                    <span className="block text-[11px] font-bold text-[#111111] dark:text-white tracking-wider whitespace-nowrap">{dateString}</span>
+                                                    <span className="block text-[10px] uppercase text-[#9aa0a6] tracking-wider whitespace-nowrap">{timeString}</span>
+                                                </div>
+                                            </div>
+                                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mb-2">{log.message || 'No content'}</p>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
+                                                    isSent ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' :
+                                                    log.status === 'failed' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30' :
+                                                    'bg-blue-50 text-[#2b83fa] border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30'
+                                                }`}>{log.status || 'unknown'}</span>
+                                                {log.sendername && <span className="text-[11px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Via: {log.sendername}</span>}
+                                                {log.location_id && <span className="text-[11px] font-mono text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Loc: {log.location_id.substring(0,8)}...</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // Sender Request Event
+                            if (type === 'sender_request') {
+                                const isPending = log.status === 'pending';
+                                return (
+                                    <div key={log.id || Math.random().toString()} className="flex items-start gap-4 p-4 rounded-xl bg-[#fdfdfd] dark:bg-[#151618] border border-[#e5e5e5] dark:border-white/5 hover:border-[#d0d0d0] dark:hover:border-white/10 transition-colors">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 ${
+                                            isPending ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600'
+                                            : log.status === 'approved' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'
+                                            : 'bg-red-50 dark:bg-red-900/20 text-red-600'
+                                        }`}>
+                                            <FiSend className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between mb-0.5">
+                                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">Sender ID Request</p>
+                                                <div className="text-right">
+                                                    <span className="block text-[11px] font-bold text-[#111111] dark:text-white tracking-wider whitespace-nowrap">{dateString}</span>
+                                                    <span className="block text-[10px] uppercase text-[#9aa0a6] tracking-wider whitespace-nowrap">{timeString}</span>
+                                                </div>
+                                            </div>
+                                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mb-2">
+                                                Registration for <span className="font-mono font-bold text-[#111111] dark:text-white">{log.requested_id}</span>
+                                            </p>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
+                                                    isPending ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800/30' :
+                                                    log.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' :
+                                                    'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30'
+                                                }`}>{log.status}</span>
+                                                {log.location_id && <span className="text-[11px] font-mono text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Loc: {log.location_id.substring(0,8)}...</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // Credit Purchase Event
+                            if (type === 'credit_purchase') {
+                                return (
+                                    <div key={log.id || Math.random().toString()} className="flex items-start gap-4 p-4 rounded-xl bg-[#fdfdfd] dark:bg-[#151618] border border-[#e5e5e5] dark:border-white/5 hover:border-[#d0d0d0] dark:hover:border-white/10 transition-colors">
+                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 bg-purple-50 dark:bg-purple-900/20 text-purple-600">
+                                            <FiCreditCard className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between mb-0.5">
+                                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">Credits Purchased</p>
+                                                <div className="text-right">
+                                                    <span className="block text-[11px] font-bold text-[#111111] dark:text-white tracking-wider whitespace-nowrap">{dateString}</span>
+                                                    <span className="block text-[10px] uppercase text-[#9aa0a6] tracking-wider whitespace-nowrap">{timeString}</span>
+                                                </div>
+                                            </div>
+                                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mb-2">
+                                                Added <span className="font-bold text-purple-600 dark:text-purple-400">+{log.amount?.toLocaleString()}</span> credits
+                                            </p>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                 <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30">
+                                                    {log.status === 'completed' ? 'Paid' : log.status}
+                                                </span>
+                                                {log.location_id && <span className="text-[11px] font-mono text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Loc: {log.location_id.substring(0,8)}...</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            return null;
+                        })
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
