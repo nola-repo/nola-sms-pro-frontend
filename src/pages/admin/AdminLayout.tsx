@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import * as THREE from 'three';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCheck, FiX, FiRefreshCw, FiKey, FiChevronDown, FiChevronUp, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 
@@ -41,6 +42,160 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState(false);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    // Antigravity background effect
+    useEffect(() => {
+        if (!canvasRef.current) return;
+        const canvas = canvasRef.current;
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 50;
+
+        const count = 300;
+        const magnetRadius = 6;
+        const ringRadius = 7;
+        const waveSpeed = 0.4;
+        const waveAmplitude = 1;
+        const particleSize = 1.5;
+        const lerpSpeed = 0.05;
+        const autoAnimate = true;
+        const particleVariance = 1;
+        const rotationSpeed = 0;
+        const depthFactor = 1;
+        const pulseSpeed = 3;
+        const fieldStrength = 10;
+        const color = '#2b83fa';
+
+        const geometry = new THREE.CapsuleGeometry(0.1, 0.4, 4, 8);
+        const material = new THREE.MeshBasicMaterial({ color: new THREE.Color(color) });
+        const mesh = new THREE.InstancedMesh(geometry, material, count);
+        scene.add(mesh);
+
+        const dummy = new THREE.Object3D();
+        const particles: any[] = [];
+        
+        const initParticles = () => {
+            const aspect = window.innerWidth / window.innerHeight;
+            const h = 2 * Math.tan((camera.fov * Math.PI) / 360) * camera.position.z;
+            const w = h * aspect;
+
+            for (let i = 0; i < count; i++) {
+                const x = (Math.random() - 0.5) * w;
+                const y = (Math.random() - 0.5) * h;
+                const z = (Math.random() - 0.5) * 20;
+                particles.push({
+                    t: Math.random() * 100,
+                    speed: 0.01 + Math.random() / 200,
+                    mx: x, my: y, mz: z,
+                    cx: x, cy: y, cz: z,
+                    randomRadiusOffset: (Math.random() - 0.5) * 2
+                });
+            }
+        };
+        initParticles();
+
+        let mouse = new THREE.Vector2(0, 0);
+        let virtualMouse = new THREE.Vector2(0, 0);
+        let lastMouseMoveTime = 0;
+
+        const onMouseMove = (e: MouseEvent) => {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            lastMouseMoveTime = Date.now();
+        };
+        window.addEventListener('mousemove', onMouseMove);
+
+        const onResize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+        window.addEventListener('resize', onResize);
+
+        let animationFrameId: number;
+        const animate = () => {
+            animationFrameId = requestAnimationFrame(animate);
+            const time = performance.now() / 1000;
+            
+            const aspect = window.innerWidth / window.innerHeight;
+            const vh = 2 * Math.tan((camera.fov * Math.PI) / 360) * camera.position.z;
+            const vw = vh * aspect;
+
+            let destX = (mouse.x * vw) / 2;
+            let destY = (mouse.y * vh) / 2;
+
+            if (autoAnimate && Date.now() - lastMouseMoveTime > 2000) {
+                destX = Math.sin(time * 0.5) * (vw / 4);
+                destY = Math.cos(time * 0.5 * 2) * (vh / 4);
+            }
+
+            virtualMouse.x += (destX - virtualMouse.x) * 0.05;
+            virtualMouse.y += (destY - virtualMouse.y) * 0.05;
+
+            const globalRotation = time * rotationSpeed;
+
+            for (let i = 0; i < count; i++) {
+                const p = particles[i];
+                p.t += p.speed / 2;
+
+                const projectionFactor = 1 - p.cz / 50;
+                const pTargetX = virtualMouse.x * projectionFactor;
+                const pTargetY = virtualMouse.y * projectionFactor;
+
+                const dx = p.mx - pTargetX;
+                const dy = p.my - pTargetY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                let targetX = p.mx;
+                let targetY = p.my;
+                let targetZ = p.mz * depthFactor;
+
+                if (dist < magnetRadius) {
+                    const angle = Math.atan2(dy, dx) + globalRotation;
+                    const wave = Math.sin(p.t * waveSpeed + angle) * (0.5 * waveAmplitude);
+                    const deviation = p.randomRadiusOffset * (5 / (fieldStrength + 0.1));
+                    const currentRingRadius = ringRadius + wave + deviation;
+
+                    targetX = pTargetX + currentRingRadius * Math.cos(angle);
+                    targetY = pTargetY + currentRingRadius * Math.sin(angle);
+                    targetZ = p.mz * depthFactor + Math.sin(p.t) * (1 * waveAmplitude * depthFactor);
+                }
+
+                p.cx += (targetX - p.cx) * lerpSpeed;
+                p.cy += (targetY - p.cy) * lerpSpeed;
+                p.cz += (targetZ - p.cz) * lerpSpeed;
+
+                dummy.position.set(p.cx, p.cy, p.cz);
+                dummy.lookAt(pTargetX, pTargetY, p.cz);
+                dummy.rotateX(Math.PI / 2);
+
+                const currentDist = Math.sqrt(Math.pow(p.cx - pTargetX, 2) + Math.pow(p.cy - pTargetY, 2));
+                const distFromRing = Math.abs(currentDist - ringRadius);
+                let scaleFactor = Math.max(0, Math.min(1, 1 - distFromRing / 10));
+                const finalScale = scaleFactor * (0.8 + Math.sin(p.t * pulseSpeed) * 0.2 * particleVariance) * particleSize;
+                
+                dummy.scale.set(finalScale, finalScale, finalScale);
+                dummy.updateMatrix();
+                mesh.setMatrixAt(i, dummy.matrix);
+            }
+
+            mesh.instanceMatrix.needsUpdate = true;
+            renderer.render(scene, camera);
+        };
+        animate();
+
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('resize', onResize);
+            cancelAnimationFrame(animationFrameId);
+            renderer.dispose();
+        };
+    }, []);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -53,69 +208,63 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     };
 
     return (
-        <div className="min-h-screen grid place-items-center p-4 bg-[#f7f7f7] dark:bg-[#111111]">
-            <div className="w-full max-w-md bg-white dark:bg-[#1a1b1e] rounded-2xl shadow-xl border border-[#e5e5e5] dark:border-white/5 p-8 animate-in zoom-in-95 duration-200">
-                <div className="flex flex-col items-center mb-8">
-                    <img src={logoUrl} alt="NOLA SMS Pro Logo" className="w-32 h-32 mb-2 object-contain" />
-                    <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] text-center">
-                        Enter your credentials to access NOLA SMS Pro admin dashboard.
+        <div className="relative min-h-screen flex items-center justify-center p-4 bg-[#f0f4f8] dark:bg-[#0a0a0a] overflow-hidden">
+            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none opacity-40 dark:opacity-30" />
+            
+            <div className="relative z-10 w-full max-w-md bg-white/80 dark:bg-[#1a1b1e]/80 backdrop-blur-3xl rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_60px_-15px_rgba(43,131,250,0.1)] border border-white/50 dark:border-white/5 p-10 animate-in zoom-in-95 duration-500">
+                <div className="flex flex-col items-center mb-10">
+                    <div className="w-20 h-20 mb-6 bg-white dark:bg-[#222428] rounded-2xl shadow-sm border border-black/5 dark:border-white/5 flex items-center justify-center p-2">
+                        <img src={logoUrl} alt="NOLA SMS Pro Logo" className="w-full h-full object-contain drop-shadow-sm" />
+                    </div>
+                    <h2 className="text-2xl font-black text-[#111111] dark:text-white tracking-tight mb-2">Admin Portal</h2>
+                    <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] text-center font-medium px-4">
+                        Platform management & unified activity oversight.
                     </p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                     {error && (
-                        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 animate-in slide-in-from-top-2 duration-300">
                             <FiAlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                            <p className="text-[12px] font-medium text-red-600 dark:text-red-400">Incorrect username or password.</p>
+                            <p className="text-[12px] font-bold text-red-600 dark:text-red-400">Incorrect credentials.</p>
                         </div>
                     )}
-                    <div>
-                        <label className="block text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Username</label>
+                    <div className="space-y-1.5">
+                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#8aa0a6] uppercase tracking-widest pl-1">Username</label>
                         <input
                             type="text"
                             autoFocus
                             value={username}
                             onChange={(e) => { setUsername(e.target.value); if (error) setError(false); }}
                             placeholder="e.g. admin"
-                            className="w-full px-4 py-3 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
+                            className="w-full px-4 py-3.5 rounded-2xl text-[14px] font-medium bg-black/[0.03] dark:bg-white/[0.03] border-2 border-transparent focus:bg-white dark:focus:bg-[#0d0e10] focus:border-[#2b83fa]/30 text-[#111111] dark:text-[#ececf1] placeholder-black/30 dark:placeholder-white/20 transition-all outline-none"
                         />
                     </div>
-                    <div>
-                        <div className="flex items-center justify-between mb-2">
-                            <label className="block text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Password</label>
-                        </div>
+                    <div className="space-y-1.5 pt-1">
+                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#8aa0a6] uppercase tracking-widest pl-1">Password</label>
                         <div className="relative">
                             <input
                                 type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={(e) => { setPassword(e.target.value); if (error) setError(false); }}
                                 placeholder="••••••••"
-                                className="w-full px-4 py-3 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow pr-10"
+                                className="w-full px-4 py-3.5 rounded-2xl text-[14px] font-medium bg-black/[0.03] dark:bg-white/[0.03] border-2 border-transparent focus:bg-white dark:focus:bg-[#0d0e10] focus:border-[#2b83fa]/30 text-[#111111] dark:text-[#ececf1] placeholder-black/30 dark:placeholder-white/20 transition-all outline-none pr-12"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ececf1] transition-colors"
+                                className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white transition-all"
                             >
                                 {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                            </button>
-                        </div>
-                        <div className="flex justify-end mt-2">
-                            <button
-                                type="button"
-                                onClick={() => alert("Password reset functionality is not currently implemented in this demo.")}
-                                className="text-[11px] font-semibold text-[#2b83fa] hover:underline"
-                            >
-                                Forgot Password?
                             </button>
                         </div>
                     </div>
                     <button
                         type="submit"
                         disabled={!username.trim() || !password.trim()}
-                        className="w-full flex items-center justify-center gap-2 mt-4 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 disabled:opacity-50 disabled:shadow-none pointer-events-auto"
+                        className="w-full flex items-center justify-center gap-2 mt-8 py-3.5 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:from-[#1d6bd4] hover:to-[#175bb8] text-white rounded-2xl font-bold text-[14px] transition-all shadow-[0_8px_25px_rgba(43,131,250,0.3)] hover:shadow-[0_12px_30px_rgba(43,131,250,0.5)] disabled:opacity-50 disabled:shadow-none hover:-translate-y-0.5"
                     >
-                        Log In
+                        Secure Login
                     </button>
                 </form>
             </div>
@@ -126,11 +275,24 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 // ─── Admin Layout Shell ───────────────────────────────────────────────────────
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    // Initialize isAuthenticated from localStorage
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+        return localStorage.getItem('nola_admin_auth') === 'true';
+    });
     const [activeTab, setActiveTab] = useState<'dashboard' | 'accounts' | 'requests' | 'settings'>('dashboard');
 
+    const handleLogin = () => {
+        setIsAuthenticated(true);
+        localStorage.setItem('nola_admin_auth', 'true');
+    };
+
+    const handleLogout = () => {
+        setIsAuthenticated(false);
+        localStorage.removeItem('nola_admin_auth');
+    };
+
     if (!isAuthenticated) {
-        return <AdminLogin onLogin={() => setIsAuthenticated(true)} />;
+        return <AdminLogin onLogin={handleLogin} />;
     }
 
     return (
@@ -173,7 +335,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
 
                 <div className="p-4 border-t border-[#00000005] dark:border-[#ffffff05]">
                     <button
-                        onClick={() => setIsAuthenticated(false)}
+                        onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-bold text-[#6e6e73] dark:text-[#94959b] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                     >
                         <FiLogOut /> Logout
