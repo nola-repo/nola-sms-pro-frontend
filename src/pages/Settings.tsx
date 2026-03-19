@@ -496,6 +496,7 @@ function deriveStats(txs: CreditTransaction[]) {
 }
 
 const CreditsSection: React.FC = () => {
+    const ghlLocationIdFromHook = useGhlLocation();
     const [balance, setBalance] = useState<number | null>(null);
     const [balanceLoading, setBalanceLoading] = useState(true);
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
@@ -507,6 +508,9 @@ const CreditsSection: React.FC = () => {
     const popupRef = useRef<Window | null>(null);
     const popupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Final derived location ID
+    const locationId = ghlLocationIdFromHook || getAccountSettings().ghlLocationId;
 
     const load = useCallback(async () => {
         setBalanceLoading(true);
@@ -572,7 +576,12 @@ const CreditsSection: React.FC = () => {
         const selectedPackage = packages.find(p => p.credits === topUpAmount);
         if (!selectedPackage) return;
 
-        const checkoutUrl = selectedPackage.link;
+        const baseUrl = selectedPackage.link;
+        const separator = baseUrl.includes('?') ? '&' : '?';
+        const checkoutUrl = locationId 
+            ? `${baseUrl}${separator}location_id=${encodeURIComponent(locationId)}`
+            : baseUrl;
+
         const width = 600;
         const height = 850;
         const left = (window.screen.width / 2) - (width / 2);
