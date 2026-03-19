@@ -14,7 +14,7 @@ import {
 } from "../utils/settingsStorage";
 import { SenderRequestModal } from "../components/SenderRequestModal";
 import { useGhlLocation } from "../hooks/useGhlLocation";
-import { fetchSenderRequests, fetchAccountSenderConfig, saveAccountApiKey, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
+import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
 import { fetchAccountProfile } from "../api/account";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -155,7 +155,12 @@ const AccountSection: React.FC = () => {
                 </div>
 
                 <div className="space-y-4 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
-
+                    <div>
+                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Location Name</label>
+                        <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
+                            {subaccountName}
+                        </div>
+                    </div>
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">GHL Location ID</label>
                         <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono">
@@ -178,15 +183,8 @@ const AccountSection: React.FC = () => {
 const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAddModal }) => {
     const [senderRequests, setSenderRequests] = useState<SenderRequest[]>([]);
     const [config, setConfig] = useState<AccountSenderConfig | null>(null);
-    const [loadingRequests, setLoadingRequests] = useState(true);
-    const [loadingConfig, setLoadingConfig] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
-
-    // NOLA SMS Pro API Key state
-    const [apiKeyInput, setApiKeyInput] = useState("");
-    const [apiKeyMasked, setApiKeyMasked] = useState<string | null>(null);
-    const [apiKeySaving, setApiKeySaving] = useState(false);
-    const [apiKeySaved, setApiKeySaved] = useState(false);
 
     // Auto-open modal when triggered from Composer
     useEffect(() => {
@@ -195,35 +193,25 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
         }
     }, [autoOpenAddModal]);
 
-    // Fetch data from API
+    // Fetch data from API simultaneously to avoid cascading load flashes
     useEffect(() => {
         let cancelled = false;
         
-        // Fetch Sender Requests
-        setLoadingRequests(true);
-        fetchSenderRequests().then(requests => {
+        setIsLoading(true);
+        Promise.all([
+            fetchSenderRequests().catch(err => {
+                console.error("Failed to fetch sender requests:", err);
+                return [];
+            }),
+            fetchAccountSenderConfig().catch(err => {
+                console.error("Failed to fetch account sender config:", err);
+                return null;
+            })
+        ]).then(([requests, cfg]) => {
             if (cancelled) return;
             setSenderRequests(requests);
-            setLoadingRequests(false);
-        }).catch(err => {
-            console.error("Failed to fetch sender requests:", err);
-            if (!cancelled) setLoadingRequests(false);
-        });
-
-        // Fetch Account Sender Config
-        setLoadingConfig(true);
-        fetchAccountSenderConfig().then(cfg => {
-            if (cancelled) return;
-            setConfig(cfg);
-            // Mask existing API key for display — prefer nola_pro_api_key, fallback to semaphore_api_key
-            const apiKey = cfg.nola_pro_api_key || cfg.semaphore_api_key;
-            if (apiKey) {
-                setApiKeyMasked(apiKey.length > 8 ? "••••••••" + apiKey.slice(-4) : "••••••••");
-            }
-            setLoadingConfig(false);
-        }).catch(err => {
-            console.error("Failed to fetch account sender config:", err);
-            if (!cancelled) setLoadingConfig(false);
+            if (cfg) setConfig(cfg);
+            setIsLoading(false);
         });
 
         return () => { cancelled = true; };
@@ -269,19 +257,6 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
         fetchSenderRequests().then(setSenderRequests);
     };
 
-    const handleSaveApiKey = async () => {
-        if (!apiKeyInput.trim()) return;
-        setApiKeySaving(true);
-        const success = await saveAccountApiKey(apiKeyInput.trim());
-        setApiKeySaving(false);
-        if (success) {
-            setApiKeySaved(true);
-            setApiKeyMasked(apiKeyInput.length > 8 ? "••••••••" + apiKeyInput.slice(-4) : "••••••••");
-            setApiKeyInput("");
-            setTimeout(() => setApiKeySaved(false), 2500);
-        }
-    };
-
     return (
         <div className="space-y-5">
             <SectionHeader title="Sender IDs" subtitle="Manage and request sender IDs for your account. Only approved IDs can be used for sending." />
@@ -298,7 +273,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                     </button>
                 </div>
 
-                {loadingRequests ? (
+                {isLoading ? (
                     <div className="space-y-2">
                         {[1, 2].map(i => (
                             <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse">
@@ -339,59 +314,10 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                 )}
             </Card>
 
-            {/* NOLA SMS Pro API Key */}
-            <Card>
-                <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider mb-4">NOLA SMS Pro API Key</h3>
-                {loadingConfig ? (
-                    <div className="space-y-3 animate-pulse">
-                        <div className="h-10 bg-gray-100 dark:bg-[#0d0e10] rounded-xl w-full" />
-                        <div className="h-4 bg-gray-50 dark:bg-[#1e1f22] rounded w-3/4" />
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        {apiKeyMasked && !apiKeyInput && (
-                            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/20">
-                                <FiCheckCircle className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                                <span className="text-[13px] font-mono text-emerald-700 dark:text-emerald-400">{apiKeyMasked}</span>
-                                <span className="text-[11px] text-emerald-500/70 ml-auto">Configured</span>
-                            </div>
-                        )}
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={apiKeyInput}
-                                onChange={e => { setApiKeyInput(e.target.value); setApiKeySaved(false); }}
-                                placeholder={apiKeyMasked ? "Enter new key to update..." : "Paste your NOLA SMS Pro API key..."}
-                                className="flex-1 px-4 py-2.5 rounded-xl text-[13px] font-mono border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25"
-                            />
-                            <button
-                                onClick={handleSaveApiKey}
-                                disabled={!apiKeyInput.trim() || apiKeySaving}
-                                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold text-[12px] transition-all duration-300 flex-shrink-0 ${
-                                    apiKeySaved
-                                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
-                                        : "bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white shadow-md shadow-blue-500/20 hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] disabled:opacity-50 disabled:shadow-none"
-                                }`}
-                            >
-                                {apiKeySaved ? <><FiCheck className="w-3.5 h-3.5" /> Saved</> : apiKeySaving ? <><FiClock className="w-3.5 h-3.5 animate-spin" /> Saving...</> : <><FiSave className="w-3.5 h-3.5" /> Save</>}
-                            </button>
-                        </div>
-                        <div className="space-y-1.5 mt-3">
-                            <p className="text-[11px] text-[#9aa0a6] leading-relaxed">
-                                Your NOLA SMS Pro API key is required to activate your approved Sender ID. Contact admin if you don't have one.
-                            </p>
-                            <p className="text-[11px] font-medium text-[#2b83fa] dark:text-[#3b8ef6] leading-relaxed">
-                                API key will be provided once sender id is approved.
-                            </p>
-                        </div>
-                    </div>
-                )}
-            </Card>
-
             {/* Free Credits Indicator */}
             <Card>
                 <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider mb-4">Free Messages</h3>
-                {loadingConfig ? (
+                {isLoading ? (
                     <div className="h-16 bg-gray-100 dark:bg-[#0d0e10] rounded-xl animate-pulse" />
                 ) : (
                     <div className="space-y-3">
