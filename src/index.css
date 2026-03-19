@@ -66,3 +66,15 @@ html.dark ::-webkit-scrollbar-thumb {
 html.dark ::-webkit-scrollbar-thumb:hover {
   background-color: rgb(107, 114, 128);
 }
+
+/* Scoped dark autofill for Admin Login */
+.admin-login-fields input:-webkit-autofill,
+.admin-login-fields input:-webkit-autofill:hover,
+.admin-login-fields input:-webkit-autofill:focus,
+.admin-login-fields input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #0a0b0d inset !important;
+  -webkit-text-fill-color: white !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  transition: background-color 5000s ease-in-out 0s;
+}

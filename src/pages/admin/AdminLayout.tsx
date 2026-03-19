@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCheck, FiX, FiRefreshCw, FiKey, FiChevronDown, FiChevronUp, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
+import Antigravity from '../../components/ui/Antigravity';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 
@@ -53,8 +54,27 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     };
 
     return (
-        <div className="min-h-screen grid place-items-center p-4 bg-[#f7f7f7] dark:bg-[#111111]">
-            <div className="w-full max-w-md bg-white dark:bg-[#1a1b1e] rounded-2xl shadow-xl border border-[#e5e5e5] dark:border-white/5 p-8 animate-in zoom-in-95 duration-200">
+        <div className="relative min-h-screen grid place-items-center p-4 overflow-hidden bg-[#f7f7f7] dark:bg-[#111111]">
+            <div className="absolute inset-0 z-0">
+                <Antigravity
+                    count={300}
+                    magnetRadius={6}
+                    ringRadius={7}
+                    waveSpeed={0.4}
+                    waveAmplitude={1}
+                    particleSize={1}
+                    lerpSpeed={0.05}
+                    color="#1e57a1"
+                    autoAnimate
+                    particleVariance={1}
+                    rotationSpeed={0}
+                    depthFactor={1}
+                    pulseSpeed={3}
+                    particleShape="capsule"
+                    fieldStrength={10}
+                />
+            </div>
+            <div className="relative z-10 w-full max-w-md bg-white/80 dark:bg-[#1a1b1e]/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/40 dark:border-white/10 p-8 animate-in zoom-in-95 duration-200">
                 <div className="flex flex-col items-center mb-8">
                     <img src={logoUrl} alt="NOLA SMS Pro Logo" className="w-32 h-32 mb-2 object-contain" />
                     <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] text-center">
@@ -62,27 +82,29 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                     </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} className="admin-login-fields space-y-8">
                     {error && (
-                        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
-                            <FiAlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                            <p className="text-[12px] font-medium text-red-600 dark:text-red-400">Incorrect username or password.</p>
+                        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-red-500/10 border border-red-500/20">
+                            <FiAlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                            <p className="text-[12px] font-medium text-red-300">Incorrect username or password.</p>
                         </div>
                     )}
-                    <div>
-                        <label className="block text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Username</label>
+                    
+                    <div className="space-y-2.5">
+                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">USERNAME</label>
                         <input
                             type="text"
                             autoFocus
                             value={username}
                             onChange={(e) => { setUsername(e.target.value); if (error) setError(false); }}
                             placeholder="e.g. admin"
-                            className="w-full px-4 py-3 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
+                            className="w-full px-5 py-4 rounded-[18px] border border-white/5 bg-[#0a0b0d] text-white placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/40 transition-all shadow-inner"
                         />
                     </div>
-                    <div>
-                        <div className="flex items-center justify-between mb-2">
-                            <label className="block text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Password</label>
+
+                    <div className="space-y-2.5">
+                        <div className="flex items-center justify-between ml-1">
+                            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest">PASSWORD</label>
                         </div>
                         <div className="relative">
                             <input
@@ -90,30 +112,31 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                                 value={password}
                                 onChange={(e) => { setPassword(e.target.value); if (error) setError(false); }}
                                 placeholder="••••••••"
-                                className="w-full px-4 py-3 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow pr-10"
+                                className="w-full px-5 py-4 rounded-[18px] border border-white/5 bg-[#0a0b0d] text-white placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/40 transition-all shadow-inner pr-12"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ececf1] transition-colors"
+                                className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-white/20 hover:text-white transition-colors"
                             >
-                                {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                                <FiEye className="w-[18px] h-[18px]" />
                             </button>
                         </div>
-                        <div className="flex justify-end mt-2">
+                        <div className="flex justify-end pt-1">
                             <button
                                 type="button"
-                                onClick={() => alert("Password reset functionality is not currently implemented in this demo.")}
-                                className="text-[11px] font-semibold text-[#2b83fa] hover:underline"
+                                onClick={() => alert("Password reset functionality is not currently implemented.")}
+                                className="text-[13px] font-bold text-[#2b83fa] hover:text-blue-400 transition-colors"
                             >
                                 Forgot Password?
                             </button>
                         </div>
                     </div>
+
                     <button
                         type="submit"
                         disabled={!username.trim() || !password.trim()}
-                        className="w-full flex items-center justify-center gap-2 mt-4 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 disabled:opacity-50 disabled:shadow-none pointer-events-auto"
+                        className="w-full py-4 bg-[#1e4b8a] hover:bg-[#255ba8] text-white rounded-[16px] font-bold text-[16px] transition-all disabled:opacity-30 disabled:pointer-events-none mt-2 active:scale-[0.98] shadow-lg shadow-blue-900/10"
                     >
                         Log In
                     </button>
