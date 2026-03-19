@@ -15,12 +15,13 @@ interface SenderRequest {
     status: 'pending' | 'approved' | 'rejected';
     rejection_note?: string;
     created_at?: string;
+    location_name?: string;
 }
 
 interface Account {
     id: string;
     location_id: string;
-    display_name?: string;
+    location_name?: string;
     approved_sender_id?: string;
     nola_pro_api_key?: string;
     credits?: number;
@@ -529,7 +530,7 @@ const AdminAccounts: React.FC = () => {
                             {accounts.map(acc => (
                                 <tr key={acc.id} className="hover:bg-[#f7f7f7] dark:hover:bg-white/[0.015] transition-colors">
                                     <td className="py-3 pr-4">
-                                        <p className="font-semibold text-[13px] text-[#111111] dark:text-white">{acc.display_name || '—'}</p>
+                                        <p className="font-semibold text-[13px] text-[#111111] dark:text-white">{acc.location_name || '—'}</p>
                                         <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] font-mono truncate max-w-[200px]">{acc.location_id}</p>
                                     </td>
                                     <td className="py-3 pr-4">
