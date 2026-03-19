@@ -466,7 +466,14 @@ const AdminAccounts: React.FC = () => {
             const res = await fetch(`${ADMIN_API}?action=accounts`);
             const json = await res.json();
             if (json.status === 'success') {
-                setAccounts(json.data || []);
+                // Backend returns [{ id: "ghl_locId", data: { ... } }] or [{ location_id: "..." }]
+                // We need to unwrap it and filter out the master "ghl" token doc if present
+                const mappedAccounts = (json.data || []).map((item: any) => {
+                    if (item.data) return { id: item.id, ...item.data };
+                    return item;
+                }).filter((acc: any) => acc.id !== 'ghl' && acc.location_id);
+                
+                setAccounts(mappedAccounts);
             } else {
                 setError(json.message || 'Failed to load accounts.');
             }
