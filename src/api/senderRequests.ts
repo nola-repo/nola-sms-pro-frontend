@@ -128,7 +128,8 @@ export const saveAccountApiKey = async (apiKey: string): Promise<boolean> => {
             headers,
             body: JSON.stringify({
                 location_id: locationId,
-                nola_pro_api_key: apiKey,  // Backend now standardized to nola_pro_api_key
+                semaphore_api_key: apiKey,  // Current backend field
+                nola_pro_api_key: apiKey,   // Future standardized field
             }),
         });
 

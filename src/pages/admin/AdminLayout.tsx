@@ -234,7 +234,7 @@ const AdminSenderRequests: React.FC = () => {
         try {
             const res = await fetch(ADMIN_API);
             const json = await res.json();
-            if (json.success) {
+            if (json.status === 'success') {
                 setRequests(json.data || []);
             } else {
                 setError(json.message || 'Failed to load requests.');
@@ -254,10 +254,10 @@ const AdminSenderRequests: React.FC = () => {
             const res = await fetch(ADMIN_API, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action, request_id: requestId, ...extra }),
+                body: JSON.stringify({ request_id: requestId, status: action, ...extra }),
             });
             const json = await res.json();
-            if (json.success) {
+            if (json.status === 'success') {
                 setSuccessMsg(json.message || 'Action completed.');
                 setTimeout(() => setSuccessMsg(null), 3000);
                 fetchRequests();
@@ -317,7 +317,10 @@ const AdminSenderRequests: React.FC = () => {
                         return (
                             <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all">
                                 {/* Row Header */}
-                                <div className="flex items-center gap-4 px-4 py-3 bg-[#fafafa] dark:bg-[#111214]">
+                                <div
+                                    className="flex items-center gap-4 px-4 py-3 bg-[#fafafa] dark:bg-[#111214] cursor-pointer hover:bg-[#f0f0f0] dark:hover:bg-[#161718] transition-colors"
+                                    onClick={() => setExpandedId(isExpanded ? null : req.id)}
+                                >
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className="font-bold text-[14px] text-[#111111] dark:text-white font-mono">{req.requested_id}</span>
@@ -326,33 +329,16 @@ const AdminSenderRequests: React.FC = () => {
                                         <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5 truncate">{req.location_id}</p>
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                        {req.status === 'pending' && (
-                                            <>
-                                                <button
-                                                    disabled={!!isActing}
-                                                    onClick={() => doAction('approve', req.id)}
-                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20 border border-green-200 dark:border-green-800/30 transition-all disabled:opacity-50"
-                                                >
-                                                    <FiCheck className="w-3 h-3" /> Approve
-                                                </button>
-                                                <button
-                                                    disabled={!!isActing}
-                                                    onClick={() => setExpandedId(isExpanded ? null : req.id)}
-                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800/30 transition-all"
-                                                >
-                                                    <FiX className="w-3 h-3" /> Reject
-                                                </button>
-                                            </>
-                                        )}
+                                        {/* Approved: show masked key inline */}
                                         {req.status === 'approved' && (
-                                            <button
-                                                onClick={() => setExpandedId(isExpanded ? null : req.id)}
-                                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-bold bg-[#2b83fa]/10 text-[#2b83fa] hover:bg-[#2b83fa]/20 border border-[#2b83fa]/20 transition-all"
-                                            >
-                                                <FiKey className="w-3 h-3" /> Inject API Key
-                                            </button>
+                                            <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/10 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/30">
+                                                <FiKey className="w-3 h-3 inline mr-1" />Active
+                                            </span>
                                         )}
-                                        <button onClick={() => setExpandedId(isExpanded ? null : req.id)} className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-black/5 dark:hover:bg-white/5 transition-all">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : req.id); }}
+                                            className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                                        >
                                             {isExpanded ? <FiChevronUp className="w-4 h-4" /> : <FiChevronDown className="w-4 h-4" />}
                                         </button>
                                     </div>
@@ -361,6 +347,7 @@ const AdminSenderRequests: React.FC = () => {
                                 {/* Expanded Panel */}
                                 {isExpanded && (
                                     <div className="px-4 py-4 border-t border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] space-y-4">
+                                        {/* Details: Purpose & Sample */}
                                         {req.purpose && (
                                             <div>
                                                 <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Purpose</p>
@@ -373,50 +360,85 @@ const AdminSenderRequests: React.FC = () => {
                                                 <p className="text-[13px] text-[#37352f] dark:text-[#ececf1] italic">"{req.sample_message}"</p>
                                             </div>
                                         )}
-                                        {/* Reject with note */}
-                                        {req.status === 'pending' && (
-                                            <div className="space-y-2">
-                                                <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Rejection Note (optional)</p>
-                                                <textarea
-                                                    value={rejectNote}
-                                                    onChange={e => setRejectNote(e.target.value)}
-                                                    rows={2}
-                                                    placeholder="Reason for rejection..."
-                                                    className="w-full px-3 py-2 text-[13px] border rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow"
-                                                />
-                                                <button
-                                                    disabled={!!isActing}
-                                                    onClick={() => doAction('reject', req.id, { rejection_note: rejectNote })}
-                                                    className="w-full py-2 rounded-xl text-[13px] font-bold bg-red-500 hover:bg-red-600 text-white transition-all disabled:opacity-50"
-                                                >
-                                                    Confirm Rejection
-                                                </button>
-                                            </div>
-                                        )}
-                                        {/* Inject API Key */}
-                                        {req.status === 'approved' && (
-                                            <div className="space-y-2">
-                                                <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Assign NOLA SMS Pro API Key</p>
-                                                <input
-                                                    type="text"
-                                                    value={apiKeyInput}
-                                                    onChange={e => setApiKeyInput(e.target.value)}
-                                                    placeholder="Paste API key from Semaphore..."
-                                                    className="w-full px-3 py-2 text-[13px] border rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
-                                                />
-                                                <button
-                                                    disabled={!apiKeyInput.trim() || !!isActing}
-                                                    onClick={() => doAction('inject_key', req.id, { nola_pro_api_key: apiKeyInput.trim() })}
-                                                    className="w-full py-2 rounded-xl text-[13px] font-bold bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white transition-all shadow-md shadow-blue-500/20 hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] disabled:opacity-50 disabled:shadow-none"
-                                                >
-                                                    Inject API Key
-                                                </button>
-                                            </div>
-                                        )}
-                                        {req.rejection_note && (
+                                        {req.created_at && (
                                             <div>
-                                                <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Rejection Note</p>
-                                                <p className="text-[13px] text-red-500">{req.rejection_note}</p>
+                                                <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Submitted</p>
+                                                <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">{req.created_at}</p>
+                                            </div>
+                                        )}
+
+                                        {/* ── Pending: Approve & Activate / Reject ── */}
+                                        {req.status === 'pending' && (
+                                            <div className="space-y-3 pt-2 border-t border-[#f0f0f0] dark:border-white/5">
+                                                {/* API Key for Approval */}
+                                                <div>
+                                                    <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Semaphore API Key</p>
+                                                    <input
+                                                        type="text"
+                                                        value={apiKeyInput}
+                                                        onChange={e => setApiKeyInput(e.target.value)}
+                                                        placeholder="Paste the Semaphore API key for this sender..."
+                                                        className="w-full px-3 py-2.5 text-[13px] border rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
+                                                    />
+                                                    <p className="text-[10px] text-[#9aa0a6] mt-1">Required. Register the sender on Semaphore first, then paste the API key here.</p>
+                                                </div>
+
+                                                {/* Action Buttons */}
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        disabled={!apiKeyInput.trim() || !!isActing}
+                                                        onClick={() => doAction('approved', req.id, { api_key: apiKeyInput.trim() })}
+                                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 hover:shadow-[0_8px_25px_rgba(16,185,129,0.35)] text-white transition-all shadow-md shadow-emerald-500/20 disabled:opacity-40 disabled:shadow-none"
+                                                    >
+                                                        <FiCheck className="w-4 h-4" />
+                                                        {isActing ? 'Processing...' : 'Approve & Activate'}
+                                                    </button>
+                                                    <button
+                                                        disabled={!!isActing}
+                                                        onClick={() => doAction('rejected', req.id, { rejection_note: rejectNote })}
+                                                        className="px-4 py-2.5 rounded-xl text-[13px] font-bold bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800/30 transition-all disabled:opacity-50"
+                                                    >
+                                                        <FiX className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+
+                                                {/* Optional Rejection Note (shows inline) */}
+                                                <div>
+                                                    <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Rejection Note (optional)</p>
+                                                    <textarea
+                                                        value={rejectNote}
+                                                        onChange={e => setRejectNote(e.target.value)}
+                                                        rows={2}
+                                                        placeholder="Reason for rejection (visible to the user)..."
+                                                        className="w-full px-3 py-2 text-[13px] border rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* ── Approved: show confirmation ── */}
+                                        {req.status === 'approved' && (
+                                            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30">
+                                                <FiCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                                                <p className="text-[12px] text-emerald-700 dark:text-emerald-400 font-medium">
+                                                    This sender ID is approved and active. The user can now send messages using <strong>{req.requested_id}</strong>.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* ── Rejected: show note ── */}
+                                        {req.status === 'rejected' && (
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800/30">
+                                                    <FiX className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                                    <p className="text-[12px] text-red-600 dark:text-red-400 font-medium">This sender ID request was rejected.</p>
+                                                </div>
+                                                {req.rejection_note && (
+                                                    <div>
+                                                        <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Reason</p>
+                                                        <p className="text-[13px] text-red-500">{req.rejection_note}</p>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -443,7 +465,7 @@ const AdminAccounts: React.FC = () => {
         try {
             const res = await fetch(`${ADMIN_API}?action=accounts`);
             const json = await res.json();
-            if (json.success) {
+            if (json.status === 'success') {
                 setAccounts(json.data || []);
             } else {
                 setError(json.message || 'Failed to load accounts.');
