@@ -10,7 +10,7 @@ import {
 import {
     getAccountSettings, saveAccountSettings,
     getNotificationSettings, saveNotificationSettings,
-    type AccountSettings, type NotificationSettings,
+    type AccountSettings, type NotificationSettings, type StoredSenderId
 } from "../utils/settingsStorage";
 import { SenderRequestModal } from "../components/SenderRequestModal";
 import { useGhlLocation } from "../hooks/useGhlLocation";
@@ -253,8 +253,25 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
         });
     }
 
-    const handleSuccess = () => {
-        fetchSenderRequests().then(setSenderRequests);
+    const handleSuccess = (newSender?: StoredSenderId) => {
+        if (newSender) {
+            setSenderRequests(prev => [
+                {
+                    id: `temp_${Date.now()}`,
+                    location_id: "",
+                    requested_id: newSender.id,
+                    purpose: newSender.description,
+                    status: "pending",
+                    created_at: new Date().toISOString()
+                },
+                ...prev
+            ]);
+        }
+        
+        // Fetch from server after index delay catch-up
+        setTimeout(() => {
+            fetchSenderRequests().then(setSenderRequests);
+        }, 1500);
     };
 
     return (
