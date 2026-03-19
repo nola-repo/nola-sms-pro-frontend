@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCheck, FiX, FiRefreshCw, FiKey, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCheck, FiX, FiRefreshCw, FiKey, FiChevronDown, FiChevronUp, FiHome, FiClock, FiActivity } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
@@ -25,6 +25,7 @@ interface Account {
     approved_sender_id?: string;
     nola_pro_api_key?: string;
     credits?: number;
+    credit_balance?: number;
     free_usage_count?: number;
 }
 
@@ -126,7 +127,7 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [activeTab, setActiveTab] = useState<'accounts' | 'requests' | 'settings'>('requests');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'accounts' | 'requests' | 'settings'>('dashboard');
 
     if (!isAuthenticated) {
         return <AdminLogin onLogin={() => setIsAuthenticated(true)} />;
@@ -147,6 +148,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
 
                 <nav className="flex-1 px-4 py-2 space-y-1.5">
                     {[
+                        { id: 'dashboard', label: 'Dashboard', icon: <FiHome /> },
                         { id: 'requests', label: 'Sender Requests', icon: <FiSend /> },
                         { id: 'accounts', label: 'All Accounts', icon: <FiUsers /> },
                         { id: 'settings', label: 'System Settings', icon: <FiSettings /> },
@@ -184,21 +186,191 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                 <header className="px-8 py-5 bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border-b border-[#0000000a] dark:border-[#ffffff0a] flex-shrink-0 flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-bold text-[#111111] dark:text-white capitalize tracking-tight">
-                            {activeTab === 'requests' ? 'Sender Requests' : activeTab === 'accounts' ? 'All Accounts' : 'System Settings'}
+                            {activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'requests' ? 'Sender Requests' : activeTab === 'accounts' ? 'All Accounts' : 'System Settings'}
                         </h2>
                         <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">
-                            Management overview and administrative actions.
+                            {activeTab === 'dashboard' ? 'Platform-wide overview of all accounts and activity.' : 'Management overview and administrative actions.'}
                         </p>
                     </div>
                 </header>
 
                 <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                     <div className="max-w-6xl mx-auto">
+                        {activeTab === 'dashboard' && <AdminDashboard onNavigate={setActiveTab} />}
                         {activeTab === 'requests' && <AdminSenderRequests />}
                         {activeTab === 'accounts' && <AdminAccounts />}
                         {activeTab === 'settings' && <AdminSettings />}
                     </div>
                 </main>
+            </div>
+        </div>
+    );
+};
+
+// ─── Admin Dashboard View ────────────────────────────────────────────────────
+
+const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNavigate }) => {
+    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [requests, setRequests] = useState<SenderRequest[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        Promise.all([
+            fetch(`${ADMIN_API}?action=accounts`).then(r => r.json()).catch(() => ({ status: 'error', data: [] })),
+            fetch(ADMIN_API).then(r => r.json()).catch(() => ({ status: 'error', data: [] }))
+        ]).then(([accJson, reqJson]) => {
+            if (cancelled) return;
+            if (accJson.status === 'success') {
+                const mapped = (accJson.data || []).map((item: any) => item.data ? { id: item.id, ...item.data } : item)
+                    .filter((acc: any) => acc.id !== 'ghl' && acc.location_id);
+                setAccounts(mapped);
+            }
+            if (reqJson.status === 'success') {
+                setRequests(reqJson.data || []);
+            }
+            setLoading(false);
+        });
+        return () => { cancelled = true; };
+    }, []);
+
+    const totalAccounts = accounts.length;
+    const pendingRequests = requests.filter(r => r.status === 'pending').length;
+    const approvedSenders = accounts.filter(a => a.approved_sender_id).length;
+    const freeTierAccounts = accounts.filter(a => !a.approved_sender_id).length;
+    const recentRequests = [...requests].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 6);
+
+    const StatCard = ({ label, value, color, icon }: { label: string; value: number | string; color: string; icon: React.ReactNode }) => (
+        <div className={`relative p-6 rounded-3xl bg-gradient-to-br ${color} shadow-lg overflow-hidden group`}>
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
+                <div className="w-20 h-20">{icon}</div>
+            </div>
+            <div className="relative z-10">
+                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
+                    {icon}
+                </div>
+                <p className="text-[12px] font-bold text-white/70 uppercase tracking-widest mb-1">{label}</p>
+                <h2 className="text-3xl font-black text-white">
+                    {loading ? <span className="inline-block w-10 h-8 bg-white/20 animate-pulse rounded-lg" /> : value}
+                </h2>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="space-y-8">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+                <StatCard label="Total Accounts" value={totalAccounts} color="from-[#2b83fa] to-[#60a5fa]" icon={<FiUsers className="w-full h-full" />} />
+                <StatCard label="Pending Requests" value={pendingRequests} color={pendingRequests > 0 ? 'from-amber-500 to-orange-500' : 'from-slate-400 to-slate-500'} icon={<FiClock className="w-full h-full" />} />
+                <StatCard label="Approved Senders" value={approvedSenders} color="from-emerald-500 to-teal-600" icon={<FiCheck className="w-full h-full" />} />
+                <StatCard label="Free Tier Only" value={freeTierAccounts} color="from-purple-500 to-indigo-600" icon={<FiActivity className="w-full h-full" />} />
+            </div>
+
+            {/* Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Quick Actions */}
+                <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+                    <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider mb-5">Quick Actions</h3>
+                    <div className="space-y-3">
+                        {[
+                            { tab: 'requests', label: 'Review Sender Requests', desc: `${pendingRequests} pending approval`, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20', icon: <FiSend className="w-5 h-5" />, badge: pendingRequests },
+                            { tab: 'accounts', label: 'View All Accounts', desc: `${totalAccounts} total installed subaccounts`, color: 'text-[#2b83fa] bg-blue-50 dark:bg-blue-900/20', icon: <FiUsers className="w-5 h-5" />, badge: 0 },
+                            { tab: 'settings', label: 'System Settings', desc: 'Global sender ID and free tier config', color: 'text-slate-500 bg-slate-50 dark:bg-slate-900/20', icon: <FiSettings className="w-5 h-5" />, badge: 0 },
+                        ].map(item => (
+                            <button key={item.tab} onClick={() => onNavigate(item.tab)}
+                                className="w-full flex items-center gap-4 p-4 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] hover:bg-[#efefef] dark:hover:bg-[#161718] transition-colors text-left group">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.color}`}>
+                                    {item.icon}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[13px] font-bold text-[#111111] dark:text-white">{item.label}</p>
+                                    <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6]">{item.desc}</p>
+                                </div>
+                                {item.badge > 0 && (
+                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-[11px] font-black flex items-center justify-center animate-pulse">{item.badge}</span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Recent Sender Requests */}
+                <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-5">
+                        <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider">Recent Requests</h3>
+                        <button onClick={() => onNavigate('requests')} className="text-[11px] font-bold text-[#2b83fa] hover:underline">See All</button>
+                    </div>
+                    <div className="space-y-2">
+                        {loading ? (
+                            [1,2,3].map(i => <div key={i} className="h-14 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)
+                        ) : recentRequests.length === 0 ? (
+                            <div className="py-10 text-center">
+                                <FiSend className="w-8 h-8 mx-auto mb-2 text-[#d0d0d0] dark:text-[#3a3b3f]" />
+                                <p className="text-[13px] text-[#9aa0a6]">No requests yet.</p>
+                            </div>
+                        ) : recentRequests.map(req => (
+                            <div key={req.id} onClick={() => onNavigate('requests')}
+                                className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#f7f7f7] dark:hover:bg-[#0d0e10] transition-colors cursor-pointer">
+                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 ${
+                                    req.status === 'pending' ? 'bg-amber-500' : req.status === 'approved' ? 'bg-emerald-500' : 'bg-red-500'
+                                }`}>
+                                    {req.requested_id?.charAt(0).toUpperCase() || '?'}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[13px] font-bold text-[#111111] dark:text-white font-mono truncate">{req.requested_id}</p>
+                                    <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] truncate">{req.location_name || req.location_id}</p>
+                                </div>
+                                <span className={`flex-shrink-0 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                                    req.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800/30' :
+                                    req.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/10 dark:text-green-400 dark:border-green-800/30' :
+                                    'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30'
+                                }`}>{req.status}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Accounts Overview Table */}
+            <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider">Accounts Overview</h3>
+                    <button onClick={() => onNavigate('accounts')} className="text-[11px] font-bold text-[#2b83fa] hover:underline">View All</button>
+                </div>
+                {loading ? (
+                    <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)}</div>
+                ) : accounts.length === 0 ? (
+                    <div className="py-8 text-center"><p className="text-[13px] text-[#9aa0a6]">No accounts yet.</p></div>
+                ) : (
+                    <div className="space-y-2">
+                        {accounts.slice(0, 8).map(acc => (
+                            <div key={acc.id} className="flex items-center gap-4 px-4 py-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10]">
+                                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white text-[12px] font-black flex-shrink-0">
+                                    {(acc.location_name || acc.location_id || '?').charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[13px] font-bold text-[#111111] dark:text-white truncate">{acc.location_name || 'Unknown Location'}</p>
+                                    <p className="text-[11px] text-[#6e6e73] font-mono truncate">{acc.location_id}</p>
+                                </div>
+                                <div className="flex items-center gap-3 flex-shrink-0">
+                                    {acc.approved_sender_id ? (
+                                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/10 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800/30 font-mono">{acc.approved_sender_id}</span>
+                                    ) : (
+                                        <span className="text-[11px] text-[#9aa0a6] italic">Free Tier</span>
+                                    )}
+                                    <span className="text-[12px] font-bold text-[#111111] dark:text-white w-16 text-right">{(acc.credits ?? acc.credit_balance ?? 0).toLocaleString()} cr</span>
+                                </div>
+                            </div>
+                        ))}
+                        {accounts.length > 8 && (
+                            <button onClick={() => onNavigate('accounts')} className="w-full py-2.5 text-[12px] font-bold text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-xl transition-colors">
+                                + {accounts.length - 8} more accounts
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );
