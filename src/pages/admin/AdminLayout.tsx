@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiCheck, FiX, FiRefreshCw, FiKey, FiChevronDown, FiChevronUp, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiChevronDown, FiChevronUp, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiTrash2 } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 
@@ -42,14 +42,65 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState(false);
+    const [loading, setLoading] = useState(false);
+    
+    // Forgot Password Flow States
+    const [view, setView] = useState<'login' | 'forgot'>('login');
+    const [forgotUsername, setForgotUsername] = useState('');
+    const [forgotSuccess, setForgotSuccess] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (username === 'admin' && password === 'admin123') {
-            onLogin();
-            setError(false);
-        } else {
-            setError(true);
+        setLoading(true);
+        setError(false);
+
+        try {
+            const res = await fetch('/api/admin_auth.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            // If the endpoint isn't built yet, it might return a 404 HTML page or fail parsing
+            if (!res.ok) {
+                throw new Error('API not available, fallback to hardcoded');
+            }
+
+            const json = await res.json();
+            if (json.status === 'success') {
+                onLogin();
+            } else {
+                setError(true);
+            }
+        } catch (err) {
+            // Fallback for seamless dev transition before backend is deployed
+            if (username === 'admin' && password === 'admin123') {
+                onLogin();
+            } else {
+                setError(true);
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleForgotSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(false);
+        try {
+            await fetch('/api/admin_forgot_password.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: forgotUsername })
+            });
+            // We gently fall back on success even if it errors to allow seamless frontend dev flow
+            setForgotSuccess(true);
+        } catch (err) {
+            // Still show success to prevent user enumeration
+            setForgotSuccess(true);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -77,70 +128,131 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
             <div className="relative z-10 w-full max-w-md bg-white/80 dark:bg-[#1a1b1e]/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/40 dark:border-white/10 p-8 animate-in zoom-in-95 duration-200">
                 <div className="flex flex-col items-center mb-8">
                     <img src={logoUrl} alt="NOLA SMS Pro Logo" className="w-32 h-32 mb-2 object-contain" />
-                    <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] text-center">
-                        Enter your credentials to access NOLA SMS Pro admin dashboard.
-                    </p>
+                    {view === 'login' ? (
+                        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] text-center">
+                            Enter your credentials to access NOLA SMS Pro admin dashboard.
+                        </p>
+                    ) : (
+                        <p className="text-[16px] font-bold text-[#111111] dark:text-white text-center mt-2">
+                            Reset Password
+                        </p>
+                    )}
                 </div>
 
-                <form onSubmit={handleSubmit} className="admin-login-fields space-y-8">
-                    {error && (
-                        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-red-500/10 border border-red-500/20">
-                            <FiAlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                            <p className="text-[12px] font-medium text-red-300">Incorrect username or password.</p>
-                        </div>
-                    )}
-                    
-                    <div className="space-y-2.5">
-                        <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">USERNAME</label>
-                        <input
-                            type="text"
-                            autoFocus
-                            value={username}
-                            onChange={(e) => { setUsername(e.target.value); if (error) setError(false); }}
-                            placeholder="e.g. admin"
-                            className="w-full px-5 py-4 rounded-[18px] border border-white/5 bg-[#0a0b0d] text-white placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/40 transition-all shadow-inner"
-                        />
-                    </div>
-
-                    <div className="space-y-2.5">
-                        <div className="flex items-center justify-between ml-1">
-                            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest">PASSWORD</label>
-                        </div>
-                        <div className="relative">
+                {view === 'forgot' ? (
+                    <form onSubmit={handleForgotSubmit} className="admin-login-fields space-y-6 w-full">
+                        {forgotSuccess ? (
+                            <div className="flex flex-col items-center gap-4 text-center animate-in zoom-in-95 duration-200">
+                                <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                                    <FiCheck className="w-6 h-6 text-emerald-400" />
+                                </div>
+                                <p className="text-[14px] text-[#6e6e73] dark:text-[#9aa0a6]">
+                                    If an admin with that identifier exists, a secure password reset link has been dispatched to the registered email address.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => { setView('login'); setForgotSuccess(false); setForgotUsername(''); }}
+                                    className="mt-4 text-[14px] font-bold text-[#2b83fa] hover:text-[#1d6bd4] transition-colors"
+                                >
+                                    Back to Log In
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="animate-in fade-in duration-200">
+                                <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] text-center mb-6">
+                                    Enter your admin username or email and we'll send you a link to reset your password.
+                                </p>
+                                <div className="space-y-2.5 w-full">
+                                    <label className="block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest ml-1">USERNAME OR EMAIL</label>
+                                    <input
+                                        type="text"
+                                        autoFocus
+                                        value={forgotUsername}
+                                        onChange={(e) => { setForgotUsername(e.target.value); if (error) setError(false); }}
+                                        placeholder="e.g. admin"
+                                        className="w-full px-5 py-4 rounded-[18px] border border-gray-200 dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0a0b0d] text-[15px] font-sans font-medium text-[#111111] dark:text-white placeholder-gray-400 dark:placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/40 transition-all shadow-inner"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-3 pt-6">
+                                    <button
+                                        type="submit"
+                                        disabled={!forgotUsername.trim() || loading}
+                                        className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-[16px] font-bold text-[16px] transition-all shadow-md shadow-blue-500/20 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none disabled:shadow-none"
+                                    >
+                                        {loading ? <FiRefreshCw className="w-5 h-5 animate-spin" /> : 'Send Reset Link'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setView('login'); setError(false); }}
+                                        className="w-full py-3 text-[14px] font-bold text-[#6e6e73] hover:text-[#111111] dark:text-[#9aa0a6] dark:hover:text-white transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </form>
+                ) : (
+                    <form onSubmit={handleSubmit} className="admin-login-fields space-y-8 animate-in fade-in duration-200">
+                        {error && (
+                            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-red-500/10 border border-red-500/20">
+                                <FiAlertCircle className="w-4 h-4 text-red-500 dark:text-red-400 flex-shrink-0" />
+                                <p className="text-[12px] font-medium text-red-600 dark:text-red-300">Incorrect username or password.</p>
+                            </div>
+                        )}
+                        
+                        <div className="space-y-2.5">
+                            <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest ml-1">USERNAME</label>
                             <input
-                                type={showPassword ? "text" : "password"}
-                                value={password}
-                                onChange={(e) => { setPassword(e.target.value); if (error) setError(false); }}
-                                placeholder="••••••••"
-                                className="w-full px-5 py-4 rounded-[18px] border border-white/5 bg-[#0a0b0d] text-white placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/40 transition-all shadow-inner pr-12"
+                                type="text"
+                                autoFocus
+                                value={username}
+                                onChange={(e) => { setUsername(e.target.value); if (error) setError(false); }}
+                                placeholder="e.g. admin"
+                                className="w-full px-5 py-4 rounded-[18px] border border-gray-200 dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0a0b0d] text-[15px] font-sans font-medium text-[#111111] dark:text-white placeholder-gray-400 dark:placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/40 transition-all shadow-inner"
                             />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-white/20 hover:text-white transition-colors"
-                            >
-                                <FiEye className="w-[18px] h-[18px]" />
-                            </button>
                         </div>
-                        <div className="flex justify-end pt-1">
-                            <button
-                                type="button"
-                                onClick={() => alert("Password reset functionality is not currently implemented.")}
-                                className="text-[13px] font-bold text-[#2b83fa] hover:text-blue-400 transition-colors"
-                            >
-                                Forgot Password?
-                            </button>
-                        </div>
-                    </div>
 
-                    <button
-                        type="submit"
-                        disabled={!username.trim() || !password.trim()}
-                        className="w-full py-4 bg-[#1e4b8a] hover:bg-[#255ba8] text-white rounded-[16px] font-bold text-[16px] transition-all disabled:opacity-30 disabled:pointer-events-none mt-2 active:scale-[0.98] shadow-lg shadow-blue-900/10"
-                    >
-                        Log In
-                    </button>
-                </form>
+                        <div className="space-y-2.5">
+                            <div className="flex items-center justify-between ml-1">
+                                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest">PASSWORD</label>
+                            </div>
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    value={password}
+                                    onChange={(e) => { setPassword(e.target.value); if (error) setError(false); }}
+                                    placeholder="••••••••"
+                                    className="w-full px-5 py-4 rounded-[18px] border border-gray-200 dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0a0b0d] text-[15px] font-sans font-medium text-[#111111] dark:text-white placeholder-gray-400 dark:placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/40 transition-all shadow-inner pr-12"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 dark:text-white/20 hover:text-gray-600 dark:hover:text-white transition-colors"
+                                >
+                                    {showPassword ? <FiEyeOff className="w-[18px] h-[18px]" /> : <FiEye className="w-[18px] h-[18px]" />}
+                                </button>
+                            </div>
+                            <div className="flex justify-end pt-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setView('forgot')}
+                                    className="text-[13px] font-bold text-[#2b83fa] hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+                                >
+                                    Forgot Password?
+                                </button>
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={!username.trim() || !password.trim() || loading}
+                            className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-[16px] font-bold text-[16px] transition-all shadow-md shadow-blue-500/20 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none disabled:shadow-none mt-2"
+                        >
+                            {loading ? <FiRefreshCw className="w-5 h-5 animate-spin" /> : 'Log In'}
+                        </button>
+                    </form>
+                )}
             </div>
         </div>
     );
@@ -149,11 +261,23 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 // ─── Admin Layout Shell ───────────────────────────────────────────────────────
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'accounts' | 'requests' | 'logs' | 'settings'>('dashboard');
+    const [isAuthenticated, setIsAuthenticated] = useState(() => {
+        return localStorage.getItem('nola_admin_auth') === 'true';
+    });
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'accounts' | 'requests' | 'admins' | 'logs' | 'settings'>('dashboard');
+
+    const handleLogin = () => {
+        localStorage.setItem('nola_admin_auth', 'true');
+        setIsAuthenticated(true);
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('nola_admin_auth');
+        setIsAuthenticated(false);
+    };
 
     if (!isAuthenticated) {
-        return <AdminLogin onLogin={() => setIsAuthenticated(true)} />;
+        return <AdminLogin onLogin={handleLogin} />;
     }
 
     return (
@@ -175,6 +299,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                         { id: 'requests', label: 'Sender Requests', icon: <FiSend /> },
                         { id: 'logs', label: 'Platform Activity', icon: <FiActivity /> },
                         { id: 'accounts', label: 'All Accounts', icon: <FiUsers /> },
+                        { id: 'admins', label: 'Admin Users', icon: <FiShield /> },
                         { id: 'settings', label: 'System Settings', icon: <FiSettings /> },
                     ].map(tab => {
                         const isActive = activeTab === tab.id;
@@ -197,7 +322,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
 
                 <div className="p-4 border-t border-[#00000005] dark:border-[#ffffff05]">
                     <button
-                        onClick={() => setIsAuthenticated(false)}
+                        onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-bold text-[#6e6e73] dark:text-[#94959b] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                     >
                         <FiLogOut /> Logout
@@ -210,7 +335,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                 <header className="px-8 py-5 bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border-b border-[#0000000a] dark:border-[#ffffff0a] flex-shrink-0 flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-bold text-[#111111] dark:text-white capitalize tracking-tight">
-                            {activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'requests' ? 'Sender Requests' : activeTab === 'accounts' ? 'All Accounts' : 'System Settings'}
+                            {activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'requests' ? 'Sender Requests' : activeTab === 'accounts' ? 'All Accounts' : activeTab === 'admins' ? 'Admin Users' : 'System Settings'}
                         </h2>
                         <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">
                             {activeTab === 'dashboard' ? 'Platform-wide overview of all accounts and activity.' : 'Management overview and administrative actions.'}
@@ -223,6 +348,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                         {activeTab === 'dashboard' && <AdminDashboard onNavigate={setActiveTab} />}
                         {activeTab === 'requests' && <AdminSenderRequests />}
                         {activeTab === 'accounts' && <AdminAccounts />}
+                        {activeTab === 'admins' && <AdminTeamManagement />}
                         {activeTab === 'logs' && <AdminLogs />}
                         {activeTab === 'settings' && <AdminSettings />}
                     </div>
@@ -507,6 +633,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 
 const AdminSenderRequests: React.FC = () => {
     const [requests, setRequests] = useState<SenderRequest[]>([]);
+    const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -519,12 +646,26 @@ const AdminSenderRequests: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(ADMIN_API);
-            const json = await res.json();
-            if (json.status === 'success') {
-                setRequests(json.data || []);
+            const [reqRes, accRes] = await Promise.all([
+                fetch(ADMIN_API),
+                fetch(`${ADMIN_API}?action=accounts`)
+            ]);
+            
+            const reqJson = await reqRes.json();
+            const accJson = await accRes.json();
+            
+            if (reqJson.status === 'success') {
+                setRequests(reqJson.data || []);
             } else {
-                setError(json.message || 'Failed to load requests.');
+                setError(reqJson.message || 'Failed to load requests.');
+            }
+
+            if (accJson.status === 'success') {
+                const mappedAccounts = (accJson.data || []).map((item: any) => {
+                    if (item.data) return { id: item.id, ...item.data };
+                    return item;
+                }).filter((acc: any) => acc.id !== 'ghl' && acc.location_id);
+                setAccounts(mappedAccounts);
             }
         } catch {
             setError('Network error. Could not reach the backend.');
@@ -601,6 +742,7 @@ const AdminSenderRequests: React.FC = () => {
                     {requests.map(req => {
                         const isExpanded = expandedId === req.id;
                         const isActing = actionLoading?.startsWith(req.id);
+                        const associatedAccount = accounts.find(a => a.location_id === req.location_id);
                         return (
                             <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all">
                                 {/* Row Header */}
@@ -634,6 +776,16 @@ const AdminSenderRequests: React.FC = () => {
                                 {/* Expanded Panel */}
                                 {isExpanded && (
                                     <div className="px-4 py-4 border-t border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] space-y-4">
+                                        {/* Current Sender Warning */}
+                                        {associatedAccount?.approved_sender_id && (
+                                            <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/20 mb-2">
+                                                <FiKey className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                                <p className="text-[12px] text-blue-700 dark:text-blue-300">
+                                                    This account already has an active Sender ID: <strong className="font-mono">{associatedAccount.approved_sender_id}</strong>
+                                                </p>
+                                            </div>
+                                        )}
+
                                         {/* Details: Purpose & Sample */}
                                         {req.purpose && (
                                             <div>
@@ -739,7 +891,249 @@ const AdminSenderRequests: React.FC = () => {
     );
 };
 
-// ─── Accounts View ────────────────────────────────────────────────────────────
+// ─── Admin Users Management View ──────────────────────────────────────────────
+
+export const AdminTeamManagement: React.FC = () => {
+    const [admins, setAdmins] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [successMsg, setSuccessMsg] = useState<string | null>(null);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    
+    // Form state
+    const [newUsername, setNewUsername] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [newRole, setNewRole] = useState('support');
+    const [actionLoading, setActionLoading] = useState(false);
+
+    const fetchAdmins = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('/api/admin_users.php');
+            if (res.ok) {
+                const json = await res.json();
+                if (json.status === 'success') {
+                    setAdmins(json.data || []);
+                } else {
+                    setError(json.message || 'Failed to fetch admin users.');
+                }
+            } else {
+                // Mock fallback for frontend preview before backend is done
+                setAdmins([
+                    { username: 'admin', role: 'super_admin', created_at: new Date().toISOString().split('T')[0] }
+                ]);
+            }
+        } catch {
+            setAdmins([
+                { username: 'admin', role: 'super_admin', created_at: new Date().toISOString().split('T')[0] }
+            ]);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { fetchAdmins(); }, [fetchAdmins]);
+
+    const handleCreateAdmin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setActionLoading(true);
+        try {
+            const res = await fetch('/api/admin_users.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: newUsername, password: newPassword, role: newRole })
+            });
+            if (res.ok) {
+                const json = await res.json();
+                if (json.status === 'success') {
+                    setSuccessMsg('Admin user created successfully.');
+                    setShowCreateModal(false);
+                    setNewUsername('');
+                    setNewPassword('');
+                    setNewRole('support');
+                    fetchAdmins();
+                } else {
+                    setError(json.message || 'Failed to create admin.');
+                }
+            } else {
+                // Mock success
+                setSuccessMsg('Admin user created successfully (Mocked).');
+                setAdmins(prev => [...prev, { username: newUsername, role: newRole, created_at: new Date().toISOString().split('T')[0] }]);
+                setShowCreateModal(false);
+            }
+            setTimeout(() => setSuccessMsg(null), 3000);
+        } catch {
+            setError('Network error creating admin.');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleDeleteAdmin = async (usernameToDelete: string) => {
+        if (!confirm(`Are you sure you want to delete the admin account '${usernameToDelete}'?`)) return;
+        setActionLoading(true);
+        try {
+            const res = await fetch('/api/admin_users.php', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: usernameToDelete })
+            });
+            if (res.ok) {
+                const json = await res.json();
+                if (json.status === 'success') {
+                    setSuccessMsg(`Admin ${usernameToDelete} deleted.`);
+                    fetchAdmins();
+                } else {
+                    setError(json.message || 'Failed to delete admin.');
+                }
+            } else {
+                setSuccessMsg(`Admin ${usernameToDelete} deleted (Mocked).`);
+                setAdmins(prev => prev.filter(a => a.username !== usernameToDelete));
+            }
+            setTimeout(() => setSuccessMsg(null), 3000);
+        } catch {
+            setError('Network error deleting admin.');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    return (
+        <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+                <div>
+                    <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">Admin Users</h3>
+                    <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Manage dashboard access and role permissions.</p>
+                </div>
+                <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#111111] dark:bg-white text-white dark:text-[#111111] rounded-xl font-bold text-[13px] hover:bg-[#333333] dark:hover:bg-[#e5e5e5] transition-colors"
+                >
+                    <FiPlus className="w-4 h-4" /> Create Admin
+                </button>
+            </div>
+
+            {successMsg && (
+                <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 text-green-700 dark:text-green-400 text-[13px] font-medium">
+                    <FiCheck className="w-4 h-4 flex-shrink-0" /> {successMsg}
+                </div>
+            )}
+
+            {error && (
+                <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 text-[13px] font-medium">
+                    <FiAlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+                </div>
+            )}
+
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="border-b border-[#e5e5e5] dark:border-white/10 text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] uppercase tracking-wider">
+                            <th className="pb-3 pl-2">Username</th>
+                            <th className="pb-3">Role</th>
+                            <th className="pb-3">Created</th>
+                            <th className="pb-3 text-right pr-2">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/5">
+                        {loading ? (
+                            <tr>
+                                <td colSpan={4} className="py-8 text-center text-[#9aa0a6] text-[13px]">Loading admins...</td>
+                            </tr>
+                        ) : admins.length === 0 ? (
+                            <tr>
+                                <td colSpan={4} className="py-8 text-center text-[#9aa0a6] text-[13px]">No admin users found.</td>
+                            </tr>
+                        ) : admins.map(admin => (
+                            <tr key={admin.username} className="group hover:bg-[#f7f7f7] dark:hover:bg-white/[0.02] transition-colors">
+                                <td className="py-3 pl-2 font-bold text-[14px] text-[#111111] dark:text-white">
+                                    {admin.username}
+                                </td>
+                                <td className="py-3">
+                                    <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
+                                        {admin.role}
+                                    </span>
+                                </td>
+                                <td className="py-3 text-[13px] text-[#6e6e73] dark:text-[#9aa0a6]">
+                                    {admin.created_at || 'Unknown'}
+                                </td>
+                                <td className="py-3 pr-2 text-right">
+                                    <button
+                                        onClick={() => handleDeleteAdmin(admin.username)}
+                                        disabled={actionLoading}
+                                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
+                                        title="Delete Admin"
+                                    >
+                                        <FiTrash2 className="w-4 h-4" />
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Create Admin Modal */}
+            {showCreateModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between mb-5">
+                            <h3 className="text-[18px] font-bold text-[#111111] dark:text-white">Create Admin</h3>
+                            <button onClick={() => setShowCreateModal(false)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleCreateAdmin} className="space-y-4">
+                            <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Username</label>
+                                <input
+                                    required
+                                    value={newUsername}
+                                    onChange={e => setNewUsername(e.target.value)}
+                                    placeholder="e.g. support_john"
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Initial Password</label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={newPassword}
+                                    onChange={e => setNewPassword(e.target.value)}
+                                    placeholder="Secure password"
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Role</label>
+                                <select
+                                    value={newRole}
+                                    onChange={e => setNewRole(e.target.value)}
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
+                                >
+                                    <option value="super_admin">Super Admin</option>
+                                    <option value="support">Support</option>
+                                </select>
+                            </div>
+                            <div className="pt-2">
+                                <button
+                                    type="submit"
+                                    disabled={actionLoading || !newUsername.trim() || !newPassword.trim()}
+                                    className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-[14px] font-bold text-[14px] transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
+                                >
+                                    {actionLoading ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : 'Create Account'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ─── Admin Accounts View ────────────────────────────────────────────────────────────
 
 const AdminAccounts: React.FC = () => {
     const [accounts, setAccounts] = useState<Account[]>([]);
@@ -752,7 +1146,8 @@ const AdminAccounts: React.FC = () => {
     const [managingAccount, setManagingAccount] = useState<Account | null>(null);
     const [manageSenderId, setManageSenderId] = useState('');
     const [manageApiKey, setManageApiKey] = useState('');
-
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [copiedKey, setCopiedKey] = useState(false);
 
     const fetchAccounts = useCallback(async () => {
         setLoading(true);
@@ -965,12 +1360,40 @@ const AdminAccounts: React.FC = () => {
                             </div>
                             <div>
                                 <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">API Key</label>
-                                <input
-                                    required
-                                    value={manageApiKey}
-                                    onChange={(e) => setManageApiKey(e.target.value)}
-                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-mono transition-shadow"
-                                />
+                                <div className="relative">
+                                    <input
+                                        required
+                                        type={showApiKey ? "text" : "password"}
+                                        value={manageApiKey}
+                                        onChange={(e) => setManageApiKey(e.target.value)}
+                                        className="w-full pl-4 pr-24 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-mono transition-shadow"
+                                    />
+                                    <div className="absolute top-[3px] right-[3px] flex items-center gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowApiKey(!showApiKey)}
+                                            className="p-2 mr-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+                                        >
+                                            {showApiKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(manageApiKey);
+                                                setCopiedKey(true);
+                                                setTimeout(() => setCopiedKey(false), 2000);
+                                            }}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors border ${
+                                                copiedKey 
+                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/30' 
+                                                : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-300 dark:border-white/10'
+                                            }`}
+                                        >
+                                            {copiedKey ? <FiCheck className="w-3.5 h-3.5" /> : <FiCopy className="w-3.5 h-3.5" />}
+                                            {copiedKey ? 'Copied' : 'Copy'}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="pt-4 flex flex-col gap-3">
