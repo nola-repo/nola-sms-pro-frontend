@@ -771,6 +771,28 @@ const AdminAccounts: React.FC = () => {
         }
     }, []);
 
+    const handleReset = async (locationId: string) => {
+        if (!window.confirm(`Are you sure you want to reset the Approved Sender ID for ${locationId}? This will clear their active branding.`)) return;
+        
+        try {
+            const res = await fetch(ADMIN_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'reset', location_id: locationId }),
+            });
+            const json = await res.json();
+            if (json.status === 'success') {
+                alert(json.message);
+                fetchAccounts();
+            } else {
+                alert(json.message || 'Reset failed.');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Network error during reset.');
+        }
+    };
+
     useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
 
     return (
@@ -809,7 +831,8 @@ const AdminAccounts: React.FC = () => {
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Sender ID</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">API Key</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Credits</th>
-                                <th className="pb-3 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Free Used</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Free Used</th>
+                                <th className="pb-3 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
@@ -832,10 +855,21 @@ const AdminAccounts: React.FC = () => {
                                     <td className="py-3 pr-4">
                                         <span className="text-[13px] font-semibold text-[#111111] dark:text-white">{acc.credits ?? '—'}</span>
                                     </td>
-                                    <td className="py-3">
+                                    <td className="py-3 pr-4">
                                         <span className={`text-[13px] font-semibold ${(acc.free_usage_count ?? 0) >= 10 ? 'text-red-500' : 'text-[#111111] dark:text-white'}`}>
                                             {acc.free_usage_count ?? 0} / 10
                                         </span>
+                                    </td>
+                                    <td className="py-3 text-right">
+                                        {acc.approved_sender_id && (
+                                            <button 
+                                                onClick={() => handleReset(acc.location_id)}
+                                                className="px-3 py-1 text-[11px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800/20 transition-all"
+                                                title="Reset Sender ID Branding"
+                                            >
+                                                Reset
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

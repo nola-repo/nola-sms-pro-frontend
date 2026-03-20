@@ -546,6 +546,10 @@ const CreditsSection: React.FC = () => {
                 (event.origin === 'https://sms.nolawebsolutions.com' || event.origin === window.location.origin) &&
                 event.data?.type === 'nola-payment-success'
             ) {
+                if (popupPollRef.current) {
+                    clearInterval(popupPollRef.current);
+                    popupPollRef.current = null;
+                }
                 setSubmitted(false);
                 if (popupRef.current) popupRef.current.close();
                 load(); // Auto-refresh credits on success
@@ -587,13 +591,28 @@ const CreditsSection: React.FC = () => {
         const left = (window.screen.width / 2) - (width / 2);
         const top = (window.screen.height / 2) - (height / 2);
         
-        popupRef.current = window.open(
+        const popup = window.open(
             checkoutUrl, 
             "Checkout", 
             `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
         );
+        popupRef.current = popup;
 
         setSubmitted(true);
+
+        // Clear any existing poll
+        if (popupPollRef.current) clearInterval(popupPollRef.current);
+
+        // Start polling the window status
+        popupPollRef.current = setInterval(() => {
+            if (popup && popup.closed) {
+                if (popupPollRef.current) clearInterval(popupPollRef.current);
+                popupPollRef.current = null;
+                setSubmitted(false);
+                // Refresh balance in case they finished but message was missed
+                load();
+            }
+        }, 500);
     };
 
     return (
