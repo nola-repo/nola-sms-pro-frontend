@@ -745,6 +745,8 @@ const AdminAccounts: React.FC = () => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
     const fetchAccounts = useCallback(async () => {
         setLoading(true);
@@ -771,29 +773,31 @@ const AdminAccounts: React.FC = () => {
         }
     }, []);
 
-    const handleReset = async (locationId: string) => {
-        if (!window.confirm(`Are you sure you want to reset the Approved Sender ID for ${locationId}? This will clear their active branding.`)) return;
-        
+    useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
+
+    const doResetSender = async (locationId: string) => {
+        if (!confirm(`Reset the approved Sender ID and API key for location ${locationId}?`)) return;
+        setActionLoading(locationId);
         try {
             const res = await fetch(ADMIN_API, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'reset', location_id: locationId }),
+                body: JSON.stringify({ action: 'reset_sender', location_id: locationId }),
             });
             const json = await res.json();
             if (json.status === 'success') {
-                alert(json.message);
+                setSuccessMsg(json.message || 'Sender ID reset successfully.');
+                setTimeout(() => setSuccessMsg(null), 3000);
                 fetchAccounts();
             } else {
-                alert(json.message || 'Reset failed.');
+                setError(json.message || 'Failed to reset sender.');
             }
-        } catch (err) {
-            console.error(err);
-            alert('Network error during reset.');
+        } catch {
+            setError('Network error during reset.');
+        } finally {
+            setActionLoading(null);
         }
     };
-
-    useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
@@ -806,6 +810,12 @@ const AdminAccounts: React.FC = () => {
                     <FiRefreshCw className="w-4 h-4" />
                 </button>
             </div>
+
+            {successMsg && (
+                <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 text-green-700 dark:text-green-400 text-[13px] font-medium">
+                    <FiCheck className="w-4 h-4 flex-shrink-0" /> {successMsg}
+                </div>
+            )}
 
             {error && (
                 <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 text-[13px] font-medium">
@@ -832,7 +842,7 @@ const AdminAccounts: React.FC = () => {
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">API Key</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Credits</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Free Used</th>
-                                <th className="pb-3 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider text-right">Actions</th>
+                                <th className="pb-3 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
@@ -860,15 +870,18 @@ const AdminAccounts: React.FC = () => {
                                             {acc.free_usage_count ?? 0} / 10
                                         </span>
                                     </td>
-                                    <td className="py-3 text-right">
-                                        {acc.approved_sender_id && (
-                                            <button 
-                                                onClick={() => handleReset(acc.location_id)}
-                                                className="px-3 py-1 text-[11px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800/20 transition-all"
-                                                title="Reset Sender ID Branding"
+                                    <td className="py-3">
+                                        {acc.approved_sender_id ? (
+                                            <button
+                                                onClick={() => doResetSender(acc.location_id)}
+                                                disabled={actionLoading === acc.location_id}
+                                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800/30 transition-all disabled:opacity-50"
                                             >
-                                                Reset
+                                                {actionLoading === acc.location_id ? <FiRefreshCw className="w-3 h-3 animate-spin" /> : <FiX className="w-3 h-3" />}
+                                                Reset Sender
                                             </button>
+                                        ) : (
+                                            <span className="text-[12px] text-[#9aa0a6]">—</span>
                                         )}
                                     </td>
                                 </tr>

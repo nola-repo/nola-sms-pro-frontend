@@ -10,6 +10,7 @@ import {
 import {
     getAccountSettings, saveAccountSettings,
     getNotificationSettings, saveNotificationSettings,
+    getStoredSenderIds, saveStoredSenderIds,
     type AccountSettings, type NotificationSettings, type StoredSenderId
 } from "../utils/settingsStorage";
 import { SenderRequestModal } from "../components/SenderRequestModal";
@@ -212,6 +213,20 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
             setSenderRequests(requests);
             if (cfg) setConfig(cfg);
             setIsLoading(false);
+
+            // Sync localStorage with API truth — remove stale entries
+            // that no longer exist in the backend (e.g., after a DB clear)
+            const apiIds = new Set<string>();
+            if (cfg?.approved_sender_id) apiIds.add(cfg.approved_sender_id);
+            for (const req of requests) apiIds.add(req.requested_id);
+
+            const stored = getStoredSenderIds();
+            if (stored.length > 0) {
+                const synced = stored.filter(s => apiIds.has(s.id));
+                if (synced.length !== stored.length) {
+                    saveStoredSenderIds(synced);
+                }
+            }
         });
 
         return () => { cancelled = true; };
@@ -598,6 +613,11 @@ const CreditsSection: React.FC = () => {
         );
         popupRef.current = popup;
 
+        if (!popup) {
+            alert("Checkout window blocked! Please allow popups for this site or use a different browser.");
+            return;
+        }
+
         setSubmitted(true);
 
         // Clear any existing poll
@@ -605,12 +625,16 @@ const CreditsSection: React.FC = () => {
 
         // Start polling the window status
         popupPollRef.current = setInterval(() => {
-            if (popup && popup.closed) {
-                if (popupPollRef.current) clearInterval(popupPollRef.current);
-                popupPollRef.current = null;
-                setSubmitted(false);
-                // Refresh balance in case they finished but message was missed
-                load();
+            try {
+                if (popup && popup.closed) {
+                    if (popupPollRef.current) clearInterval(popupPollRef.current);
+                    popupPollRef.current = null;
+                    setSubmitted(false);
+                    // Refresh balance in case they finished but message was missed
+                    load();
+                }
+            } catch (e) {
+                // Ignore cross-origin DOM exceptions
             }
         }, 500);
     };
@@ -695,8 +719,20 @@ const CreditsSection: React.FC = () => {
                         ))}
                     </div>
                     {submitted ? (
-                        <div className="flex items-center justify-center gap-2 py-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl text-emerald-600 dark:text-emerald-400 font-semibold text-[13px]">
-                            <FiCheck className="w-4 h-4" /> Checkout window opened. Please complete your payment
+                        <div className="flex flex-col items-center justify-center gap-2 w-full">
+                            <div className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl text-emerald-600 dark:text-emerald-400 font-semibold text-[13px]">
+                                <FiCheck className="w-4 h-4" /> Checkout window opened
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSubmitted(false);
+                                    if (popupPollRef.current) clearInterval(popupPollRef.current);
+                                }}
+                                className="text-[12px] text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ececf1] underline decoration-dashed hover:decoration-solid transition-all"
+                            >
+                                Window didn't open or you closed it? Click here.
+                            </button>
                         </div>
                     ) : (
                         <button type="submit" className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-semibold text-[14px] transition-all shadow-md shadow-blue-500/20">
