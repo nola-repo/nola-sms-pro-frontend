@@ -235,8 +235,6 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
     const systemDefault = config?.system_default_sender || "NOLASMSPro";
     const freeUsageCount = config?.free_usage_count || 0;
     const freeLimit = 10;
-    const freeRemaining = Math.max(0, freeLimit - freeUsageCount);
-    const freePercent = (freeUsageCount / freeLimit) * 100;
 
     // Build display list: system default + API-fetched requests
     const displayItems: { id: string; name: string; description: string; status: "approved" | "pending" | "rejected"; color: string; isSystem: boolean }[] = [
@@ -334,7 +332,13 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                                                 {statusCfg.icon} {statusCfg.label}
                                             </span>
                                             {sid.isSystem && (
-                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-500 uppercase tracking-wider">Default</span>
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                    freeUsageCount >= freeLimit 
+                                                    ? "bg-red-50 dark:bg-red-900/20 text-red-500" 
+                                                    : "bg-blue-50 dark:bg-blue-900/20 text-blue-500"
+                                                }`}>
+                                                    Default • {freeUsageCount}/{freeLimit} Free
+                                                </span>
                                             )}
                                         </div>
                                         <span className="text-[11px] text-[#9aa0a6]">{sid.description}</span>
@@ -346,43 +350,6 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                 )}
             </Card>
 
-            {/* Free Credits Indicator */}
-            <Card>
-                <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider mb-4">Free Messages</h3>
-                {isLoading ? (
-                    <div className="h-16 bg-gray-100 dark:bg-[#0d0e10] rounded-xl animate-pulse" />
-                ) : (
-                    <div className="space-y-3">
-                        <div className="flex items-end justify-between">
-                            <div>
-                                <p className="text-[28px] font-black text-[#111111] dark:text-[#ececf1] leading-none">
-                                    {freeUsageCount}<span className="text-[16px] font-bold text-[#9aa0a6]">/{freeLimit}</span>
-                                </p>
-                                <p className="text-[11px] text-[#9aa0a6] mt-1">messages used</p>
-                            </div>
-                            <div className="text-right">
-                                <p className={`text-[16px] font-bold ${freeRemaining === 0 ? "text-red-500" : freeRemaining <= 3 ? "text-amber-500" : "text-emerald-500"}`}>
-                                    {freeRemaining} remaining
-                                </p>
-                            </div>
-                        </div>
-                        <div className="h-2 bg-gray-100 dark:bg-[#2a2b32] rounded-full overflow-hidden">
-                            <div
-                                className={`h-full rounded-full transition-all duration-700 ${freePercent >= 100 ? "bg-red-500" : freePercent >= 70 ? "bg-amber-400" : "bg-emerald-500"}`}
-                                style={{ width: `${Math.min(100, freePercent)}%` }}
-                            />
-                        </div>
-                        {freeRemaining === 0 && (
-                            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
-                                <FiAlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                                <p className="text-[12px] text-red-600 dark:text-red-400 leading-relaxed">
-                                    <strong>Free limit reached.</strong> Register your own Sender ID and add your NOLA SMS Pro API key to continue sending.
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </Card>
 
             {/* Add New Sender ID Shared Modal */}
             <SenderRequestModal

@@ -99,9 +99,8 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
     const selectedOption = allOptions.find(opt => opt.id === value) || allOptions[0] || SYSTEM_DEFAULT;
 
     const handleSuccess = (_newSender: StoredSenderId) => {
-        // After a request is submitted, close the modal
+        // After a request is submitted, the modal will handle its own auto-close
         // The sender won't appear in the dropdown until admin approves it
-        setIsAdding(false);
         setIsOpen(false);
     };
 

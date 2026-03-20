@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { FiPlus, FiX, FiCheck, FiLoader } from "react-icons/fi";
 import { submitSenderRequest } from "../api/senderRequests";
@@ -21,7 +21,21 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
     const [newSample, setNewSample] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [countdown, setCountdown] = useState(3);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let timer: ReturnType<typeof setInterval>;
+        if (isSubmitted) {
+            setCountdown(3);
+            timer = setInterval(() => {
+                setCountdown((prev) => Math.max(0, prev - 1));
+            }, 1000);
+        }
+        return () => {
+            if (timer) clearInterval(timer);
+        };
+    }, [isSubmitted]);
 
     if (!isOpen) return null;
 
@@ -100,6 +114,9 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                         <h4 className="text-[18px] font-bold text-[#111111] dark:text-[#ececf1] mb-2">Request Submitted</h4>
                         <p className="text-[14px] text-[#6e6e73] dark:text-[#94959b] max-w-xs leading-relaxed">
                             Your sender name has been submitted and will be processed within 5 business days. For the requested Sender Names, credits will only be deducted upon approval.
+                        </p>
+                        <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-6 font-medium bg-gray-50 dark:bg-white/5 py-1.5 px-4 rounded-full">
+                            Auto-closing in {countdown}s...
                         </p>
                     </div>
                 ) : (

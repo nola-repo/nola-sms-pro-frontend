@@ -348,6 +348,7 @@ export const Composer: React.FC<ComposerProps> = ({
     : smsSegments;
 
   const handleSend = async () => {
+    if (loading) return;
     const recipients = getActiveRecipients();
 
     if (!message) {
@@ -470,7 +471,9 @@ export const Composer: React.FC<ComposerProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      if (!isSendDisabled()) {
+        handleSend();
+      }
     }
   };
 

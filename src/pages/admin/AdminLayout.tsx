@@ -4,6 +4,7 @@ import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
+const POLL_INTERVAL = 15000; // 15 seconds real-time sync
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -365,31 +366,46 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
     const [requests, setRequests] = useState<SenderRequest[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+
+    const fetchData = useCallback(async (isInitial = false) => {
+        if (isInitial) setLoading(true);
+        try {
+            const [accRes, logsRes, reqRes] = await Promise.all([
+                fetch(`${ADMIN_API}?action=accounts`).catch(() => null),
+                fetch(`${ADMIN_API}?action=logs`).catch(() => null),
+                fetch(ADMIN_API).catch(() => null)
+            ]);
+
+            if (accRes) {
+                const accJson = await accRes.json();
+                if (accJson.status === 'success') {
+                    const mapped = (accJson.data || []).map((item: any) => item.data ? { id: item.id, ...item.data } : item)
+                        .filter((acc: any) => acc.id !== 'ghl' && acc.location_id);
+                    setAccounts(mapped);
+                }
+            }
+            if (reqRes) {
+                const reqJson = await reqRes.json();
+                if (reqJson.status === 'success') setRequests(reqJson.data || []);
+            }
+            if (logsRes) {
+                const logsJson = await logsRes.json();
+                if (logsJson.status === 'success') setLogs(logsJson.data || []);
+            }
+            setLastRefreshed(new Date());
+        } catch (err) {
+            console.error("Dashboard poll error:", err);
+        } finally {
+            if (isInitial) setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        let cancelled = false;
-        setLoading(true);
-        Promise.all([
-            fetch(`${ADMIN_API}?action=accounts`).then(r => r.json()).catch(() => ({ status: 'error', data: [] })),
-            fetch(`${ADMIN_API}?action=logs`).then(r => r.json()).catch(() => ({ status: 'error', data: [] })),
-            fetch(ADMIN_API).then(r => r.json()).catch(() => ({ status: 'error', data: [] }))
-        ]).then(([accJson, logsJson, reqJson]) => {
-            if (cancelled) return;
-            if (accJson.status === 'success') {
-                const mapped = (accJson.data || []).map((item: any) => item.data ? { id: item.id, ...item.data } : item)
-                    .filter((acc: any) => acc.id !== 'ghl' && acc.location_id);
-                setAccounts(mapped);
-            }
-            if (reqJson.status === 'success') {
-                setRequests(reqJson.data || []);
-            }
-            if (logsJson.status === 'success') {
-                setLogs(logsJson.data || []);
-            }
-            setLoading(false);
-        });
-        return () => { cancelled = true; };
-    }, []);
+        fetchData(true);
+        const timer = setInterval(() => fetchData(false), POLL_INTERVAL);
+        return () => clearInterval(timer);
+    }, [fetchData]);
 
     const totalAccounts = accounts.length;
     const pendingRequests = requests.filter(r => r.status === 'pending').length;
@@ -416,6 +432,21 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
 
     return (
         <div className="space-y-8">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                    <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live Updates: Active</span>
+                </div>
+                {!loading && (
+                    <span className="text-[11px] text-[#9aa0a6] font-medium">
+                        Last checked: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                )}
+            </div>
+            
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
                 <StatCard label="Total Accounts" value={totalAccounts} color="from-[#2b83fa] to-[#60a5fa]" icon={<FiUsers className="w-full h-full" />} />
@@ -507,9 +538,10 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
                         </div>
                     ) : logs.map(log => {
                         // Determine type based on explicit type or fallback properties
+                        const isNegative = typeof log.amount === 'number' && log.amount < 0;
                         const type = log.type || (
                             log.requested_id ? 'sender_request' :
-                            log.amount ? 'credit_purchase' :
+                            log.amount ? (isNegative ? 'credit_usage' : 'credit_purchase') :
                             'message'
                         );
                         
@@ -582,20 +614,23 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
                             );
                         }
 
-                        // Credit Purchase Event
-                        if (type === 'credit_purchase') {
+                        // Credit Purchase/Usage Event
+                        if (type === 'credit_purchase' || type === 'credit_usage') {
+                            const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0);
                             return (
                                 <div key={log.id} className="flex items-start gap-4 p-4 rounded-xl hover:bg-[#f7f7f7] dark:hover:bg-[#0d0e10] transition-colors border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/5 group">
-                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 bg-purple-50 dark:bg-purple-900/20 text-purple-600">
-                                        <FiCreditCard className="w-5 h-5" />
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 ${
+                                        isUsage ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600' : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600'
+                                    }`}>
+                                        {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between mb-0.5">
-                                            <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate pr-2">Credits Purchased</p>
+                                            <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate pr-2">{isUsage ? 'Credits Used' : 'Credits Purchased'}</p>
                                             <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap">{timeString}</span>
                                         </div>
                                         <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mb-2">
-                                            Added <span className="font-bold text-purple-600 dark:text-purple-400">+{log.amount?.toLocaleString()}</span> credits
+                                            {isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-amber-600' : 'text-purple-600 dark:text-purple-400'}`}>{!isUsage && '+'}{log.amount?.toLocaleString()}</span> credits
                                         </p>
                                         <div className="flex items-center gap-2">
                                              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30">
@@ -642,8 +677,10 @@ const AdminSenderRequests: React.FC = () => {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-    const fetchRequests = useCallback(async () => {
-        setLoading(true);
+    const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+
+    const fetchRequests = useCallback(async (isInitial = false) => {
+        if (isInitial) setLoading(true);
         setError(null);
         try {
             const [reqRes, accRes] = await Promise.all([
@@ -667,14 +704,19 @@ const AdminSenderRequests: React.FC = () => {
                 }).filter((acc: any) => acc.id !== 'ghl' && acc.location_id);
                 setAccounts(mappedAccounts);
             }
+            setLastRefreshed(new Date());
         } catch {
             setError('Network error. Could not reach the backend.');
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     }, []);
 
-    useEffect(() => { fetchRequests(); }, [fetchRequests]);
+    useEffect(() => {
+        fetchRequests(true);
+        const timer = setInterval(() => fetchRequests(false), POLL_INTERVAL);
+        return () => clearInterval(timer);
+    }, [fetchRequests]);
 
     const doAction = async (action: string, requestId: string, extra: Record<string, string> = {}) => {
         setActionLoading(requestId + action);
@@ -704,13 +746,27 @@ const AdminSenderRequests: React.FC = () => {
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                    <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live</span>
+                </div>
+                {!loading && (
+                    <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
+                        Updated: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                )}
+            </div>
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">Pending Sender ID Requests</h3>
                     <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Review, approve, or reject sender name registration requests.</p>
                 </div>
-                <button onClick={fetchRequests} className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all">
-                    <FiRefreshCw className="w-4 h-4" />
+                <button onClick={() => fetchRequests(true)} className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all">
+                    <FiRefreshCw className={`w-4 h-4 ${loading && !requests.length ? 'animate-spin' : ''}`} />
                 </button>
             </div>
 
@@ -906,8 +962,10 @@ export const AdminTeamManagement: React.FC = () => {
     const [newRole, setNewRole] = useState('support');
     const [actionLoading, setActionLoading] = useState(false);
 
-    const fetchAdmins = useCallback(async () => {
-        setLoading(true);
+    const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+
+    const fetchAdmins = useCallback(async (isInitial = false) => {
+        if (isInitial) setLoading(true);
         try {
             const res = await fetch('/api/admin_users.php');
             if (res.ok) {
@@ -918,21 +976,25 @@ export const AdminTeamManagement: React.FC = () => {
                     setError(json.message || 'Failed to fetch admin users.');
                 }
             } else {
-                // Mock fallback for frontend preview before backend is done
                 setAdmins([
                     { username: 'admin', role: 'super_admin', created_at: new Date().toISOString().split('T')[0] }
                 ]);
             }
+            setLastRefreshed(new Date());
         } catch {
             setAdmins([
                 { username: 'admin', role: 'super_admin', created_at: new Date().toISOString().split('T')[0] }
             ]);
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     }, []);
 
-    useEffect(() => { fetchAdmins(); }, [fetchAdmins]);
+    useEffect(() => {
+        fetchAdmins(true);
+        const timer = setInterval(() => fetchAdmins(false), POLL_INTERVAL);
+        return () => clearInterval(timer);
+    }, [fetchAdmins]);
 
     const handleCreateAdmin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1000,6 +1062,20 @@ export const AdminTeamManagement: React.FC = () => {
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                    <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live View</span>
+                </div>
+                {!loading && (
+                    <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
+                        Last Active: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                )}
+            </div>
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">Admin Users</h3>
@@ -1090,7 +1166,7 @@ export const AdminTeamManagement: React.FC = () => {
                                     required
                                     value={newUsername}
                                     onChange={e => setNewUsername(e.target.value)}
-                                    placeholder="e.g. support_john"
+                                    placeholder="e.g. nola_admin"
                                     className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
                                 />
                             </div>
@@ -1149,15 +1225,15 @@ const AdminAccounts: React.FC = () => {
     const [showApiKey, setShowApiKey] = useState(false);
     const [copiedKey, setCopiedKey] = useState(false);
 
-    const fetchAccounts = useCallback(async () => {
-        setLoading(true);
+    const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+
+    const fetchAccounts = useCallback(async (isInitial = false) => {
+        if (isInitial) setLoading(true);
         setError(null);
         try {
             const res = await fetch(`${ADMIN_API}?action=accounts`);
             const json = await res.json();
             if (json.status === 'success') {
-                // Backend returns [{ id: "ghl_locId", data: { ... } }] or [{ location_id: "..." }]
-                // We need to unwrap it and filter out the master "ghl" token doc if present
                 const mappedAccounts = (json.data || []).map((item: any) => {
                     if (item.data) return { id: item.id, ...item.data };
                     return item;
@@ -1167,14 +1243,19 @@ const AdminAccounts: React.FC = () => {
             } else {
                 setError(json.message || 'Failed to load accounts.');
             }
+            setLastRefreshed(new Date());
         } catch {
             setError('Network error. Could not reach the backend.');
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     }, []);
 
-    useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
+    useEffect(() => {
+        fetchAccounts(true);
+        const timer = setInterval(() => fetchAccounts(false), POLL_INTERVAL);
+        return () => clearInterval(timer);
+    }, [fetchAccounts]);
 
     const submitManageSender = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1238,13 +1319,27 @@ const AdminAccounts: React.FC = () => {
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                    <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live Sync</span>
+                </div>
+                {!loading && (
+                    <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
+                        Last Pull: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                )}
+            </div>
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">All User Accounts</h3>
                     <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Overview of all mapped GHL subaccounts, credits, and active Sender IDs.</p>
                 </div>
-                <button onClick={fetchAccounts} className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all">
-                    <FiRefreshCw className="w-4 h-4" />
+                <button onClick={() => fetchAccounts(true)} className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all">
+                    <FiRefreshCw className={`w-4 h-4 ${loading && !accounts.length ? 'animate-spin' : ''}`} />
                 </button>
             </div>
 
@@ -1459,36 +1554,55 @@ const AdminLogs: React.FC = () => {
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchLogs = useCallback(async () => {
-        setLoading(true);
+    const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+
+    const fetchLogs = useCallback(async (isInitial = false) => {
+        if (isInitial) setLoading(true);
         try {
             const res = await fetch(`${ADMIN_API}?action=logs`);
             const data = await res.json();
             if (data.status === 'success') {
                 setLogs(data.data || []);
             }
+            setLastRefreshed(new Date());
         } catch (error) {
             console.error('Failed to load logs:', error);
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchLogs();
+        fetchLogs(true);
+        const timer = setInterval(() => fetchLogs(false), POLL_INTERVAL);
+        return () => clearInterval(timer);
     }, [fetchLogs]);
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-sm flex flex-col min-h-[600px]">
+            <div className="px-6 pt-4 flex items-center justify-between">
+                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                    <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live Stream</span>
+                </div>
+                {!loading && (
+                    <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
+                        Refreshed: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                )}
+            </div>
             <div className="p-6 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-between">
                 <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
                     <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Activity Timeline
                 </h3>
                 <button
-                    onClick={fetchLogs}
+                    onClick={() => fetchLogs(true)}
                     className="p-2 text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-[#0d0e10] rounded-xl transition-colors"
                 >
-                    <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    <FiRefreshCw className={`w-4 h-4 ${loading && !logs.length ? 'animate-spin' : ''}`} />
                 </button>
             </div>
             
@@ -1504,10 +1618,10 @@ const AdminLogs: React.FC = () => {
                         </div>
                     ) : (
                         logs.map(log => {
-                            // Determine type based on explicit type or fallback properties
+                            const isNegative = typeof log.amount === 'number' && log.amount < 0;
                             const type = log.type || (
                                 log.requested_id ? 'sender_request' :
-                                log.amount ? 'credit_purchase' :
+                                log.amount ? (isNegative ? 'credit_usage' : 'credit_purchase') :
                                 'message'
                             );
                             
@@ -1587,23 +1701,26 @@ const AdminLogs: React.FC = () => {
                                 );
                             }
 
-                            // Credit Purchase Event
-                            if (type === 'credit_purchase') {
+                            // Credit Purchase/Usage Event
+                            if (type === 'credit_purchase' || type === 'credit_usage') {
+                                const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0);
                                 return (
                                     <div key={log.id || Math.random().toString()} className="flex items-start gap-4 p-4 rounded-xl bg-[#fdfdfd] dark:bg-[#151618] border border-[#e5e5e5] dark:border-white/5 hover:border-[#d0d0d0] dark:hover:border-white/10 transition-colors">
-                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 bg-purple-50 dark:bg-purple-900/20 text-purple-600">
-                                            <FiCreditCard className="w-5 h-5" />
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 ${
+                                            isUsage ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600' : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600'
+                                        }`}>
+                                            {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between mb-0.5">
-                                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">Credits Purchased</p>
+                                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">{isUsage ? 'Credits Used' : 'Credits Purchased'}</p>
                                                 <div className="text-right">
                                                     <span className="block text-[11px] font-bold text-[#111111] dark:text-white tracking-wider whitespace-nowrap">{dateString}</span>
                                                     <span className="block text-[10px] uppercase text-[#9aa0a6] tracking-wider whitespace-nowrap">{timeString}</span>
                                                 </div>
                                             </div>
                                             <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mb-2">
-                                                Added <span className="font-bold text-purple-600 dark:text-purple-400">+{log.amount?.toLocaleString()}</span> credits
+                                                {isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-amber-600' : 'text-purple-600 dark:text-purple-400'}`}>{!isUsage && '+'}{log.amount?.toLocaleString()}</span> credits
                                             </p>
                                             <div className="flex items-center gap-2 flex-wrap">
                                                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30">
