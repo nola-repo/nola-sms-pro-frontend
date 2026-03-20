@@ -92,7 +92,7 @@ const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void; id: s
 const AccountSection: React.FC = () => {
     const [form] = useState<AccountSettings>(getAccountSettings);
     const ghlLocationIdFromHook = useGhlLocation();
-    
+
     const [fetchedName, setFetchedName] = useState<string | null>(null);
 
 
@@ -103,7 +103,7 @@ const AccountSection: React.FC = () => {
             const profile = await fetchAccountProfile();
             if (mounted && profile?.location_name) {
                 setFetchedName(profile.location_name);
-                
+
                 // Sync the true location name back to local storage if valid,
                 // so the Sidebar and other components can use the most up-to-date name.
                 if (profile.location_name !== "Unknown") {
@@ -197,7 +197,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
     // Fetch data from API simultaneously to avoid cascading load flashes
     useEffect(() => {
         let cancelled = false;
-        
+
         setIsLoading(true);
         Promise.all([
             fetchSenderRequests().catch(err => {
@@ -282,7 +282,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                 ...prev
             ]);
         }
-        
+
         // Fetch from server after index delay catch-up
         setTimeout(() => {
             fetchSenderRequests().then(setSenderRequests);
@@ -539,7 +539,7 @@ const CreditsSection: React.FC = () => {
         setBalance(bal);
         setTransactions(txs);
         setPackages(pkgs);
-        
+
         // Default topUpAmount to the second package if available, else first
         if (pkgs.length > 0) {
             setTopUpAmount(pkgs[1]?.credits || pkgs[0].credits);
@@ -591,13 +591,13 @@ const CreditsSection: React.FC = () => {
 
     const handleTopUp = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         const selectedPackage = packages.find(p => p.credits === topUpAmount);
         if (!selectedPackage) return;
 
         const baseUrl = selectedPackage.link;
         const separator = baseUrl.includes('?') ? '&' : '?';
-        const checkoutUrl = locationId 
+        const checkoutUrl = locationId
             ? `${baseUrl}${separator}location_id=${encodeURIComponent(locationId)}`
             : baseUrl;
 
@@ -605,10 +605,10 @@ const CreditsSection: React.FC = () => {
         const height = 850;
         const left = (window.screen.width / 2) - (width / 2);
         const top = (window.screen.height / 2) - (height / 2);
-        
+
         const popup = window.open(
-            checkoutUrl, 
-            "Checkout", 
+            checkoutUrl,
+            "Checkout",
             `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
         );
         popupRef.current = popup;
@@ -731,7 +731,7 @@ const CreditsSection: React.FC = () => {
                                 }}
                                 className="text-[12px] text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ececf1] underline decoration-dashed hover:decoration-solid transition-all"
                             >
-                                Window didn't open or you closed it? Click here.
+                                Window didn't open or you closed it? Click here to refresh.
                             </button>
                         </div>
                     ) : (
