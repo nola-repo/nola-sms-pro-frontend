@@ -747,6 +747,12 @@ const AdminAccounts: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
+    
+    // Manage Sender States
+    const [managingAccount, setManagingAccount] = useState<Account | null>(null);
+    const [manageSenderId, setManageSenderId] = useState('');
+    const [manageApiKey, setManageApiKey] = useState('');
+
 
     const fetchAccounts = useCallback(async () => {
         setLoading(true);
@@ -775,25 +781,61 @@ const AdminAccounts: React.FC = () => {
 
     useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
 
-    const doResetSender = async (locationId: string) => {
-        if (!confirm(`Reset the approved Sender ID and API key for location ${locationId}?`)) return;
-        setActionLoading(locationId);
+    const submitManageSender = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!managingAccount) return;
+        setActionLoading('managing');
         try {
             const res = await fetch(ADMIN_API, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'reset_sender', location_id: locationId }),
+                body: JSON.stringify({
+                    action: 'manage_sender',
+                    location_id: managingAccount.location_id,
+                    sender_id: manageSenderId,
+                    api_key: manageApiKey
+                }),
             });
             const json = await res.json();
             if (json.status === 'success') {
-                setSuccessMsg(json.message || 'Sender ID reset successfully.');
+                setSuccessMsg(json.message || 'Sender ID updated successfully.');
+                setManagingAccount(null);
                 setTimeout(() => setSuccessMsg(null), 3000);
                 fetchAccounts();
             } else {
-                setError(json.message || 'Failed to reset sender.');
+                setError(json.message || 'Failed to update sender.');
             }
         } catch {
-            setError('Network error during reset.');
+            setError('Network error during update.');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const submitRevokeSender = async () => {
+        if (!managingAccount) return;
+        if (!confirm(`Are you sure you want to revoke the permanent Sender ID for ${managingAccount.location_name || managingAccount.location_id}?`)) return;
+        setActionLoading('managing');
+        try {
+            const res = await fetch(ADMIN_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'revoke_sender',
+                    location_id: managingAccount.location_id
+                }),
+            });
+            const json = await res.json();
+            if (json.status === 'success') {
+                setSuccessMsg(json.message || 'Sender ID revoked successfully.');
+                setManagingAccount(null);
+                setTimeout(() => setSuccessMsg(null), 3000);
+                fetchAccounts();
+            } else {
+                setError(json.message || 'Failed to revoke sender.');
+            }
+        } catch {
+            setError('Network error during revocation.');
         } finally {
             setActionLoading(null);
         }
@@ -873,12 +915,15 @@ const AdminAccounts: React.FC = () => {
                                     <td className="py-3">
                                         {acc.approved_sender_id ? (
                                             <button
-                                                onClick={() => doResetSender(acc.location_id)}
-                                                disabled={actionLoading === acc.location_id}
-                                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800/30 transition-all disabled:opacity-50"
+                                                onClick={() => {
+                                                    setManagingAccount(acc);
+                                                    setManageSenderId(acc.approved_sender_id || '');
+                                                    setManageApiKey(acc.nola_pro_api_key || '');
+                                                }}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold text-[#5f6368] dark:text-[#ececf1] bg-[#f7f7f7] hover:bg-[#e8e8e8] dark:bg-white/5 dark:hover:bg-white/10 transition-all border border-[#e5e5e5] dark:border-white/10"
                                             >
-                                                {actionLoading === acc.location_id ? <FiRefreshCw className="w-3 h-3 animate-spin" /> : <FiX className="w-3 h-3" />}
-                                                Reset Sender
+                                                <FiSettings className="w-3.5 h-3.5" />
+                                                Manage
                                             </button>
                                         ) : (
                                             <span className="text-[12px] text-[#9aa0a6]">—</span>
@@ -890,9 +935,73 @@ const AdminAccounts: React.FC = () => {
                     </table>
                 </div>
             )}
+
+            {/* Manage Sender Modal */}
+            {managingAccount && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between mb-5">
+                            <h3 className="text-[18px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
+                                <FiSettings className="text-[#2b83fa]" /> Manage Sender Config
+                            </h3>
+                            <button onClick={() => setManagingAccount(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-5">
+                            Update the permanent Sender ID configuration for <span className="font-semibold text-[#111111] dark:text-white">{managingAccount.location_name || managingAccount.location_id}</span>.
+                        </p>
+
+                        <form onSubmit={submitManageSender} className="space-y-4">
+                            <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Approved Sender ID</label>
+                                <input
+                                    required
+                                    value={manageSenderId}
+                                    onChange={(e) => setManageSenderId(e.target.value)}
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">API Key</label>
+                                <input
+                                    required
+                                    value={manageApiKey}
+                                    onChange={(e) => setManageApiKey(e.target.value)}
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-mono transition-shadow"
+                                />
+                            </div>
+
+                            <div className="pt-4 flex flex-col gap-3">
+                                <button
+                                    type="submit"
+                                    disabled={actionLoading === 'managing'}
+                                    className="flex items-center justify-center gap-2 w-full px-5 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50"
+                                >
+                                    {actionLoading === 'managing' ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiCheck className="w-4 h-4" />}
+                                    Save Changes
+                                </button>
+                                
+                                <div className="border-t border-[#e5e5e5] dark:border-white/10 my-1"></div>
+                                
+                                <button
+                                    type="button"
+                                    onClick={submitRevokeSender}
+                                    disabled={actionLoading === 'managing'}
+                                    className="flex items-center justify-center gap-2 w-full px-5 py-3 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/30 rounded-xl font-bold text-[14px] transition-all disabled:opacity-50"
+                                >
+                                    Revoke Permanent Sender
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
+
 
 // ─── System Settings View ─────────────────────────────────────────────────────
 
