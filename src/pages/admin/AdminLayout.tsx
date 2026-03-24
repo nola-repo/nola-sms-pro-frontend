@@ -767,10 +767,10 @@ const AdminSenderRequests: React.FC = () => {
             {/* Filter Pills */}
             <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 custom-scrollbar">
                 {[
-                    { id: 'all', label: 'All', icon: null },
-                    { id: 'pending', label: 'Pending', icon: <FiClock size={12} /> },
-                    { id: 'approved', label: 'Approved', icon: <FiCheck size={12} /> },
-                    { id: 'rejected', label: 'Rejected', icon: <FiX size={12} /> },
+                    { id: 'all', label: 'All', icon: null, activeClass: 'bg-slate-500 border-slate-500 shadow-slate-500/20' },
+                    { id: 'pending', label: 'Pending', icon: <FiClock size={12} />, activeClass: 'bg-amber-500 border-amber-500 shadow-amber-500/20' },
+                    { id: 'approved', label: 'Approved', icon: <FiCheck size={12} />, activeClass: 'bg-emerald-500 border-emerald-500 shadow-emerald-500/20' },
+                    { id: 'rejected', label: 'Rejected', icon: <FiX size={12} />, activeClass: 'bg-red-500 border-red-500 shadow-red-500/20' },
                 ].map(pill => {
                     const isActive = filter === pill.id;
                     const count = pill.id === 'all' ? requests.length : requests.filter(r => r.status === pill.id).length;
@@ -781,7 +781,7 @@ const AdminSenderRequests: React.FC = () => {
                             onClick={() => setFilter(pill.id as any)}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold transition-all whitespace-nowrap border ${
                                 isActive 
-                                    ? 'bg-[#2b83fa] text-white border-[#2b83fa] shadow-md shadow-blue-500/20' 
+                                    ? `text-white ${pill.activeClass} shadow-md` 
                                     : 'bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] border-[#e5e5e5] dark:border-white/5 hover:bg-[#efefef] dark:hover:bg-[#161718]'
                             }`}
                         >
@@ -833,7 +833,11 @@ const AdminSenderRequests: React.FC = () => {
                                             <span className="font-bold text-[14px] text-[#111111] dark:text-white font-mono">{req.requested_id}</span>
                                             <StatusBadge status={req.status} />
                                         </div>
-                                        <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5 truncate">{req.location_id}</p>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                            <p className="text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] uppercase tracking-wider">{req.location_name || 'Admin'}</p>
+                                            <span className="text-[10px] opacity-30">•</span>
+                                            <p className="text-[10px] text-[#9aa0a6] font-mono truncate">{req.location_id}</p>
+                                        </div>
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         {/* Approved: show masked key inline */}
@@ -883,9 +887,9 @@ const AdminSenderRequests: React.FC = () => {
                                             </div>
                                             <div>
                                                 <h3 className="text-[16px] font-bold text-[#111111] dark:text-white font-mono leading-none">{req.requested_id}</h3>
-                                                <div className="mt-1">
-                                                    <StatusBadge status={req.status} />
-                                                </div>
+                                                <p className="text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] mt-1 uppercase tracking-wide">
+                                                    {req.location_name || 'Unknown Account'}
+                                                </p>
                                             </div>
                                         </div>
                                         <button onClick={() => { setExpandedId(null); setShowApiKey(false); setShowInputKey(false); }} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
@@ -894,15 +898,17 @@ const AdminSenderRequests: React.FC = () => {
                                     </div>
 
                                     <div className="space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
-                                        {/* Current Sender Warning */}
-                                        {associatedAccount?.approved_sender_id && (
-                                            <div className="flex items-baseline gap-2 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/20 mb-2">
-                                                <FiKey className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                                                <p className="text-[12px] text-blue-700 dark:text-blue-300">
-                                                    Account has active Sender ID: <strong className="font-mono">{associatedAccount.approved_sender_id}</strong>
-                                                </p>
+                                        {/* Status & ID Banner */}
+                                        <div className="flex items-center justify-between p-3 rounded-xl bg-[#f7f7f7] dark:bg-white/5 border border-[#e5e5e5] dark:border-white/5">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-0.5">Request Status</span>
+                                                <StatusBadge status={req.status} />
                                             </div>
-                                        )}
+                                            <div className="flex flex-col items-end text-right">
+                                                <span className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-0.5">Location ID</span>
+                                                <span className="text-[11px] font-mono font-bold text-[#111111] dark:text-white">{req.location_id}</span>
+                                            </div>
+                                        </div>
 
                                         {/* Request Details Grid */}
                                         <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 space-y-4 border border-[#e5e5e5] dark:border-white/5">
@@ -1024,23 +1030,22 @@ const AdminSenderRequests: React.FC = () => {
                                             </div>
                                         )}
 
-                                        {/* ── Rejected: show note ── */}
-                                        {req.status === 'rejected' && (
-                                            <div className="space-y-3">
-                                                <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800/30">
-                                                    <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
-                                                        <FiX className="w-4 h-4 text-red-600 dark:text-red-400" />
-                                                    </div>
-                                                    <p className="text-[13px] text-red-700 dark:text-red-400 font-medium leading-snug">
-                                                        Sender ID request was rejected.
-                                                    </p>
+                                        {/* ── Approved/Rejected: show account key toggle if available ── */}
+                                        {(req.status === 'approved' || req.status === 'rejected') && associatedAccount && (associatedAccount.api_key || associatedAccount.semaphore_api_key) && (
+                                            <div className="pt-4 border-t border-[#e5e5e5] dark:border-white/5 mt-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Account API Key</label>
+                                                    <button 
+                                                        onClick={() => setShowApiKey(!showApiKey)}
+                                                        className="text-[11px] font-bold text-[#2b83fa] hover:underline flex items-center gap-1"
+                                                    >
+                                                        {showApiKey ? <FiEyeOff size={12} /> : <FiEye size={12} />}
+                                                        {showApiKey ? 'Hide' : 'Show Key'}
+                                                    </button>
                                                 </div>
-                                                {req.rejection_note && (
-                                                    <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 border border-[#e5e5e5] dark:border-white/5">
-                                                        <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Reason</p>
-                                                        <p className="text-[13px] text-red-500">{req.rejection_note}</p>
-                                                    </div>
-                                                )}
+                                                <div className="p-3 bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 rounded-xl text-[12px] font-mono break-all text-[#111111] dark:text-white">
+                                                    {showApiKey ? (associatedAccount.api_key || associatedAccount.semaphore_api_key) : "••••••••••••••••••••••••••••••••••••••••••••••"}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
