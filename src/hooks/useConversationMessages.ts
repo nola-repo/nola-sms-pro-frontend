@@ -54,14 +54,45 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 text: row.message || "",
                 timestamp: parseFirestoreDate(row.created_at),
                 senderName: row.sender_id || "NOLASMSPro",
-                status: (row.status as Message["status"]) || "sent",
+                // Normalize to lowercase — backend (retrieve_status.php) stores Title Case (Sent, Pending, Queued)
+                status: ((row.status as string)?.toLowerCase() as Message["status"]) || "sent",
                 batch_id: row.batch_id,
                 message: row.message,
                 errorReason: row.error_reason,
             }));
 
-            // Preserve any in-flight optimistic "temp-" messages that haven't been confirmed yet
+            // Frontend status priority guard — mirrors backend retrieve_status.php
+            // Prevents a lagging DB poll (Queued/Pending) from overwriting an
+            // optimistically-set higher-priority status (sent/delivered).
+            const STATUS_PRIORITY: Record<string, number> = {
+                sending: 0,
+                queued: 1,
+                pending: 2,
+                sent: 3,
+                delivered: 4,
+                failed: 4,
+                rejected: 4,
+                undelivered: 4,
+                expired: 4,
+            };
+
+            // Preserve any in-flight optimistic "temp-" messages that haven't been confirmed yet,
+            // and guard against status downgrades for real messages already in local state.
             setMessages(prev => {
+                const prevById = new Map(prev.map(m => [m.id, m]));
+
+                const merged = formatted.map(apiMsg => {
+                    const local = prevById.get(apiMsg.id);
+                    if (!local) return apiMsg;
+                    // Keep local status if it has equal or higher priority than what DB returned
+                    const localPriority = STATUS_PRIORITY[local.status] ?? -1;
+                    const apiPriority = STATUS_PRIORITY[apiMsg.status] ?? -1;
+                    if (localPriority >= apiPriority) {
+                        return { ...apiMsg, status: local.status };
+                    }
+                    return apiMsg;
+                });
+
                 const tempOnly = prev.filter(
                     (m) =>
                         m.id.startsWith("temp-") &&
@@ -71,7 +102,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                                 Math.abs(api.timestamp.getTime() - m.timestamp.getTime()) < 60_000
                         )
                 );
-                return [...formatted, ...tempOnly];
+                return [...merged, ...tempOnly];
             });
 
             consecutiveServerErrors.current = 0;

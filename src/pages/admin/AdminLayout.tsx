@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiChevronDown, FiChevronUp, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiTrash2 } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 
@@ -432,14 +432,7 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
 
     return (
         <div className="space-y-8">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                    <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live Updates: Active</span>
-                </div>
+            <div className="flex items-center justify-end">
                 {!loading && (
                     <span className="text-[11px] text-[#9aa0a6] font-medium">
                         Last checked: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -747,14 +740,7 @@ const AdminSenderRequests: React.FC = () => {
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                    <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live</span>
-                </div>
+            <div className="flex items-center justify-end mb-2">
                 {!loading && (
                     <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
                         Updated: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -797,15 +783,12 @@ const AdminSenderRequests: React.FC = () => {
             ) : (
                 <div className="space-y-3">
                     {requests.map(req => {
-                        const isExpanded = expandedId === req.id;
-                        const isActing = actionLoading?.startsWith(req.id);
-                        const associatedAccount = accounts.find(a => a.location_id === req.location_id);
                         return (
                             <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all">
                                 {/* Row Header */}
                                 <div
                                     className="flex items-center gap-4 px-4 py-3 bg-[#fafafa] dark:bg-[#111214] cursor-pointer hover:bg-[#f0f0f0] dark:hover:bg-[#161718] transition-colors"
-                                    onClick={() => setExpandedId(isExpanded ? null : req.id)}
+                                    onClick={() => setExpandedId(req.id)}
                                 >
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
@@ -822,126 +805,174 @@ const AdminSenderRequests: React.FC = () => {
                                             </span>
                                         )}
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : req.id); }}
+                                            onClick={(e) => { e.stopPropagation(); setExpandedId(req.id); }}
                                             className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                                            title="View Details"
                                         >
-                                            {isExpanded ? <FiChevronUp className="w-4 h-4" /> : <FiChevronDown className="w-4 h-4" />}
+                                            <FiEye className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); if (confirm('Are you sure you want to delete this sender request?')) doAction('deleted', req.id); }}
+                                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                                            title="Delete Request"
+                                        >
+                                            <FiTrash2 className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
 
-                                {/* Expanded Panel */}
-                                {isExpanded && (
-                                    <div className="px-4 py-4 border-t border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] space-y-4">
+            {/* Sender Request Modal */}
+            {expandedId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        {(() => {
+                            const req = requests.find(r => r.id === expandedId);
+                            if (!req) return null;
+                            const isActing = actionLoading?.startsWith(req.id);
+                            const associatedAccount = accounts.find(a => a.location_id === req.location_id);
+                            
+                            return (
+                                <>
+                                    <div className="flex items-center justify-between mb-5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/10 flex items-center justify-center">
+                                                <FiSend className="w-5 h-5 text-blue-500" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-[16px] font-bold text-[#111111] dark:text-white font-mono leading-none">{req.requested_id}</h3>
+                                                <div className="mt-1">
+                                                    <StatusBadge status={req.status} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setExpandedId(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
+                                            <FiX className="w-5 h-5" />
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
                                         {/* Current Sender Warning */}
                                         {associatedAccount?.approved_sender_id && (
-                                            <div className="flex items-center gap-2 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/20 mb-2">
+                                            <div className="flex items-baseline gap-2 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/20 mb-2">
                                                 <FiKey className="w-4 h-4 text-blue-500 flex-shrink-0" />
                                                 <p className="text-[12px] text-blue-700 dark:text-blue-300">
-                                                    This account already has an active Sender ID: <strong className="font-mono">{associatedAccount.approved_sender_id}</strong>
+                                                    Account has active Sender ID: <strong className="font-mono">{associatedAccount.approved_sender_id}</strong>
                                                 </p>
                                             </div>
                                         )}
 
-                                        {/* Details: Purpose & Sample */}
-                                        {req.purpose && (
-                                            <div>
-                                                <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Purpose</p>
-                                                <p className="text-[13px] text-[#37352f] dark:text-[#ececf1]">{req.purpose}</p>
-                                            </div>
-                                        )}
-                                        {req.sample_message && (
-                                            <div>
-                                                <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Sample Message</p>
-                                                <p className="text-[13px] text-[#37352f] dark:text-[#ececf1] italic">"{req.sample_message}"</p>
-                                            </div>
-                                        )}
+                                        <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 space-y-3 border border-[#e5e5e5] dark:border-white/5">
+                                            {req.purpose && (
+                                                <div>
+                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Purpose</p>
+                                                    <p className="text-[13px] text-[#111111] dark:text-white leading-relaxed">{req.purpose}</p>
+                                                </div>
+                                            )}
+                                            {req.sample_message && (
+                                                <div className="pt-2 border-t border-[#e5e5e5] dark:border-white/5">
+                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Sample Message</p>
+                                                    <p className="text-[13px] text-[#111111] dark:text-white italic bg-white dark:bg-[#1a1b1e] p-2 rounded-lg border border-[#e5e5e5] dark:border-white/5">"{req.sample_message}"</p>
+                                                </div>
+                                            )}
+                                        </div>
+
                                         {req.created_at && (
-                                            <div>
-                                                <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Submitted</p>
-                                                <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">{req.created_at}</p>
+                                            <div className="flex justify-between items-center text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">
+                                                <span className="font-semibold uppercase tracking-wider text-[11px]">Submitted:</span>
+                                                <span>{req.created_at}</span>
                                             </div>
                                         )}
 
                                         {/* ── Pending: Approve & Activate / Reject ── */}
                                         {req.status === 'pending' && (
-                                            <div className="space-y-3 pt-2 border-t border-[#f0f0f0] dark:border-white/5">
+                                            <div className="space-y-4 pt-4 border-t border-[#e5e5e5] dark:border-white/5">
                                                 {/* API Key for Approval */}
                                                 <div>
-                                                    <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Semaphore API Key</p>
+                                                    <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Semaphore API Key</label>
                                                     <input
                                                         type="text"
                                                         value={apiKeyInput}
                                                         onChange={e => setApiKeyInput(e.target.value)}
-                                                        placeholder="Paste the Semaphore API key for this sender..."
-                                                        className="w-full px-3 py-2.5 text-[13px] border rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
+                                                        placeholder="Enter Semaphore API Key..."
+                                                        className="w-full px-4 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
                                                     />
-                                                    <p className="text-[10px] text-[#9aa0a6] mt-1">Required. Register the sender on Semaphore first, then paste the API key here.</p>
                                                 </div>
 
-                                                {/* Action Buttons */}
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        disabled={!apiKeyInput.trim() || !!isActing}
-                                                        onClick={() => doAction('approved', req.id, { api_key: apiKeyInput.trim() })}
-                                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 hover:shadow-[0_8px_25px_rgba(16,185,129,0.35)] text-white transition-all shadow-md shadow-emerald-500/20 disabled:opacity-40 disabled:shadow-none"
-                                                    >
-                                                        <FiCheck className="w-4 h-4" />
-                                                        {isActing ? 'Processing...' : 'Approve & Activate'}
-                                                    </button>
-                                                    <button
-                                                        disabled={!!isActing}
-                                                        onClick={() => doAction('rejected', req.id, { rejection_note: rejectNote })}
-                                                        className="px-4 py-2.5 rounded-xl text-[13px] font-bold bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800/30 transition-all disabled:opacity-50"
-                                                    >
-                                                        <FiX className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-
-                                                {/* Optional Rejection Note (shows inline) */}
+                                                {/* Optional Rejection Note */}
                                                 <div>
-                                                    <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Rejection Note (optional)</p>
+                                                    <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Rejection Note (Optional)</label>
                                                     <textarea
                                                         value={rejectNote}
                                                         onChange={e => setRejectNote(e.target.value)}
                                                         rows={2}
-                                                        placeholder="Reason for rejection (visible to the user)..."
-                                                        className="w-full px-3 py-2 text-[13px] border rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow"
+                                                        placeholder="Reason for rejection..."
+                                                        className="w-full px-4 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow"
                                                     />
+                                                </div>
+
+                                                {/* Action Buttons - Equal Size */}
+                                                <div className="grid grid-cols-2 gap-3 pt-2">
+                                                    <button
+                                                        disabled={!apiKeyInput.trim() || !!isActing}
+                                                        onClick={() => doAction('approved', req.id, { api_key: apiKeyInput.trim() })}
+                                                        className="flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
+                                                    >
+                                                        <FiCheck className="w-4 h-4" />
+                                                        <span>Approve</span>
+                                                    </button>
+                                                    <button
+                                                        disabled={!!isActing}
+                                                        onClick={() => doAction('rejected', req.id, { rejection_note: rejectNote })}
+                                                        className="flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/10 dark:hover:bg-red-900/20 dark:text-red-400 border border-red-200 dark:border-red-800/30 transition-all disabled:opacity-50"
+                                                    >
+                                                        <FiX className="w-4 h-4" />
+                                                        <span>Reject</span>
+                                                    </button>
                                                 </div>
                                             </div>
                                         )}
 
                                         {/* ── Approved: show confirmation ── */}
                                         {req.status === 'approved' && (
-                                            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30">
-                                                <FiCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-                                                <p className="text-[12px] text-emerald-700 dark:text-emerald-400 font-medium">
-                                                    This sender ID is approved and active. The user can now send messages using <strong>{req.requested_id}</strong>.
+                                            <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30">
+                                                <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                                                    <FiCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                                </div>
+                                                <p className="text-[13px] text-emerald-700 dark:text-emerald-400 font-medium leading-snug">
+                                                    Sender ID is active. User can send messages via <strong>{req.requested_id}</strong>.
                                                 </p>
                                             </div>
                                         )}
 
                                         {/* ── Rejected: show note ── */}
                                         {req.status === 'rejected' && (
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800/30">
-                                                    <FiX className="w-4 h-4 text-red-500 flex-shrink-0" />
-                                                    <p className="text-[12px] text-red-600 dark:text-red-400 font-medium">This sender ID request was rejected.</p>
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800/30">
+                                                    <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                                                        <FiX className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                                    </div>
+                                                    <p className="text-[13px] text-red-700 dark:text-red-400 font-medium leading-snug">
+                                                        Sender ID request was rejected.
+                                                    </p>
                                                 </div>
                                                 {req.rejection_note && (
-                                                    <div>
-                                                        <p className="text-[11px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Reason</p>
+                                                    <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 border border-[#e5e5e5] dark:border-white/5">
+                                                        <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Reason</p>
                                                         <p className="text-[13px] text-red-500">{req.rejection_note}</p>
                                                     </div>
                                                 )}
                                             </div>
                                         )}
                                     </div>
-                                )}
-                            </div>
-                        );
-                    })}
+                                </>
+                            );
+                        })()}
+                    </div>
                 </div>
             )}
         </div>
@@ -1063,14 +1094,7 @@ export const AdminTeamManagement: React.FC = () => {
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                    <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live View</span>
-                </div>
+            <div className="flex items-center justify-end mb-2">
                 {!loading && (
                     <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
                         Last Active: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -1320,14 +1344,7 @@ const AdminAccounts: React.FC = () => {
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                    <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live Sync</span>
-                </div>
+            <div className="flex items-center justify-end mb-2">
                 {!loading && (
                     <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
                         Last Pull: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -1581,14 +1598,7 @@ const AdminLogs: React.FC = () => {
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-sm flex flex-col min-h-[600px]">
-            <div className="px-6 pt-4 flex items-center justify-between">
-                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                    <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live Stream</span>
-                </div>
+            <div className="px-6 pt-4 flex items-center justify-end">
                 {!loading && (
                     <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
                         Refreshed: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}

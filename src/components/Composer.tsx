@@ -182,8 +182,16 @@ export const Composer: React.FC<ComposerProps> = ({
   const [toastOpen, setToastOpen] = useState(false);
   const [toastSeverity, setToastSeverity] = useState<"success" | "error">("success");
   const [toastMessage, setToastMessage] = useState("");
-
-  // Show disabled reason state
+  // Guard: prevents multiple toasts firing from same send action
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = (severity: "success" | "error", msg: string) => {
+    // Cancel any pending open so rapid-fire calls collapse into one
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastOpen(false);
+    setToastSeverity(severity);
+    setToastMessage(msg);
+    toastTimerRef.current = setTimeout(() => { setToastOpen(true); }, 50);
+  };
   const [showDisabledReason, setShowDisabledReason] = useState(false);
 
   const scrollToBottom = () => {
@@ -382,8 +390,7 @@ export const Composer: React.FC<ComposerProps> = ({
 
           if (smsResult.success) {
             updateMessageStatus(tempId, 'sent');
-            setToastSeverity("success");
-            setToastMessage(smsResult.message || "Message sent successfully!");
+            showToast("success", smsResult.message || "Message sent successfully!");
 
             // Dispatch event to refresh credit balance
             window.dispatchEvent(new Event('sms-sent'));
@@ -399,8 +406,7 @@ export const Composer: React.FC<ComposerProps> = ({
             }
           } else {
             updateMessageStatus(tempId, 'failed', undefined, smsResult.message || "Failed to send message");
-            setToastSeverity("error");
-            setToastMessage(smsResult.message || "Failed to send message");
+            showToast("error", smsResult.message || "Failed to send message");
           }
         } else {
           // Sending to existing bulk conversation - use existing recipientKey
@@ -413,14 +419,12 @@ export const Composer: React.FC<ComposerProps> = ({
           const successCount = results.filter(r => r.success).length;
 
           if (successCount > 0) {
-            setToastSeverity("success");
-            setToastMessage(`Sent ${successCount} of ${recipients.length} messages`);
+            showToast("success", `Sent ${successCount} of ${recipients.length} messages`);
 
             // Refresh to show new messages in the conversation
             setTimeout(() => refresh(), 2000);
           } else {
-            setToastSeverity("error");
-            setToastMessage("Failed to send bulk messages");
+            showToast("error", "Failed to send bulk messages");
           }
         }
       } else {
@@ -431,8 +435,7 @@ export const Composer: React.FC<ComposerProps> = ({
         const successCount = results.filter(r => r.success).length;
 
         if (successCount > 0) {
-          setToastSeverity("success");
-          setToastMessage(`Sent ${successCount} of ${recipients.length} messages`);
+          showToast("success", `Sent ${successCount} of ${recipients.length} messages`);
 
           // Define item for navigation, but don't save to localStorage
           const bulkItemForNav: BulkMessageHistoryItem = {
@@ -456,15 +459,12 @@ export const Composer: React.FC<ComposerProps> = ({
           // Refresh after navigation to fetch from Firestore
           setTimeout(() => refresh(), 2000);
         } else {
-          setToastSeverity("error");
-          setToastMessage("Failed to send bulk messages");
+          showToast("error", "Failed to send bulk messages");
         }
       }
-      setToastOpen(true);
+      // toast already shown via showToast() in each branch above
     } catch (error) {
-      setToastSeverity("error");
-      setToastMessage(error instanceof Error ? error.message : "Failed to send message");
-      setToastOpen(true);
+      showToast("error", error instanceof Error ? error.message : "Failed to send message");
     } finally {
       setLoading(false);
     }
