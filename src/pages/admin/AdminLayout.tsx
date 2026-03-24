@@ -551,12 +551,13 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
                         
                         // Message Event
                         if (type === 'message') {
-                            const isSent = log.status === 'sent' || log.status === 'delivered';
+                            const isSent = ['sent', 'delivered', 'pending', 'queued'].includes(log.status);
+                            const isFailed = ['failed', 'rejected', 'undelivered', 'error'].includes(log.status);
                             return (
                                 <div key={log.id} className="flex items-start gap-4 p-4 rounded-xl hover:bg-[#f7f7f7] dark:hover:bg-[#0d0e10] transition-colors border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/5 group">
                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 ${
                                         isSent ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'
-                                        : log.status === 'failed' ? 'bg-red-50 dark:bg-red-900/20 text-red-600'
+                                        : isFailed ? 'bg-red-50 dark:bg-red-900/20 text-red-600'
                                         : 'bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa]'
                                     }`}>
                                         <FiMessageSquare className="w-5 h-5" />
@@ -570,7 +571,7 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
                                         <div className="flex items-center gap-2">
                                             <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
                                                 isSent ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' :
-                                                log.status === 'failed' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30' :
+                                                isFailed ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30' :
                                                 'bg-blue-50 text-[#2b83fa] border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30'
                                             }`}>{log.status || 'unknown'}</span>
                                             {log.sendername && <span className="text-[11px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Via: {log.sendername}</span>}

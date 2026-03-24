@@ -20,6 +20,7 @@ interface SenderSelectorProps {
     size?: "sm" | "md";
     align?: "left" | "right";
     onRequestSettings?: () => void;
+    approvedSenderId?: string;
 }
 
 // Static fallback while loading
@@ -37,7 +38,8 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
     label = "From:",
     size = "md",
     align = "right",
-    onRequestSettings
+    onRequestSettings,
+    approvedSenderId
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
@@ -62,21 +64,25 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
     const allOptions = useMemo<SenderOption[]>(() => {
         const options: SenderOption[] = [];
 
-        // System default always first
-        const systemName = config?.system_default_sender || "NOLASMSPro";
-        options.push({
-            id: systemName,
-            name: systemName,
-            description: "System Default (Free Tier)",
-            icon: <FiGlobe />,
-            color: "bg-blue-500",
-        });
+        // System default — hidden when a custom approved sender is available (white-label)
+        const hasApproved = !!(approvedSenderId || config?.approved_sender_id);
+        if (!hasApproved) {
+            const systemName = config?.system_default_sender || "NOLASMSPro";
+            options.push({
+                id: systemName,
+                name: systemName,
+                description: "System Default (Free Tier)",
+                icon: <FiGlobe />,
+                color: "bg-blue-500",
+            });
+        }
 
         // Approved sender (if any)
-        if (config?.approved_sender_id) {
+        const approvedId = approvedSenderId || config?.approved_sender_id;
+        if (approvedId) {
             options.push({
-                id: config.approved_sender_id,
-                name: config.approved_sender_id,
+                id: approvedId,
+                name: approvedId,
                 description: "Your Approved Sender",
                 icon: <FiCheckCircle />,
                 color: "bg-emerald-500",
@@ -84,7 +90,7 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
         }
 
         return options;
-    }, [config]);
+    }, [config, approvedSenderId]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {

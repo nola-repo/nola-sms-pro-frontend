@@ -87,6 +87,7 @@ export const Composer: React.FC<ComposerProps> = ({
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [senderName, setSenderName] = useState<SenderId>("NOLASMSPro");
+  const [approvedSenderId, setApprovedSenderId] = useState<string | undefined>(undefined);
 
   // Dynamic sender default: prioritize user's approved sender if available
   useEffect(() => {
@@ -95,6 +96,7 @@ export const Composer: React.FC<ComposerProps> = ({
       if (cancelled) return;
       if (cfg.approved_sender_id) {
         setSenderName(cfg.approved_sender_id);
+        setApprovedSenderId(cfg.approved_sender_id);
       } else if (cfg.system_default_sender) {
         setSenderName(cfg.system_default_sender);
       }
@@ -557,6 +559,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   value={senderName}
                   onChange={setSenderName}
                   onRequestSettings={onRequestSettings}
+                  approvedSenderId={approvedSenderId}
                 />
               </div>
             </div>
@@ -611,6 +614,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   value={senderName}
                   onChange={setSenderName}
                   onRequestSettings={onRequestSettings}
+                  approvedSenderId={approvedSenderId}
                 />
               </div>
             </div>
@@ -703,6 +707,7 @@ export const Composer: React.FC<ComposerProps> = ({
                       onChange={setSenderName}
                       align="left"
                       onRequestSettings={onRequestSettings}
+                      approvedSenderId={approvedSenderId}
                     />
                   </div>
                 </div>
@@ -862,6 +867,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   onChange={setSenderName}
                   size="sm"
                   onRequestSettings={onRequestSettings}
+                  approvedSenderId={approvedSenderId}
                 />
               </div>
             </div>
@@ -1054,21 +1060,19 @@ export const Composer: React.FC<ComposerProps> = ({
                             <span className="text-[10px] text-gray-400">•</span>
                             <span
                               className={`text-[10px] font-bold capitalize tracking-wider ${
-                                msg.status === "sent"
+                                ['sent', 'delivered', 'pending', 'queued'].includes(msg.status)
                                   ? "text-green-500"
-                                  : msg.status === "delivered"
-                                  ? "text-blue-400"
-                                  : msg.status === "failed"
+                                  : ['failed', 'rejected', 'undelivered', 'error'].includes(msg.status)
                                   ? "text-red-500"
                                   : "text-gray-400"
                               }`}
                             >
                               {msg.status === "sending"
                                 ? "⟳"
-                                : msg.status === "sent"
-                                ? "✓"
                                 : msg.status === "delivered"
                                 ? "✓✓"
+                                : ['sent', 'pending', 'queued'].includes(msg.status)
+                                ? "✓"
                                 : (
                                     <FiAlertCircle
                                       size={10}
@@ -1273,8 +1277,8 @@ export const Composer: React.FC<ComposerProps> = ({
                               {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                             <span className="text-[10px] text-gray-400">•</span>
-                            <span className={`text-[10px] font-bold capitalize tracking-wider ${msg.status === 'sent' ? 'text-green-500' : msg.status === 'delivered' ? 'text-blue-400' : msg.status === 'failed' ? 'text-red-500' : 'text-gray-400'}`}>
-                              {msg.status === 'sending' ? '⟳' : msg.status === 'sent' ? '✓' : msg.status === 'delivered' ? '✓✓' : <FiAlertCircle size={10} className="inline mb-0.5" />} {msg.status}
+                            <span className={`text-[10px] font-bold capitalize tracking-wider ${['sent', 'delivered', 'pending', 'queued'].includes(msg.status) ? 'text-green-500' : ['failed', 'rejected', 'undelivered', 'error'].includes(msg.status) ? 'text-red-500' : 'text-gray-400'}`}>
+                              {msg.status === 'sending' ? '⟳' : msg.status === 'delivered' ? '✓✓' : ['sent', 'pending', 'queued'].includes(msg.status) ? '✓' : <FiAlertCircle size={10} className="inline mb-0.5" />} {msg.status}
                             </span>
                           </div>
                         </div>
