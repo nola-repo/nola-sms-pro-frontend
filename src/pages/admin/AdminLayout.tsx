@@ -895,7 +895,7 @@ const AdminSenderRequests: React.FC = () => {
                                             <div>
                                                 <h3 className="text-[16px] font-bold text-[#111111] dark:text-white font-mono leading-none">{req.requested_id}</h3>
                                                 <p className="text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] mt-1 uppercase tracking-wide">
-                                                    {req.location_name || 'Unknown Account'}
+                                                    {associatedAccount?.location_name || req.location_name || 'Unknown Account'}
                                                 </p>
                                             </div>
                                         </div>
@@ -933,7 +933,7 @@ const AdminSenderRequests: React.FC = () => {
                                             </div>
 
                                             {/* Existing API Key from Associated Account */}
-                                            {associatedAccount && (associatedAccount.api_key || associatedAccount.semaphore_api_key) && (
+                                            {associatedAccount && associatedAccount.nola_pro_api_key && (
                                                 <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
                                                     <div className="flex items-center justify-between mb-1">
                                                         <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Current API Key</p>
@@ -945,7 +945,7 @@ const AdminSenderRequests: React.FC = () => {
                                                         </button>
                                                     </div>
                                                     <p className="text-[13px] font-mono text-[#111111] dark:text-white bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5 break-all">
-                                                        {showApiKey ? (associatedAccount.api_key || associatedAccount.semaphore_api_key) : "••••••••••••••••••••••••••••••••••••••••••••••"}
+                                                        {showApiKey ? associatedAccount.nola_pro_api_key : "••••••••••••••••••••••••••••••••••••••••••••••"}
                                                     </p>
                                                 </div>
                                             )}
@@ -1036,7 +1036,7 @@ const AdminSenderRequests: React.FC = () => {
                                         )}
 
                                         {/* ── Approved/Rejected: show account key toggle if available ── */}
-                                        {(req.status === 'approved' || req.status === 'rejected') && associatedAccount && (associatedAccount.api_key || associatedAccount.semaphore_api_key) && (
+                                        {(req.status === 'approved' || req.status === 'rejected') && associatedAccount && associatedAccount.nola_pro_api_key && (
                                             <div className="pt-4 border-t border-[#e5e5e5] dark:border-white/5 mt-4">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <label className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Account API Key</label>
@@ -1050,12 +1050,12 @@ const AdminSenderRequests: React.FC = () => {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <div className="flex-1 p-3 bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 rounded-xl text-[12px] font-mono break-all text-[#111111] dark:text-white overflow-hidden">
-                                                        {showApiKey ? (associatedAccount.api_key || associatedAccount.semaphore_api_key) : "••••••••••••••••••••••••••••••••••••••••••••••"}
+                                                        {showApiKey ? associatedAccount.nola_pro_api_key : "••••••••••••••••••••••••••••••••••••••••••••••"}
                                                     </div>
                                                     {showApiKey && (
                                                         <button 
                                                             onClick={async () => {
-                                                                await navigator.clipboard.writeText(associatedAccount.api_key || associatedAccount.semaphore_api_key || '');
+                                                                await navigator.clipboard.writeText(associatedAccount.nola_pro_api_key || '');
                                                             }}
                                                             className="p-3 text-[#6e6e73] hover:text-[#2b83fa] bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 rounded-xl transition-all"
                                                             title="Copy API Key"
