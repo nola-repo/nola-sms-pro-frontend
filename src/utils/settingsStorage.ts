@@ -132,7 +132,6 @@ export const getNotificationSettings = (): NotificationSettings =>
 export const saveNotificationSettings = (data: NotificationSettings): void =>
     save(KEYS.notifications, data);
 
-// ─── Sender IDs ───────────────────────────────────────────────────────────────
 export const getStoredSenderIds = (): StoredSenderId[] => {
     try {
         const raw = localStorage.getItem(KEYS.senderIds);
@@ -141,6 +140,14 @@ export const getStoredSenderIds = (): StoredSenderId[] => {
     } catch {
         return [];
     }
+};
+
+export const getPreferredSender = (): string | null => {
+    return localStorage.getItem("nola_settings_preferred_sender");
+};
+
+export const savePreferredSender = (id: string): void => {
+    localStorage.setItem("nola_settings_preferred_sender", id);
 };
 
 export const saveStoredSenderIds = (ids: StoredSenderId[]): void =>

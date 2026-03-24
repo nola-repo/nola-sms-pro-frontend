@@ -13,7 +13,7 @@ import { useMessages as usePhoneMessages } from "../hooks/useMessages";
 import { SenderSelector } from "./SenderSelector";
 import { CreditBadge } from "./CreditBadge";
 import { FiCheck, FiAlertCircle, FiLoader } from "react-icons/fi";
-import { getAccountSettings } from "../utils/settingsStorage";
+import { getAccountSettings, getPreferredSender, savePreferredSender } from "../utils/settingsStorage";
 import { fetchAccountSenderConfig } from "../api/senderRequests";
 import { buildDirectConversationId } from "../utils/conversationId";
 import { estimateSmsSegments } from "../utils/smsSegments";
@@ -89,14 +89,27 @@ export const Composer: React.FC<ComposerProps> = ({
   const [senderName, setSenderName] = useState<SenderId>("NOLASMSPro");
   const [approvedSenderId, setApprovedSenderId] = useState<string | undefined>(undefined);
 
-  // Dynamic sender default: prioritize user's approved sender if available
+  const handleSenderChange = (val: SenderId) => {
+    setSenderName(val);
+    savePreferredSender(val);
+  };
+
+  // Dynamic sender default: prioritize user's preferred sender, else approved sender, else system default
   useEffect(() => {
     let cancelled = false;
     fetchAccountSenderConfig().then(cfg => {
       if (cancelled) return;
+      
+      const preferred = getPreferredSender();
+      
       if (cfg.approved_sender_id) {
-        setSenderName(cfg.approved_sender_id);
         setApprovedSenderId(cfg.approved_sender_id);
+      }
+      
+      if (preferred) {
+        setSenderName(preferred);
+      } else if (cfg.approved_sender_id) {
+        setSenderName(cfg.approved_sender_id);
       } else if (cfg.system_default_sender) {
         setSenderName(cfg.system_default_sender);
       }
@@ -557,7 +570,7 @@ export const Composer: React.FC<ComposerProps> = ({
               <div className="flex-shrink-0 order-1 sm:order-2">
                 <SenderSelector
                   value={senderName}
-                  onChange={setSenderName}
+                  onChange={handleSenderChange}
                   onRequestSettings={onRequestSettings}
                   approvedSenderId={approvedSenderId}
                 />
@@ -612,7 +625,7 @@ export const Composer: React.FC<ComposerProps> = ({
               <div className="flex-shrink-0 order-1 sm:order-2">
                 <SenderSelector
                   value={senderName}
-                  onChange={setSenderName}
+                  onChange={handleSenderChange}
                   onRequestSettings={onRequestSettings}
                   approvedSenderId={approvedSenderId}
                 />
@@ -704,7 +717,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   <div className="flex-1">
                     <SenderSelector
                       value={senderName}
-                      onChange={setSenderName}
+                      onChange={handleSenderChange}
                       align="left"
                       onRequestSettings={onRequestSettings}
                       approvedSenderId={approvedSenderId}

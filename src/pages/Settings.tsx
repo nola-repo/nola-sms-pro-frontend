@@ -11,6 +11,7 @@ import {
     getAccountSettings, saveAccountSettings,
     getNotificationSettings, saveNotificationSettings,
     getStoredSenderIds, saveStoredSenderIds,
+    getPreferredSender, savePreferredSender,
     type AccountSettings, type NotificationSettings, type StoredSenderId
 } from "../utils/settingsStorage";
 import { SenderRequestModal } from "../components/SenderRequestModal";
@@ -186,6 +187,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
     const [config, setConfig] = useState<AccountSenderConfig | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
+    const [preferredSender, setPreferredSender] = useState<string | null>(getPreferredSender());
 
     // Auto-open modal when triggered from Composer
     useEffect(() => {
@@ -320,6 +322,10 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                         {displayItems.map((sid, i) => {
                             const statusCfg = STATUS_CONFIG[sid.status];
                             const icon = SENDER_ICONS[i % SENDER_ICONS.length];
+                            
+                            const currentDefaultName = preferredSender || config?.approved_sender_id || systemDefault;
+                            const isDefault = sid.name === currentDefaultName && sid.status === "approved";
+
                             return (
                                 <div key={sid.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] group">
                                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0 text-[14px] ${sid.color}`}>
@@ -331,18 +337,36 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusCfg.bg} ${statusCfg.color}`}>
                                                 {statusCfg.icon} {statusCfg.label}
                                             </span>
+                                            {isDefault && (
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20 text-blue-500`}>
+                                                    Default Sender
+                                                </span>
+                                            )}
                                             {sid.isSystem && (
                                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                                     freeUsageCount >= freeLimit 
                                                     ? "bg-red-50 dark:bg-red-900/20 text-red-500" 
-                                                    : "bg-blue-50 dark:bg-blue-900/20 text-blue-500"
+                                                    : "bg-gray-200 dark:bg-gray-800 text-gray-500"
                                                 }`}>
-                                                    Default • {freeUsageCount}/{freeLimit} Free
+                                                    System • {freeUsageCount}/{freeLimit} Free
                                                 </span>
                                             )}
                                         </div>
                                         <span className="text-[11px] text-[#9aa0a6]">{sid.description}</span>
                                     </div>
+                                    
+                                    {/* Action Button */}
+                                    {sid.status === "approved" && !isDefault && (
+                                        <button 
+                                            onClick={() => {
+                                                savePreferredSender(sid.name);
+                                                setPreferredSender(sid.name);
+                                            }}
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity px-3 py-1.5 text-[11px] font-bold text-[#2b83fa] bg-[#2b83fa]/10 hover:bg-[#2b83fa]/20 rounded-lg whitespace-nowrap"
+                                        >
+                                            Set as Default
+                                        </button>
+                                    )}
                                 </div>
                             );
                         })}
