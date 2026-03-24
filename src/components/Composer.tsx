@@ -1290,8 +1290,8 @@ export const Composer: React.FC<ComposerProps> = ({
                               {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                             <span className="text-[10px] text-gray-400">•</span>
-                            <span className={`text-[10px] font-bold capitalize tracking-wider ${['sent', 'delivered', 'pending', 'queued'].includes(msg.status) ? 'text-green-500' : ['failed', 'rejected', 'undelivered', 'error'].includes(msg.status) ? 'text-red-500' : 'text-gray-400'}`}>
-                              {msg.status === 'sending' ? '⟳' : msg.status === 'delivered' ? '✓✓' : ['sent', 'pending', 'queued'].includes(msg.status) ? '✓' : <FiAlertCircle size={10} className="inline mb-0.5" />} {msg.status}
+                            <span className={`text-[10px] font-bold capitalize tracking-wider ${['sent', 'delivered'].includes(msg.status) ? 'text-green-500' : ['failed', 'rejected', 'undelivered', 'error'].includes(msg.status) ? 'text-red-500' : 'text-gray-400'}`}>
+                              {['sending', 'pending', 'queued'].includes(msg.status) ? '⟳' : msg.status === 'delivered' ? '✓✓' : msg.status === 'sent' ? '✓' : <FiAlertCircle size={10} className="inline mb-0.5" />} {msg.status}
                             </span>
                           </div>
                         </div>
