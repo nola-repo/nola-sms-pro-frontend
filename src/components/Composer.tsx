@@ -1060,18 +1060,18 @@ export const Composer: React.FC<ComposerProps> = ({
                             <span className="text-[10px] text-gray-400">•</span>
                             <span
                               className={`text-[10px] font-bold capitalize tracking-wider ${
-                                ['sent', 'delivered', 'pending', 'queued'].includes(msg.status)
+                                ['sent', 'delivered'].includes(msg.status)
                                   ? "text-green-500"
                                   : ['failed', 'rejected', 'undelivered', 'error'].includes(msg.status)
                                   ? "text-red-500"
                                   : "text-gray-400"
                               }`}
                             >
-                              {msg.status === "sending"
+                              {['sending', 'pending', 'queued'].includes(msg.status)
                                 ? "⟳"
                                 : msg.status === "delivered"
                                 ? "✓✓"
-                                : ['sent', 'pending', 'queued'].includes(msg.status)
+                                : msg.status === "sent"
                                 ? "✓"
                                 : (
                                     <FiAlertCircle
