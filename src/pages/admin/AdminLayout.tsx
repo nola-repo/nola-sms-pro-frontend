@@ -26,6 +26,8 @@ interface Account {
     location_name?: string;
     approved_sender_id?: string;
     nola_pro_api_key?: string;
+    api_key?: string;
+    semaphore_api_key?: string;
     credits?: number;
     credit_balance?: number;
     free_usage_count?: number;
@@ -670,6 +672,8 @@ const AdminSenderRequests: React.FC = () => {
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [showInputKey, setShowInputKey] = useState(false);
 
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
@@ -728,6 +732,8 @@ const AdminSenderRequests: React.FC = () => {
                 setExpandedId(null);
                 setRejectNote('');
                 setApiKeyInput('');
+                setShowApiKey(false);
+                setShowInputKey(false);
             } else {
                 setError(json.message || 'Action failed.');
             }
@@ -850,7 +856,7 @@ const AdminSenderRequests: React.FC = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                        <button onClick={() => setExpandedId(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
+                                        <button onClick={() => { setExpandedId(null); setShowApiKey(false); setShowInputKey(false); }} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
                                             <FiX className="w-5 h-5" />
                                         </button>
                                     </div>
@@ -866,27 +872,55 @@ const AdminSenderRequests: React.FC = () => {
                                             </div>
                                         )}
 
-                                        <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 space-y-3 border border-[#e5e5e5] dark:border-white/5">
-                                            {req.purpose && (
+                                        {/* Request Details Grid */}
+                                        <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 space-y-4 border border-[#e5e5e5] dark:border-white/5">
+                                            <div className="grid grid-cols-2 gap-4">
                                                 <div>
+                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Subaccount (Location ID)</p>
+                                                    <p className="text-[13px] font-mono text-[#111111] dark:text-white truncate" title={req.location_id}>
+                                                        {req.location_id}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Submitted</p>
+                                                    <p className="text-[13px] text-[#111111] dark:text-white">
+                                                        {req.created_at || 'Unknown'}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Existing API Key from Associated Account */}
+                                            {associatedAccount && (associatedAccount.api_key || associatedAccount.semaphore_api_key) && (
+                                                <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Current API Key</p>
+                                                        <button 
+                                                            onClick={(e) => { e.preventDefault(); setShowApiKey(!showApiKey); }}
+                                                            className="text-[11px] text-[#2b83fa] font-semibold hover:underline"
+                                                        >
+                                                            {showApiKey ? "Hide" : "Show"}
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-[13px] font-mono text-[#111111] dark:text-white bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5 break-all">
+                                                        {showApiKey ? (associatedAccount.api_key || associatedAccount.semaphore_api_key) : "••••••••••••••••••••••••••••••••••••••••••••••"}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {req.purpose && (
+                                                <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
                                                     <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Purpose</p>
                                                     <p className="text-[13px] text-[#111111] dark:text-white leading-relaxed">{req.purpose}</p>
                                                 </div>
                                             )}
+                                            
                                             {req.sample_message && (
-                                                <div className="pt-2 border-t border-[#e5e5e5] dark:border-white/5">
+                                                <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
                                                     <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Sample Message</p>
-                                                    <p className="text-[13px] text-[#111111] dark:text-white italic bg-white dark:bg-[#1a1b1e] p-2 rounded-lg border border-[#e5e5e5] dark:border-white/5">"{req.sample_message}"</p>
+                                                    <p className="text-[13px] text-[#111111] dark:text-white italic bg-white dark:bg-[#1a1b1e] p-3 rounded-lg border border-[#e5e5e5] dark:border-white/5">"{req.sample_message}"</p>
                                                 </div>
                                             )}
                                         </div>
-
-                                        {req.created_at && (
-                                            <div className="flex justify-between items-center text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">
-                                                <span className="font-semibold uppercase tracking-wider text-[11px]">Submitted:</span>
-                                                <span>{req.created_at}</span>
-                                            </div>
-                                        )}
 
                                         {/* ── Pending: Approve & Activate / Reject ── */}
                                         {req.status === 'pending' && (
@@ -894,13 +928,22 @@ const AdminSenderRequests: React.FC = () => {
                                                 {/* API Key for Approval */}
                                                 <div>
                                                     <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Semaphore API Key</label>
-                                                    <input
-                                                        type="text"
-                                                        value={apiKeyInput}
-                                                        onChange={e => setApiKeyInput(e.target.value)}
-                                                        placeholder="Enter Semaphore API Key..."
-                                                        className="w-full px-4 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
-                                                    />
+                                                    <div className="relative">
+                                                        <input
+                                                            type={showInputKey ? "text" : "password"}
+                                                            value={apiKeyInput}
+                                                            onChange={e => setApiKeyInput(e.target.value)}
+                                                            placeholder="Enter Semaphore API Key..."
+                                                            className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
+                                                        />
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setShowInputKey(!showInputKey)}
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                                        >
+                                                            {showInputKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                                                        </button>
+                                                    </div>
                                                 </div>
 
                                                 {/* Optional Rejection Note */}
