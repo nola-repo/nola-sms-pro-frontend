@@ -829,14 +829,18 @@ const AdminSenderRequests: React.FC = () => {
                                     onClick={() => setExpandedId(req.id)}
                                 >
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap">
+                                        <div className="flex items-center gap-2 flex-wrap mb-2">
                                             <span className="font-bold text-[14px] text-[#111111] dark:text-white font-mono">{req.requested_id}</span>
                                             <StatusBadge status={req.status} />
                                         </div>
-                                        <div className="flex items-center gap-1.5 mt-0.5">
-                                            <p className="text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] uppercase tracking-wider">{req.location_name || 'Admin'}</p>
-                                            <span className="text-[10px] opacity-30">•</span>
-                                            <p className="text-[10px] text-[#9aa0a6] font-mono truncate">{req.location_id}</p>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-6 h-6 rounded-full bg-[#f0f0f0] dark:bg-white/5 flex items-center justify-center text-[10px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] flex-shrink-0">
+                                                {req.location_name ? req.location_name.substring(0, 2).toUpperCase() : '?'}
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <p className="font-bold text-[12px] text-[#111111] dark:text-white truncate group-hover:text-[#2b83fa] transition-colors">{req.location_name || 'Admin'}</p>
+                                                <p className="text-[10px] text-[#9aa0a6] font-mono mt-0.5 truncate">{req.location_id}</p>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -912,19 +916,17 @@ const AdminSenderRequests: React.FC = () => {
 
                                         {/* Request Details Grid */}
                                         <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 space-y-4 border border-[#e5e5e5] dark:border-white/5">
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Subaccount (Location ID)</p>
-                                                    <p className="text-[13px] font-mono text-[#111111] dark:text-white truncate" title={req.location_id}>
-                                                        {req.location_id}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Submitted</p>
-                                                    <p className="text-[13px] text-[#111111] dark:text-white">
-                                                        {req.created_at || 'Unknown'}
-                                                    </p>
-                                                </div>
+                                            <div>
+                                                <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Subaccount (Location ID)</p>
+                                                <p className="text-[13px] font-mono text-[#111111] dark:text-white truncate" title={req.location_id}>
+                                                    {req.location_id}
+                                                </p>
+                                            </div>
+                                            <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
+                                                <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Submitted On</p>
+                                                <p className="text-[13px] text-[#111111] dark:text-white">
+                                                    {req.created_at || 'Unknown'}
+                                                </p>
                                             </div>
 
                                             {/* Existing API Key from Associated Account */}
@@ -1043,8 +1045,21 @@ const AdminSenderRequests: React.FC = () => {
                                                         {showApiKey ? 'Hide' : 'Show Key'}
                                                     </button>
                                                 </div>
-                                                <div className="p-3 bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 rounded-xl text-[12px] font-mono break-all text-[#111111] dark:text-white">
-                                                    {showApiKey ? (associatedAccount.api_key || associatedAccount.semaphore_api_key) : "••••••••••••••••••••••••••••••••••••••••••••••"}
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex-1 p-3 bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 rounded-xl text-[12px] font-mono break-all text-[#111111] dark:text-white overflow-hidden">
+                                                        {showApiKey ? (associatedAccount.api_key || associatedAccount.semaphore_api_key) : "••••••••••••••••••••••••••••••••••••••••••••••"}
+                                                    </div>
+                                                    {showApiKey && (
+                                                        <button 
+                                                            onClick={async () => {
+                                                                await navigator.clipboard.writeText(associatedAccount.api_key || associatedAccount.semaphore_api_key || '');
+                                                            }}
+                                                            className="p-3 text-[#6e6e73] hover:text-[#2b83fa] bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 rounded-xl transition-all"
+                                                            title="Copy API Key"
+                                                        >
+                                                            <FiCopy size={16} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
