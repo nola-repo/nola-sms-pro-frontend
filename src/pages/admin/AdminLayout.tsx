@@ -267,7 +267,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
         return localStorage.getItem('nola_admin_auth') === 'true';
     });
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'accounts' | 'requests' | 'admins' | 'logs' | 'settings'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'accounts' | 'requests' | 'admins' | 'messages' | 'settings'>('dashboard');
 
     const handleLogin = () => {
         localStorage.setItem('nola_admin_auth', 'true');
@@ -300,7 +300,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                     {[
                         { id: 'dashboard', label: 'Dashboard', icon: <FiHome /> },
                         { id: 'requests', label: 'Sender Requests', icon: <FiSend /> },
-                        { id: 'logs', label: 'Platform Activity', icon: <FiActivity /> },
+                        { id: 'messages', label: 'Messages', icon: <FiMessageSquare /> },
                         { id: 'accounts', label: 'All Accounts', icon: <FiUsers /> },
                         { id: 'admins', label: 'Admin Users', icon: <FiShield /> },
                         { id: 'settings', label: 'System Settings', icon: <FiSettings /> },
@@ -338,7 +338,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                 <header className="px-8 py-5 bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border-b border-[#0000000a] dark:border-[#ffffff0a] flex-shrink-0 flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-bold text-[#111111] dark:text-white capitalize tracking-tight">
-                            {activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'requests' ? 'Sender Requests' : activeTab === 'accounts' ? 'All Accounts' : activeTab === 'admins' ? 'Admin Users' : 'System Settings'}
+                            {activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'requests' ? 'Sender Requests' : activeTab === 'accounts' ? 'All Accounts' : activeTab === 'admins' ? 'Admin Users' : activeTab === 'messages' ? 'Message Logs' : 'System Settings'}
                         </h2>
                         <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">
                             {activeTab === 'dashboard' ? 'Platform-wide overview of all accounts and activity.' : 'Management overview and administrative actions.'}
@@ -352,7 +352,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                         {activeTab === 'requests' && <AdminSenderRequests />}
                         {activeTab === 'accounts' && <AdminAccounts />}
                         {activeTab === 'admins' && <AdminTeamManagement />}
-                        {activeTab === 'logs' && <AdminLogs />}
+                        {activeTab === 'messages' && <AdminLogs />}
                         {activeTab === 'settings' && <AdminSettings />}
                     </div>
                 </main>
@@ -411,8 +411,8 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
 
     const totalAccounts = accounts.length;
     const pendingRequests = requests.filter(r => r.status === 'pending').length;
+    const totalMessages = logs.length;
     const approvedSenders = accounts.filter(a => a.approved_sender_id).length;
-    const freeTierAccounts = accounts.filter(a => !a.approved_sender_id).length;
     const recentRequests = [...requests].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 6);
 
     const StatCard = ({ label, value, color, icon }: { label: string; value: number | string; color: string; icon: React.ReactNode }) => (
@@ -444,10 +444,10 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
             
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-                <StatCard label="Total Accounts" value={totalAccounts} color="from-[#2b83fa] to-[#60a5fa]" icon={<FiUsers className="w-full h-full" />} />
+                <StatCard label="Registered Users" value={totalAccounts} color="from-[#2b83fa] to-[#60a5fa]" icon={<FiUsers className="w-full h-full" />} />
                 <StatCard label="Pending Requests" value={pendingRequests} color={pendingRequests > 0 ? 'from-amber-500 to-orange-500' : 'from-slate-400 to-slate-500'} icon={<FiClock className="w-full h-full" />} />
                 <StatCard label="Approved Senders" value={approvedSenders} color="from-emerald-500 to-teal-600" icon={<FiCheck className="w-full h-full" />} />
-                <StatCard label="Free Tier Only" value={freeTierAccounts} color="from-purple-500 to-indigo-600" icon={<FiActivity className="w-full h-full" />} />
+                <StatCard label="Total Messages" value={totalMessages} color="from-indigo-500 to-purple-600" icon={<FiMessageSquare className="w-full h-full" />} />
             </div>
 
             {/* Content Grid */}
@@ -674,6 +674,7 @@ const AdminSenderRequests: React.FC = () => {
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
     const [showApiKey, setShowApiKey] = useState(false);
     const [showInputKey, setShowInputKey] = useState(false);
+    const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
 
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
@@ -763,6 +764,35 @@ const AdminSenderRequests: React.FC = () => {
                 </button>
             </div>
 
+            {/* Filter Pills */}
+            <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 custom-scrollbar">
+                {[
+                    { id: 'all', label: 'All', icon: null },
+                    { id: 'pending', label: 'Pending', icon: <FiClock size={12} /> },
+                    { id: 'approved', label: 'Approved', icon: <FiCheck size={12} /> },
+                    { id: 'rejected', label: 'Rejected', icon: <FiX size={12} /> },
+                ].map(pill => {
+                    const isActive = filter === pill.id;
+                    const count = pill.id === 'all' ? requests.length : requests.filter(r => r.status === pill.id).length;
+                    
+                    return (
+                        <button
+                            key={pill.id}
+                            onClick={() => setFilter(pill.id as any)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold transition-all whitespace-nowrap border ${
+                                isActive 
+                                    ? 'bg-[#2b83fa] text-white border-[#2b83fa] shadow-md shadow-blue-500/20' 
+                                    : 'bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] border-[#e5e5e5] dark:border-white/5 hover:bg-[#efefef] dark:hover:bg-[#161718]'
+                            }`}
+                        >
+                            {pill.icon}
+                            {pill.label}
+                            <span className={`ml-1 text-[11px] opacity-60`}>{count}</span>
+                        </button>
+                    );
+                })}
+            </div>
+
             {successMsg && (
                 <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 text-green-700 dark:text-green-400 text-[13px] font-medium">
                     <FiCheck className="w-4 h-4 flex-shrink-0" /> {successMsg}
@@ -784,11 +814,13 @@ const AdminSenderRequests: React.FC = () => {
             ) : requests.length === 0 ? (
                 <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
                     <FiSend className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                    <p className="text-[14px] font-semibold">No sender requests found.</p>
-                </div>
+                <p className="text-[14px] font-semibold">No {filter !== 'all' ? filter : ''} sender requests found.</p>
+            </div>
             ) : (
                 <div className="space-y-3">
-                    {requests.map(req => {
+                    {requests
+                        .filter(req => filter === 'all' || req.status === filter)
+                        .map(req => {
                         return (
                             <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all">
                                 {/* Row Header */}
@@ -1287,6 +1319,8 @@ const AdminAccounts: React.FC = () => {
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
     
     // Manage Sender States
+    const [searchTerm, setSearchTerm] = useState('');
+    const [visibleApiKeyId, setVisibleApiKeyId] = useState<string | null>(null);
     const [managingAccount, setManagingAccount] = useState<Account | null>(null);
     const [manageSenderId, setManageSenderId] = useState('');
     const [manageApiKey, setManageApiKey] = useState('');
@@ -1399,9 +1433,21 @@ const AdminAccounts: React.FC = () => {
                     <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">All User Accounts</h3>
                     <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Overview of all mapped GHL subaccounts, credits, and active Sender IDs.</p>
                 </div>
-                <button onClick={() => fetchAccounts(true)} className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all">
-                    <FiRefreshCw className={`w-4 h-4 ${loading && !accounts.length ? 'animate-spin' : ''}`} />
-                </button>
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <FiUsers className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                        <input 
+                            type="text"
+                            placeholder="Search accounts..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9 pr-4 py-2 rounded-xl text-[12px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all w-64"
+                        />
+                    </div>
+                    <button onClick={() => fetchAccounts(true)} className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all">
+                        <FiRefreshCw className={`w-4 h-4 ${loading && !accounts.length ? 'animate-spin' : ''}`} />
+                    </button>
+                </div>
             </div>
 
             {successMsg && (
@@ -1439,46 +1485,77 @@ const AdminAccounts: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
-                            {accounts.map(acc => (
-                                <tr key={acc.id} className="hover:bg-[#f7f7f7] dark:hover:bg-white/[0.015] transition-colors">
-                                    <td className="py-3 pr-4">
-                                        <p className="font-semibold text-[13px] text-[#111111] dark:text-white">{acc.location_name || '—'}</p>
-                                        <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] font-mono truncate max-w-[200px]">{acc.location_id}</p>
+                            {accounts
+                                .filter(acc => 
+                                    acc.location_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                    acc.location_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                    acc.approved_sender_id?.toLowerCase().includes(searchTerm.toLowerCase())
+                                )
+                                .map(acc => (
+                                <tr key={acc.id} className="group hover:bg-[#f7f7f7] dark:hover:bg-white/[0.015] transition-colors">
+                                    <td className="py-4 pr-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-[#f0f0f0] dark:bg-white/5 flex items-center justify-center text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6]">
+                                                {acc.location_name ? acc.location_name.substring(0, 2).toUpperCase() : '?'}
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-[13px] text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors">{acc.location_name || '—'}</p>
+                                                <p className="text-[10px] text-[#9aa0a6] font-mono mt-0.5">{acc.location_id}</p>
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td className="py-3 pr-4">
+                                    <td className="py-4 pr-4">
                                         {acc.approved_sender_id
-                                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-400 text-[12px] font-bold border border-green-200 dark:border-green-800/30">{acc.approved_sender_id}</span>
-                                            : <span className="text-[12px] text-[#9aa0a6]">—</span>}
+                                            ? <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/10 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold border border-emerald-200 dark:border-emerald-800/30 uppercase tracking-wider">{acc.approved_sender_id}</span>
+                                            : <span className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest pl-2">System</span>}
                                     </td>
-                                    <td className="py-3 pr-4">
-                                        {acc.nola_pro_api_key
-                                            ? <span className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] font-mono">{acc.nola_pro_api_key.substring(0, 8)}••••</span>
-                                            : <span className="text-[12px] text-[#9aa0a6]">Not set</span>}
+                                    <td className="py-4 pr-4">
+                                        {acc.nola_pro_api_key ? (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] font-mono bg-[#f0f0f0] dark:bg-white/5 px-2 py-1 rounded-md">
+                                                    {visibleApiKeyId === acc.id ? acc.nola_pro_api_key : '••••••••••••'}
+                                                </span>
+                                                <button 
+                                                    onClick={() => setVisibleApiKeyId(visibleApiKeyId === acc.id ? null : acc.id)}
+                                                    className="p-1 text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-all"
+                                                >
+                                                    {visibleApiKeyId === acc.id ? <FiEyeOff size={14} /> : <FiEye size={14} />}
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <span className="text-[11px] text-[#9aa0a6] italic pl-2">None</span>
+                                        )}
                                     </td>
-                                    <td className="py-3 pr-4">
-                                        <span className="text-[13px] font-semibold text-[#111111] dark:text-white">{acc.credits ?? '—'}</span>
+                                    <td className="py-4 pr-4">
+                                        <div className="flex flex-col">
+                                            <span className="text-[13px] font-bold text-[#111111] dark:text-white">₱{(acc.credits || 0).toLocaleString()}</span>
+                                            <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">Balance</span>
+                                        </div>
                                     </td>
-                                    <td className="py-3 pr-4">
-                                        <span className={`text-[13px] font-semibold ${(acc.free_usage_count ?? 0) >= 10 ? 'text-red-500' : 'text-[#111111] dark:text-white'}`}>
-                                            {acc.free_usage_count ?? 0} / 10
-                                        </span>
+                                    <td className="py-4 pr-4">
+                                        <div className={`inline-flex flex-col p-1.5 rounded-xl border ${ (acc.free_usage_count ?? 0) >= 10 ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/20' : 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20' }`}>
+                                            <span className={`text-[12px] font-black text-center ${ (acc.free_usage_count ?? 0) >= 10 ? 'text-red-600 dark:text-red-400' : 'text-[#2b83fa]' }`}>
+                                                {acc.free_usage_count ?? 0}
+                                            </span>
+                                            <div className="w-8 h-1 bg-gray-200 dark:bg-gray-800 rounded-full mt-1 overflow-hidden">
+                                                <div className={`h-full ${(acc.free_usage_count ?? 0) >= 10 ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${Math.min((acc.free_usage_count ?? 0) * 10, 100)}%` }}></div>
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td className="py-3">
-                                        {acc.approved_sender_id ? (
+                                    <td className="py-4">
+                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => {
                                                     setManagingAccount(acc);
                                                     setManageSenderId(acc.approved_sender_id || '');
                                                     setManageApiKey(acc.nola_pro_api_key || '');
                                                 }}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold text-[#5f6368] dark:text-[#ececf1] bg-[#f7f7f7] hover:bg-[#e8e8e8] dark:bg-white/5 dark:hover:bg-white/10 transition-all border border-[#e5e5e5] dark:border-white/10"
+                                                className="p-2 rounded-xl text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
+                                                title="Manage Account"
                                             >
-                                                <FiSettings className="w-3.5 h-3.5" />
-                                                Manage
+                                                <FiSettings className="w-4 h-4" />
                                             </button>
-                                        ) : (
-                                            <span className="text-[12px] text-[#9aa0a6]">—</span>
-                                        )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -1650,7 +1727,7 @@ const AdminLogs: React.FC = () => {
             </div>
             <div className="p-6 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-between">
                 <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
-                    <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Activity Timeline
+                    <FiMessageSquare className="w-4 h-4 text-[#2b83fa]" /> Message History
                 </h3>
                 <button
                     onClick={() => fetchLogs(true)}
