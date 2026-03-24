@@ -821,6 +821,9 @@ const AdminSenderRequests: React.FC = () => {
                     {requests
                         .filter(req => filter === 'all' || req.status === filter)
                         .map(req => {
+                        const associatedAccount = accounts.find(a => a.location_id === req.location_id);
+                        const locName = associatedAccount?.location_name || req.location_name || 'Unknown Account';
+                        
                         return (
                             <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all">
                                 {/* Row Header */}
@@ -835,10 +838,10 @@ const AdminSenderRequests: React.FC = () => {
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <div className="w-6 h-6 rounded-full bg-[#f0f0f0] dark:bg-white/5 flex items-center justify-center text-[10px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] flex-shrink-0">
-                                                {req.location_name ? req.location_name.substring(0, 2).toUpperCase() : '?'}
+                                                {locName !== 'Unknown Account' ? locName.substring(0, 2).toUpperCase() : '?'}
                                             </div>
                                             <div className="flex flex-col min-w-0">
-                                                <p className="font-bold text-[12px] text-[#111111] dark:text-white truncate group-hover:text-[#2b83fa] transition-colors">{req.location_name || 'Admin'}</p>
+                                                <p className="font-bold text-[12px] text-[#111111] dark:text-white truncate group-hover:text-[#2b83fa] transition-colors">{locName}</p>
                                                 <p className="text-[10px] text-[#9aa0a6] font-mono mt-0.5 truncate">{req.location_id}</p>
                                             </div>
                                         </div>
