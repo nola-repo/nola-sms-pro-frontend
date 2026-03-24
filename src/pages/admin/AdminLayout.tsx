@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 
@@ -31,6 +31,7 @@ interface Account {
     credits?: number;
     credit_balance?: number;
     free_usage_count?: number;
+    free_credits_total?: number;
 }
 
 interface AdminLayoutProps {
@@ -675,6 +676,14 @@ const AdminSenderRequests: React.FC = () => {
     const [showApiKey, setShowApiKey] = useState(false);
     const [showInputKey, setShowInputKey] = useState(false);
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filter, searchTerm]);
 
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
@@ -754,40 +763,75 @@ const AdminSenderRequests: React.FC = () => {
                     </span>
                 )}
             </div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
-                    <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">Pending Sender ID Requests</h3>
+                    <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">Sender ID Requests</h3>
                     <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Review, approve, or reject sender name registration requests.</p>
                 </div>
-                <button onClick={() => fetchRequests(true)} className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all">
-                    <FiRefreshCw className={`w-4 h-4 ${loading && !requests.length ? 'animate-spin' : ''}`} />
-                </button>
+                <div className="flex items-center gap-2">
+                    <div className="relative w-full sm:w-64">
+                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5" />
+                        <input
+                            type="text"
+                            placeholder="Search requests..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all font-medium"
+                        />
+                        {searchTerm && (
+                            <button 
+                                onClick={() => setSearchTerm('')}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"
+                            >
+                                <FiX className="w-3 h-3" />
+                            </button>
+                        )}
+                    </div>
+                    <button onClick={() => fetchRequests(true)} className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10]">
+                        <FiRefreshCw className={`w-3.5 h-3.5 ${loading && !requests.length ? 'animate-spin' : ''}`} />
+                    </button>
+                </div>
             </div>
 
-            {/* Filter Pills */}
-            <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 custom-scrollbar">
+            {/* Filter Pills with Improved UI */}
+            <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 custom-scrollbar no-scrollbar">
                 {[
-                    { id: 'all', label: 'All', icon: null, activeClass: 'bg-blue-500 border-blue-500 shadow-blue-500/20' },
-                    { id: 'pending', label: 'Pending', icon: <FiClock size={12} />, activeClass: 'bg-amber-500 border-amber-500 shadow-amber-500/20' },
-                    { id: 'approved', label: 'Approved', icon: <FiCheck size={12} />, activeClass: 'bg-emerald-500 border-emerald-500 shadow-emerald-500/20' },
-                    { id: 'rejected', label: 'Rejected', icon: <FiX size={12} />, activeClass: 'bg-red-500 border-red-500 shadow-red-500/20' },
+                    { id: 'all', label: 'All', icon: null, color: 'blue' },
+                    { id: 'pending', label: 'Pending', icon: <FiClock size={12} />, color: 'amber' },
+                    { id: 'approved', label: 'Approved', icon: <FiCheck size={12} />, color: 'emerald' },
+                    { id: 'rejected', label: 'Rejected', icon: <FiX size={12} />, color: 'red' },
                 ].map(pill => {
                     const isActive = filter === pill.id;
                     const count = pill.id === 'all' ? requests.length : requests.filter(r => r.status === pill.id).length;
                     
+                    const colorMap: Record<string, any> = {
+                        blue: { active: 'bg-blue-600 text-white shadow-blue-500/25', inactive: 'bg-blue-50/50 dark:bg-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-500/10 hover:bg-blue-100/50' },
+                        amber: { active: 'bg-amber-500 text-white shadow-amber-500/25', inactive: 'bg-amber-50/50 dark:bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/10 hover:bg-amber-100/50' },
+                        emerald: { active: 'bg-emerald-600 text-white shadow-emerald-500/25', inactive: 'bg-emerald-50/50 dark:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/10 hover:bg-emerald-100/50' },
+                        red: { active: 'bg-red-600 text-white shadow-red-500/25', inactive: 'bg-red-50/50 dark:bg-red-500/5 text-red-600 dark:text-red-400 border-red-100 dark:border-red-500/10 hover:bg-red-100/50' },
+                    };
+
+                    const theme = colorMap[pill.color];
+
                     return (
                         <button
                             key={pill.id}
-                            onClick={() => setFilter(pill.id as any)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold transition-all whitespace-nowrap border ${
+                            onClick={() => { setFilter(pill.id as any); setCurrentPage(1); }}
+                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[12px] font-bold transition-all whitespace-nowrap border ${
                                 isActive 
-                                    ? `text-white ${pill.activeClass} shadow-md` 
-                                    : 'bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] border-[#e5e5e5] dark:border-white/5 hover:bg-[#efefef] dark:hover:bg-[#161718]'
+                                    ? `${theme.active} border-transparent scale-[1.02]` 
+                                    : `${theme.inactive} opacity-80 hover:opacity-100`
                             }`}
                         >
                             {pill.icon}
-                            {pill.label}
-                            <span className={`ml-1 text-[11px] opacity-60`}>{count}</span>
+                            <span>{pill.label}</span>
+                            <span className={`flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-black min-w-[20px] ${
+                                isActive 
+                                    ? 'bg-white/20 text-white' 
+                                    : 'bg-current opacity-10 text-current'
+                            }`}>
+                                {count}
+                            </span>
                         </button>
                     );
                 })}
@@ -814,71 +858,136 @@ const AdminSenderRequests: React.FC = () => {
             ) : requests.length === 0 ? (
                 <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
                     <FiSend className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                <p className="text-[14px] font-semibold">No {filter !== 'all' ? filter : ''} sender requests found.</p>
-            </div>
+                    <p className="text-[14px] font-semibold">No sender requests found.</p>
+                </div>
             ) : (
                 <div className="space-y-3">
-                    {requests
-                        .filter(req => filter === 'all' || req.status === filter)
-                        .map(req => {
-                        const associatedAccount = accounts.find(a => a.location_id === req.location_id);
-                        const locName = associatedAccount?.location_name || req.location_name || 'Unknown Account';
-                        
+                    {(() => {
+                        const lowSearch = searchTerm.toLowerCase().trim();
+                        const filteredRequests = requests.filter(req => {
+                            const isStatusMatch = filter === 'all' || req.status === filter;
+                            if (!isStatusMatch) return false;
+                            
+                            if (!lowSearch) return true;
+                            const associatedAccount = accounts.find(a => a.location_id === req.location_id);
+                            const locName = associatedAccount?.location_name || req.location_name || '';
+                            
+                            return (
+                                req.requested_id.toLowerCase().includes(lowSearch) ||
+                                req.location_id.toLowerCase().includes(lowSearch) ||
+                                locName.toLowerCase().includes(lowSearch)
+                            );
+                        });
+                        const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
+                        const currentRequests = filteredRequests.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
                         return (
-                            <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all">
-                                {/* Row Header */}
-                                <div
-                                    className="flex items-center gap-4 px-4 py-3 bg-[#fafafa] dark:bg-[#111214] cursor-pointer hover:bg-[#f0f0f0] dark:hover:bg-[#161718] transition-colors"
-                                    onClick={() => setExpandedId(req.id)}
-                                >
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap mb-2">
-                                            <span className="font-bold text-[14px] text-[#111111] dark:text-white font-mono">{req.requested_id}</span>
-                                            <StatusBadge status={req.status} />
+                            <>
+                                {currentRequests.map(req => {
+                                    const associatedAccount = accounts.find(a => a.location_id === req.location_id);
+                                    const locName = associatedAccount?.location_name || req.location_name || 'Unknown Account';
+                                    
+                                    return (
+                                        <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all">
+                                            {/* Row Header */}
+                                            <div
+                                                className="flex items-center gap-4 px-4 py-3 bg-[#fafafa] dark:bg-[#111214] cursor-pointer hover:bg-[#f0f0f0] dark:hover:bg-[#161718] transition-colors"
+                                                onClick={() => setExpandedId(req.id)}
+                                            >
+                                                <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] shadow-sm flex items-center justify-center text-[12px] font-black text-white flex-shrink-0 font-mono tracking-tighter">
+                                                        {req.requested_id.substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                            <span className="font-black text-[15px] text-[#2b83fa] dark:text-[#4da3ff] font-mono leading-none">{req.requested_id}</span>
+                                                            <StatusBadge status={req.status} />
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] truncate uppercase tracking-tight max-w-[150px]">{locName}</p>
+                                                            <span className="w-1 h-1 rounded-full bg-[#d1d5db]/50 dark:bg-gray-700/50"></span>
+                                                            <p className="text-[10px] text-[#9aa0a6] font-mono truncate opacity-70">{req.location_id}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    {/* Approved: show masked key inline */}
+                                                    {req.status === 'approved' && (
+                                                        <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/10 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/30">
+                                                            <FiKey className="w-3 h-3 inline mr-1" />Active
+                                                        </span>
+                                                    )}
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setExpandedId(req.id); }}
+                                                        className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                                                        title="View Details"
+                                                    >
+                                                        <FiEye className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); if (confirm('Are you sure you want to delete this sender request?')) doAction('deleted', req.id); }}
+                                                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                                                        title="Delete Request"
+                                                    >
+                                                        <FiTrash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-6 h-6 rounded-full bg-[#f0f0f0] dark:bg-white/5 flex items-center justify-center text-[10px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] flex-shrink-0">
-                                                {locName !== 'Unknown Account' ? locName.substring(0, 2).toUpperCase() : '?'}
+                                    );
+                                })}
+
+                                {/* Pagination Controls */}
+                                {totalPages > 1 && (
+                                    <div className="flex items-center justify-between px-2 py-2 mt-4 bg-transparent">
+                                        <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] font-medium">
+                                            Showing <span className="font-bold text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-bold text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, filteredRequests.length)}</span> of <span className="font-bold text-[#111111] dark:text-white">{filteredRequests.length}</span> entries
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <button
+                                                disabled={currentPage === 1}
+                                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                                className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                            >
+                                                <FiChevronLeft className="w-4 h-4" />
+                                            </button>
+                                            
+                                            <div className="flex items-center gap-1">
+                                                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                                    <button
+                                                        key={page}
+                                                        onClick={() => setCurrentPage(page)}
+                                                        className={`w-7 h-7 rounded-lg text-[12px] font-bold flex items-center justify-center transition-all ${
+                                                            currentPage === page
+                                                                ? 'bg-[#2b83fa] text-white shadow-sm'
+                                                                : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5'
+                                                        }`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                ))}
                                             </div>
-                                            <div className="flex flex-col min-w-0">
-                                                <p className="font-bold text-[12px] text-[#111111] dark:text-white truncate group-hover:text-[#2b83fa] transition-colors">{locName}</p>
-                                                <p className="text-[10px] text-[#9aa0a6] font-mono mt-0.5 truncate">{req.location_id}</p>
-                                            </div>
+
+                                            <button
+                                                disabled={currentPage === totalPages}
+                                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                                className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                            >
+                                                <FiChevronRight className="w-4 h-4" />
+                                            </button>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        {/* Approved: show masked key inline */}
-                                        {req.status === 'approved' && (
-                                            <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/10 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/30">
-                                                <FiKey className="w-3 h-3 inline mr-1" />Active
-                                            </span>
-                                        )}
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setExpandedId(req.id); }}
-                                            className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-black/5 dark:hover:bg-white/5 transition-all"
-                                            title="View Details"
-                                        >
-                                            <FiEye className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); if (confirm('Are you sure you want to delete this sender request?')) doAction('deleted', req.id); }}
-                                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-                                            title="Delete Request"
-                                        >
-                                            <FiTrash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                                )}
+                            </>
                         );
-                    })}
+                    })()}
                 </div>
             )}
 
             {/* Sender Request Modal */}
             {expandedId && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         {(() => {
                             const req = requests.find(r => r.id === expandedId);
                             if (!req) return null;
@@ -905,50 +1014,67 @@ const AdminSenderRequests: React.FC = () => {
                                     </div>
 
                                     <div className="space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
-                                        {/* Status & ID Banner */}
-                                        <div className="flex items-center justify-between p-3 rounded-xl bg-[#f7f7f7] dark:bg-white/5 border border-[#e5e5e5] dark:border-white/5">
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-0.5">Request Status</span>
-                                                <StatusBadge status={req.status} />
+                                        {/* Status & Highlights Banner */}
+                                        <div className="grid grid-cols-2 gap-px bg-[#e5e5e5] dark:bg-white/10 rounded-xl overflow-hidden border border-[#e5e5e5] dark:border-white/5">
+                                            <div className="bg-[#f7f7f7] dark:bg-[#111214] p-4 flex flex-col">
+                                                <span className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1.5 opacity-70">Sender ID</span>
+                                                <span className="font-black text-[16px] text-[#2b83fa] dark:text-[#4da3ff] font-mono leading-none truncate">{req.requested_id}</span>
                                             </div>
-                                            <div className="flex flex-col items-end text-right">
-                                                <span className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-0.5">Location ID</span>
-                                                <span className="text-[11px] font-mono font-bold text-[#111111] dark:text-white">{req.location_id}</span>
+                                            <div className="bg-[#f7f7f7] dark:bg-[#111214] p-4 flex flex-col">
+                                                <span className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1.5 opacity-70">Status</span>
+                                                <div className="flex items-center">
+                                                    <StatusBadge status={req.status} />
+                                                </div>
                                             </div>
                                         </div>
 
                                         {/* Request Details Grid */}
-                                        <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 space-y-4 border border-[#e5e5e5] dark:border-white/5">
+                                        <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 gap-y-4 border border-[#e5e5e5] dark:border-white/5 flex flex-col">
                                             <div>
-                                                <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Subaccount (Location ID)</p>
-                                                <p className="text-[13px] font-mono text-[#111111] dark:text-white truncate" title={req.location_id}>
-                                                    {req.location_id}
-                                                </p>
+                                                <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Subaccount</p>
+                                                <div className="flex items-center gap-2 bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5">
+                                                    <div className="w-6 h-6 rounded-full bg-[#f0f0f0] dark:bg-white/5 flex items-center justify-center text-[10px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] flex-shrink-0">
+                                                        {(associatedAccount?.location_name || req.location_name || 'U').substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <span className="text-[13px] font-bold text-[#111111] dark:text-white leading-none">{associatedAccount?.location_name || req.location_name || 'Unknown Account'}</span>
+                                                </div>
                                             </div>
-                                            <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
-                                                <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Submitted On</p>
-                                                <p className="text-[13px] text-[#111111] dark:text-white">
-                                                    {req.created_at || 'Unknown'}
-                                                </p>
+                                            
+                                            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-[#e5e5e5] dark:border-white/5">
+                                                <div>
+                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Location ID</p>
+                                                    <p className="text-[12px] font-mono font-medium text-[#111111] dark:text-white truncate bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5" title={req.location_id}>
+                                                        {req.location_id}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Submitted On</p>
+                                                    <p className="text-[12px] font-medium text-[#111111] dark:text-white bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5 h-[38px] flex items-center">
+                                                        {req.created_at || 'Unknown'}
+                                                    </p>
+                                                </div>
                                             </div>
 
                                             {/* Existing API Key from Associated Account */}
-                                            {associatedAccount && associatedAccount.nola_pro_api_key && (
-                                                <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Current API Key</p>
-                                                        <button 
-                                                            onClick={(e) => { e.preventDefault(); setShowApiKey(!showApiKey); }}
-                                                            className="text-[11px] text-[#2b83fa] font-semibold hover:underline"
-                                                        >
-                                                            {showApiKey ? "Hide" : "Show"}
-                                                        </button>
+                                            {(() => {
+                                                const apiKey = associatedAccount?.nola_pro_api_key || associatedAccount?.api_key || associatedAccount?.semaphore_api_key;
+                                                return associatedAccount && apiKey && (
+                                                    <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Current API Key</p>
+                                                            <button 
+                                                                onClick={(e) => { e.preventDefault(); setShowApiKey(!showApiKey); }}
+                                                                className="text-[11px] text-[#2b83fa] font-semibold hover:underline"
+                                                            >
+                                                                {showApiKey ? "Hide" : "Show"}
+                                                            </button>
+                                                        </div>
+                                                        <p className="text-[13px] font-mono text-[#111111] dark:text-white bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5 break-all">
+                                                            {showApiKey ? apiKey : "••••••••••••••••••••••••••••••••••••••••••••••"}
+                                                        </p>
                                                     </div>
-                                                    <p className="text-[13px] font-mono text-[#111111] dark:text-white bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5 break-all">
-                                                        {showApiKey ? associatedAccount.nola_pro_api_key : "••••••••••••••••••••••••••••••••••••••••••••••"}
-                                                    </p>
-                                                </div>
-                                            )}
+                                                );
+                                            })()}
 
                                             {req.purpose && (
                                                 <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
@@ -968,8 +1094,13 @@ const AdminSenderRequests: React.FC = () => {
                                         {/* ── Pending: Approve & Activate / Reject ── */}
                                         {req.status === 'pending' && (
                                             <div className="space-y-4 pt-4 border-t border-[#e5e5e5] dark:border-white/5">
-                                                {/* API Key for Approval */}
-                                                <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <div className="h-6 w-1 bg-[#2b83fa] rounded-full"></div>
+                                                    <h4 className="text-[12px] font-black text-[#111111] dark:text-white uppercase tracking-wider">Admin Review Action</h4>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    {/* API Key for Approval */}
+                                                    <div>
                                                     <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Semaphore API Key</label>
                                                     <div className="relative">
                                                         <input
@@ -989,16 +1120,17 @@ const AdminSenderRequests: React.FC = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* Optional Rejection Note */}
-                                                <div>
-                                                    <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Rejection Note (Optional)</label>
-                                                    <textarea
-                                                        value={rejectNote}
-                                                        onChange={e => setRejectNote(e.target.value)}
-                                                        rows={2}
-                                                        placeholder="Reason for rejection..."
-                                                        className="w-full px-4 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow"
-                                                    />
+                                                    {/* Optional Rejection Note */}
+                                                    <div>
+                                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Rejection Note (Optional)</label>
+                                                        <textarea
+                                                            value={rejectNote}
+                                                            onChange={e => setRejectNote(e.target.value)}
+                                                            rows={2}
+                                                            placeholder="Reason for rejection..."
+                                                            className="w-full px-4 py-2.5 text-[12px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow h-[40px]"
+                                                        />
+                                                    </div>
                                                 </div>
 
                                                 {/* Action Buttons - Equal Size */}
@@ -1036,36 +1168,46 @@ const AdminSenderRequests: React.FC = () => {
                                         )}
 
                                         {/* ── Approved/Rejected: show account key toggle if available ── */}
-                                        {(req.status === 'approved' || req.status === 'rejected') && associatedAccount && associatedAccount.nola_pro_api_key && (
-                                            <div className="pt-4 border-t border-[#e5e5e5] dark:border-white/5 mt-4">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <label className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Account API Key</label>
-                                                    <button 
-                                                        onClick={() => setShowApiKey(!showApiKey)}
-                                                        className="text-[11px] font-bold text-[#2b83fa] hover:underline flex items-center gap-1"
-                                                    >
-                                                        {showApiKey ? <FiEyeOff size={12} /> : <FiEye size={12} />}
-                                                        {showApiKey ? 'Hide' : 'Show Key'}
-                                                    </button>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex-1 p-3 bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 rounded-xl text-[12px] font-mono break-all text-[#111111] dark:text-white overflow-hidden">
-                                                        {showApiKey ? associatedAccount.nola_pro_api_key : "••••••••••••••••••••••••••••••••••••••••••••••"}
+                                        {(() => {
+                                            const apiKey = associatedAccount?.nola_pro_api_key || associatedAccount?.api_key || associatedAccount?.semaphore_api_key;
+                                            return (req.status === 'approved' || req.status === 'rejected') && associatedAccount && apiKey && (
+                                                <div className="pt-4 border-t border-[#e5e5e5] dark:border-white/5 mt-4">
+                                                    <div className="flex items-center justify-between p-4 rounded-xl bg-[#f7f7f7] dark:bg-[#111214] border border-[#e5e5e5] dark:border-white/5">
+                                                        <span className="text-[13px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] whitespace-nowrap">Account API Key</span>
+                                                        
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[14px] font-mono text-[#2b83fa] dark:text-[#4da3ff] truncate max-w-[200px] md:max-w-none">
+                                                                {showApiKey 
+                                                                    ? apiKey 
+                                                                    : apiKey.length > 12 
+                                                                        ? `${apiKey.substring(0, 6)}•••${apiKey.substring(apiKey.length - 6)}`
+                                                                        : '••••••••••••'}
+                                                            </span>
+                                                            
+                                                            <div className="flex items-center gap-1.5 pl-3 border-l border-[#e5e5e5] dark:border-white/10">
+                                                                <button 
+                                                                    onClick={(e) => { e.preventDefault(); setShowApiKey(!showApiKey); }}
+                                                                    className="text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"
+                                                                    title={showApiKey ? 'Hide Key' : 'Show Key'}
+                                                                >
+                                                                    {showApiKey ? <FiEyeOff size={15} /> : <FiEye size={15} />}
+                                                                </button>
+                                                                <button 
+                                                                    onClick={async (e) => {
+                                                                        e.preventDefault();
+                                                                        await navigator.clipboard.writeText(apiKey || '');
+                                                                    }}
+                                                                    className="text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"
+                                                                    title="Copy API Key"
+                                                                >
+                                                                    <FiCopy size={15} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    {showApiKey && (
-                                                        <button 
-                                                            onClick={async () => {
-                                                                await navigator.clipboard.writeText(associatedAccount.nola_pro_api_key || '');
-                                                            }}
-                                                            className="p-3 text-[#6e6e73] hover:text-[#2b83fa] bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 rounded-xl transition-all"
-                                                            title="Copy API Key"
-                                                        >
-                                                            <FiCopy size={16} />
-                                                        </button>
-                                                    )}
                                                 </div>
-                                            </div>
-                                        )}
+                                            );
+                                        })()}
                                     </div>
                                 </>
                             );
@@ -1350,6 +1492,13 @@ const AdminAccounts: React.FC = () => {
     const [showApiKey, setShowApiKey] = useState(false);
     const [copiedKey, setCopiedKey] = useState(false);
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
+
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
     const fetchAccounts = useCallback(async (isInitial = false) => {
@@ -1508,13 +1657,16 @@ const AdminAccounts: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
-                            {accounts
-                                .filter(acc => 
+                            {(() => {
+                                const filteredAccounts = accounts.filter(acc => 
                                     acc.location_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                                     acc.location_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                     acc.approved_sender_id?.toLowerCase().includes(searchTerm.toLowerCase())
-                                )
-                                .map(acc => (
+                                );
+                                
+                                const currentAccounts = filteredAccounts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+                                return currentAccounts.map(acc => (
                                 <tr key={acc.id} className="group hover:bg-[#f7f7f7] dark:hover:bg-white/[0.015] transition-colors">
                                     <td className="py-4 pr-4">
                                         <div className="flex items-center gap-3">
@@ -1533,45 +1685,64 @@ const AdminAccounts: React.FC = () => {
                                             : <span className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest pl-2">System</span>}
                                     </td>
                                     <td className="py-4 pr-4">
-                                        {acc.nola_pro_api_key ? (
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] font-mono bg-[#f0f0f0] dark:bg-white/5 px-2 py-1 rounded-md">
-                                                    {visibleApiKeyId === acc.id ? acc.nola_pro_api_key : '••••••••••••'}
-                                                </span>
-                                                <button 
-                                                    onClick={() => setVisibleApiKeyId(visibleApiKeyId === acc.id ? null : acc.id)}
-                                                    className="p-1 text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-all"
-                                                >
-                                                    {visibleApiKeyId === acc.id ? <FiEyeOff size={14} /> : <FiEye size={14} />}
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <span className="text-[11px] text-[#9aa0a6] italic pl-2">None</span>
-                                        )}
+                                        {(() => {
+                                            const apiKey = acc.nola_pro_api_key || acc.api_key || acc.semaphore_api_key;
+                                            return apiKey ? (
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-[11px] text-[#2b83fa] dark:text-[#4da3ff] font-mono bg-[#f0f0f0] dark:bg-white/5 px-2 py-1 rounded-md max-w-[120px] truncate">
+                                                        {visibleApiKeyId === acc.id 
+                                                            ? apiKey 
+                                                            : apiKey.length > 12 
+                                                                ? `${apiKey.substring(0, 5)}•••${apiKey.substring(apiKey.length - 5)}`
+                                                                : '••••••••••••'}
+                                                    </span>
+                                                    <div className="flex items-center border-l border-[#e5e5e5] dark:border-white/10 pl-1.5 ml-1 gap-1">
+                                                        <button 
+                                                            onClick={() => setVisibleApiKeyId(visibleApiKeyId === acc.id ? null : acc.id)}
+                                                            className="p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"
+                                                            title={visibleApiKeyId === acc.id ? 'Hide Key' : 'Show Key'}
+                                                        >
+                                                            {visibleApiKeyId === acc.id ? <FiEyeOff size={14} /> : <FiEye size={14} />}
+                                                        </button>
+                                                        <button 
+                                                            onClick={async () => {
+                                                                await navigator.clipboard.writeText(apiKey || '');
+                                                            }}
+                                                            className="p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"
+                                                            title="Copy API Key"
+                                                        >
+                                                            <FiCopy size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span className="text-[11px] text-[#9aa0a6] italic pl-2">None</span>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="py-4 pr-4">
                                         <div className="flex flex-col">
-                                            <span className="text-[13px] font-bold text-[#111111] dark:text-white">₱{(acc.credits || 0).toLocaleString()}</span>
+                                            <span className="text-[13px] font-bold text-[#111111] dark:text-white">{(acc.credit_balance ?? acc.credits ?? 0).toLocaleString()}</span>
                                             <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">Balance</span>
                                         </div>
                                     </td>
                                     <td className="py-4 pr-4">
-                                        <div className={`inline-flex flex-col p-1.5 rounded-xl border ${ (acc.free_usage_count ?? 0) >= 10 ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/20' : 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20' }`}>
-                                            <span className={`text-[12px] font-black text-center ${ (acc.free_usage_count ?? 0) >= 10 ? 'text-red-600 dark:text-red-400' : 'text-[#2b83fa]' }`}>
-                                                {acc.free_usage_count ?? 0}
+                                        <div className={`inline-flex flex-col p-1.5 rounded-xl border ${ (acc.free_usage_count ?? 0) >= (acc.free_credits_total ?? 10) ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/20' : 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20' }`}>
+                                            <span className={`text-[12px] font-black text-center ${ (acc.free_usage_count ?? 0) >= (acc.free_credits_total ?? 10) ? 'text-red-600 dark:text-red-400' : 'text-[#2b83fa]' }`}>
+                                                {acc.free_usage_count ?? 0} / {acc.free_credits_total ?? 10}
                                             </span>
-                                            <div className="w-8 h-1 bg-gray-200 dark:bg-gray-800 rounded-full mt-1 overflow-hidden">
-                                                <div className={`h-full ${(acc.free_usage_count ?? 0) >= 10 ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${Math.min((acc.free_usage_count ?? 0) * 10, 100)}%` }}></div>
+                                            <div className="w-10 h-1 bg-gray-200 dark:bg-gray-800 rounded-full mt-1 overflow-hidden">
+                                                <div className={`h-full ${(acc.free_usage_count ?? 0) >= (acc.free_credits_total ?? 10) ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(((acc.free_usage_count ?? 0) / (acc.free_credits_total ?? 10)) * 100, 100)}%` }}></div>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="py-4">
-                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex items-center gap-2 transition-opacity">
                                             <button
                                                 onClick={() => {
                                                     setManagingAccount(acc);
                                                     setManageSenderId(acc.approved_sender_id || '');
-                                                    setManageApiKey(acc.nola_pro_api_key || '');
+                                                    setManageApiKey(acc.nola_pro_api_key || acc.api_key || acc.semaphore_api_key || '');
                                                 }}
                                                 className="p-2 rounded-xl text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
                                                 title="Manage Account"
@@ -1581,9 +1752,62 @@ const AdminAccounts: React.FC = () => {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                                ));
+                            })()}
                         </tbody>
                     </table>
+                    
+                    {/* Pagination Controls */}
+                    {(() => {
+                        const filteredAccounts = accounts.filter(acc => 
+                            acc.location_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            acc.location_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            acc.approved_sender_id?.toLowerCase().includes(searchTerm.toLowerCase())
+                        );
+                        const totalPages = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
+                        if (totalPages <= 1) return null;
+
+                        return (
+                            <div className="flex items-center justify-between px-4 py-4 mt-2 border-t border-[#e5e5e5] dark:border-white/5">
+                                <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] font-medium">
+                                    Showing <span className="font-bold text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-bold text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, filteredAccounts.length)}</span> of <span className="font-bold text-[#111111] dark:text-white">{filteredAccounts.length}</span> entries
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        disabled={currentPage === 1}
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                    >
+                                        <FiChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    
+                                    <div className="flex items-center gap-1">
+                                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                            <button
+                                                key={page}
+                                                onClick={() => setCurrentPage(page)}
+                                                className={`w-7 h-7 rounded-lg text-[12px] font-bold flex items-center justify-center transition-all ${
+                                                    currentPage === page
+                                                        ? 'bg-[#2b83fa] text-white shadow-sm'
+                                                        : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5'
+                                                }`}
+                                            >
+                                                {page}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <button
+                                        disabled={currentPage === totalPages}
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                    >
+                                        <FiChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
             )}
 
