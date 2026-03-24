@@ -767,7 +767,7 @@ const AdminSenderRequests: React.FC = () => {
             {/* Filter Pills */}
             <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 custom-scrollbar">
                 {[
-                    { id: 'all', label: 'All', icon: null, activeClass: 'bg-slate-500 border-slate-500 shadow-slate-500/20' },
+                    { id: 'all', label: 'All', icon: null, activeClass: 'bg-blue-500 border-blue-500 shadow-blue-500/20' },
                     { id: 'pending', label: 'Pending', icon: <FiClock size={12} />, activeClass: 'bg-amber-500 border-amber-500 shadow-amber-500/20' },
                     { id: 'approved', label: 'Approved', icon: <FiCheck size={12} />, activeClass: 'bg-emerald-500 border-emerald-500 shadow-emerald-500/20' },
                     { id: 'rejected', label: 'Rejected', icon: <FiX size={12} />, activeClass: 'bg-red-500 border-red-500 shadow-red-500/20' },
