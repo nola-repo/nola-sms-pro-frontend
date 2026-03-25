@@ -206,14 +206,42 @@ export const Composer: React.FC<ComposerProps> = ({
     toastTimerRef.current = setTimeout(() => { setToastOpen(true); }, 50);
   };
   const [showDisabledReason, setShowDisabledReason] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+
+  const handleScroll = () => {
+    if (!msgAreaRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = msgAreaRef.current;
+    // Show the button if scrolled up more than 150px from the bottom
+    setShowScrollButton(scrollHeight - scrollTop - clientHeight > 150);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const prevConversationId = useRef<string | undefined>(undefined);
+  const prevMessagesLength = useRef<number>(0);
+  const prevRawLogView = useRef<boolean>(false);
+
   useEffect(() => {
-    scrollToBottom();
-  }, [conversationMessages, phoneLogMessages, useRawLogView]);
+    const currentLength = useRawLogView ? phoneLogMessages.length : conversationMessages.length;
+    
+    // Only auto-scroll on initial load, when conversation changes, 
+    // when toggling raw log view, or when new messages arrive.
+    // This prevents flickering/auto-scrolling on background status polls.
+    if (
+      conversationId !== prevConversationId.current ||
+      useRawLogView !== prevRawLogView.current ||
+      currentLength > prevMessagesLength.current ||
+      prevMessagesLength.current === 0
+    ) {
+      setTimeout(scrollToBottom, 50);
+    }
+    
+    prevConversationId.current = conversationId;
+    prevRawLogView.current = useRawLogView;
+    prevMessagesLength.current = currentLength;
+  }, [conversationMessages, phoneLogMessages, useRawLogView, conversationId]);
 
   // Whenever the conversationId changes, reset the raw log view toggle
   useEffect(() => {
@@ -892,6 +920,7 @@ export const Composer: React.FC<ComposerProps> = ({
       <div
         ref={msgAreaRef}
         className="flex-1 overflow-y-auto px-6 py-4 space-y-1 flex flex-col custom-scrollbar"
+        onScroll={handleScroll}
         onTouchStart={(e) => { touchStartYMsg.current = e.touches[0].clientY; }}
         onTouchEnd={async (e) => {
           const delta = e.changedTouches[0].clientY - touchStartYMsg.current;
@@ -1304,6 +1333,23 @@ export const Composer: React.FC<ComposerProps> = ({
           )}
         </div>
         <div ref={messagesEndRef} />
+      </div>
+
+      {/* Scroll to bottom floating button */}
+      <div
+        className={`absolute bottom-[110px] right-6 sm:right-10 z-30 transition-all duration-300 ${
+          showScrollButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8 pointer-events-none"
+        }`}
+      >
+        <button
+          onClick={scrollToBottom}
+          className="w-10 h-10 bg-[#2b83fa] text-white rounded-full shadow-[0_4px_15px_rgba(43,131,250,0.3)] hover:shadow-[0_6px_20px_rgba(43,131,250,0.4)] flex items-center justify-center hover:scale-110 active:scale-95 transition-all"
+          aria-label="Scroll to bottom"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
+        </button>
       </div>
 
       {/* 3. Floating Input Card Area */}

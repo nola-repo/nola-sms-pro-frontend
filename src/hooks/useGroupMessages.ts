@@ -114,7 +114,13 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
                             text: m.message || '',
                             timestamp: new Date(parseDate(m.date_created)),
                             senderName: m.sender_id || 'NOLASMSPro',
-                            status: (m.status || 'sent') as Message['status'],
+                            status: (() => {
+                                let mappedStatus = (m.status || 'sent').toLowerCase();
+                                if (mappedStatus === 'pending' || mappedStatus === 'queued') {
+                                    mappedStatus = 'sent';
+                                }
+                                return mappedStatus as Message['status'];
+                            })(),
                             batch_id: m.batch_id,
                             message: m.message,
                             date_created: m.date_created,

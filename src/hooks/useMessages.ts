@@ -27,7 +27,15 @@ export const useMessages = (phoneNumber: string | undefined) => {
             text: log.message || '',
             timestamp: date,
             senderName: log.sender_id || 'NOLASMSPro',
-            status: (log.status as Message['status']) || 'sent',
+            status: (() => {
+                let mappedStatus = (log.status || 'sent').toLowerCase();
+                // Optimistically show 'sent' (green) for messages that have reached Semaphore (pending delivery)
+                // This stops the UI from flickering back to gray 'pending' while the backend syncs
+                if (mappedStatus === 'pending' || mappedStatus === 'queued') {
+                    mappedStatus = 'sent';
+                }
+                return mappedStatus as Message['status'];
+            })(),
             errorReason: log.error_reason,
         };
     };

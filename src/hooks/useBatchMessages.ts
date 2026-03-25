@@ -16,7 +16,14 @@ export const useBatchMessages = (batchId?: string) => {
         if (showLoading) setLoading(true);
         try {
             const data = await fetchBatchMessages(batchId);
-            setMessages(data);
+            const mappedData = data.map((log: SmsLog) => {
+                let mappedStatus = (log.status || 'sent').toLowerCase();
+                if (mappedStatus === 'pending' || mappedStatus === 'queued') {
+                    mappedStatus = 'sent';
+                }
+                return { ...log, status: mappedStatus };
+            });
+            setMessages(mappedData);
         } catch (error) {
             console.error("Failed to fetch batch messages:", error);
         } finally {
