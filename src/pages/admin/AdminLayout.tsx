@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 
@@ -264,11 +264,11 @@ const AdminLogin: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
 // ─── Admin Layout Shell ───────────────────────────────────────────────────────
 
-export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
+export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode, toggleDarkMode }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
         return localStorage.getItem('nola_admin_auth') === 'true';
     });
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'accounts' | 'requests' | 'admins' | 'messages' | 'settings'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'accounts' | 'requests' | 'admins' | 'activity' | 'settings'>('dashboard');
 
     const handleLogin = () => {
         localStorage.setItem('nola_admin_auth', 'true');
@@ -301,7 +301,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                     {[
                         { id: 'dashboard', label: 'Dashboard', icon: <FiHome /> },
                         { id: 'requests', label: 'Sender Requests', icon: <FiSend /> },
-                        { id: 'messages', label: 'Messages', icon: <FiMessageSquare /> },
+                        { id: 'activity', label: 'Platform Activity', icon: <FiActivity /> },
                         { id: 'accounts', label: 'All Accounts', icon: <FiUsers /> },
                         { id: 'admins', label: 'Admin Users', icon: <FiShield /> },
                         { id: 'settings', label: 'System Settings', icon: <FiSettings /> },
@@ -339,12 +339,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                 <header className="px-8 py-5 bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border-b border-[#0000000a] dark:border-[#ffffff0a] flex-shrink-0 flex items-center justify-between">
                     <div>
                         <h2 className="text-xl font-bold text-[#111111] dark:text-white capitalize tracking-tight">
-                            {activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'requests' ? 'Sender Requests' : activeTab === 'accounts' ? 'All Accounts' : activeTab === 'admins' ? 'Admin Users' : activeTab === 'messages' ? 'Message Logs' : 'System Settings'}
+                            {activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'requests' ? 'Sender Requests' : activeTab === 'accounts' ? 'All Accounts' : activeTab === 'admins' ? 'Admin Users' : activeTab === 'activity' ? 'Platform Activity' : 'System Settings'}
                         </h2>
                         <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">
                             {activeTab === 'dashboard' ? 'Platform-wide overview of all accounts and activity.' : 'Management overview and administrative actions.'}
                         </p>
                     </div>
+                    <button
+                        onClick={toggleDarkMode}
+                        className="p-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/5 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#efefef] dark:hover:bg-white/5 transition-all shadow-sm"
+                        aria-label="Toggle theme"
+                        title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                    >
+                        {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
+                    </button>
                 </header>
 
                 <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -353,7 +361,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode }) => {
                         {activeTab === 'requests' && <AdminSenderRequests />}
                         {activeTab === 'accounts' && <AdminAccounts />}
                         {activeTab === 'admins' && <AdminTeamManagement />}
-                        {activeTab === 'messages' && <AdminLogs />}
+                        {activeTab === 'activity' && <AdminLogs />}
                         {activeTab === 'settings' && <AdminSettings />}
                     </div>
                 </main>
@@ -417,16 +425,16 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
     const recentRequests = [...requests].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 6);
 
     const StatCard = ({ label, value, color, icon }: { label: string; value: number | string; color: string; icon: React.ReactNode }) => (
-        <div className={`relative p-6 rounded-3xl bg-gradient-to-br ${color} shadow-lg overflow-hidden group`}>
+        <div className={`relative p-6 rounded-3xl bg-gradient-to-br ${color} shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group`}>
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
                 <div className="w-20 h-20">{icon}</div>
             </div>
             <div className="relative z-10">
-                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
+                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
                     {icon}
                 </div>
-                <p className="text-[12px] font-bold text-white/70 uppercase tracking-widest mb-1">{label}</p>
-                <h2 className="text-3xl font-black text-white">
+                <p className="text-[12px] font-bold text-white/80 uppercase tracking-widest mb-1">{label}</p>
+                <h2 className="text-3xl font-black text-white tracking-tight drop-shadow-sm">
                     {loading ? <span className="inline-block w-10 h-8 bg-white/20 animate-pulse rounded-lg" /> : value}
                 </h2>
             </div>
@@ -463,17 +471,20 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
                             { tab: 'settings', label: 'System Settings', desc: 'Global sender ID and free tier config', color: 'text-slate-500 bg-slate-50 dark:bg-slate-900/20', icon: <FiSettings className="w-5 h-5" />, badge: 0 },
                         ].map(item => (
                             <button key={item.tab} onClick={() => onNavigate(item.tab)}
-                                className="w-full flex items-center gap-4 p-4 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] hover:bg-[#efefef] dark:hover:bg-[#161718] transition-colors text-left group">
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.color}`}>
+                                className="w-full flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left group">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${item.color} group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 ring-1 ring-inset ring-black/5 dark:ring-white/10`}>
                                     {item.icon}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-[13px] font-bold text-[#111111] dark:text-white">{item.label}</p>
-                                    <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6]">{item.desc}</p>
+                                    <p className="text-[14px] font-bold text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors">{item.label}</p>
+                                    <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">{item.desc}</p>
                                 </div>
-                                {item.badge > 0 && (
-                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-[11px] font-black flex items-center justify-center animate-pulse">{item.badge}</span>
-                                )}
+                                <div className="flex items-center gap-3">
+                                    {item.badge > 0 && (
+                                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500 shadow-lg shadow-amber-500/30 text-white text-[11px] font-black flex items-center justify-center animate-pulse">{item.badge}</span>
+                                    )}
+                                    <FiChevronRight className="w-5 h-5 text-[#9aa0a6] opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
+                                </div>
                             </button>
                         ))}
                     </div>
@@ -483,11 +494,13 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
                 <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col h-[400px]">
                     <div className="flex items-center justify-between mb-5">
                         <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider">Recent Requests</h3>
-                        <button onClick={() => onNavigate('requests')} className="text-[11px] font-bold text-[#2b83fa] hover:underline">See All</button>
+                        <button onClick={() => onNavigate('requests')} className="group text-[11px] font-black text-[#2b83fa] hover:underline transition-all duration-300 flex items-center gap-1 active:scale-95 uppercase tracking-wider">
+                            See All <FiChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                        </button>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {loading ? (
-                            [1,2,3].map(i => <div key={i} className="h-14 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)
+                            [1,2,3].map(i => <div key={i} className="h-16 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)
                         ) : recentRequests.length === 0 ? (
                             <div className="py-10 text-center">
                                 <FiSend className="w-8 h-8 mx-auto mb-2 text-[#d0d0d0] dark:text-[#3a3b3f]" />
@@ -495,20 +508,20 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
                             </div>
                         ) : recentRequests.map(req => (
                             <div key={req.id} onClick={() => onNavigate('requests')}
-                                className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#f7f7f7] dark:hover:bg-[#0d0e10] transition-colors cursor-pointer">
-                                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 ${
-                                    req.status === 'pending' ? 'bg-amber-500' : req.status === 'approved' ? 'bg-emerald-500' : 'bg-red-500'
+                                className="group flex items-center gap-4 p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-[13px] font-black flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 ${
+                                    req.status === 'pending' ? 'bg-gradient-to-br from-amber-400 to-orange-500' : req.status === 'approved' ? 'bg-gradient-to-br from-emerald-400 to-teal-500' : 'bg-gradient-to-br from-red-400 to-rose-600'
                                 }`}>
                                     {req.requested_id?.charAt(0).toUpperCase() || '?'}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-[13px] font-bold text-[#111111] dark:text-white font-mono truncate">{req.requested_id}</p>
-                                    <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] truncate">{req.location_name || req.location_id}</p>
+                                    <p className="text-[14px] font-bold text-[#111111] dark:text-white font-mono truncate tracking-tight">{req.requested_id}</p>
+                                    <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mt-0.5">{req.location_name || req.location_id}</p>
                                 </div>
-                                <span className={`flex-shrink-0 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
-                                    req.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800/30' :
-                                    req.status === 'approved' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/10 dark:text-green-400 dark:border-green-800/30' :
-                                    'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30'
+                                <span className={`flex-shrink-0 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border shadow-sm ${
+                                    req.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/40' :
+                                    req.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/40' :
+                                    'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/40'
                                 }`}>{req.status}</span>
                             </div>
                         ))}
@@ -522,7 +535,9 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
                     <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
                         <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Platform Activity
                     </h3>
-                    <button onClick={() => onNavigate('logs')} className="text-[11px] font-bold text-[#2b83fa] hover:underline">See All</button>
+                    <button onClick={() => onNavigate('activity')} className="group text-[11px] font-black text-[#2b83fa] hover:underline transition-all duration-300 flex items-center gap-1 active:scale-95 uppercase tracking-wider">
+                        See All <FiChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
                 </div>
                 <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2">
                     {loading ? (
@@ -545,66 +560,52 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
                         const timestamp = log.timestamp || log.date_created || log.created_at;
                         const timeString = timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                         
+                        const locId = log.location_id || log.account_id;
+                        const account = accounts.find((a: any) => a.id === locId || a.location_id === locId);
+                        
+                        const subAccountPill = locId ? (
+                            <div className="flex items-center gap-1.5 bg-gray-100/50 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 pl-1 pr-2 py-0.5 rounded-full" title={account?.location_name || 'Unknown Account'}>
+                                <div className="w-4 h-4 rounded-full bg-[#e5e5e5] dark:bg-white/10 flex items-center justify-center text-[9px] font-bold text-gray-500">
+                                    {account?.location_name ? account.location_name.substring(0, 1).toUpperCase() : '?'}
+                                </div>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate max-w-[80px]">{account?.location_name || 'System'}</span>
+                                    <span className="text-[9px] font-mono text-gray-400">({locId.substring(0, 5)})</span>
+                                </div>
+                            </div>
+                        ) : null;
+                        
                         // Message Event
                         if (type === 'message') {
                             const isSent = ['sent', 'delivered', 'pending', 'queued'].includes(log.status);
                             const isFailed = ['failed', 'rejected', 'undelivered', 'error'].includes(log.status);
                             return (
-                                <div key={log.id} className="flex items-start gap-4 p-4 rounded-xl hover:bg-[#f7f7f7] dark:hover:bg-[#0d0e10] transition-colors border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/5 group">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 ${
-                                        isSent ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'
-                                        : isFailed ? 'bg-red-50 dark:bg-red-900/20 text-red-600'
-                                        : 'bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa]'
-                                    }`}>
+                                <div key={log.id} className="group flex items-center gap-4 p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                                    <div className={`w-10 h-10 rounded-[16px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa] dark:text-[#569cfe]`}>
                                         <FiMessageSquare className="w-5 h-5" />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-0.5">
-                                            <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate pr-2">Message to <span className="font-mono text-[13px] opacity-90">{log.number || log.to || 'Unknown'}</span></p>
-                                            <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap">{timeString}</span>
+                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                        <div className="flex items-center justify-between mb-1 gap-2">
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
+                                                    To <span className="font-mono text-[13px] ml-1">{log.number || log.to || 'Unknown'}</span>
+                                                </p>
+                                                <div className="flex-shrink-0 scale-90 origin-left">
+                                                    <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border shadow-sm ${
+                                                        isSent ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' :
+                                                        isFailed ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30' :
+                                                        'bg-blue-50 text-[#2b83fa] border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30'
+                                                    }`}>{log.status || 'unknown'}</span>
+                                                </div>
+                                            </div>
+                                            <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">{timeString}</span>
                                         </div>
-                                        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mb-2">{log.message || 'No content'}</p>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
-                                                isSent ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' :
-                                                isFailed ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30' :
-                                                'bg-blue-50 text-[#2b83fa] border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30'
-                                            }`}>{log.status || 'unknown'}</span>
-                                            {log.sendername && <span className="text-[11px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Via: {log.sendername}</span>}
-                                            {log.location_id && <span className="text-[11px] font-mono text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Loc: {log.location_id.substring(0,8)}...</span>}
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        }
-
-                        // Sender Request Event
-                        if (type === 'sender_request') {
-                            const isPending = log.status === 'pending';
-                            return (
-                                <div key={log.id} onClick={() => onNavigate('requests')} className="flex items-start gap-4 p-4 rounded-xl hover:bg-[#f7f7f7] dark:hover:bg-[#0d0e10] transition-colors border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/5 cursor-pointer group">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 ${
-                                        isPending ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600'
-                                        : log.status === 'approved' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'
-                                        : 'bg-red-50 dark:bg-red-900/20 text-red-600'
-                                    }`}>
-                                        <FiSend className="w-5 h-5" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-0.5">
-                                            <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate pr-2">Sender ID Request</p>
-                                            <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap">{timeString}</span>
-                                        </div>
-                                        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mb-2">
-                                            Registration for <span className="font-mono font-bold">{log.requested_id}</span>
-                                        </p>
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
-                                                isPending ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800/30' :
-                                                log.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' :
-                                                'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30'
-                                            }`}>{log.status}</span>
-                                            {log.location_id && <span className="text-[11px] font-mono text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Loc: {log.location_id.substring(0,8)}...</span>}
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">{log.message || 'No content'}</p>
+                                            <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
+                                                {log.sendername && <span className="text-[10px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-1.5 py-0.5 rounded-md shadow-sm">Via: {log.sendername}</span>}
+                                                {subAccountPill}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -615,25 +616,25 @@ const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNaviga
                         if (type === 'credit_purchase' || type === 'credit_usage') {
                             const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0);
                             return (
-                                <div key={log.id} className="flex items-start gap-4 p-4 rounded-xl hover:bg-[#f7f7f7] dark:hover:bg-[#0d0e10] transition-colors border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/5 group">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 ${
-                                        isUsage ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600' : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600'
-                                    }`}>
+                                <div key={log.id} className="group flex items-center gap-4 p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                                    <div className={`w-10 h-10 rounded-[16px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}>
                                         {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-0.5">
-                                            <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate pr-2">{isUsage ? 'Credits Used' : 'Credits Purchased'}</p>
-                                            <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap">{timeString}</span>
+                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                        <div className="flex items-center justify-between mb-1 gap-2">
+                                            <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
+                                                {isUsage ? 'Credits Used' : 'Credits Purchased'}
+                                            </p>
+                                            <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">{timeString}</span>
                                         </div>
-                                        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mb-2">
-                                            {isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-amber-600' : 'text-purple-600 dark:text-purple-400'}`}>{!isUsage && '+'}{log.amount?.toLocaleString()}</span> credits
-                                        </p>
-                                        <div className="flex items-center gap-2">
-                                             <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30">
-                                                {log.status === 'completed' ? 'Paid' : log.status}
-                                            </span>
-                                            {log.location_id && <span className="text-[11px] font-mono text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Loc: {log.location_id.substring(0,8)}...</span>}
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">
+                                                {isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{!isUsage && '+'}{log.amount?.toLocaleString()}</span> credits
+                                            </p>
+                                            <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
+                                                {log.status && <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border shadow-sm bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30">{log.status === 'completed' ? 'Paid' : log.status}</span>}
+                                                {subAccountPill}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -828,7 +829,7 @@ const AdminSenderRequests: React.FC = () => {
                             <span className={`flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-black min-w-[20px] ${
                                 isActive 
                                     ? 'bg-white/20 text-white' 
-                                    : 'bg-current opacity-10 text-current'
+                                    : 'bg-black/5 dark:bg-white/10 text-current opacity-70'
                             }`}>
                                 {count}
                             </span>
@@ -1227,13 +1228,13 @@ export const AdminTeamManagement: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
-    
-    // Form state
+    const [searchTerm, setSearchTerm] = useState('');
+    const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+
     const [newUsername, setNewUsername] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [newRole, setNewRole] = useState('support');
     const [actionLoading, setActionLoading] = useState(false);
-
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
     const fetchAdmins = useCallback(async (isInitial = false) => {
@@ -1242,24 +1243,15 @@ export const AdminTeamManagement: React.FC = () => {
             const res = await fetch('/api/admin_users.php');
             if (res.ok) {
                 const json = await res.json();
-                if (json.status === 'success') {
-                    setAdmins(json.data || []);
-                } else {
-                    setError(json.message || 'Failed to fetch admin users.');
-                }
+                if (json.status === 'success') setAdmins(json.data || []);
+                else setError(json.message || 'Failed to fetch admin users.');
             } else {
-                setAdmins([
-                    { username: 'admin', role: 'super_admin', created_at: new Date().toISOString().split('T')[0] }
-                ]);
+                setAdmins([{ username: 'admin', role: 'super_admin', created_at: new Date().toISOString().split('T')[0], active: true }]);
             }
             setLastRefreshed(new Date());
         } catch {
-            setAdmins([
-                { username: 'admin', role: 'super_admin', created_at: new Date().toISOString().split('T')[0] }
-            ]);
-        } finally {
-            if (isInitial) setLoading(false);
-        }
+            setAdmins([{ username: 'admin', role: 'super_admin', created_at: new Date().toISOString().split('T')[0], active: true }]);
+        } finally { if (isInitial) setLoading(false); }
     }, []);
 
     useEffect(() => {
@@ -1282,30 +1274,22 @@ export const AdminTeamManagement: React.FC = () => {
                 if (json.status === 'success') {
                     setSuccessMsg('Admin user created successfully.');
                     setShowCreateModal(false);
-                    setNewUsername('');
-                    setNewPassword('');
-                    setNewRole('support');
+                    setNewUsername(''); setNewPassword(''); setNewRole('support');
                     fetchAdmins();
-                } else {
-                    setError(json.message || 'Failed to create admin.');
-                }
+                } else { setError(json.message || 'Failed to create admin.'); }
             } else {
-                // Mock success
                 setSuccessMsg('Admin user created successfully (Mocked).');
-                setAdmins(prev => [...prev, { username: newUsername, role: newRole, created_at: new Date().toISOString().split('T')[0] }]);
+                setAdmins(prev => [...prev, { username: newUsername, role: newRole, created_at: new Date().toISOString().split('T')[0], active: true }]);
                 setShowCreateModal(false);
             }
             setTimeout(() => setSuccessMsg(null), 3000);
-        } catch {
-            setError('Network error creating admin.');
-        } finally {
-            setActionLoading(false);
-        }
+        } catch { setError('Network error creating admin.'); }
+        finally { setActionLoading(false); }
     };
 
     const handleDeleteAdmin = async (usernameToDelete: string) => {
-        if (!confirm(`Are you sure you want to delete the admin account '${usernameToDelete}'?`)) return;
-        setActionLoading(true);
+        if (!confirm(`Are you sure you want to delete '${usernameToDelete}'?`)) return;
+        setActionLoading(true); setActionMenuId(null);
         try {
             const res = await fetch('/api/admin_users.php', {
                 method: 'DELETE',
@@ -1314,57 +1298,58 @@ export const AdminTeamManagement: React.FC = () => {
             });
             if (res.ok) {
                 const json = await res.json();
-                if (json.status === 'success') {
-                    setSuccessMsg(`Admin ${usernameToDelete} deleted.`);
-                    fetchAdmins();
-                } else {
-                    setError(json.message || 'Failed to delete admin.');
-                }
+                if (json.status === 'success') { setSuccessMsg(`Admin ${usernameToDelete} deleted.`); fetchAdmins(); }
+                else setError(json.message || 'Failed to delete admin.');
             } else {
                 setSuccessMsg(`Admin ${usernameToDelete} deleted (Mocked).`);
                 setAdmins(prev => prev.filter(a => a.username !== usernameToDelete));
             }
             setTimeout(() => setSuccessMsg(null), 3000);
-        } catch {
-            setError('Network error deleting admin.');
-        } finally {
-            setActionLoading(false);
-        }
+        } catch { setError('Network error deleting admin.'); }
+        finally { setActionLoading(false); }
     };
+
+    const getRoleBadge = (role: string) => {
+        const map: Record<string, { bg: string; label: string }> = {
+            super_admin: { bg: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30', label: 'Super Admin' },
+            support:     { bg: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30', label: 'Support' },
+            viewer:      { bg: 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900/10 dark:text-gray-400 dark:border-gray-800/30', label: 'Viewer' },
+        };
+        const style = map[role] || map.viewer;
+        return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${style.bg}`}>{style.label || role}</span>;
+    };
+
+    const filtered = admins.filter(a =>
+        a.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        a.role?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
             <div className="flex items-center justify-end mb-2">
-                {!loading && (
-                    <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
-                        Last Active: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    </span>
-                )}
+                {!loading && <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">Last Active: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
             </div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-5">
                 <div>
                     <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">Admin Users</h3>
                     <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Manage dashboard access and role permissions.</p>
                 </div>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#111111] dark:bg-white text-white dark:text-[#111111] rounded-xl font-bold text-[13px] hover:bg-[#333333] dark:hover:bg-[#e5e5e5] transition-colors"
-                >
+                <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[#111111] dark:bg-white text-white dark:text-[#111111] rounded-xl font-bold text-[13px] hover:bg-[#333333] dark:hover:bg-[#e5e5e5] transition-colors">
                     <FiPlus className="w-4 h-4" /> Create Admin
                 </button>
             </div>
 
-            {successMsg && (
-                <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 text-green-700 dark:text-green-400 text-[13px] font-medium">
-                    <FiCheck className="w-4 h-4 flex-shrink-0" /> {successMsg}
-                </div>
-            )}
+            {/* Search */}
+            <div className="relative mb-5">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5" />
+                <input type="text" placeholder="Search by username or role..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all font-medium"
+                />
+                {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"><FiX className="w-3 h-3" /></button>}
+            </div>
 
-            {error && (
-                <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 text-[13px] font-medium">
-                    <FiAlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
-                </div>
-            )}
+            {successMsg && <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 text-green-700 dark:text-green-400 text-[13px] font-medium"><FiCheck className="w-4 h-4 flex-shrink-0" /> {successMsg}</div>}
+            {error && <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 text-[13px] font-medium"><FiAlertCircle className="w-4 h-4 flex-shrink-0" /> {error}</div>}
 
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
@@ -1372,41 +1357,56 @@ export const AdminTeamManagement: React.FC = () => {
                         <tr className="border-b border-[#e5e5e5] dark:border-white/10 text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] uppercase tracking-wider">
                             <th className="pb-3 pl-2">Username</th>
                             <th className="pb-3">Role</th>
+                            <th className="pb-3">Status</th>
                             <th className="pb-3">Created</th>
+                            <th className="pb-3">Last Login</th>
                             <th className="pb-3 text-right pr-2">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/5">
                         {loading ? (
-                            <tr>
-                                <td colSpan={4} className="py-8 text-center text-[#9aa0a6] text-[13px]">Loading admins...</td>
-                            </tr>
-                        ) : admins.length === 0 ? (
-                            <tr>
-                                <td colSpan={4} className="py-8 text-center text-[#9aa0a6] text-[13px]">No admin users found.</td>
-                            </tr>
-                        ) : admins.map(admin => (
+                            <tr><td colSpan={6} className="py-8 text-center"><div className="flex items-center justify-center gap-2 text-[#9aa0a6] text-[13px]"><FiRefreshCw className="w-4 h-4 animate-spin" /> Loading admins...</div></td></tr>
+                        ) : filtered.length === 0 ? (
+                            <tr><td colSpan={6} className="py-12 text-center"><FiShield className="w-8 h-8 mx-auto mb-2 text-[#d0d0d0] dark:text-[#3a3b3f]" /><p className="text-[13px] text-[#9aa0a6] font-medium">{searchTerm ? 'No admins match your search.' : 'No admin users found.'}</p></td></tr>
+                        ) : filtered.map(admin => (
                             <tr key={admin.username} className="group hover:bg-[#f7f7f7] dark:hover:bg-white/[0.02] transition-colors">
-                                <td className="py-3 pl-2 font-bold text-[14px] text-[#111111] dark:text-white">
-                                    {admin.username}
+                                <td className="py-3.5 pl-2">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white text-[11px] font-black flex-shrink-0">{admin.username?.charAt(0).toUpperCase()}</div>
+                                        <span className="font-bold text-[14px] text-[#111111] dark:text-white">{admin.username}</span>
+                                    </div>
                                 </td>
-                                <td className="py-3">
-                                    <span className="inline-flex px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
-                                        {admin.role}
+                                <td className="py-3.5">{getRoleBadge(admin.role)}</td>
+                                <td className="py-3.5">
+                                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${admin.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900/10 dark:text-gray-400 dark:border-gray-800/30'}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${admin.active !== false ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                                        {admin.active !== false ? 'Active' : 'Inactive'}
                                     </span>
                                 </td>
-                                <td className="py-3 text-[13px] text-[#6e6e73] dark:text-[#9aa0a6]">
-                                    {admin.created_at || 'Unknown'}
+                                <td className="py-3.5 text-[13px] text-[#6e6e73] dark:text-[#9aa0a6]">{admin.created_at || '—'}</td>
+                                <td className="py-3.5 text-[13px] text-[#6e6e73] dark:text-[#9aa0a6]">
+                                    {admin.last_login ? new Date(admin.last_login).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : <span className="italic opacity-50">Never</span>}
                                 </td>
-                                <td className="py-3 pr-2 text-right">
-                                    <button
-                                        onClick={() => handleDeleteAdmin(admin.username)}
-                                        disabled={actionLoading}
-                                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50"
-                                        title="Delete Admin"
-                                    >
-                                        <FiTrash2 className="w-4 h-4" />
-                                    </button>
+                                <td className="py-3.5 pr-2 text-right">
+                                    <div className="relative inline-block">
+                                        <button onClick={() => setActionMenuId(actionMenuId === admin.username ? null : admin.username)} className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-[#f0f0f0] dark:hover:bg-white/5 transition-colors">
+                                            <FiMoreVertical className="w-4 h-4" />
+                                        </button>
+                                        {actionMenuId === admin.username && (
+                                            <div className="absolute right-0 top-8 z-20 w-44 bg-white dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/10 rounded-xl shadow-xl overflow-hidden animate-in zoom-in-95 fade-in duration-100">
+                                                <button onClick={() => { alert('Reset password endpoint required on backend.'); setActionMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white transition-colors text-left">
+                                                    <FiKey className="w-3.5 h-3.5" /> Reset Password
+                                                </button>
+                                                <button onClick={() => { alert('Toggle status endpoint required on backend.'); setActionMenuId(null); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5 hover:text-amber-600 transition-colors text-left">
+                                                    <FiToggleLeft className="w-3.5 h-3.5" /> Toggle Status
+                                                </button>
+                                                <div className="border-t border-[#f0f0f0] dark:border-white/5" />
+                                                <button onClick={() => handleDeleteAdmin(admin.username)} disabled={actionLoading} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left disabled:opacity-50">
+                                                    <FiTrash2 className="w-3.5 h-3.5" /> Delete
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -1420,49 +1420,31 @@ export const AdminTeamManagement: React.FC = () => {
                     <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between mb-5">
                             <h3 className="text-[18px] font-bold text-[#111111] dark:text-white">Create Admin</h3>
-                            <button onClick={() => setShowCreateModal(false)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
-                                <FiX className="w-5 h-5" />
-                            </button>
+                            <button onClick={() => setShowCreateModal(false)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors"><FiX className="w-5 h-5" /></button>
                         </div>
                         <form onSubmit={handleCreateAdmin} className="space-y-4">
                             <div>
                                 <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Username</label>
-                                <input
-                                    required
-                                    value={newUsername}
-                                    onChange={e => setNewUsername(e.target.value)}
-                                    placeholder="e.g. nola_admin"
-                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
-                                />
+                                <input required value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="e.g. nola_admin"
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" />
                             </div>
                             <div>
                                 <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Initial Password</label>
-                                <input
-                                    required
-                                    type="text"
-                                    value={newPassword}
-                                    onChange={e => setNewPassword(e.target.value)}
-                                    placeholder="Secure password"
-                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
-                                />
+                                <input required type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Secure password"
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" />
                             </div>
                             <div>
                                 <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Role</label>
-                                <select
-                                    value={newRole}
-                                    onChange={e => setNewRole(e.target.value)}
-                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
-                                >
+                                <select value={newRole} onChange={e => setNewRole(e.target.value)}
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow">
                                     <option value="super_admin">Super Admin</option>
                                     <option value="support">Support</option>
+                                    <option value="viewer">Viewer</option>
                                 </select>
                             </div>
                             <div className="pt-2">
-                                <button
-                                    type="submit"
-                                    disabled={actionLoading || !newUsername.trim() || !newPassword.trim()}
-                                    className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-[14px] font-bold text-[14px] transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
-                                >
+                                <button type="submit" disabled={actionLoading || !newUsername.trim() || !newPassword.trim()}
+                                    className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-[14px] font-bold text-[14px] transition-all shadow-md active:scale-[0.98] disabled:opacity-50">
                                     {actionLoading ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : 'Create Account'}
                                 </button>
                             </div>
@@ -1474,13 +1456,14 @@ export const AdminTeamManagement: React.FC = () => {
     );
 };
 
-// ─── Admin Accounts View ────────────────────────────────────────────────────────────
+// ─── Admin Accounts View ─────────────────────────────────────────────────────
 
 const AdminAccounts: React.FC = () => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
     
     // Manage Sender States
@@ -1908,214 +1891,442 @@ const AdminAccounts: React.FC = () => {
 
 // ─── System Settings View ─────────────────────────────────────────────────────
 
-const AdminSettings: React.FC = () => (
-    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
-        <h3 className="text-[16px] font-bold text-[#111111] dark:text-white mb-2">System Configurations</h3>
-        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-6">
-            Global settings like the master fallback Sender ID and free tier limits.
-        </p>
+const AdminSettings: React.FC = () => {
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [senderDefault, setSenderDefault] = useState(() => localStorage.getItem('admin_setting_sender') || 'NOLASMSPro');
+    const [freeLimit, setFreeLimit] = useState(() => localStorage.getItem('admin_setting_free_limit') || '10');
+    const [environment, setEnvironment] = useState(() => localStorage.getItem('admin_setting_env') || 'production');
 
-        <div className="space-y-5 max-w-md">
-            <div>
-                <label className="block text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">System Default Sender ID</label>
-                <input className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" defaultValue="NOLASMSPro" />
+    const handleSave = async () => {
+        setSaving(true);
+        await new Promise(r => setTimeout(r, 600));
+        localStorage.setItem('admin_setting_sender', senderDefault);
+        localStorage.setItem('admin_setting_free_limit', freeLimit);
+        localStorage.setItem('admin_setting_env', environment);
+        setSaving(false);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+    };
+
+    const envBadge: Record<string, string> = {
+        development: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800/30',
+        staging:     'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30',
+        production:  'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30',
+    };
+
+    const Section = ({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) => (
+        <div className="border border-[#e5e5e5] dark:border-white/5 rounded-2xl overflow-hidden">
+            <div className="flex items-center gap-2.5 px-5 py-3.5 bg-[#f7f7f7] dark:bg-[#111214] border-b border-[#e5e5e5] dark:border-white/5">
+                <span className="text-[#2b83fa]">{icon}</span>
+                <h4 className="text-[12px] font-black text-[#111111] dark:text-white uppercase tracking-wider">{title}</h4>
             </div>
-            <div>
-                <label className="block text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Free Usage Limit</label>
-                <input type="number" className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" defaultValue="10" />
-            </div>
-            <div className="pt-2">
-                <button className="flex items-center justify-center gap-2 w-full px-5 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 active:scale-95">
-                    Save System Settings
-                </button>
-            </div>
+            <div className="p-5 space-y-5">{children}</div>
         </div>
-    </div>
-);
+    );
 
-// ─── Platform Activity Logs View ─────────────────────────────────────────────
+    const Field = ({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) => (
+        <div>
+            <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">{label}</label>
+            {children}
+            {help && <p className="text-[11px] text-[#9aa0a6] mt-1.5">{help}</p>}
+        </div>
+    );
+
+    return (
+        <div className="space-y-5">
+            {saved && (
+                <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 text-green-700 dark:text-green-400 text-[13px] font-medium animate-in fade-in duration-200">
+                    <FiCheck className="w-4 h-4 flex-shrink-0" /> Settings saved successfully.
+                </div>
+            )}
+
+            {/* General */}
+            <Section title="General" icon={<FiSettings className="w-4 h-4" />}>
+                <Field label="System Default Sender ID" help="Used as fallback when no custom sender is assigned to an account.">
+                    <input value={senderDefault} onChange={e => setSenderDefault(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" />
+                </Field>
+                <Field label="Free Usage Limit" help="Maximum number of free messages each new account can send before requiring credits.">
+                    <input type="number" min={0} value={freeLimit} onChange={e => setFreeLimit(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" />
+                </Field>
+            </Section>
+
+            {/* Environment */}
+            <Section title="Environment" icon={<FiActivity className="w-4 h-4" />}>
+                <Field label="Environment Label" help="Displayed as a badge throughout the admin panel. Does not affect system behavior.">
+                    <div className="flex items-center gap-3">
+                        <select value={environment} onChange={e => setEnvironment(e.target.value)}
+                            className="flex-1 px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow">
+                            <option value="development">Development</option>
+                            <option value="staging">Staging</option>
+                            <option value="production">Production</option>
+                        </select>
+                        <span className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider border ${envBadge[environment] || envBadge.production}`}>{environment}</span>
+                    </div>
+                </Field>
+            </Section>
+
+            {/* API */}
+            <Section title="API" icon={<FiKey className="w-4 h-4" />}>
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5">
+                    <FiAlertCircle className="w-4 h-4 text-[#2b83fa] flex-shrink-0 mt-0.5" />
+                    <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] leading-relaxed">
+                        Per-account API keys are managed in the <strong className="text-[#111111] dark:text-white">All Accounts</strong> tab. Global API configuration requires direct backend access. Contact your system administrator.
+                    </p>
+                </div>
+            </Section>
+
+            {/* Security */}
+            <Section title="Security" icon={<FiShield className="w-4 h-4" />}>
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-50/50 dark:bg-blue-500/5 border border-blue-100 dark:border-blue-500/10">
+                    <FiLock className="w-4 h-4 text-[#2b83fa] flex-shrink-0 mt-0.5" />
+                    <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] leading-relaxed">
+                        Admin session is stored in browser localStorage. For advanced security features (IP whitelisting, 2FA, audit logs), backend configuration is required.
+                    </p>
+                </div>
+            </Section>
+
+            <button onClick={handleSave} disabled={saving}
+                className="flex items-center justify-center gap-2 w-full py-3.5 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-70">
+                {saving ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : saved ? <FiCheck className="w-4 h-4" /> : null}
+                {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Settings'}
+            </button>
+        </div>
+    );
+};
+
 
 const AdminLogs: React.FC = () => {
     const [logs, setLogs] = useState<any[]>([]);
+    const [accounts, setAccounts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [filterType, setFilterType] = useState<'all' | 'message' | 'sender_request' | 'credit_purchase' | 'credit_usage'>('all');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [selectedLog, setSelectedLog] = useState<any | null>(null);
+    const [copiedContent, setCopiedContent] = useState(false);
+    const ITEMS_PER_PAGE = 10;
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+
+    useEffect(() => {
+        const t = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+        return () => clearTimeout(t);
+    }, [searchTerm]);
+
+    useEffect(() => { setCurrentPage(1); }, [debouncedSearch, filterType]);
 
     const fetchLogs = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
+        setError(null);
         try {
-            const res = await fetch(`${ADMIN_API}?action=logs`);
-            const data = await res.json();
-            if (data.status === 'success') {
-                setLogs(data.data || []);
+            const [logsRes, accsRes] = await Promise.all([
+                fetch(`${ADMIN_API}?action=logs`),
+                fetch(`${ADMIN_API}?action=accounts`)
+            ]);
+            const logsData = await logsRes.json();
+            const accsData = await accsRes.json();
+            
+            if (logsData.status === 'success') setLogs(logsData.data || []);
+            else setError(logsData.message || 'Failed to load logs.');
+            
+            if (accsData.status === 'success') {
+                const mapped = (accsData.data || []).map((item: any) => item.data ? { id: item.id, ...item.data } : item);
+                setAccounts(mapped);
             }
             setLastRefreshed(new Date());
-        } catch (error) {
-            console.error('Failed to load logs:', error);
-        } finally {
-            if (isInitial) setLoading(false);
-        }
+        } catch { setError('Network error. Could not reach the backend.'); }
+        finally { if (isInitial) setLoading(false); }
     }, []);
 
     useEffect(() => {
         fetchLogs(true);
-        const timer = setInterval(() => fetchLogs(false), POLL_INTERVAL);
-        return () => clearInterval(timer);
+        const t = setInterval(() => fetchLogs(false), POLL_INTERVAL);
+        return () => clearInterval(t);
     }, [fetchLogs]);
 
-    return (
-        <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-sm flex flex-col min-h-[600px]">
-            <div className="px-6 pt-4 flex items-center justify-end">
-                {!loading && (
-                    <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
-                        Refreshed: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    </span>
-                )}
-            </div>
-            <div className="p-6 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-between">
-                <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
-                    <FiMessageSquare className="w-4 h-4 text-[#2b83fa]" /> Message History
-                </h3>
-                <button
-                    onClick={() => fetchLogs(true)}
-                    className="p-2 text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-[#0d0e10] rounded-xl transition-colors"
-                >
-                    <FiRefreshCw className={`w-4 h-4 ${loading && !logs.length ? 'animate-spin' : ''}`} />
-                </button>
-            </div>
-            
-            <div className="p-6">
-                <div className="space-y-3">
-                    {loading ? (
-                        [...Array(10)].map((_, i) => <div key={i} className="h-[76px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)
-                    ) : logs.length === 0 ? (
-                        <div className="py-20 text-center">
-                            <FiActivity className="w-12 h-12 mx-auto mb-4 text-[#d0d0d0] dark:text-[#3a3b3f]" />
-                            <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-1">No Activity Found</h3>
-                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6]">Platform logs will appear here as activity occurs.</p>
-                        </div>
-                    ) : (
-                        logs.map(log => {
-                            const isNegative = typeof log.amount === 'number' && log.amount < 0;
-                            const type = log.type || (
-                                log.requested_id ? 'sender_request' :
-                                log.amount ? (isNegative ? 'credit_usage' : 'credit_purchase') :
-                                'message'
-                            );
-                            
-                            // Get unified timestamp
-                            const timestamp = log.timestamp || log.date_created || log.created_at;
-                            const timeString = timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                            const dateString = timestamp ? new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-                            
-                            // Message Event
-                            if (type === 'message') {
-                                const isSent = log.status === 'sent' || log.status === 'delivered';
-                                return (
-                                    <div key={log.id || Math.random().toString()} className="flex items-start gap-4 p-4 rounded-xl bg-[#fdfdfd] dark:bg-[#151618] border border-[#e5e5e5] dark:border-white/5 hover:border-[#d0d0d0] dark:hover:border-white/10 transition-colors">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 ${
-                                            isSent ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'
-                                            : log.status === 'failed' ? 'bg-red-50 dark:bg-red-900/20 text-red-600'
-                                            : 'bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa]'
-                                        }`}>
-                                            <FiMessageSquare className="w-5 h-5" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between mb-0.5">
-                                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">Message to <span className="font-mono text-[13px] opacity-90">{log.number || log.to || 'Unknown'}</span></p>
-                                                <div className="text-right">
-                                                    <span className="block text-[11px] font-bold text-[#111111] dark:text-white tracking-wider whitespace-nowrap">{dateString}</span>
-                                                    <span className="block text-[10px] uppercase text-[#9aa0a6] tracking-wider whitespace-nowrap">{timeString}</span>
-                                                </div>
-                                            </div>
-                                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mb-2">{log.message || 'No content'}</p>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
-                                                    isSent ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' :
-                                                    log.status === 'failed' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30' :
-                                                    'bg-blue-50 text-[#2b83fa] border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30'
-                                                }`}>{log.status || 'unknown'}</span>
-                                                {log.sendername && <span className="text-[11px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Via: {log.sendername}</span>}
-                                                {log.location_id && <span className="text-[11px] font-mono text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Loc: {log.location_id.substring(0,8)}...</span>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            }
+    const getType = (log: any) => {
+        if (log.type === 'message' && log.amount === undefined) return 'message';
+        
+        const neg = (typeof log.amount === 'number' && log.amount < 0) || (typeof log.amount === 'string' && log.amount.startsWith('-'));
+        if (neg || log.type === 'deduction' || log.type === 'credit_usage') return 'credit_usage';
+        if (log.amount !== undefined || log.type === 'top_up' || log.type === 'credit_purchase') return 'credit_purchase';
+        
+        return log.type || 'message';
+    };
 
-                            // Sender Request Event
-                            if (type === 'sender_request') {
-                                const isPending = log.status === 'pending';
-                                return (
-                                    <div key={log.id || Math.random().toString()} className="flex items-start gap-4 p-4 rounded-xl bg-[#fdfdfd] dark:bg-[#151618] border border-[#e5e5e5] dark:border-white/5 hover:border-[#d0d0d0] dark:hover:border-white/10 transition-colors">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 ${
-                                            isPending ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600'
-                                            : log.status === 'approved' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600'
-                                            : 'bg-red-50 dark:bg-red-900/20 text-red-600'
-                                        }`}>
-                                            <FiSend className="w-5 h-5" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between mb-0.5">
-                                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">Sender ID Request</p>
-                                                <div className="text-right">
-                                                    <span className="block text-[11px] font-bold text-[#111111] dark:text-white tracking-wider whitespace-nowrap">{dateString}</span>
-                                                    <span className="block text-[10px] uppercase text-[#9aa0a6] tracking-wider whitespace-nowrap">{timeString}</span>
-                                                </div>
-                                            </div>
-                                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mb-2">
-                                                Registration for <span className="font-mono font-bold text-[#111111] dark:text-white">{log.requested_id}</span>
-                                            </p>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${
-                                                    isPending ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800/30' :
-                                                    log.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' :
-                                                    'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30'
-                                                }`}>{log.status}</span>
-                                                {log.location_id && <span className="text-[11px] font-mono text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Loc: {log.location_id.substring(0,8)}...</span>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            }
+    const filtered = logs.filter(log => {
+        const type = getType(log);
+        if (filterType !== 'all' && type !== filterType) return false;
+        if (debouncedSearch) {
+            const q = debouncedSearch.toLowerCase();
+            const s = [log.number, log.to, log.message, log.requested_id, log.location_id, log.sendername, log.status].filter(Boolean).join(' ').toLowerCase();
+            if (!s.includes(q)) return false;
+        }
+        return true;
+    });
 
-                            // Credit Purchase/Usage Event
-                            if (type === 'credit_purchase' || type === 'credit_usage') {
-                                const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0);
-                                return (
-                                    <div key={log.id || Math.random().toString()} className="flex items-start gap-4 p-4 rounded-xl bg-[#fdfdfd] dark:bg-[#151618] border border-[#e5e5e5] dark:border-white/5 hover:border-[#d0d0d0] dark:hover:border-white/10 transition-colors">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0 ${
-                                            isUsage ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600' : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600'
-                                        }`}>
-                                            {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between mb-0.5">
-                                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">{isUsage ? 'Credits Used' : 'Credits Purchased'}</p>
-                                                <div className="text-right">
-                                                    <span className="block text-[11px] font-bold text-[#111111] dark:text-white tracking-wider whitespace-nowrap">{dateString}</span>
-                                                    <span className="block text-[10px] uppercase text-[#9aa0a6] tracking-wider whitespace-nowrap">{timeString}</span>
-                                                </div>
-                                            </div>
-                                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mb-2">
-                                                {isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-amber-600' : 'text-purple-600 dark:text-purple-400'}`}>{!isUsage && '+'}{log.amount?.toLocaleString()}</span> credits
-                                            </p>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                 <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30">
-                                                    {log.status === 'completed' ? 'Paid' : log.status}
-                                                </span>
-                                                {log.location_id && <span className="text-[11px] font-mono text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">Loc: {log.location_id.substring(0,8)}...</span>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            }
+    const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+    const currentLogs = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-                            return null;
-                        })
-                    )}
+    const pills = [
+        { id: 'all', label: 'All', color: 'blue' },
+        { id: 'message', label: 'SMS History', icon: <FiMessageSquare size={11} />, color: 'blue' },
+        { id: 'credit_purchase', label: 'Credits Added', icon: <FiCreditCard size={11} />, color: 'emerald' },
+        { id: 'credit_usage', label: 'Credits Used', icon: <FiActivity size={11} />, color: 'purple' },
+    ] as const;
+
+    const pillColors: Record<string, { active: string; inactive: string }> = {
+        blue:    { active: 'bg-blue-600 text-white border-transparent shadow-sm',    inactive: 'bg-blue-50/50 dark:bg-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-500/10 hover:opacity-100' },
+        amber:   { active: 'bg-amber-500 text-white border-transparent shadow-sm',   inactive: 'bg-amber-50/50 dark:bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/10 hover:opacity-100' },
+        emerald: { active: 'bg-emerald-600 text-white border-transparent shadow-sm', inactive: 'bg-emerald-50/50 dark:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/10 hover:opacity-100' },
+        purple:  { active: 'bg-purple-600 text-white border-transparent shadow-sm',  inactive: 'bg-purple-50/50 dark:bg-purple-500/5 text-purple-600 dark:text-purple-400 border-purple-100 dark:border-purple-500/10 hover:opacity-100' },
+    };
+
+    const statusBadge = (status: string) => {
+        const s = (status || '').toLowerCase();
+        const map: Record<string, string> = {
+            sent: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30',
+            delivered: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30',
+            pending: 'bg-blue-50 text-[#2b83fa] border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30',
+            queued: 'bg-blue-50 text-[#2b83fa] border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30',
+            failed: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30',
+            rejected: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30',
+            approved: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30',
+        };
+        return <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${map[s] || 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900/10 dark:text-gray-400 dark:border-gray-800/30'}`}>{status}</span>;
+    };
+
+    const renderRow = (log: any, isModal = false) => {
+        const type = getType(log);
+        const ts = log.timestamp || log.date_created || log.created_at;
+        const date = ts ? new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        const time = ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        
+        const base = `group flex items-center gap-4 p-4 rounded-[16px] border transition-all duration-300 ${isModal ? 'border-transparent bg-transparent' : 'bg-white dark:bg-[#1a1b1e] border-[#e5e5e5] dark:border-white/10 hover:border-[#2b83fa]/40 dark:hover:border-[#2b83fa]/50 hover:shadow-lg dark:hover:shadow-[#2b83fa]/5 cursor-pointer hover:-translate-y-1'}`;
+
+        const locId = log.location_id || log.account_id;
+        const account = accounts.find(a => a.id === locId || a.location_id === locId);
+        
+        const subAccountPill = locId ? (
+            <div className="flex items-center gap-1.5 bg-gray-100/50 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 pl-1 pr-2 py-0.5 rounded-full" title={account?.location_name || 'Unknown Account'}>
+                <div className="w-4 h-4 rounded-full bg-[#e5e5e5] dark:bg-white/10 flex items-center justify-center text-[9px] font-bold text-gray-500">
+                    {account?.location_name ? account.location_name.substring(0, 1).toUpperCase() : '?'}
+                </div>
+                <div className="flex items-baseline gap-1">
+                    <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate max-w-[80px]">{account?.location_name || 'System'}</span>
+                    <span className="text-[9px] font-mono text-gray-400">({locId.substring(0, 5)})</span>
                 </div>
             </div>
+        ) : null;
+
+        if (type === 'message') {
+
+            return (
+                <div key={log.id} className={base} onClick={() => !isModal && setSelectedLog(log)}>
+                    <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa] dark:text-[#569cfe]`}>
+                        <FiMessageSquare className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <div className="flex items-center justify-between mb-1 gap-2">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
+                                    To <span className="font-mono text-[13px] ml-1">{log.number || log.to || 'Unknown'}</span>
+                                </p>
+                                <div className="flex-shrink-0 scale-90 origin-left">{statusBadge(log.status || 'unknown')}</div>
+                            </div>
+                            <div className="text-right flex-shrink-0"><span className="block text-[11px] font-bold text-[#111111] dark:text-white">{date}</span><span className="block text-[10px] uppercase text-[#9aa0a6]">{time}</span></div>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">{log.message || 'No content'}</p>
+                            <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
+                                {log.sendername && <span className="text-[10px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-1.5 py-0.5 rounded">Via: {log.sendername}</span>}
+                                {subAccountPill}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+
+
+        if (type === 'credit_purchase' || type === 'credit_usage') {
+            const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0);
+            return (
+                <div key={log.id} className={base} onClick={() => !isModal && setSelectedLog(log)}>
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}>
+                        {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <div className="flex items-center justify-between mb-1 gap-2">
+                            <p className="text-[14px] font-bold text-[#111111] dark:text-white">{isUsage ? 'Credits Used' : 'Credits Purchased'}</p>
+                            <div className="text-right flex-shrink-0"><span className="block text-[11px] font-bold text-[#111111] dark:text-white">{date}</span><span className="block text-[10px] uppercase text-[#9aa0a6]">{time}</span></div>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">{isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{!isUsage && '+'}{log.amount?.toLocaleString()}</span> credits</p>
+                            <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
+                                {log.status && <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30">{log.status === 'completed' ? 'Paid' : log.status}</span>}
+                                {subAccountPill}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    };
+
+    return (
+        <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] dark:shadow-[0_2px_15px_rgba(0,0,0,0.2)]">
+            {/* Header */}
+            <div className="px-6 pt-6 pb-5 border-b border-[#e5e5e5] dark:border-white/5">
+                <div className="flex items-center justify-end mb-2">
+                    {!loading && (
+                        <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
+                            Updated: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                    )}
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+                    <div>
+                        <h3 className="text-[16px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
+                            <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Platform Activity
+                        </h3>
+                        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Platform-wide activity logs across all accounts.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="relative w-full sm:w-64">
+                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5" />
+                            <input
+                                type="text"
+                                placeholder="Search logs..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all font-medium"
+                            />
+                            {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"><FiX className="w-3 h-3" /></button>}
+                        </div>
+                        <button onClick={() => fetchLogs(true)} className="p-2 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl flex-shrink-0">
+                            <FiRefreshCw className={`w-3.5 h-3.5 ${loading && !logs.length ? 'animate-spin' : ''}`} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Type Pill Filters */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    {pills.map(pill => {
+                        const isActive = filterType === pill.id;
+                        const theme = pillColors[pill.color];
+                        const count = pill.id === 'all' ? logs.length : logs.filter(l => getType(l) === pill.id).length;
+                        return (
+                            <button key={pill.id} onClick={() => { setFilterType(pill.id as any); setCurrentPage(1); }}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap border opacity-80 hover:opacity-100 ${ isActive ? theme.active : theme.inactive }`}
+                            >
+                                {'icon' in pill ? pill.icon : null}
+                                <span>{pill.label}</span>
+                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black min-w-[18px] text-center ${isActive ? 'bg-white/20' : 'opacity-60'}`}>{count}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-6">
+                {error && <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 text-[13px] font-medium"><FiAlertCircle className="w-4 h-4 flex-shrink-0" /> {error}</div>}
+
+                {loading ? (
+                    <div className="space-y-3">{[...Array(8)].map((_, i) => <div key={i} className="h-[76px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)}</div>
+                ) : filtered.length === 0 ? (
+                    <div className="py-20 text-center">
+                        <FiActivity className="w-12 h-12 mx-auto mb-4 text-[#d0d0d0] dark:text-[#3a3b3f]" />
+                        <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-1">No Logs Found</h3>
+                        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6]">{debouncedSearch || filterType !== 'all' ? 'Try adjusting your filters.' : 'Platform logs will appear here as activity occurs.'}</p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="space-y-3 max-h-[55vh] overflow-y-auto custom-scrollbar pr-2 pb-2">{currentLogs.map(log => renderRow(log))}</div>
+
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#e5e5e5] dark:border-white/5">
+                                <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] font-medium">
+                                    Showing <b className="text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</b> – <b className="text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)}</b> of <b className="text-[#111111] dark:text-white">{filtered.length}</b>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronLeft className="w-4 h-4" /></button>
+                                    {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                                        const page = totalPages <= 7 ? i + 1 : currentPage <= 4 ? i + 1 : currentPage >= totalPages - 3 ? totalPages - 6 + i : currentPage - 3 + i;
+                                        return <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 rounded-lg text-[12px] font-bold flex items-center justify-center transition-all ${currentPage === page ? 'bg-[#2b83fa] text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5'}`}>{page}</button>;
+                                    })}
+                                    <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronRight className="w-4 h-4" /></button>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+
+            {/* Detail Modal */}
+            {selectedLog && (() => {
+                const log = selectedLog;
+                const type = getType(log);
+                const ts = log.timestamp || log.date_created || log.created_at;
+                const dtStr = ts ? new Date(ts).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-white/95 dark:bg-[#1a1b1e]/95 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-[24px] p-7 w-full max-w-lg shadow-[0_20px_60px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.5)] animate-in fade-in zoom-in-95 duration-200">
+                            <div className="flex items-center justify-between mb-5">
+                                <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">
+                                    {type === 'message' ? 'Message Detail' : type === 'sender_request' ? 'Sender Request Detail' : 'Credit Event Detail'}
+                                </h3>
+                                <button onClick={() => setSelectedLog(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors"><FiX className="w-5 h-5" /></button>
+                            </div>
+
+                            {type === 'message' && (
+                                <div className="space-y-4">
+                                    <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 border border-[#e5e5e5] dark:border-white/5 space-y-3">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Recipient</p><p className="text-[13px] font-mono font-bold text-[#111111] dark:text-white">{log.number || log.to || '—'}</p></div>
+                                            <div><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Status</p>{statusBadge(log.status || 'unknown')}</div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-[#e5e5e5] dark:border-white/5">
+                                            <div><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Sender Name</p><p className="text-[13px] font-mono text-[#111111] dark:text-white">{log.sendername || 'System'}</p></div>
+                                            <div><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Date</p><p className="text-[13px] text-[#111111] dark:text-white">{dtStr}</p></div>
+                                        </div>
+                                        {log.location_id && <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5"><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Location ID</p><p className="text-[12px] font-mono text-[#6e6e73] dark:text-[#9aa0a6]">{log.location_id}</p></div>}
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest">Message Content</p>
+                                            <button
+                                                onClick={() => { navigator.clipboard.writeText(log.message || ''); setCopiedContent(true); setTimeout(() => setCopiedContent(false), 2000); }}
+                                                className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors border ${copiedContent ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/30' : 'text-[#6e6e73] border-[#e5e5e5] dark:border-white/5 hover:border-[#d0d0d0]'}`}
+                                            >
+                                                {copiedContent ? <FiCheck className="w-3 h-3" /> : <FiCopy className="w-3 h-3" />} {copiedContent ? 'Copied!' : 'Copy'}
+                                            </button>
+                                        </div>
+                                        <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 border border-[#e5e5e5] dark:border-white/5 max-h-40 overflow-y-auto custom-scrollbar">
+                                            <p className="text-[13px] text-[#111111] dark:text-white leading-relaxed whitespace-pre-wrap">{log.message || 'No content'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {type !== 'message' && <div className="mt-2">{renderRow(log, true)}</div>}
+
+                            <button onClick={() => setSelectedLog(null)} className="mt-6 w-full py-3.5 text-[14px] font-bold text-center text-[#111111] dark:text-white bg-[#f7f7f7] dark:bg-white/5 hover:bg-[#efefef] dark:hover:bg-white/10 transition-colors rounded-xl border border-[#e5e5e5] dark:border-white/5">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };
+
