@@ -18,6 +18,7 @@ export const API_CONFIG = {
     credits: `${API_BASE}/api/credits`,
     contacts: `${API_BASE}/api/contacts`,         // local Firestore contacts (add/edit/delete)
     ghl_contacts: `${API_BASE}/api/ghl-contacts`,  // GHL live contacts proxy
+    ghl_conversations: `${API_BASE}/api/ghl-conversations`, // GHL conversation creation
     messages: `${API_BASE}/api/messages`,
     conversations: `${API_BASE}/api/conversations`,
     bulk_campaigns: `${API_BASE}/api/bulk-campaigns`,

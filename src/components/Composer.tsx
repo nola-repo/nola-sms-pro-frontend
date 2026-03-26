@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { Snackbar, Alert, Slide } from "@mui/material";
 import { fetchContacts } from "../api/contacts";
 import { sendSms, sendBulkSms, type SenderId } from "../api/sms";
+import { createGhlConversation } from "../api/ghlConversations";
 import { getRecipientKey } from "../utils/storage";
 import type { BulkMessageHistoryItem, Message } from "../types/Sms";
 import type { Contact } from "../types/Contact";
@@ -207,6 +208,34 @@ export const Composer: React.FC<ComposerProps> = ({
   };
   const [showDisabledReason, setShowDisabledReason] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
+
+  // GHL Sync state
+  const [ghlSyncStatus, setGhlSyncStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  const handleGhlSync = async () => {
+    const contact = activeContact || selectedContacts[0];
+    if (!contact?.id || ghlSyncStatus === 'loading') return;
+
+    setGhlSyncStatus('loading');
+    try {
+      const result = await createGhlConversation(contact.id, contact.name);
+      if (result.success) {
+        setGhlSyncStatus('success');
+        showToast('success', 'Conversation synced to GHL Dashboard');
+        // Refresh sidebar to pick up the new conversation
+        window.dispatchEvent(new CustomEvent('conversation-updated', { detail: {} }));
+        setTimeout(() => setGhlSyncStatus('idle'), 3000);
+      } else {
+        setGhlSyncStatus('error');
+        showToast('error', result.error || 'Failed to sync with GHL');
+        setTimeout(() => setGhlSyncStatus('idle'), 3000);
+      }
+    } catch {
+      setGhlSyncStatus('error');
+      showToast('error', 'Failed to sync with GHL');
+      setTimeout(() => setGhlSyncStatus('idle'), 3000);
+    }
+  };
 
   const handleScroll = () => {
     if (!msgAreaRef.current) return;
@@ -590,8 +619,33 @@ export const Composer: React.FC<ComposerProps> = ({
               </div>
             </div>
 
-            {/* Sender and Credits */}
+            {/* GHL Sync + Sender + Credits */}
             <div className="flex items-center gap-2 group">
+              {/* Sync to GHL Button */}
+              <button
+                onClick={handleGhlSync}
+                disabled={ghlSyncStatus === 'loading' || ghlSyncStatus === 'success'}
+                title={ghlSyncStatus === 'success' ? 'Synced to GHL' : 'Sync conversation to GHL Dashboard'}
+                className={`flex-shrink-0 p-2 rounded-xl transition-all duration-300 ${
+                  ghlSyncStatus === 'success'
+                    ? 'bg-green-50 dark:bg-green-500/10 text-green-500 cursor-default'
+                    : ghlSyncStatus === 'loading'
+                      ? 'bg-blue-50 dark:bg-blue-500/10 text-[#2b83fa] cursor-wait'
+                      : ghlSyncStatus === 'error'
+                        ? 'bg-red-50 dark:bg-red-500/10 text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20'
+                        : 'bg-gray-50 dark:bg-white/5 text-gray-400 hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-500/10'
+                }`}
+              >
+                {ghlSyncStatus === 'loading' ? (
+                  <FiLoader className="h-4 w-4 animate-spin" />
+                ) : ghlSyncStatus === 'success' ? (
+                  <FiCheck className="h-4 w-4" />
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+              </button>
               <div className="flex-shrink-0 order-2 sm:order-1">
                 <CreditBadge />
               </div>
