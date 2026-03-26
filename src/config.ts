@@ -25,6 +25,7 @@ export const API_CONFIG = {
     sender_requests: `${API_BASE}/api/sender-requests`,
     account_sender: `${API_BASE}/api/account-sender`,
     account: `${API_BASE}/api/account`,
+    templates: `${API_BASE}/api/templates`,
 };
 
 export default API_CONFIG;

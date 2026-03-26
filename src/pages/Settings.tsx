@@ -5,7 +5,7 @@ import {
     FiUser, FiSend, FiBell, FiCreditCard,
     FiSave, FiPlus, FiCheck,
     FiGlobe, FiMapPin, FiBriefcase, FiCheckCircle, FiAlertCircle, FiClock,
-    FiRefreshCw, FiZap,
+    FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight,
 } from "react-icons/fi";
 import {
     getAccountSettings, saveAccountSettings,
@@ -507,6 +507,9 @@ const CreditsSection: React.FC = () => {
     const [balanceLoading, setBalanceLoading] = useState(true);
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
     const [txLoading, setTxLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 5;
+
     const [topUpAmount, setTopUpAmount] = useState(500);
     const [packages, setPackages] = useState<CreditPackage[]>([]);
     const [submitted, setSubmitted] = useState(false);
@@ -765,30 +768,57 @@ const CreditsSection: React.FC = () => {
                         <p className="text-[12px] text-[#9aa0a6] max-w-xs">Send an SMS or top up your balance to see activity here.</p>
                     </div>
                 ) : (
-                    <div className="space-y-0">
-                        {transactions.map((tx) => {
-                            const isCredit = tx.type === 'top_up' || tx.type === 'refund' || tx.type === 'manual_adjustment';
-                            const sign = isCredit ? '+' : '−';
-                            const absAmount = Math.abs(tx.amount);
-                            return (
-                                <div key={tx.transaction_id} className="flex items-center gap-3 py-2.5 border-b border-[#f0f0f0] dark:border-[#2a2b32] last:border-0">
-                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold ${isCredit ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-900/20 text-red-500'}`}>
-                                        {sign}
+                    <>
+                        <div className="space-y-0 min-h-[250px]">
+                            {transactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((tx) => {
+                                const isCredit = tx.type === 'top_up' || tx.type === 'refund' || tx.type === 'manual_adjustment';
+                                const sign = isCredit ? '+' : '−';
+                                const absAmount = Math.abs(tx.amount);
+                                return (
+                                    <div key={tx.transaction_id} className="flex items-center gap-3 py-2.5 border-b border-[#f0f0f0] dark:border-[#2a2b32] last:border-0 hover:bg-gray-50 dark:hover:bg-white/5 px-2 rounded-xl transition-colors">
+                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold ${isCredit ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-900/20 text-red-500'}`}>
+                                            {sign}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[13px] font-medium text-[#111111] dark:text-[#ececf1] truncate">{tx.description}</p>
+                                            <p className="text-[11px] text-[#9aa0a6]">{formatTxDate(tx.created_at)}</p>
+                                        </div>
+                                        <div className="flex flex-col items-end flex-shrink-0">
+                                            <span className={`text-[13px] font-bold ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                                                {sign}{absAmount.toLocaleString()} cr
+                                            </span>
+                                            <span className="text-[10px] text-[#9aa0a6]">bal: {tx.balance_after.toLocaleString()}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-[13px] font-medium text-[#111111] dark:text-[#ececf1] truncate">{tx.description}</p>
-                                        <p className="text-[11px] text-[#9aa0a6]">{formatTxDate(tx.created_at)}</p>
-                                    </div>
-                                    <div className="flex flex-col items-end flex-shrink-0">
-                                        <span className={`text-[13px] font-bold ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
-                                            {sign}{absAmount.toLocaleString()} cr
-                                        </span>
-                                        <span className="text-[10px] text-[#9aa0a6]">bal: {tx.balance_after.toLocaleString()}</span>
-                                    </div>
+                                );
+                            })}
+                        </div>
+                        
+                        {/* Pagination Controls */}
+                        {transactions.length > itemsPerPage && (
+                            <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#f0f0f0] dark:border-[#2a2b32]">
+                                <span className="text-[12px] font-medium text-[#9aa0a6]">
+                                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, transactions.length)} of {transactions.length}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="p-1.5 rounded-lg border border-[#e5e5e5] dark:border-[#2a2b32] text-[#6e6e73] dark:text-[#94959b] hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        <FiChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(transactions.length / itemsPerPage), p + 1))}
+                                        disabled={currentPage === Math.ceil(transactions.length / itemsPerPage)}
+                                        className="p-1.5 rounded-lg border border-[#e5e5e5] dark:border-[#2a2b32] text-[#6e6e73] dark:text-[#94959b] hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        <FiChevronRight className="w-4 h-4" />
+                                    </button>
                                 </div>
-                            );
-                        })}
-                    </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </Card>
         </div>

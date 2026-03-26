@@ -4,4 +4,5 @@ export interface Contact {
   phone: string;
   lastMessage?: string;
   lastSentAt?: string;
+  tags?: string[];
 }

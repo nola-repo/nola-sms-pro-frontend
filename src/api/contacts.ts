@@ -87,6 +87,7 @@ export const fetchContacts = async (): Promise<Contact[]> => {
         email: c.email ?? '',
         lastMessage: c.lastMessage ?? undefined,
         lastSentAt: c.lastSentAt ?? undefined,
+        tags: Array.isArray(c.tags) ? c.tags : []
       };
     });
 

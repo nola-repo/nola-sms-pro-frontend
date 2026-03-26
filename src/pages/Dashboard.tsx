@@ -5,6 +5,7 @@ import { Sidebar } from "../components/Sidebar";
 import type { ViewTab } from "../components/Sidebar";
 import { Composer } from "../components/Composer";
 import { ContactsTab } from "../components/ContactsTab";
+import { TemplatesTab } from "../components/TemplatesTab";
 import { Settings } from "./Settings";
 import { FiMenu, FiSettings } from "react-icons/fi";
 import { Home } from "../components/Home";
@@ -270,17 +271,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
               autoOpenAddModal={settingsOpen}
             />
           ) : currentView === 'templates' ? (
-            <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-white/50 dark:bg-[#202123]/50 backdrop-blur-sm">
-              <div className="w-20 h-20 mb-6 rounded-2xl bg-gradient-to-br from-[#2b83fa]/20 to-[#60a5fa]/20 dark:from-[#2b83fa]/10 dark:to-[#60a5fa]/10 flex items-center justify-center border border-[#2b83fa]/20">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#2b83fa]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-[#37352f] dark:text-[#ececf1] mb-2 tracking-tight">Templates Module</h2>
-              <p className="text-[#6e6e73] dark:text-[#a0a0ab] max-w-sm text-[15px]">
-                This section is currently under construction. Please check back later.
-              </p>
-            </div>
+            <TemplatesTab />
           ) : null}
         </div>
       </div>

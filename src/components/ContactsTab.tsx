@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { fetchContacts, addContact, updateContact, deleteContact } from "../api/contacts";
 import { deleteContact as deleteContactLocal } from "../utils/storage";
 import type { Contact } from "../types/Contact";
-import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader } from "react-icons/fi";
+import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader, FiTag } from "react-icons/fi";
 
 // Normalize any PH phone to 09XXXXXXXXX (aligned with send_sms.php clean_numbers)
 const normalizePHPhone = (input: string): string => {
@@ -54,6 +54,9 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
+  const tagDropdownRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newContactName, setNewContactName] = useState("");
@@ -89,7 +92,12 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
 
   // Close menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = () => setOpenMenuId(null);
+    const handleClickOutside = (e: MouseEvent) => {
+      setOpenMenuId(null);
+      if (tagDropdownRef.current && !tagDropdownRef.current.contains(e.target as Node)) {
+        setIsTagDropdownOpen(false);
+      }
+    };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
@@ -99,15 +107,31 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
     return name.replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    contacts.forEach(c => {
+      if (c.tags) {
+        c.tags.forEach(t => tagSet.add(t));
+      }
+    });
+    return Array.from(tagSet).sort();
+  }, [contacts]);
+
   const filteredContacts = useMemo(() => {
-    if (!searchQuery) return contacts;
-    const lowerQ = searchQuery.toLowerCase();
-    return contacts.filter(
-      (c) =>
-        c.name.toLowerCase().includes(lowerQ) ||
-        c.phone.includes(lowerQ)
-    );
-  }, [searchQuery, contacts]);
+    let result = contacts;
+    if (selectedTags.length > 0) {
+      result = result.filter(c => c.tags?.some(t => selectedTags.includes(t)));
+    }
+    if (searchQuery) {
+      const lowerQ = searchQuery.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(lowerQ) ||
+          c.phone.includes(lowerQ)
+      );
+    }
+    return result;
+  }, [searchQuery, contacts, selectedTags]);
 
   // Group contacts by first letter (or by phone number if name is a phone number)
   const groupedContacts = useMemo(() => {
@@ -304,28 +328,84 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative">
-            <FiSearch className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name or phone..."
-              disabled={isAddModalOpen}
-              className="w-full pl-10 sm:pl-11 pr-10 py-2.5 sm:py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 focus:border-[#2b83fa] transition-all disabled:opacity-50"
-            />
-            {searchQuery && !isAddModalOpen && (
+          {/* Search Bar and Tag Filter */}
+          <div className="flex flex-col sm:flex-row gap-3 relative z-20">
+            <div className="relative flex-1">
+              <FiSearch className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name or phone..."
+                disabled={isAddModalOpen}
+                className="w-full pl-10 sm:pl-11 pr-10 py-2.5 sm:py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 focus:border-[#2b83fa] transition-all disabled:opacity-50"
+              />
+              {searchQuery && !isAddModalOpen && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchQuery("");
+                  }}
+                  className="absolute right-3 sm:right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 text-gray-400 transition-colors"
+                >
+                  <FiX className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Tag Filter Dropdown */}
+            <div className="relative w-full sm:w-auto" ref={tagDropdownRef}>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSearchQuery("");
+                  setIsTagDropdownOpen(!isTagDropdownOpen);
                 }}
-                className="absolute right-3 sm:right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 text-gray-400 transition-colors"
+                className={`flex items-center justify-center p-2.5 sm:p-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl transition-all w-[44px] h-[44px] sm:w-[48px] sm:h-[48px] shadow-sm
+                  ${selectedTags.length > 0 ? 'text-[#2b83fa] border-[#2b83fa]/30 bg-[#2b83fa]/5' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5'}`}
+                title="Filter by Tags"
               >
-                <FiX className="h-4 w-4" />
+                <div className="relative">
+                  <FiTag className="h-[18px] w-[18px] sm:h-5 sm:w-5" />
+                  {selectedTags.length > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#2b83fa] text-[10px] font-bold text-white border-2 border-white dark:border-[#111111]">
+                      {selectedTags.length}
+                    </span>
+                  )}
+                </div>
               </button>
-            )}
+
+              {isTagDropdownOpen && (
+                <div className="absolute top-full right-0 mt-2 w-full sm:w-64 max-h-60 overflow-y-auto bg-white dark:bg-[#1a1b1e] border border-gray-200/60 dark:border-white/10 rounded-xl shadow-xl z-50 custom-scrollbar p-2">
+                  {allTags.length === 0 ? (
+                    <div className="px-3 py-4 text-center text-[13px] text-gray-500 font-medium">No tags available</div>
+                  ) : (
+                    allTags.map(tag => {
+                      const isSelected = selectedTags.includes(tag);
+                      return (
+                        <div
+                          key={tag}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedTags(prev => 
+                              prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+                            );
+                          }}
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors
+                            ${isSelected ? 'bg-[#2b83fa]/10 text-[#2b83fa]' : 'hover:bg-gray-50 dark:hover:bg-white/5 text-[#111111] dark:text-[#ececf1]'}`}
+                        >
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0
+                            ${isSelected ? 'border-[#2b83fa] bg-[#2b83fa]' : 'border-gray-300 dark:border-gray-600'}`}
+                          >
+                            {isSelected && <FiCheck className="h-3 w-3 text-white" />}
+                          </div>
+                          <span className="text-[13px] font-medium truncate" title={tag}>{tag}</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Selection Controls */}
@@ -470,18 +550,27 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                           </div>
 
                           {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0 flex flex-col justify-center">
+                            <div className="flex items-center gap-2 w-full overflow-hidden">
                               <p
                                 className={`
-                                  text-[14px] font-semibold truncate transition-colors
+                                  text-[14px] font-semibold truncate transition-colors flex-shrink min-w-0
                                   ${isSelected ? "text-[#2b83fa]" : "text-[#111111] dark:text-[#ececf1]"}
                                 `}
                               >
                                 {toProperCase(contact.name)}
                               </p>
+                              {contact.tags && contact.tags.length > 0 && (
+                                <div className="flex items-center gap-1.5 overflow-hidden flex-shrink-0">
+                                  {contact.tags.map(tag => (
+                                    <span key={tag} title={tag} className="text-[10px] font-medium bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded-md truncate max-w-[80px] sm:max-w-[120px] flex-shrink-0">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
+                            <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
                               {formatDisplayPhone(contact.phone)}
                             </p>
                           </div>

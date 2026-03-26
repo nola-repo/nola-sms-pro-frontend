@@ -131,7 +131,7 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                             <input
                                 autoFocus
                                 value={newId}
-                                onChange={e => setNewId(e.target.value)}
+                                onChange={e => setNewId(e.target.value.replace(/\s/g, ''))}
                                 placeholder="ex. NOLASMSPro"
                                 maxLength={11}
                                 required
