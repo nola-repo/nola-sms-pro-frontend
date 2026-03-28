@@ -130,7 +130,8 @@ export const sendSms = async (
   senderName: string = "NOLASMSPro",
   batchId?: string,
   contactName?: string,
-  recipientKey?: string
+  recipientKey?: string,
+  contactId?: string
 ): Promise<SendSmsResponse> => {
   if (!phoneNumber || !message) {
     return {
@@ -156,6 +157,7 @@ export const sendSms = async (
       batch_id: batchId,
       name: contactName,
       recipient_key: recipientKey,
+      contactId: contactId,
     },
   };
 
@@ -213,7 +215,7 @@ export const sendBulkSms = async (
   phoneNumbers: string[],
   message: string,
   senderName: string = "NOLASMSPro",
-  _contacts: { phone: string, name: string }[] = [],
+  _contacts: { phone: string, name: string, ghl_contact_id?: string }[] = [],
   recipientKey?: string,
   existingBatchId?: string
 ): Promise<{ results: SendSmsResponse[], batchId: string }> => {
@@ -243,69 +245,26 @@ export const sendBulkSms = async (
 
   // Use existing batchId if provided, otherwise create a new one (dash style to match backend docs)
   const batchId = existingBatchId || `batch-${Date.now()}`;
+  const results: SendSmsResponse[] = [];
 
-  try {
-    const accountSettings = getAccountSettings();
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (accountSettings.ghlLocationId) {
-      headers["X-GHL-Location-ID"] = accountSettings.ghlLocationId;
+  // Sequentially send SMS so that we can pass the ghl_contact_id per recipient for full bidirectional sync
+  for (const phone of normalizedNumbers) {
+    // Find corresponding contact to extract ghl_contact_id
+    const contact = _contacts.find(c => normalizePHNumber(c.phone) === phone) || { phone, name: undefined, ghl_contact_id: undefined };
+    try {
+      const res = await sendSms(phone, message, senderName, batchId, contact.name, recipientKey, contact.ghl_contact_id);
+      results.push({ ...res, number: phone });
+    } catch (error) {
+      console.error(`[sendBulkSms] Error sending to ${phone}:`, error);
+      results.push({
+        success: false,
+        number: phone,
+        message: error instanceof Error ? error.message : "Bulk SMS piece failed",
+      });
     }
-
-    const SEND_SMS_URL = accountSettings.ghlLocationId
-      ? `${API_CONFIG.sms}?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`
-      : API_CONFIG.sms;
-
-    // Single bulk payload: send all numbers in one request.
-    const payload = {
-      customData: {
-        number: normalizedNumbers.join(","), // send_sms.php clean_numbers() handles comma-separated
-        message,
-        sendername: senderName,
-        batch_id: batchId,
-        recipient_key: recipientKey,
-      },
-    };
-
-    console.log("Sending BULK SMS payload via proxy:", payload);
-    console.log("Sending to:", SEND_SMS_URL);
-
-    const res = await fetch(SEND_SMS_URL, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`HTTP ${res.status}: ${errorText}`);
-    }
-
-    const data = await res.json();
-    console.log("BULK SMS API Response:", data);
-
-    const overallSuccess = data?.status === "success";
-    const baseMessage =
-      data?.message ||
-      (overallSuccess ? "Bulk messages sent successfully" : "Bulk SMS sending failed");
-
-    const results: SendSmsResponse[] = normalizedNumbers.map((number) => ({
-      success: overallSuccess,
-      number,
-      message: baseMessage,
-    }));
-
-    return { results, batchId };
-  } catch (error) {
-    console.error("[sendBulkSms] Error:", error);
-    const results: SendSmsResponse[] = normalizedNumbers.map((number) => ({
-      success: false,
-      number,
-      message: error instanceof Error ? error.message : "Bulk SMS failed",
-    }));
-    return { results, batchId };
   }
+
+  return { results, batchId };
 };
 
 export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => {

@@ -31,6 +31,7 @@ export interface Conversation {
   name: string;
   updated_at: string | null;
   location_id?: string;
+  ghl_contact_id?: string;
 }
 
 export interface BulkMessageHistoryItem {

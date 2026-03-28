@@ -435,7 +435,7 @@ export const Composer: React.FC<ComposerProps> = ({
         if (recipients.length === 1) {
           // Optimistic update for single message
           const tempId = addOptimisticMessage(messageText, senderName);
-          const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, recipients[0].name);
+          const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, recipients[0].name, undefined, recipients[0].ghl_contact_id);
 
           if (smsResult.success) {
             updateMessageStatus(tempId, 'sent');
@@ -984,8 +984,34 @@ export const Composer: React.FC<ComposerProps> = ({
               </div>
             </div>
           ) : historyLoading && !useRawLogView && conversationMessages.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2b83fa]"></div>
+            <div className="flex-1 flex flex-col items-end justify-end gap-2 px-2 pb-6 animate-pulse overflow-hidden">
+              {/* Skeleton Date Separator */}
+              <div className="w-full flex justify-center mb-6 mt-4 opacity-40">
+                <div className="h-5 w-24 bg-gray-200 dark:bg-white/10 rounded-full"></div>
+              </div>
+              {/* Skeleton Message Bubbles - Top group */}
+              <div className="w-[55%] h-12 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-br-[4px] opacity-20"></div>
+              <div className="w-[85%] h-24 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-tr-[4px] rounded-br-[4px] opacity-20"></div>
+              <div className="w-[45%] h-10 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-tr-[4px] mb-6 opacity-20"></div>
+
+              {/* Skeleton Date Separator */}
+              <div className="w-full flex justify-center mb-6 mt-4 opacity-60">
+                <div className="h-5 w-32 bg-gray-200 dark:bg-white/10 rounded-full"></div>
+              </div>
+              {/* Skeleton Message Bubbles - Middle group */}
+              <div className="w-[75%] h-16 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-br-[4px] opacity-40"></div>
+              <div className="w-[30%] h-10 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-tr-[4px] mb-6 opacity-40"></div>
+              
+              {/* Skeleton Date Separator */}
+              <div className="w-full flex justify-center mb-6 mt-4">
+                <div className="h-6 w-28 bg-gray-200 dark:bg-white/10 rounded-full"></div>
+              </div>
+              {/* Skeleton Message Bubbles - Bottom active group */}
+              <div className="w-[65%] h-14 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-br-[4px]"></div>
+              <div className="w-[40%] h-10 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-tr-[4px] rounded-br-[4px]"></div>
+              <div className="w-[80%] h-20 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-tr-[4px] mb-4"></div>
+              <div className="w-[50%] h-12 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-br-[4px]"></div>
+              <div className="w-[30%] h-10 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-tr-[4px]"></div>
             </div>
           ) : !useRawLogView && conversationMessages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center">
@@ -1349,22 +1375,22 @@ export const Composer: React.FC<ComposerProps> = ({
       <div className="px-6 pb-6 pt-2 z-20 relative">
         {/* Scroll to bottom floating button */}
         <div
-          className={`absolute -top-10 left-1/2 -translate-x-1/2 z-30 transition-all duration-300 ${
+          className={`absolute -top-10 left-1/2 -translate-x-1/2 z-10 transition-all duration-300 ${
             showScrollButton ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8 pointer-events-none"
           }`}
         >
           <button
             onClick={scrollToBottom}
-            className="w-8 h-8 sm:w-10 sm:h-10 bg-[#2b83fa] text-white rounded-full shadow-[0_4px_15px_rgba(43,131,250,0.3)] hover:shadow-[0_6px_20px_rgba(43,131,250,0.4)] flex items-center justify-center hover:scale-110 active:scale-95 transition-all"
+            className="w-7 h-7 sm:w-8 sm:h-8 bg-white/80 dark:bg-black/40 backdrop-blur-md text-gray-500 dark:text-gray-400 border border-gray-200/60 dark:border-white/10 rounded-full shadow-md flex items-center justify-center hover:text-[#2b83fa] dark:hover:text-[#2b83fa] hover:scale-110 active:scale-95 transition-all"
             aria-label="Scroll to bottom"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
             </svg>
           </button>
         </div>
         <div className="max-w-5xl mx-auto">
-          <div className="bg-white dark:bg-[#1a1b1e] rounded-[1.5rem] border border-gray-200/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-2 transition-all focus-within:ring-2 focus-within:ring-[#2b83fa]/20 dark:focus-within:ring-[#2b83fa]/10">
+          <div className="bg-white dark:bg-[#1a1b1e] rounded-[1.5rem] border border-gray-200/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-2 transition-all focus-within:ring-2 focus-within:ring-[#2b83fa]/20 dark:focus-within:ring-[#2b83fa]/10 relative z-20">
             <div className="flex flex-col">
               <textarea
                 value={message}
