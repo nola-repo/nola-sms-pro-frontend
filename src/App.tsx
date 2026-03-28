@@ -14,10 +14,7 @@ const App: React.FC = () => {
     if (saved !== null) {
       return JSON.parse(saved);
     }
-    // Default to system preference or dark mode
-    if (typeof window !== 'undefined') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
+    // Default to light mode (false) if no preference saved
     return false;
   });
 

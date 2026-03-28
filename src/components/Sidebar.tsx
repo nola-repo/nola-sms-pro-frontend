@@ -27,11 +27,11 @@ interface SidebarProps {
 }
 
 const SidebarSkeleton = () => (
-  <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg animate-pulse mb-0.5">
-    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-white/10 flex-shrink-0" />
-    <div className="flex-1 min-w-0 space-y-2">
-      <div className="h-3 w-2/3 bg-gray-200 dark:bg-white/10 rounded" />
-      <div className="h-2 w-full bg-gray-100 dark:bg-white/5 rounded" />
+  <div className="flex items-center gap-3 px-3 py-2 rounded-xl animate-pulse">
+    <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-white/10 flex-shrink-0" />
+    <div className="flex-1 min-w-0 space-y-1.5">
+      <div className="h-3 w-2/3 bg-gray-200 dark:bg-white/10 rounded-full" />
+      <div className="h-2 w-full bg-gray-100 dark:bg-white/5 rounded-full" />
     </div>
   </div>
 );
@@ -417,12 +417,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className={`
-      h-screen bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl flex-shrink-0 flex flex-col border-r border-[#0000000a] dark:border-[#ffffff0a] shadow-[1px_0_0_rgba(0,0,0,0.05)] relative z-[60] transition-all duration-300 overflow-hidden
+      h-screen bg-white/80 dark:bg-[#121415]/90 backdrop-blur-2xl flex-shrink-0 flex flex-col border-r border-black/[0.06] dark:border-white/[0.05] relative z-[60] transition-all duration-300 overflow-hidden
       ${isCollapsed ? 'w-20' : 'w-full'}
     `}>
       {/* Header Profile / Logo Area */}
-      <div className={`p-4 pb-1 ${isCollapsed ? 'px-0 flex flex-col items-center' : ''}`}>
-        <div className={`flex items-center justify-between transition-all ${isCollapsed ? 'mb-4 justify-center' : 'mb-4'}`}>
+      <div className={`px-3 pt-3 pb-2 ${isCollapsed ? 'flex flex-col items-center px-2' : ''}`}>
+        <div className={`flex items-center justify-between transition-all ${isCollapsed ? 'mb-3 justify-center' : 'mb-3'}`}>
           <div
             className={`flex items-center relative group cursor-pointer transition-all ${isCollapsed ? '' : 'gap-3.5'}`}
             onClick={isCollapsed ? onToggleCollapse : undefined}
@@ -480,7 +480,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* New Message Button */}
-        <div className={`mt-1 mb-3 ${isCollapsed ? 'px-2 flex justify-center' : 'px-4'}`}>
+        <div className={`mt-2 mb-2 ${isCollapsed ? 'px-2 flex justify-center' : ''}`}>
           <GlareHover
             glareColor="#ffffff"
             glareOpacity={0.25}
@@ -510,7 +510,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Navigation List */}
-        <nav className={`flex flex-col gap-1 mt-2 ${isCollapsed ? 'items-center px-2' : ''}`}>
+        <div className={`mt-2 ${isCollapsed ? 'hidden' : 'px-3 pb-1'}`}>
+          <span className="text-[10.5px] font-bold text-[#9aa0a6] dark:text-[#5f6368] uppercase tracking-widest">Main Menu</span>
+        </div>
+        <nav className={`flex flex-col gap-0.5 mt-0.5 ${isCollapsed ? 'items-center px-1' : 'px-1'}`}>
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -519,22 +522,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => onTabChange(item.id as ViewTab)}
                 className={`
                   flex items-center transition-all duration-300 relative group
-                  ${isCollapsed ? 'w-10 h-10 justify-center rounded-xl' : 'w-full gap-2.5 px-2.5 py-1.5 rounded-lg'}
+                  ${isCollapsed ? 'w-14 py-1.5 flex-col justify-center gap-0.5 rounded-xl' : 'w-full gap-2.5 px-2.5 py-1.5 rounded-lg'}
                   ${isActive
-                    ? `bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa] ${isCollapsed ? '' : ''}`
+                    ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
                     : 'text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]'}
                 `}
               >
                 {isActive && !isCollapsed && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-[#2b83fa] rounded-r-full shadow-sm"></div>
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-[#2b83fa] rounded-r-full shadow-sm" />
                 )}
                 {isActive && isCollapsed && (
-                  <div className="absolute left-[-6px] top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#2b83fa] rounded-r-full"></div>
+                  <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#2b83fa] rounded-r-full" />
                 )}
                 <div className={`text-[17px] transition-all duration-500 ${isActive ? 'scale-110 text-[#2b83fa]' : 'group-hover:scale-105 group-hover:text-[#2b83fa]'} active:scale-90`}>
                   {item.icon}
                 </div>
-                {!isCollapsed && (
+                {isCollapsed ? (
+                  <span className={`text-[9px] font-semibold leading-none tracking-tight ${isActive ? 'text-[#2b83fa]' : 'text-[#9aa0a6] dark:text-[#5f6368]'}`}>
+                    {item.label}
+                  </span>
+                ) : (
                   <span className={`text-[12.5px] transition-all duration-200 ${isActive ? 'font-bold tracking-tight' : 'font-medium'}`}>
                     {item.label}
                   </span>
@@ -546,9 +553,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Activity Feed Section */}
-      <div className={`flex-1 min-h-0 flex flex-col mt-4 overflow-hidden ${isCollapsed ? 'items-center' : ''}`}>
+      <div className={`flex-1 min-h-0 flex flex-col overflow-hidden ${isCollapsed ? 'items-center' : ''}`}>
         {!isCollapsed && (
-          <div className="flex-1 flex flex-col px-2 pb-4 overflow-hidden min-h-0">
+          <div className="flex-1 flex flex-col px-2 pb-3 overflow-hidden min-h-0">
             {/* Messages Content */}
             {!loading && directHistory.length === 0 && bulkHistory.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
@@ -563,31 +570,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             ) : (
               <>
-                {/* Messages Section Header - Sticky at top */}
-                <div className="px-2 py-2 pt-2 border-t border-[#00000005] dark:border-[#ffffff05]">
-                  <h2 className="text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Messages</h2>
+                {/* Section label */}
+                <div className="px-3 pt-2 pb-1">
+                  <span className="text-[10.5px] font-bold text-[#9aa0a6] dark:text-[#5f6368] uppercase tracking-widest">Messages</span>
                 </div>
 
-                {/* Direct Messages Header - Sticky */}
+                {/* Direct Messages Header */}
                 <div
-                  className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer border-t border-[#00000005] dark:border-[#ffffff05] pt-2"
+                  className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors cursor-pointer mx-1"
                   onClick={() => setDirectMessagesExpanded(!directMessagesExpanded)}
                 >
                   <div className="flex items-center gap-2">
                     <div className={`transition-transform duration-200 ${directMessagesExpanded ? 'rotate-0' : '-rotate-90'}`}>
-                      <FiChevronDown className="w-4 h-4 text-[#5f6368] dark:text-[#9aa0a6]" />
+                      <FiChevronDown className="w-3.5 h-3.5 text-[#9aa0a6] dark:text-[#5f6368]" />
                     </div>
-                    <h3 className="text-[13px] font-semibold text-[#3c4043] dark:text-[#e8eaed]">Direct Messages</h3>
+                    <span className="text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6]">Direct Messages</span>
                   </div>
-                  <span className="text-[11px] font-medium text-[#5f6368] dark:text-[#9aa0a6] bg-[#f1f3f4] dark:bg-[#3c4043] px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] font-bold text-[#9aa0a6] dark:text-[#5f6368] bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                     {directHistory.length}
                   </span>
                 </div>
 
-                {/* Direct Messages Content - Pull to refresh + Independent scrollable area */}
+                {/* Direct Messages scrollable area */}
                 <div
                   ref={contactsListRef}
-                  className={`overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-300 pb-0 ${directMessagesExpanded ? 'max-h-[35vh] opacity-100 mb-2' : 'max-h-0 opacity-0'}`}
+                  className={`overflow-y-auto overflow-x-hidden sidebar-scroll transition-all duration-300 pb-1 rounded-xl ${directMessagesExpanded ? 'max-h-[30vh] opacity-100 mb-1' : 'max-h-0 opacity-0'}`}
                   onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; }}
                   onTouchEnd={(e) => {
                     const delta = e.changedTouches[0].clientY - touchStartY.current;
@@ -595,81 +602,79 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     if (delta > 60 && atTop) loadContacts();
                   }}
                 >
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-0.5 py-0.5">
                     {loading ? (
-                      [1, 2, 3, 4, 5].map(i => <SidebarSkeleton key={i} />)
+                      [1, 2, 3, 4].map(i => <SidebarSkeleton key={i} />)
                     ) : (
                       directHistory.map(contact => (
                         <div
                           key={contact.id}
                           className={`
-                          group relative transition-all duration-300 overflow-visible
-                          px-2 py-1.5 rounded-lg cursor-pointer mb-0.5
+                          group relative transition-all duration-200 overflow-visible
+                          px-3 py-2 rounded-xl cursor-pointer mx-1
                           ${activeContactId === contact.id
-                              ? 'bg-white dark:bg-[#1c1e21] shadow-[0_4px_15px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] ring-1 ring-[#00000005] dark:ring-[#ffffff05]'
-                              : 'hover:bg-black/[0.015] dark:hover:bg-white/[0.015]'}
+                              ? 'bg-[#2b83fa]/8 dark:bg-[#2b83fa]/12'
+                              : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'}
                         `}
                           onClick={() => {
                             onTabChange('compose');
                             onSelectContact(contact);
                           }}
                         >
-                          <div className="flex items-center gap-2.5">
+                          <div className="flex items-center gap-3">
                             <div className="relative flex-shrink-0">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[12px] transition-all duration-300 shadow-inner
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-[13px] transition-all duration-200
                             ${activeContactId === contact.id
-                                  ? 'bg-[#2b83fa] text-white shadow-[0_4px_8px_rgba(43,131,250,0.2)]'
-                                  : 'bg-[#f0f0f0] dark:bg-[#202123] text-[#6e6e73] dark:text-[#ececf1] group-hover:bg-[#e8e8e8] dark:group-hover:bg-[#25262a]'}
+                                  ? 'bg-[#2b83fa] text-white shadow-md shadow-blue-500/20'
+                                  : 'bg-[#f0f2f4] dark:bg-[#2a2b32] text-[#5f6368] dark:text-[#9aa0a6]'}
                             `}>
                                 {(contact.name || contact.phone).charAt(0).toUpperCase()}
                               </div>
-                              <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#121415] shadow-sm transition-opacity duration-300
-                            ${activeContactId === contact.id ? 'bg-green-500 opacity-100' : 'bg-gray-300 dark:bg-gray-600 opacity-0 group-hover:opacity-100'}
-                          `}></span>
+                              {activeContactId === contact.id && (
+                                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white dark:border-[#121415]" />
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex justify-between items-baseline mb-0.5">
-                                <span className={`text-[12.5px] truncate transition-colors duration-200 ${activeContactId === contact.id ? 'font-bold text-[#111111] dark:text-white' : 'font-semibold text-[#37352f] dark:text-[#ececf1]'}`}>
+                              <div className="flex justify-between items-center mb-0.5">
+                                <span className={`text-[13px] truncate leading-tight ${activeContactId === contact.id ? 'font-semibold text-[#111111] dark:text-white' : 'font-medium text-[#3c4043] dark:text-[#e8eaed]'}`}>
                                   {toProperCase(contact.name || contact.phone)}
                                 </span>
-                                <div className="flex items-center gap-1">
-                                  <div className="relative">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (openMenuId === contact.id) {
-                                          setOpenMenuId(null);
-                                        } else {
-                                          const rect = e.currentTarget.getBoundingClientRect();
-                                          setMenuAnchor({ x: rect.right, y: rect.bottom });
-                                          setOpenMenuId(contact.id);
-                                        }
-                                      }}
-                                      className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043] transition-all"
+                                <div className="flex items-center gap-0.5 flex-shrink-0 ml-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (openMenuId === contact.id) {
+                                        setOpenMenuId(null);
+                                      } else {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        setMenuAnchor({ x: rect.right, y: rect.bottom });
+                                        setOpenMenuId(contact.id);
+                                      }
+                                    }}
+                                    className="p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-black/[0.06] dark:hover:bg-white/10 transition-all"
+                                  >
+                                    <FiMoreVertical className="w-3.5 h-3.5 text-[#9aa0a6]" />
+                                  </button>
+                                  {openMenuId === contact.id && menuAnchor && createPortal(
+                                    <div
+                                      className="fixed bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-black/5 dark:border-white/10 py-1.5 min-w-[120px] z-[99999] animate-in zoom-in-95 duration-150"
+                                      style={{ top: menuAnchor.y + 4, left: menuAnchor.x, transform: 'translateX(-100%)', transformOrigin: 'top right' }}
+                                      onClick={(e) => e.stopPropagation()}
                                     >
-                                      <FiMoreVertical className="w-3 h-3 text-[#5f6368] dark:text-[#9aa0a6]" />
-                                    </button>
-                                    {openMenuId === contact.id && menuAnchor && createPortal(
-                                      <div
-                                        className="fixed bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-[#0000000a] dark:border-[#ffffff0a] py-1.5 min-w-[110px] z-[99999] animate-in zoom-in-95 duration-150"
-                                        style={{ top: menuAnchor.y + 4, left: menuAnchor.x, transform: 'translateX(-100%)', transformOrigin: 'top right' }}
-                                        onClick={(e) => e.stopPropagation()}
+                                      <button
+                                        onClick={(e) => startDeleteContact(contact.id, contact.phone, e)}
+                                        className="w-full px-3 py-2 text-left text-[12px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
                                       >
-                                        <button
-                                          onClick={(e) => startDeleteContact(contact.id, contact.phone, e)}
-                                          className="w-full px-3 py-1.5 text-left text-[11.5px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
-                                        >
-                                          <FiTrash2 className="w-3 h-3" />
-                                          Delete
-                                        </button>
-                                      </div>,
-                                      document.body
-                                    )}
-                                  </div>
+                                        <FiTrash2 className="w-3.5 h-3.5" />
+                                        Delete
+                                      </button>
+                                    </div>,
+                                    document.body
+                                  )}
                                 </div>
                               </div>
-                              <div className={`text-[11px] truncate leading-normal transition-colors duration-200 opacity-80 ${activeContactId === contact.id ? 'text-[#2b83fa] dark:text-[#60a5fa]' : 'text-[#6e6e73] dark:text-[#94959b]'}`}>
-                                {contact.lastMessage || "(No message yet)"}
+                              <div className={`text-[11.5px] truncate leading-snug ${activeContactId === contact.id ? 'text-[#2b83fa]/80 dark:text-[#60a5fa]/80' : 'text-[#9aa0a6] dark:text-[#5f6368]'}`}>
+                                {contact.lastMessage || 'No messages yet'}
                               </div>
                             </div>
                           </div>
@@ -681,21 +686,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Bulk Messages Header */}
                 <div
-                  className="flex items-center justify-between gap-2 px-2 py-2 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors cursor-pointer mt-2 border-t border-gray-100 dark:border-white/5 pt-2"
+                  className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-colors cursor-pointer mt-1 mx-1"
                   onClick={() => setBulkMessagesExpanded(!bulkMessagesExpanded)}
                 >
                   <div className="flex items-center gap-2">
                     <div className={`transition-transform duration-200 ${bulkMessagesExpanded ? 'rotate-0' : '-rotate-90'}`}>
-                      <FiChevronDown className="w-4 h-4 text-[#5f6368] dark:text-[#9aa0a6]" />
+                      <FiChevronDown className="w-3.5 h-3.5 text-[#9aa0a6] dark:text-[#5f6368]" />
                     </div>
-                    <h3 className="text-[13px] font-semibold text-[#3c4043] dark:text-[#e8eaed]">Bulk Messages</h3>
+                    <span className="text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6]">Bulk Messages</span>
                   </div>
-                  <span className="text-[11px] font-medium text-[#5f6368] dark:text-[#9aa0a6] bg-[#f1f3f4] dark:bg-[#3c4043] px-1.5 py-0.5 rounded">{bulkHistory.length}</span>
+                  <span className="text-[10px] font-bold text-[#9aa0a6] dark:text-[#5f6368] bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{bulkHistory.length}</span>
                 </div>
 
-                {/* Bulk Messages Content - Independent scrollable area */}
-                <div className={`overflow-y-auto overflow-x-hidden custom-scrollbar transition-all duration-300 pb-4 ${bulkMessagesExpanded ? 'max-h-[35vh] opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="flex flex-col gap-0.5">
+                {/* Bulk Messages scrollable area */}
+                <div className={`overflow-y-auto overflow-x-hidden sidebar-scroll transition-all duration-300 pb-2 rounded-xl ${bulkMessagesExpanded ? 'max-h-[30vh] opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <div className="flex flex-col gap-0.5 py-0.5">
                     {loading ? (
                       [1, 2, 3].map(i => <SidebarSkeleton key={i} />)
                     ) : bulkHistory.length > 0 ? (
@@ -705,11 +710,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <div
                             key={item.id}
                             className={`
-                              group relative transition-all duration-200 rounded-lg mx-1
-                              px-2 py-1.5 cursor-pointer overflow-visible
+                              group relative transition-all duration-200 rounded-xl mx-1
+                              px-3 py-2 cursor-pointer overflow-visible
                               ${isActive
-                                ? 'bg-white dark:bg-[#1c1e21] shadow-[0_4px_15px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] ring-1 ring-[#00000005] dark:ring-[#ffffff05]'
-                                : 'hover:bg-[#f1f3f4] dark:hover:bg-[#303134]'
+                                ? 'bg-[#2b83fa]/8 dark:bg-[#2b83fa]/12'
+                                : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'
                               }
                             `}
                             onClick={() => {
@@ -721,79 +726,77 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           >
                             <div className="flex items-center gap-3 overflow-visible">
                               <div className="relative flex-shrink-0">
-                                <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200
+                                <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200
                                   ${isActive
-                                    ? 'bg-[#7c3aed] text-white shadow-[0_4px_8px_rgba(124,58,237,0.2)]'
-                                    : 'bg-[#ede9fe] text-[#7c3aed] group-hover:bg-[#ddd6fe]'
+                                    ? 'bg-[#2b83fa] text-white shadow-md shadow-blue-500/20'
+                                    : 'bg-blue-50 dark:bg-[#2b83fa]/15 text-[#2b83fa] group-hover:bg-blue-100 dark:group-hover:bg-[#2b83fa]/25'
                                   }
                                 `}>
                                   <FiUsers className="w-4 h-4" />
                                 </div>
                               </div>
                               <div className="flex-1 min-w-0 overflow-visible">
-                                  <>
-                                    <div className="flex justify-between items-baseline mb-0.5">
-                                      <span className={`text-[12.5px] truncate transition-colors duration-200 ${isActive ? 'font-bold text-[#111111] dark:text-white' : 'font-semibold text-[#3c4043] dark:text-[#e8eaed]'}`}>
-                                        {getBulkDisplayName(item)}
-                                      </span>
-                                      <div className="flex items-center gap-1">
-                                        <div className="relative">
+                                <>
+                                  <div className="flex justify-between items-center mb-0.5">
+                                    <span className={`text-[13px] truncate leading-tight ${isActive ? 'font-semibold text-[#111111] dark:text-white' : 'font-medium text-[#3c4043] dark:text-[#e8eaed]'}`}>
+                                      {getBulkDisplayName(item)}
+                                    </span>
+                                    <div className="flex items-center gap-0.5 flex-shrink-0 ml-1">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (openMenuId === item.id) {
+                                            setOpenMenuId(null);
+                                          } else {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            setMenuAnchor({ x: rect.right, y: rect.bottom });
+                                            setOpenMenuId(item.id);
+                                          }
+                                        }}
+                                        className="p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-black/[0.06] dark:hover:bg-white/10 transition-all"
+                                      >
+                                        <FiMoreVertical className="w-3.5 h-3.5 text-[#9aa0a6]" />
+                                      </button>
+                                      {openMenuId === item.id && menuAnchor && createPortal(
+                                        <div
+                                          className="fixed bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-black/5 dark:border-white/10 py-1.5 min-w-[120px] z-[99999] animate-in zoom-in-95 duration-150"
+                                          style={{ top: menuAnchor.y + 4, left: menuAnchor.x, transform: 'translateX(-100%)', transformOrigin: 'top right' }}
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              if (openMenuId === item.id) {
-                                                setOpenMenuId(null);
-                                              } else {
-                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                setMenuAnchor({ x: rect.right, y: rect.bottom });
-                                                setOpenMenuId(item.id);
-                                              }
+                                              handleStartEdit(item);
+                                              setOpenMenuId(null);
                                             }}
-                                            className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[#e8e8e8] dark:hover:bg-[#3c4043] transition-all"
+                                            className="w-full px-3 py-2 text-left text-[12px] text-[#5f6368] dark:text-[#9aa0a6] hover:bg-black/5 dark:hover:bg-white/5 flex items-center gap-2 transition-colors"
                                           >
-                                            <FiMoreVertical className="w-3 h-3 text-[#5f6368] dark:text-[#9aa0a6]" />
+                                            <FiEdit2 className="w-3.5 h-3.5" />
+                                            Rename
                                           </button>
-                                          {openMenuId === item.id && menuAnchor && createPortal(
-                                            <div
-                                              className="fixed bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-[#0000000a] dark:border-[#ffffff0a] py-1.5 min-w-[110px] z-[99999] animate-in zoom-in-95 duration-150"
-                                              style={{ top: menuAnchor.y + 4, left: menuAnchor.x, transform: 'translateX(-100%)', transformOrigin: 'top right' }}
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleStartEdit(item);
-                                                  setOpenMenuId(null);
-                                                }}
-                                                className="w-full px-3 py-1.5 text-left text-[11.5px] text-[#5f6368] dark:text-[#9aa0a6] hover:bg-[#f1f3f4] dark:hover:bg-white/5 flex items-center gap-2 transition-colors"
-                                              >
-                                                <FiEdit2 className="w-3 h-3" />
-                                                Rename
-                                              </button>
-                                              <button
-                                                onClick={(e) => startDeleteBulk(item.id, e)}
-                                                className="w-full px-3 py-1.5 text-left text-[11.5px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
-                                              >
-                                                <FiTrash2 className="w-3 h-3" />
-                                                Delete
-                                              </button>
-                                            </div>,
-                                            document.body
-                                          )}
-                                        </div>
-                                      </div>
+                                          <button
+                                            onClick={(e) => startDeleteBulk(item.id, e)}
+                                            className="w-full px-3 py-2 text-left text-[12px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
+                                          >
+                                            <FiTrash2 className="w-3.5 h-3.5" />
+                                            Delete
+                                          </button>
+                                        </div>,
+                                        document.body
+                                      )}
                                     </div>
-                                    <div className={`text-[11px] truncate leading-normal opacity-80 ${isActive ? 'text-[#7c3aed] dark:text-[#a78bfa]' : 'text-[#6e6e73] dark:text-[#94959b]'}`}>
-                                      {item.message || "(No message sent)"}
-                                    </div>
-                                  </>
+                                  </div>
+                                  <div className={`text-[11.5px] truncate leading-snug ${isActive ? 'text-[#2b83fa]/80 dark:text-[#60a5fa]/80' : 'text-[#9aa0a6] dark:text-[#5f6368]'}`}>
+                                    {item.message || 'No message sent'}
+                                  </div>
+                                </>
                               </div>
                             </div>
                           </div>
                         );
                       })
                     ) : (
-                      <div className="text-[12px] text-[#9aa0a6] dark:text-[#6e6e73] px-3 py-2 italic">
+                      <div className="text-[11.5px] text-[#9aa0a6] dark:text-[#5f6368] px-4 py-2">
                         No bulk messages yet
                       </div>
                     )}
@@ -805,25 +808,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      {/* Settings Only Footer */}
-      <div className={`p-4 bg-white/90 dark:bg-[#121415]/90 border-t border-[#0000000a] dark:border-[#ffffff0a] relative z-[70] backdrop-blur-sm ${isCollapsed ? 'px-2 flex justify-center' : ''}`}>
+      {/* Settings Footer */}
+      <div className={`px-2 py-2 border-t border-black/[0.05] dark:border-white/[0.05] bg-white/60 dark:bg-[#121415]/60 backdrop-blur-sm ${isCollapsed ? 'flex justify-center' : ''}`}>
         <button
           onClick={() => onTabChange('settings')}
           className={`
-            flex items-center rounded-xl transition-all duration-300 group text-sm
-            ${isCollapsed ? 'w-12 h-12 justify-center' : 'w-full gap-3 px-3 py-2.5'}
+            flex items-center rounded-xl transition-all duration-200 group
+            ${isCollapsed ? 'w-10 h-10 justify-center' : 'w-full gap-3 px-3 py-2'}
             ${activeTab === 'settings'
               ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
-              : 'text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'}
+              : 'text-[#9aa0a6] dark:text-[#5f6368] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] hover:text-[#5f6368] dark:hover:text-[#9aa0a6]'}
           `}
         >
-          <div className={`transition-all duration-500 ${activeTab === 'settings' ? 'scale-110 rotate-90 text-[#2b83fa]' : 'group-hover:scale-110 group-hover:rotate-45 group-hover:text-[#2b83fa]'}`}>
+          <div className={`transition-all duration-300 ${activeTab === 'settings' ? 'scale-110 rotate-45 text-[#2b83fa]' : 'group-hover:scale-110 group-hover:rotate-45'}`}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
-          {!isCollapsed && <span className="font-semibold text-[13px]">Settings</span>}
+          {!isCollapsed && <span className="font-medium text-[13px]">Settings</span>}
         </button>
       </div>
 
