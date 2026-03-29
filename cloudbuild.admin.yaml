@@ -6,25 +6,31 @@ steps:
       - '-f'
       - 'Dockerfile.admin'
       - '-t'
-      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nola/nola-admin:$COMMIT_SHA'
+      - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_SERVICE_NAME:$COMMIT_SHA'
       - '.'
-  # Push the container image to Container Registry
+      
+  # Push the container image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nola/nola-admin:$COMMIT_SHA'
+      - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_SERVICE_NAME:$COMMIT_SHA'
+      
   # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     args:
       - 'run'
       - 'deploy'
-      - 'nola-sms-pro-admin'
+      - '$_SERVICE_NAME'
       - '--image'
-      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nola/nola-admin:$COMMIT_SHA'
+      - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_SERVICE_NAME:$COMMIT_SHA'
       - '--region'
-      - 'asia-southeast1'
+      - '$_DEPLOY_REGION'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+
 images:
-  - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nola/nola-admin:$COMMIT_SHA'
+  - '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_SERVICE_NAME:$COMMIT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
