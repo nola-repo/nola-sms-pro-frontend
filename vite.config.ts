@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import type { ViteDevServer } from 'vite'
+import { resolve } from 'path'
 
 // Custom Vite plugin to handle SMS proxy
 const smsProxyPlugin = () => ({
@@ -126,6 +127,17 @@ const smsProxyPlugin = () => ({
 });
 
 // https://vite.dev/config/
+const appType = process.env.APP_TYPE || 'frontend';
+
 export default defineConfig({
   plugins: [react(), smsProxyPlugin()],
+  build: {
+    outDir: `dist/${appType}`,
+    emptyOutDir: true,
+    rollupOptions: {
+      input: appType === 'admin' 
+        ? resolve(__dirname, 'admin.html') 
+        : resolve(__dirname, 'index.html')
+    }
+  }
 })

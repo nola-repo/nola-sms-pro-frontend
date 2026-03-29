@@ -1,0 +1,30 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'Dockerfile.admin'
+      - '-t'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nola/nola-admin:$COMMIT_SHA'
+      - '.'
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nola/nola-admin:$COMMIT_SHA'
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'nola-sms-pro-admin'
+      - '--image'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nola/nola-admin:$COMMIT_SHA'
+      - '--region'
+      - 'asia-southeast1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+images:
+  - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/nola/nola-admin:$COMMIT_SHA'

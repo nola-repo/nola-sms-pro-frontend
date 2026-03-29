@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Dashboard } from "./pages/Dashboard";
 import { useGhlLocation } from "./hooks/useGhlLocation";
 import { GhlCallback } from "./pages/GhlCallback";
-import { AdminLayout } from "./pages/admin/AdminLayout";
 import { FiSettings } from "react-icons/fi";
 
 const App: React.FC = () => {
@@ -43,12 +42,11 @@ const App: React.FC = () => {
     );
   }, [locationId]);
 
-    const isAdminRoute = window.location.pathname.startsWith('/admin');
 
   return (
     <div className="h-screen">
       {/* Theme & Settings - Fixed top right (Desktop only) */}
-      {!isAdminRoute && (
+      {
         <div className="hidden md:flex fixed top-3 right-3 gap-2 z-50">
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'account' } }))}
@@ -73,12 +71,10 @@ const App: React.FC = () => {
             )}
           </button>
         </div>
-      )}
+      }
 
       {/* Basic Routing */}
-      {window.location.pathname.startsWith('/admin') ? (
-        <AdminLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-      ) : window.location.search.includes('code=') ? (
+      {window.location.search.includes('code=') ? (
         <GhlCallback />
       ) : (
         <Dashboard
