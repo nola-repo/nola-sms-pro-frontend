@@ -7,13 +7,12 @@ import Antigravity from '../../../components/ui/Antigravity';
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
 
-
-
 export const AdminLogin: React.FC<{ onLogin: (username: string) => void }> = ({ onLogin }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
     const [loading, setLoading] = useState(false);
     
     // Forgot Password Flow States
@@ -25,6 +24,7 @@ export const AdminLogin: React.FC<{ onLogin: (username: string) => void }> = ({ 
         e.preventDefault();
         setLoading(true);
         setError(false);
+        setErrorMsg('');
 
         try {
             const res = await fetch('/api/admin_auth.php', {
@@ -33,19 +33,17 @@ export const AdminLogin: React.FC<{ onLogin: (username: string) => void }> = ({ 
                 body: JSON.stringify({ username, password })
             });
 
-            // If the endpoint isn't built yet, it might return a 404 HTML page or fail parsing
-            if (!res.ok) {
-                throw new Error('API not available, fallback to hardcoded');
-            }
-
             const json = await res.json();
-            if (json.status === 'success') {
+            
+            if (res.ok && json.status === 'success') {
                 onLogin(username);
             } else {
                 setError(true);
+                setErrorMsg(json.message || 'Incorrect username or password.');
             }
         } catch (err) {
             setError(true);
+            setErrorMsg('Connection error. Please check your backend.');
         } finally {
             setLoading(false);
         }
@@ -61,10 +59,8 @@ export const AdminLogin: React.FC<{ onLogin: (username: string) => void }> = ({ 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: forgotUsername })
             });
-            // We gently fall back on success even if it errors to allow seamless frontend dev flow
             setForgotSuccess(true);
         } catch (err) {
-            // Still show success to prevent user enumeration
             setForgotSuccess(true);
         } finally {
             setLoading(false);
@@ -164,7 +160,7 @@ export const AdminLogin: React.FC<{ onLogin: (username: string) => void }> = ({ 
                         {error && (
                             <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-red-500/10 border border-red-500/20">
                                 <FiAlertCircle className="w-4 h-4 text-red-500 dark:text-red-400 flex-shrink-0" />
-                                <p className="text-[12px] font-medium text-red-600 dark:text-red-300">Incorrect username or password.</p>
+                                <p className="text-[12px] font-medium text-red-600 dark:text-red-300">{errorMsg}</p>
                             </div>
                         )}
                         
@@ -224,4 +220,3 @@ export const AdminLogin: React.FC<{ onLogin: (username: string) => void }> = ({ 
         </div>
     );
 };
-
