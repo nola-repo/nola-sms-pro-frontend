@@ -35,9 +35,10 @@ images:
 
 substitutions:
   _SERVICE_NAME: nolasmspro-agency
-  _DEPLOY_REGION: us-central1
-  _AR_HOSTNAME: us-central1-docker.pkg.dev
-  _AR_REPOSITORY: nolasmspro
+  _DEPLOY_REGION: asia-southeast1
+  _AR_HOSTNAME: asia-southeast1-docker.pkg.dev
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _AR_PROJECT_ID: nola-sms-pro
 
 options:
   logging: CLOUD_LOGGING_ONLY
