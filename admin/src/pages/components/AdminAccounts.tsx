@@ -422,29 +422,31 @@ export const AdminAccounts: React.FC = () => {
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-2 gap-4 pt-1">
-                                <div>
-                                    <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Credit Balance</label>
+                            <div className="pt-1">
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Credit Balance</label>
+                                <div className="flex items-center w-full bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] rounded-xl overflow-hidden shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-[#2b83fa]/30 group">
+                                    <button
+                                        type="button"
+                                        onClick={() => setManageCreditBalance(prev => Math.max(0, prev - 1))}
+                                        className="flex items-center justify-center px-4 py-3 text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/10 dark:active:bg-white/10 transition-colors border-r border-[#e0e0e0] dark:border-[#ffffff0a]"
+                                    >
+                                        <FiMinus className="w-4 h-4" />
+                                    </button>
                                     <input
-                                        required
                                         type="number"
-                                        min="0"
                                         value={manageCreditBalance}
                                         onChange={(e) => setManageCreditBalance(parseInt(e.target.value) || 0)}
-                                        className="w-full px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
+                                        className="flex-1 bg-white dark:bg-[#151618] text-center text-[16px] font-bold text-[#111111] dark:text-white font-mono tracking-tight py-2.5 focus:outline-none"
                                     />
+                                    <button
+                                        type="button"
+                                        onClick={() => setManageCreditBalance(prev => prev + 1)}
+                                        className="flex items-center justify-center px-4 py-3 text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/10 dark:active:bg-white/10 transition-colors border-l border-[#e0e0e0] dark:border-[#ffffff0a]"
+                                    >
+                                        <FiPlus className="w-4 h-4" />
+                                    </button>
                                 </div>
-                                <div>
-                                    <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Free Usages Limit</label>
-                                    <input
-                                        required
-                                        type="number"
-                                        min="0"
-                                        value={manageFreeCreditsTotal}
-                                        onChange={(e) => setManageFreeCreditsTotal(parseInt(e.target.value) || 0)}
-                                        className="w-full px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
-                                    />
-                                </div>
+                                <p className="text-[11px] text-[#9aa0a6] mt-2">Adjust the account's total SMS credits balance.</p>
                             </div>
 
                             <div className="pt-4 flex flex-col gap-3">
