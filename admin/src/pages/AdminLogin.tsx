@@ -49,6 +49,7 @@ export const AdminLogin: React.FC<{ onLogin: (username: string) => void }> = ({ 
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState(false);
     const [loading, setLoading] = useState(false);
+    const passwordRef = React.useRef<HTMLInputElement>(null);
     
     // Forgot Password Flow States
     const [view, setView] = useState<'login' | 'forgot'>('login');
@@ -214,6 +215,12 @@ export const AdminLogin: React.FC<{ onLogin: (username: string) => void }> = ({ 
                                 autoFocus
                                 value={username}
                                 onChange={(e) => { setUsername(e.target.value); if (error) setError(false); }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        passwordRef.current?.focus();
+                                    }
+                                }}
                                 placeholder="e.g. admin"
                                 className="w-full px-5 py-4 rounded-[18px] border border-gray-200 dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0a0b0d] text-[15px] font-sans font-medium text-[#111111] dark:text-white placeholder-gray-400 dark:placeholder-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500/40 transition-all shadow-inner"
                             />
@@ -225,6 +232,7 @@ export const AdminLogin: React.FC<{ onLogin: (username: string) => void }> = ({ 
                             </div>
                             <div className="relative">
                                 <input
+                                    ref={passwordRef}
                                     type={showPassword ? "text" : "password"}
                                     value={password}
                                     onChange={(e) => { setPassword(e.target.value); if (error) setError(false); }}
