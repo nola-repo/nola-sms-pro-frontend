@@ -80,7 +80,6 @@ export const AdminAccounts: React.FC = () => {
                     action: 'manage_sender',
                     location_id: managingAccount.location_id,
                     sender_id: manageSenderId,
-                    api_key: manageApiKey,
                     credit_balance: manageCreditBalance,
                     free_credits_total: manageFreeCreditsTotal
                 }),
@@ -197,38 +196,42 @@ export const AdminAccounts: React.FC = () => {
                                             : <span className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest pl-2">System</span>}
                                     </td>
                                     <td className="py-4 pr-4">
-                                        {acc.approved_sender_id && (() => {
-                                            const apiKey = acc.nola_pro_api_key || acc.api_key || acc.semaphore_api_key;
+                                        {(() => {
+                                            const apiKey = acc.semaphore_api_key || acc.nola_pro_api_key || acc.api_key;
+                                            const isVisible = visibleApiKeyId === acc.id;
+                                            
                                             return apiKey ? (
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="text-[11px] text-[#2b83fa] dark:text-[#4da3ff] font-mono bg-[#f0f0f0] dark:bg-white/5 px-2 py-1 rounded-md max-w-[120px] truncate">
-                                                        {visibleApiKeyId === acc.id 
-                                                            ? apiKey 
-                                                            : apiKey.length > 12 
-                                                                ? `${apiKey.substring(0, 5)}•••${apiKey.substring(apiKey.length - 5)}`
-                                                                : '••••••••••••'}
-                                                    </span>
-                                                    <div className="flex items-center border-l border-[#e5e5e5] dark:border-white/10 pl-1.5 ml-1 gap-1">
-                                                        <button 
-                                                            onClick={() => setVisibleApiKeyId(visibleApiKeyId === acc.id ? null : acc.id)}
-                                                            className="p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"
-                                                            title={visibleApiKeyId === acc.id ? 'Hide Key' : 'Show Key'}
-                                                        >
-                                                            {visibleApiKeyId === acc.id ? <FiEyeOff size={14} /> : <FiEye size={14} />}
-                                                        </button>
-                                                        <button 
-                                                            onClick={async () => {
-                                                                await navigator.clipboard.writeText(apiKey || '');
-                                                            }}
-                                                            className="p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"
-                                                            title="Copy API Key"
-                                                        >
-                                                            <FiCopy size={14} />
-                                                        </button>
+                                                <div className="flex items-center gap-2 group/key">
+                                                    <div className={`px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-2 ${isVisible ? 'bg-blue-50/50 border-blue-200 dark:bg-blue-500/5 dark:border-blue-500/20' : 'bg-[#f7f7f7] border-[#e5e5e5] dark:bg-white/5 dark:border-white/10'}`}>
+                                                        <span className="text-[11px] font-mono text-[#444] dark:text-[#ccc] tabular-nums">
+                                                            {isVisible ? apiKey : '••••••••••••'}
+                                                        </span>
+                                                        <div className="flex items-center gap-1 border-l border-[#e5e5e5] dark:border-white/10 pl-1.5 ml-0.5">
+                                                            <button 
+                                                                onClick={() => setVisibleApiKeyId(isVisible ? null : acc.id)}
+                                                                className="p-0.5 text-[#9aa0a6] hover:text-[#2b83fa] transition-colors"
+                                                                title={isVisible ? 'Hide Key' : 'Show Key'}
+                                                            >
+                                                                {isVisible ? <FiEyeOff size={13} /> : <FiEye size={13} />}
+                                                            </button>
+                                                            <button 
+                                                                onClick={async (e) => {
+                                                                    e.stopPropagation();
+                                                                    await navigator.clipboard.writeText(apiKey || '');
+                                                                    // We could add a toast here, but simple is better
+                                                                }}
+                                                                className="p-0.5 text-[#9aa0a6] hover:text-[#2b83fa] transition-colors"
+                                                                title="Copy API Key"
+                                                            >
+                                                                <FiCopy size={13} />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <span className="text-[11px] text-[#9aa0a6] italic pl-2">None</span>
+                                                <span className="text-[11px] font-medium text-[#9aa0a6] opacity-60 flex items-center gap-1 pl-2">
+                                                    <FiX size={10} /> None
+                                                </span>
                                             );
                                         })()}
                                         {!acc.approved_sender_id && (
@@ -355,52 +358,33 @@ export const AdminAccounts: React.FC = () => {
                                     className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
                                 />
                             </div>
-                            {manageSenderId && (
-                                <div>
-                                    <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">API Key</label>
-                                    <div className="relative">
-                                        <div className="flex items-center w-full px-4 py-2.5 rounded-xl border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] font-mono text-[13px] overflow-hidden">
-                                            <span className="truncate flex-1">
-                                                {showApiKey ? manageApiKey : "••••••••••••••••••••••••••••••••••••••••••••••"}
-                                            </span>
-                                            <div className="flex items-center gap-1 ml-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowApiKey(!showApiKey)}
-                                                    className="p-1.5 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
-                                                >
-                                                    {showApiKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(manageApiKey);
-                                                        setCopiedKey(true);
-                                                        setTimeout(() => setCopiedKey(false), 2000);
-                                                    }}
-                                                    className={`p-1.5 rounded-lg transition-colors ${
-                                                        copiedKey 
-                                                        ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
-                                                        : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                                                    }`}
-                                                >
-                                                    {copiedKey ? <FiCheck className="w-4 h-4" /> : <FiCopy className="w-4 h-4" />}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+
 
                             <div className="pt-1">
                                 <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Credit Balance</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={manageCreditBalance}
-                                    onChange={(e) => setManageCreditBalance(parseInt(e.target.value) || 0)}
-                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow [&::-webkit-inner-spin-button]:appearance-none"
-                                />
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setManageCreditBalance(prev => Math.max(0, prev - 1))}
+                                        className="w-10 h-10 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] flex items-center justify-center text-[#6e6e73] hover:text-[#2b83fa] transition-colors"
+                                    >
+                                        <FiMinus className="w-4 h-4" />
+                                    </button>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={manageCreditBalance}
+                                        onChange={(e) => setManageCreditBalance(parseInt(e.target.value) || 0)}
+                                        className="flex-1 px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] text-center focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <button 
+                                        type="button"
+                                        onClick={() => setManageCreditBalance(prev => prev + 1)}
+                                        className="w-10 h-10 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] flex items-center justify-center text-[#6e6e73] hover:text-[#2b83fa] transition-colors"
+                                    >
+                                        <FiPlus className="w-4 h-4" />
+                                    </button>
+                                </div>
                                 <p className="text-[11px] text-[#9aa0a6] mt-2">Adjust the account's total SMS credits balance.</p>
                             </div>
 
