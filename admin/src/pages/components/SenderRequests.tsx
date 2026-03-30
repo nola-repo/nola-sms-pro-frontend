@@ -417,7 +417,7 @@ export const AdminSenderRequests: React.FC = () => {
                                             {/* Existing API Key from Associated Account */}
                                             {(() => {
                                                 const apiKey = associatedAccount?.nola_pro_api_key || associatedAccount?.api_key || associatedAccount?.semaphore_api_key;
-                                                return associatedAccount && apiKey && (
+                                                return associatedAccount && associatedAccount.approved_sender_id && apiKey && (
                                                     <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
                                                         <div className="flex items-center justify-between mb-1">
                                                             <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Current API Key</p>

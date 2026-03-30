@@ -24,6 +24,8 @@ export const AdminAccounts: React.FC = () => {
     const [managingAccount, setManagingAccount] = useState<Account | null>(null);
     const [manageSenderId, setManageSenderId] = useState('');
     const [manageApiKey, setManageApiKey] = useState('');
+    const [manageCreditBalance, setManageCreditBalance] = useState<number>(0);
+    const [manageFreeCreditsTotal, setManageFreeCreditsTotal] = useState<number>(10);
     const [showApiKey, setShowApiKey] = useState(false);
     const [copiedKey, setCopiedKey] = useState(false);
 
@@ -78,7 +80,9 @@ export const AdminAccounts: React.FC = () => {
                     action: 'manage_sender',
                     location_id: managingAccount.location_id,
                     sender_id: manageSenderId,
-                    api_key: manageApiKey
+                    api_key: manageApiKey,
+                    credit_balance: manageCreditBalance,
+                    free_credits_total: manageFreeCreditsTotal
                 }),
             });
             const json = await res.json();
@@ -220,7 +224,7 @@ export const AdminAccounts: React.FC = () => {
                                             : <span className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest pl-2">System</span>}
                                     </td>
                                     <td className="py-4 pr-4">
-                                        {(() => {
+                                        {acc.approved_sender_id && (() => {
                                             const apiKey = acc.nola_pro_api_key || acc.api_key || acc.semaphore_api_key;
                                             return apiKey ? (
                                                 <div className="flex items-center gap-1.5">
@@ -254,6 +258,9 @@ export const AdminAccounts: React.FC = () => {
                                                 <span className="text-[11px] text-[#9aa0a6] italic pl-2">None</span>
                                             );
                                         })()}
+                                        {!acc.approved_sender_id && (
+                                            <span className="text-[11px] text-[#9aa0a6] italic pl-2 opacity-50">—</span>
+                                        )}
                                     </td>
                                     <td className="py-4 pr-4">
                                         <div className="flex flex-col">
@@ -278,6 +285,8 @@ export const AdminAccounts: React.FC = () => {
                                                     setManagingAccount(acc);
                                                     setManageSenderId(acc.approved_sender_id || '');
                                                     setManageApiKey(acc.nola_pro_api_key || acc.api_key || acc.semaphore_api_key || '');
+                                                    setManageCreditBalance(acc.credit_balance ?? acc.credits ?? 0);
+                                                    setManageFreeCreditsTotal(acc.free_credits_total ?? 10);
                                                 }}
                                                 className="p-2 rounded-xl text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
                                                 title="Manage Account"
@@ -352,7 +361,7 @@ export const AdminAccounts: React.FC = () => {
                     <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between mb-5">
                             <h3 className="text-[18px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                                <FiSettings className="text-[#2b83fa]" /> Manage Sender Config
+                                <FiSettings className="text-[#2b83fa]" /> Manage Account Config
                             </h3>
                             <button onClick={() => setManagingAccount(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
                                 <FiX className="w-5 h-5" />
@@ -360,7 +369,7 @@ export const AdminAccounts: React.FC = () => {
                         </div>
 
                         <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-5">
-                            Update the permanent Sender ID configuration for <span className="font-semibold text-[#111111] dark:text-white">{managingAccount.location_name || managingAccount.location_id}</span>.
+                            Update tracking tools and the permanent Sender ID configuration for <span className="font-semibold text-[#111111] dark:text-white">{managingAccount.location_name || managingAccount.location_id}</span>.
                         </p>
 
                         <form onSubmit={submitManageSender} className="space-y-4">
@@ -373,41 +382,68 @@ export const AdminAccounts: React.FC = () => {
                                     className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">API Key</label>
-                                <div className="relative">
+                            {manageSenderId && (
+                                <div>
+                                    <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">API Key</label>
+                                    <div className="relative">
+                                        <input
+                                            required
+                                            type={showApiKey ? "text" : "password"}
+                                            value={manageApiKey}
+                                            onChange={(e) => setManageApiKey(e.target.value)}
+                                            className="w-full pl-4 pr-24 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-mono transition-shadow"
+                                        />
+                                        <div className="absolute top-[3px] right-[3px] flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowApiKey(!showApiKey)}
+                                                className="p-2 mr-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+                                            >
+                                                {showApiKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(manageApiKey);
+                                                    setCopiedKey(true);
+                                                    setTimeout(() => setCopiedKey(false), 2000);
+                                                }}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors border ${
+                                                    copiedKey 
+                                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/30' 
+                                                    : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-300 dark:border-white/10'
+                                                }`}
+                                            >
+                                                {copiedKey ? <FiCheck className="w-3.5 h-3.5" /> : <FiCopy className="w-3.5 h-3.5" />}
+                                                {copiedKey ? 'Copied' : 'Copy'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-4 pt-1">
+                                <div>
+                                    <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Credit Balance</label>
                                     <input
                                         required
-                                        type={showApiKey ? "text" : "password"}
-                                        value={manageApiKey}
-                                        onChange={(e) => setManageApiKey(e.target.value)}
-                                        className="w-full pl-4 pr-24 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-mono transition-shadow"
+                                        type="number"
+                                        min="0"
+                                        value={manageCreditBalance}
+                                        onChange={(e) => setManageCreditBalance(parseInt(e.target.value) || 0)}
+                                        className="w-full px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
                                     />
-                                    <div className="absolute top-[3px] right-[3px] flex items-center gap-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowApiKey(!showApiKey)}
-                                            className="p-2 mr-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
-                                        >
-                                            {showApiKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(manageApiKey);
-                                                setCopiedKey(true);
-                                                setTimeout(() => setCopiedKey(false), 2000);
-                                            }}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors border ${
-                                                copiedKey 
-                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/30' 
-                                                : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-300 dark:border-white/10'
-                                            }`}
-                                        >
-                                            {copiedKey ? <FiCheck className="w-3.5 h-3.5" /> : <FiCopy className="w-3.5 h-3.5" />}
-                                            {copiedKey ? 'Copied' : 'Copy'}
-                                        </button>
-                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Free Usages Limit</label>
+                                    <input
+                                        required
+                                        type="number"
+                                        min="0"
+                                        value={manageFreeCreditsTotal}
+                                        onChange={(e) => setManageFreeCreditsTotal(parseInt(e.target.value) || 0)}
+                                        className="w-full px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
+                                    />
                                 </div>
                             </div>
 
