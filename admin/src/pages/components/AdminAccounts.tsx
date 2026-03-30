@@ -101,34 +101,7 @@ export const AdminAccounts: React.FC = () => {
         }
     };
 
-    const submitRevokeSender = async () => {
-        if (!managingAccount) return;
-        if (!confirm(`Are you sure you want to revoke the permanent Sender ID for ${managingAccount.location_name || managingAccount.location_id}?`)) return;
-        setActionLoading('managing');
-        try {
-            const res = await fetch(ADMIN_API, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'revoke_sender',
-                    location_id: managingAccount.location_id
-                }),
-            });
-            const json = await res.json();
-            if (json.status === 'success') {
-                setSuccessMsg(json.message || 'Sender ID revoked successfully.');
-                setManagingAccount(null);
-                setTimeout(() => setSuccessMsg(null), 3000);
-                fetchAccounts();
-            } else {
-                setError(json.message || 'Failed to revoke sender.');
-            }
-        } catch {
-            setError('Network error during revocation.');
-        } finally {
-            setActionLoading(null);
-        }
-    };
+
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
@@ -386,37 +359,34 @@ export const AdminAccounts: React.FC = () => {
                                 <div>
                                     <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">API Key</label>
                                     <div className="relative">
-                                        <input
-                                            required
-                                            type={showApiKey ? "text" : "password"}
-                                            value={manageApiKey}
-                                            onChange={(e) => setManageApiKey(e.target.value)}
-                                            className="w-full pl-4 pr-24 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-mono transition-shadow"
-                                        />
-                                        <div className="absolute top-[3px] right-[3px] flex items-center gap-1">
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowApiKey(!showApiKey)}
-                                                className="p-2 mr-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
-                                            >
-                                                {showApiKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(manageApiKey);
-                                                    setCopiedKey(true);
-                                                    setTimeout(() => setCopiedKey(false), 2000);
-                                                }}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors border ${
-                                                    copiedKey 
-                                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/30' 
-                                                    : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-300 dark:border-white/10'
-                                                }`}
-                                            >
-                                                {copiedKey ? <FiCheck className="w-3.5 h-3.5" /> : <FiCopy className="w-3.5 h-3.5" />}
-                                                {copiedKey ? 'Copied' : 'Copy'}
-                                            </button>
+                                        <div className="flex items-center w-full px-4 py-2.5 rounded-xl border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] font-mono text-[13px] overflow-hidden">
+                                            <span className="truncate flex-1">
+                                                {showApiKey ? manageApiKey : "••••••••••••••••••••••••••••••••••••••••••••••"}
+                                            </span>
+                                            <div className="flex items-center gap-1 ml-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowApiKey(!showApiKey)}
+                                                    className="p-1.5 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+                                                >
+                                                    {showApiKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(manageApiKey);
+                                                        setCopiedKey(true);
+                                                        setTimeout(() => setCopiedKey(false), 2000);
+                                                    }}
+                                                    className={`p-1.5 rounded-lg transition-colors ${
+                                                        copiedKey 
+                                                        ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
+                                                        : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                                    }`}
+                                                >
+                                                    {copiedKey ? <FiCheck className="w-4 h-4" /> : <FiCopy className="w-4 h-4" />}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -424,28 +394,13 @@ export const AdminAccounts: React.FC = () => {
 
                             <div className="pt-1">
                                 <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Credit Balance</label>
-                                <div className="flex items-center w-full bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] rounded-xl overflow-hidden shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-[#2b83fa]/30 group">
-                                    <button
-                                        type="button"
-                                        onClick={() => setManageCreditBalance(prev => Math.max(0, prev - 1))}
-                                        className="flex items-center justify-center px-4 py-3 text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/10 dark:active:bg-white/10 transition-colors border-r border-[#e0e0e0] dark:border-[#ffffff0a]"
-                                    >
-                                        <FiMinus className="w-4 h-4" />
-                                    </button>
-                                    <input
-                                        type="number"
-                                        value={manageCreditBalance}
-                                        onChange={(e) => setManageCreditBalance(parseInt(e.target.value) || 0)}
-                                        className="flex-1 bg-white dark:bg-[#151618] text-center text-[16px] font-bold text-[#111111] dark:text-white font-mono tracking-tight py-2.5 focus:outline-none"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setManageCreditBalance(prev => prev + 1)}
-                                        className="flex items-center justify-center px-4 py-3 text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/10 dark:active:bg-white/10 transition-colors border-l border-[#e0e0e0] dark:border-[#ffffff0a]"
-                                    >
-                                        <FiPlus className="w-4 h-4" />
-                                    </button>
-                                </div>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={manageCreditBalance}
+                                    onChange={(e) => setManageCreditBalance(parseInt(e.target.value) || 0)}
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow [&::-webkit-inner-spin-button]:appearance-none"
+                                />
                                 <p className="text-[11px] text-[#9aa0a6] mt-2">Adjust the account's total SMS credits balance.</p>
                             </div>
 
@@ -459,16 +414,7 @@ export const AdminAccounts: React.FC = () => {
                                     Save Changes
                                 </button>
                                 
-                                <div className="border-t border-[#e5e5e5] dark:border-white/10 my-1"></div>
-                                
-                                <button
-                                    type="button"
-                                    onClick={submitRevokeSender}
-                                    disabled={actionLoading === 'managing'}
-                                    className="flex items-center justify-center gap-2 w-full px-5 py-3 bg-red-50 dark:bg-red-900/10 hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/30 rounded-xl font-bold text-[14px] transition-all disabled:opacity-50"
-                                >
-                                    Revoke Permanent Sender
-                                </button>
+
                             </div>
                         </form>
                     </div>

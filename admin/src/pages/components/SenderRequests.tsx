@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiShieldOff, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 
@@ -14,6 +14,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
         pending: 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/10 dark:text-yellow-400 dark:border-yellow-800/30',
         approved: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/10 dark:text-green-400 dark:border-green-800/30',
         rejected: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30',
+        revoked: 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-white/5 dark:text-gray-400 dark:border-white/10',
     };
     return (
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${styles[status] || styles.pending}`}>
@@ -283,6 +284,15 @@ export const AdminSenderRequests: React.FC = () => {
                                                     >
                                                         <FiEye className="w-4 h-4" />
                                                     </button>
+                                                    {req.status === 'approved' && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); if (confirm('Are you sure you want to revoke this approved sender? This will clear it from the account immediately.')) doAction('revoked', req.id); }}
+                                                            className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-all"
+                                                            title="Revoke Sender"
+                                                        >
+                                                            <FiShieldOff className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); if (confirm('Are you sure you want to delete this sender request?')) doAction('deleted', req.id); }}
                                                         className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
@@ -516,13 +526,23 @@ export const AdminSenderRequests: React.FC = () => {
 
                                         {/* ── Approved: show confirmation ── */}
                                         {req.status === 'approved' && (
-                                            <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30">
-                                                <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
-                                                    <FiCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                            <div className="space-y-4">
+                                                <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30">
+                                                    <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                                                        <FiCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                                    </div>
+                                                    <p className="text-[13px] text-emerald-700 dark:text-emerald-400 font-medium leading-snug">
+                                                        Sender ID is active. User can send messages via <strong>{req.requested_id}</strong>.
+                                                    </p>
                                                 </div>
-                                                <p className="text-[13px] text-emerald-700 dark:text-emerald-400 font-medium leading-snug">
-                                                    Sender ID is active. User can send messages via <strong>{req.requested_id}</strong>.
-                                                </p>
+                                                <button
+                                                    disabled={!!isActing}
+                                                    onClick={() => { if (confirm('Revoke this approved sender?')) doAction('revoked', req.id); }}
+                                                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[13px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 dark:text-amber-400 dark:bg-amber-900/10 dark:hover:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 transition-all"
+                                                >
+                                                    <FiShieldOff className="w-4 h-4" />
+                                                    <span>Revoke Approval</span>
+                                                </button>
                                             </div>
                                         )}
 
