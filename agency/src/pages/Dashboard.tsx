@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiToggleLeft, FiUsers, FiCheckCircle, FiAlertTriangle, FiArrowRight } from 'react-icons/fi';
-import { Layout } from '../components/layout/Layout.tsx';
+import { FiToggleLeft, FiUsers, FiCheckCircle, FiAlertTriangle, FiArrowRight, FiSend } from 'react-icons/fi';
+import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 import { getSubaccounts } from '../services/api.ts';
 
@@ -40,94 +40,120 @@ export const Dashboard = () => {
   const totalSends = subaccounts.reduce((sum, s) => sum + (s.attempt_count || 0), 0);
 
   return (
-    <Layout title="Dashboard" subtitle="Agency overview and quick stats">
-      <div className="page-header">
+    <AgencyLayout title="Dashboard" subtitle="Agency overview and quick stats">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">Real-time overview of your subaccounts and SMS activity.</p>
+          <h1 className="text-2xl font-bold text-[#111111] dark:text-white tracking-tight">Dashboard</h1>
+          <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">Real-time overview of your subaccounts and SMS activity.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/subaccount-sims')}>
-          Manage SIMs <FiArrowRight />
+        <button 
+          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[14px] font-bold rounded-xl shadow-md shadow-blue-500/20 hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] hover:-translate-y-[2px] active:scale-95 transition-all"
+          onClick={() => navigate('/subaccounts')}
+        >
+          Manage Subaccounts <FiArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </button>
       </div>
 
       {!agencyId && (
-        <div className="card" style={{ borderColor: 'rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.05)', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#f59e0b' }}>
-            <FiAlertTriangle size={18} />
-            <strong style={{ fontSize: 13 }}>No Agency ID configured.</strong>
+        <div className="bg-[#f59e0b]/[0.05] border border-[#f59e0b]/30 rounded-xl p-4 mb-6 shadow-sm">
+          <div className="flex items-center gap-2 text-[#f59e0b]">
+            <FiAlertTriangle className="w-[18px] h-[18px]" />
+            <strong className="text-[13px]">No Agency ID configured.</strong>
           </div>
-          <p style={{ fontSize: 12.5, marginTop: 8, color: 'var(--text-secondary)' }}>
-            Set <code>VITE_AGENCY_ID</code> in your <code>.env</code> file or pass <code>?agency_id=…</code> as a URL query param.
+          <p className="text-[12.5px] mt-2 text-[#6e6e73] dark:text-[#94959b]">
+            Set <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">VITE_AGENCY_ID</code> in your <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">.env</code> file or pass <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">?agency_id=...</code> as a URL query param.
           </p>
         </div>
       )}
 
-      {/* Stats */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-label">Total Subaccounts</div>
-          <div className="stat-value accent">{loading ? '—' : total}</div>
-          <div className="stat-sub">registered under your agency</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Active (SMS ON)</div>
-          <div className="stat-value green">{loading ? '—' : active}</div>
-          <div className="stat-sub">webhook enabled</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Inactive (SMS OFF)</div>
-          <div className="stat-value">{loading ? '—' : total - active}</div>
-          <div className="stat-sub">hidden from main admin</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">At Rate Limit</div>
-          <div className="stat-value red">{loading ? '—' : atLimit}</div>
-          <div className="stat-sub">blocked until reset</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Total Sends</div>
-          <div className="stat-value">{loading ? '—' : totalSends}</div>
-          <div className="stat-sub">across all subaccounts</div>
-        </div>
+      {/* Stats - Top Layer */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        {[
+          { label: 'Total Subaccounts', value: total, sub: 'registered under your agency', color: 'from-[#2b83fa] to-[#60a5fa]', icon: <FiUsers className="w-full h-full" /> },
+          { label: 'Total Sends', value: totalSends, sub: 'across all subaccounts', color: 'from-indigo-500 to-purple-600', icon: <FiSend className="w-full h-full" /> },
+        ].map((stat, idx) => (
+          <div key={`top-${idx}`} className={`relative p-5 rounded-3xl bg-gradient-to-br ${stat.color} shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group`}>
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
+                <div className="w-20 h-20">{stat.icon}</div>
+            </div>
+            <div className="relative z-10">
+                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-3 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
+                    {stat.icon}
+                </div>
+                <div className="text-[12px] font-bold text-white/80 uppercase tracking-widest mb-1.5">{stat.label}</div>
+                <div className="text-4xl font-black text-white tracking-tight drop-shadow-sm leading-none">
+                  {loading ? '—' : stat.value}
+                </div>
+                <div className="text-[12px] text-white/70 mt-2 line-clamp-1">{stat.sub}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Stats - Bottom Layer */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        {[
+          { label: 'Active (SMS ON)', value: active, sub: 'webhook enabled', color: 'from-emerald-500 to-teal-600', icon: <FiCheckCircle className="w-full h-full" /> },
+          { label: 'Inactive (SMS OFF)', value: total - active, sub: 'hidden from main admin', color: 'from-slate-400 to-slate-500', icon: <FiUsers className="w-full h-full" /> },
+          { label: 'At Rate Limit', value: atLimit, sub: 'blocked until reset', color: atLimit > 0 ? 'from-amber-500 to-orange-500' : 'from-slate-400 to-slate-500', icon: <FiAlertTriangle className="w-full h-full" /> },
+        ].map((stat, idx) => (
+          <div key={`bottom-${idx}`} className={`relative p-5 rounded-3xl bg-gradient-to-br ${stat.color} shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group`}>
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
+                <div className="w-16 h-16">{stat.icon}</div>
+            </div>
+            <div className="relative z-10">
+                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-3 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
+                    {stat.icon}
+                </div>
+                <div className="text-[11.5px] font-bold text-white/80 uppercase tracking-widest mb-1.5">{stat.label}</div>
+                <div className="text-3xl font-black text-white tracking-tight drop-shadow-sm leading-none">
+                  {loading ? '—' : stat.value}
+                </div>
+                <div className="text-[11.5px] text-white/70 mt-1.5 line-clamp-1">{stat.sub}</div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Recent subaccounts at limit */}
       {!loading && atLimit > 0 && (
-        <div className="card" style={{ borderColor: 'var(--red)', borderWidth: 1 }}>
-          <div className="card-header">
+        <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-red-500/50 rounded-2xl shadow-sm overflow-hidden mb-6">
+          <div className="p-6 border-b border-[#00000005] dark:border-[#ffffff05] flex items-start justify-between flex-wrap gap-4">
             <div>
-              <div className="card-title" style={{ color: 'var(--red)' }}>
+              <div className="text-[15px] font-bold text-red-500">
                 ⚠ Subaccounts at Rate Limit ({atLimit})
               </div>
-              <div className="card-desc">These subaccounts are blocked. Reset their counters to re-enable sending.</div>
+              <div className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">These subaccounts are blocked. Reset their counters to re-enable sending.</div>
             </div>
-            <button className="btn btn-danger" onClick={() => navigate('/subaccount-sims')}>
-              Review &amp; Reset <FiArrowRight />
+            <button 
+              className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-500/10 text-red-500 text-[12.5px] font-bold rounded-lg border border-red-200 dark:border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
+              onClick={() => navigate('/subaccounts')}
+            >
+              Review &amp; Reset <FiArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="table-wrapper">
-            <table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr>
-                  <th>Subaccount</th>
-                  <th>Attempts</th>
-                  <th>Limit</th>
+                <tr className="border-b border-[#00000005] dark:border-[#ffffff05]">
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Subaccount</th>
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Attempts</th>
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Limit</th>
                 </tr>
               </thead>
               <tbody>
                 {subaccounts
                   .filter(s => s.attempt_count >= s.rate_limit)
-                  .map(s => (
-                    <tr key={s.subaccount_id}>
-                      <td>
-                        <div className="subaccount-name-cell">
-                          <span className="subaccount-name">{s.subaccount_name || 'Unnamed'}</span>
-                          <span className="subaccount-id">{s.subaccount_id}</span>
+                  .map((s, i) => (
+                    <tr key={s.subaccount_id} className="border-b border-[#00000005] dark:border-[#ffffff05] hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                      <td className="px-6 py-4 align-middle">
+                        <div className="flex flex-col">
+                          <span className="text-[13.5px] font-semibold text-[#111111] dark:text-[#ececf1]">{s.subaccount_name || 'Unnamed'}</span>
+                          <span className="text-[11px] font-mono text-[#6e6e73] dark:text-[#94959b] mt-0.5">{s.subaccount_id}</span>
                         </div>
                       </td>
-                      <td style={{ color: 'var(--red)', fontWeight: 700 }}>{s.attempt_count}</td>
-                      <td>{s.rate_limit}</td>
+                      <td className="px-6 py-4 align-middle text-[13.5px] font-bold text-red-500">{s.attempt_count}</td>
+                      <td className="px-6 py-4 align-middle text-[13.5px] text-[#6e6e73] dark:text-[#94959b]">{s.rate_limit}</td>
                     </tr>
                   ))}
               </tbody>
@@ -138,48 +164,51 @@ export const Dashboard = () => {
 
       {/* All subaccounts summary */}
       {!loading && total > 0 && (
-        <div className="card" style={{ marginTop: 20 }}>
-          <div className="card-header">
-            <div>
-              <div className="card-title">All Subaccounts</div>
-              <div className="card-desc">Summary of all subaccounts under your agency.</div>
-            </div>
+        <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[#0000000a] dark:border-[#ffffff0a] rounded-2xl shadow-sm overflow-hidden mb-6">
+          <div className="p-6 border-b border-[#0000000a] dark:border-[#ffffff0a]">
+            <div className="text-[15px] font-bold text-[#111111] dark:text-white tracking-tight">All Subaccounts</div>
+            <div className="text-[13px] text-[#6e6e73] dark:text-[#94959b] mt-1">Summary of all subaccounts under your agency.</div>
           </div>
-          <div className="table-wrapper">
-            <table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr>
-                  <th>Subaccount</th>
-                  <th>Status</th>
-                  <th>Sends Used</th>
-                  <th>Limit</th>
+                <tr className="border-b border-[#0000000a] dark:border-[#ffffff0a]">
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Subaccount</th>
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Status</th>
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Sends Used</th>
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Limit</th>
                 </tr>
               </thead>
-              <tbody>
-                {subaccounts.map(s => (
-                  <tr key={s.subaccount_id}>
-                    <td>
-                      <div className="subaccount-name-cell">
-                        <span className="subaccount-name">{s.subaccount_name || 'Unnamed'}</span>
-                        <span className="subaccount-id">{s.subaccount_id}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span className={`status-dot ${s.toggle_enabled ? 'on' : 'off'}`} />
-                        <span style={{ fontSize: 12, color: s.toggle_enabled ? 'var(--green)' : 'var(--text-muted)', fontWeight: 600 }}>
-                          {s.toggle_enabled ? 'Active' : 'Inactive'}
+              <tbody className="divide-y divide-[rgba(0,0,0,0.05)] dark:divide-[rgba(255,255,255,0.05)]">
+                {subaccounts.map((s, i) => {
+                  const isAtLimit = s.attempt_count >= s.rate_limit;
+                  const isNearLimit = s.attempt_count >= s.rate_limit * 0.8;
+                  
+                  return (
+                    <tr key={s.subaccount_id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                      <td className="px-6 py-4 align-middle">
+                        <div className="flex flex-col">
+                          <span className="text-[13.5px] font-semibold text-[#111111] dark:text-[#ececf1]">{s.subaccount_name || 'Unnamed'}</span>
+                          <span className="text-[11px] font-mono text-[#6e6e73] dark:text-[#94959b] mt-0.5">{s.subaccount_id}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 align-middle">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${s.toggle_enabled ? 'bg-[#22c55e] shadow-[0_0_0_3px_rgba(34,197,94,0.1)]' : 'bg-[#9ca3af]'}`} />
+                          <span className={`text-[12px] font-semibold ${s.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>
+                            {s.toggle_enabled ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 align-middle">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold ${isAtLimit ? 'bg-red-50 dark:bg-red-500/10 text-red-500' : isNearLimit ? 'bg-[#f59e0b]/10 text-[#f59e0b]' : 'bg-[#f0f2f8] dark:bg-white/5 text-[#6b7280] dark:text-[#94959b]'}`}>
+                          {s.attempt_count} / {s.rate_limit}
                         </span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`attempt-pill ${s.attempt_count >= s.rate_limit ? 'at-limit' : s.attempt_count >= s.rate_limit * 0.8 ? 'near-limit' : ''}`}>
-                        {s.attempt_count} / {s.rate_limit}
-                      </span>
-                    </td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{s.rate_limit}</td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-4 align-middle text-[13.5px] text-[#6e6e73] dark:text-[#94959b]">{s.rate_limit}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -187,26 +216,25 @@ export const Dashboard = () => {
       )}
 
       {loading && (
-        <div className="card">
+        <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] rounded-2xl p-6 shadow-sm">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="skeleton-row">
-              <div className="skeleton skeleton-cell" style={{ width: 160 }} />
-              <div className="skeleton skeleton-cell" style={{ width: 70 }} />
-              <div className="skeleton skeleton-cell" style={{ width: 60 }} />
+            <div key={i} className="flex items-center gap-4 py-3 border-b border-[#00000005] dark:border-[#ffffff05] last:border-0">
+              <div className="h-4 rounded-md skeleton w-40" />
+              <div className="h-4 rounded-md skeleton w-16" />
+              <div className="h-4 rounded-md skeleton w-20" />
             </div>
           ))}
         </div>
       )}
 
       {!loading && total === 0 && !error && (
-        <div className="card">
-          <div className="empty-state">
-            <FiUsers />
-            <div className="empty-state-title">No subaccounts found</div>
-            <div className="empty-state-desc">No subaccounts are registered under your agency ID yet.</div>
-          </div>
+        <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] rounded-2xl p-16 shadow-sm flex flex-col items-center justify-center text-center">
+          <FiUsers className="w-10 h-10 text-[#9ca3af] opacity-50 mb-3" />
+          <div className="text-[15px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">No subaccounts found</div>
+          <div className="text-[13px] text-[#9ca3af] mt-1">No subaccounts are registered under your agency ID yet.</div>
         </div>
       )}
-    </Layout>
+    </AgencyLayout>
   );
 };
+
