@@ -22,10 +22,7 @@ export function useOnboarding(): UseOnboardingReturn {
     return localStorage.getItem(STORAGE_DONE_KEY) === "true";
   });
 
-  const [isOpen, setIsOpen] = useState<boolean>(() => {
-    // Auto-open for first-time users
-    return localStorage.getItem(STORAGE_DONE_KEY) !== "true";
-  });
+  const [isOpen, setIsOpen] = useState<boolean>(false);
 
   const [currentStep, setCurrentStep] = useState<number>(() => {
     const saved = localStorage.getItem(STORAGE_STEP_KEY);
@@ -54,6 +51,7 @@ export function useOnboarding(): UseOnboardingReturn {
   }, []);
 
   const close = useCallback(() => {
+    localStorage.setItem(STORAGE_DONE_KEY, "true");
     setIsOpen(false);
   }, []);
 

@@ -58,9 +58,10 @@ export const TemplatesTab: React.FC = () => {
     setLoading(true);
     try {
       const data = await fetchTemplates();
-      setTemplates(data);
+      setTemplates(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
+      setTemplates([]);
     } finally {
       setLoading(false);
     }
@@ -71,12 +72,13 @@ export const TemplatesTab: React.FC = () => {
   }, []);
 
   const filteredTemplates = useMemo(() => {
-    if (!searchQuery) return templates;
+    const list = Array.isArray(templates) ? templates : [];
+    if (!searchQuery) return list;
     const lowerQ = searchQuery.toLowerCase();
-    return templates.filter(
+    return list.filter(
       (t) =>
-        t.name.toLowerCase().includes(lowerQ) ||
-        t.content.toLowerCase().includes(lowerQ)
+        t.name?.toLowerCase().includes(lowerQ) ||
+        t.content?.toLowerCase().includes(lowerQ)
     );
   }, [searchQuery, templates]);
 

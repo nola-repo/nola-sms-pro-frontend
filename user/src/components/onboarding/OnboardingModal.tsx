@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  FiZap, FiSettings, FiSend, FiCreditCard, FiUser,
+  FiZap, FiSend, FiCreditCard, FiUser,
   FiArrowRight, FiArrowLeft, FiX, FiAlertTriangle,
-  FiCheck, FiChevronRight, FiInfo, FiToggleRight,
-  FiShield, FiPhone, FiMessageSquare, FiCalendar,
-  FiUsers, FiRepeat,
+  FiCheck, FiChevronRight, FiInfo,
+  FiPhone, FiMessageSquare, FiCalendar,
+  FiUsers, FiRepeat, FiLoader
 } from "react-icons/fi";
 import type { UseOnboardingReturn } from "./useOnboarding";
+import { submitSenderRequest } from "../../api/senderRequests";
 
 interface OnboardingModalProps {
   onboarding: UseOnboardingReturn;
@@ -156,64 +157,105 @@ const Step3 = () => (
   </div>
 );
 
-const Step4 = () => (
-  <div className="space-y-4">
-    <Note variant="warn">
-      Sender ID registration is <strong>required</strong> before going live. Approval takes <strong>5–7 business days.</strong>
-    </Note>
+const Step4 = () => {
+  const [newId, setNewId] = useState("");
+  const [newPurpose, setNewPurpose] = useState("");
+  const [newSample, setNewSample] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    <div>
-      <p className="text-[11px] font-bold uppercase tracking-widest text-[#9aa0a6] mb-3">Requirements</p>
-      <div className="space-y-2">
-        {[
-          { ok: true,  text: "3–11 characters long" },
-          { ok: true,  text: "Letters and numbers only" },
-          { ok: false, text: "No spaces, hyphens, or special characters" },
-          { ok: true,  text: "Must reflect your brand name" },
-        ].map((item, i) => (
-          <div key={i} className="flex items-center gap-2.5">
-            <div className={`w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center ${
-              item.ok ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600" : "bg-red-100 dark:bg-red-900/30 text-red-500"
-            }`}>
-              {item.ok
-                ? <FiCheck className="w-2.5 h-2.5" />
-                : <FiX className="w-2.5 h-2.5" />
-              }
-            </div>
-            <span className="text-[13px] font-medium text-[#37352f] dark:text-[#d1d5db]">{item.text}</span>
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedId = newId.trim();
+    if (!trimmedId || isSubmitting) return;
+
+    if (trimmedId.length < 3 || trimmedId.length > 11) {
+      setError("Sender name must be 3-11 characters.");
+      return;
+    }
+    if (!/^[a-zA-Z0-9]+$/.test(trimmedId)) {
+      setError("Letters and numbers only.");
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await submitSenderRequest(trimmedId, newPurpose.trim(), newSample.trim());
+      setIsSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit request.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isSubmitted) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-center animate-in fade-in zoom-in-95">
+        <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 mb-4">
+          <FiCheck className="w-7 h-7" />
+        </div>
+        <h4 className="text-[17px] font-bold text-[#111111] dark:text-[#ececf1] mb-2">Registration Submitted</h4>
+        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] max-w-sm leading-relaxed">
+          Your sender name is now pending approval. It typically takes 5–7 business days. You can continue with the onboarding in the meantime!
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Note variant="warn">
+        Sender ID registration is <strong>required</strong> before going live. Submit below to begin approval.
+      </Note>
+
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        {error && (
+          <div className="p-2.5 rounded-xl bg-red-50 border border-red-100 dark:bg-red-900/10 dark:border-red-900/20">
+            <p className="text-[12px] text-red-600 dark:text-red-400 font-medium">{error}</p>
           </div>
-        ))}
-      </div>
-    </div>
+        )}
+        <div>
+          <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Sender Name</label>
+          <input
+            value={newId}
+            onChange={e => setNewId(e.target.value.replace(/\s/g, ''))}
+            placeholder="ex. NOLASMSPro"
+            maxLength={11}
+            required
+            disabled={isSubmitting}
+            className="w-full px-3.5 py-2 rounded-xl text-[13px] font-bold border bg-[#f4f6fa] dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.06] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:border-[#2b83fa]"
+          />
+        </div>
+        <div>
+          <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Business Purpose</label>
+          <textarea
+            value={newPurpose}
+            onChange={e => setNewPurpose(e.target.value)}
+            placeholder="What will you be using this for?"
+            required rows={2} disabled={isSubmitting}
+            className="w-full px-3.5 py-2 rounded-xl text-[13px] border bg-[#f4f6fa] dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.06] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:border-[#2b83fa] resize-none"
+          />
+        </div>
+        <div>
+          <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Sample Message</label>
+          <textarea
+            value={newSample}
+            onChange={e => setNewSample(e.target.value)}
+            placeholder="Provide a specific message template example."
+            required rows={2} disabled={isSubmitting}
+            className="w-full px-3.5 py-2 rounded-xl text-[13px] border bg-[#f4f6fa] dark:bg-white/[0.04] border-black/[0.06] dark:border-white/[0.06] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:border-[#2b83fa] resize-none"
+          />
+        </div>
 
-    {/* Approval timeline */}
-    <div>
-      <p className="text-[11px] font-bold uppercase tracking-widest text-[#9aa0a6] mb-3">Approval timeline</p>
-      <div className="flex items-center gap-0">
-        {[
-          { label: "Submit", done: true },
-          { label: "Review", done: false },
-          { label: "Approved", done: false },
-        ].map((s, i) => (
-          <React.Fragment key={i}>
-            <div className="flex flex-col items-center gap-1.5">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
-                s.done ? "bg-[#2b83fa] text-white" : "bg-black/[0.06] dark:bg-white/[0.08] text-[#9aa0a6]"
-              }`}>
-                {s.done ? <FiCheck className="w-3 h-3" /> : i + 1}
-              </div>
-              <span className="text-[10.5px] font-semibold text-[#9aa0a6] whitespace-nowrap">{s.label}</span>
-            </div>
-            {i < 2 && (
-              <div className="flex-1 h-px bg-black/[0.06] dark:bg-white/[0.08] mt-[-14px] mx-1" />
-            )}
-          </React.Fragment>
-        ))}
-        <div className="ml-2 text-[11px] text-[#9aa0a6] font-medium mt-[-14px] whitespace-nowrap">~5–7 days</div>
-      </div>
+        <button type="submit" disabled={isSubmitting} className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white rounded-xl font-bold text-[13px] transition-all shadow-md shadow-blue-500/20">
+          {isSubmitting ? <FiLoader className="w-4 h-4 animate-spin" /> : "Submit Request"}
+        </button>
+      </form>
     </div>
-  </div>
-);
+  );
+};
 
 const Step5 = () => {
   const rows = [
@@ -266,24 +308,64 @@ const Step5 = () => {
   );
 };
 
-const Step6 = () => (
-  <div className="space-y-4">
-    <div className="divide-y divide-black/[0.04] dark:divide-white/[0.04]">
-      <Row icon={<FiX className="w-4 h-4" />} title="No subscription required" body="Pay-as-you-go — buy credits when you need them" />
-      <Row icon={<FiZap className="w-4 h-4" />} title="Credits added instantly" body="Available immediately after purchase" />
-      <Row icon={<FiRepeat className="w-4 h-4" />} title="Top up any time" body="No minimums, no lock-in periods" />
-      <Row icon={<FiShield className="w-4 h-4" />} title="Credits never expire" body="Your balance carries over indefinitely" />
-    </div>
+const Step6 = () => {
+  const [topUpAmount, setTopUpAmount] = useState<number>(500);
+  const [submitted, setSubmitted] = useState(false);
+  const packages = [
+      { credits: 500, price: 95 },
+      { credits: 1000, price: 185 },
+      { credits: 2500, price: 450 },
+      { credits: 5000, price: 850 },
+  ];
 
-    <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-[#2b83fa]/20 bg-[#2b83fa]/[0.04]">
-      <FiCreditCard className="w-4 h-4 text-[#2b83fa] flex-shrink-0" />
-      <div className="flex-1">
-        <p className="text-[13px] font-semibold text-[#2b83fa]">Click below to view available packages</p>
-        <p className="text-[11.5px] text-[#9aa0a6] mt-0.5">Multiple tiers starting from a small amount</p>
+  const handleTopUp = (e: React.FormEvent) => {
+      e.preventDefault();
+      setSubmitted(true);
+      const url = `https://nolasms.pro/checkout?amount=${topUpAmount}&pkg=credits`;
+      window.open(url, "stripeCheckout", "width=800,height=600,left=200,top=200");
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-3 px-3.5 py-3 rounded-xl bg-[#f4f6fa] dark:bg-white/[0.04] border border-black/[0.04] dark:border-white/[0.05]">
+        <FiZap className="w-4 h-4 mt-0.5 text-amber-500 flex-shrink-0" />
+        <p className="text-[12px] text-[#4b5563] dark:text-[#9aa0a6] font-medium leading-relaxed">
+          Credits never expire and are added instantly. You can buy now or proceed with the free 10 Credits just to test!
+        </p>
       </div>
+
+      <form onSubmit={handleTopUp} className="space-y-4">
+        <div className="grid grid-cols-2 gap-2.5">
+            {packages.map(pkg => (
+                <button
+                    key={pkg.credits}
+                    type="button"
+                    onClick={() => setTopUpAmount(pkg.credits)}
+                    className={`flex flex-col items-center py-2.5 rounded-xl border-2 transition-all ${topUpAmount === pkg.credits
+                        ? 'border-[#2b83fa] bg-[#2b83fa]/5 dark:bg-[#2b83fa]/10'
+                        : 'border-black/[0.06] dark:border-white/[0.06] hover:border-[#2b83fa]/40 bg-white dark:bg-white/[0.02]'
+                        }`}
+                >
+                    <span className={`text-[16px] font-black tracking-tight ${topUpAmount === pkg.credits ? 'text-[#2b83fa]' : 'text-[#111111] dark:text-[#ececf1]'}`}>{pkg.credits.toLocaleString()}</span>
+                    <span className="text-[10px] text-[#9aa0a6] uppercase tracking-wider font-bold">credits</span>
+                    <span className={`text-[12px] font-bold mt-0.5 ${topUpAmount === pkg.credits ? 'text-[#2b83fa]' : 'text-[#6e6e73] dark:text-[#94959b]'}`}>₱{pkg.price}</span>
+                </button>
+            ))}
+        </div>
+        
+        {submitted ? (
+            <div className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl text-emerald-600 dark:text-emerald-400 font-semibold text-[13px] border border-emerald-100 dark:border-emerald-900/30">
+                <FiCheck className="w-4 h-4" /> Checkout window opened
+            </div>
+        ) : (
+            <button type="submit" className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white rounded-xl font-bold text-[13px] transition-all shadow-md shadow-blue-500/20 hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] active:scale-[0.98]">
+                <FiCreditCard className="w-4 h-4" /> Buy {topUpAmount.toLocaleString()} Credits
+            </button>
+        )}
+      </form>
     </div>
-  </div>
-);
+  );
+};
 
 const Step7 = () => (
   <div className="space-y-4">
@@ -292,15 +374,6 @@ const Step7 = () => (
       <Row icon={<FiCalendar className="w-4 h-4" />} title="Appointment Reminders" body="Send automated reminders before appointments" />
       <Row icon={<FiUsers className="w-4 h-4" />} title="Bulk Announcements" body="Message your entire contact list at once" />
       <Row icon={<FiMessageSquare className="w-4 h-4" />} title="Follow-Up Sequences" body="Nurture leads with timed message sequences" />
-    </div>
-
-    {/* Done state */}
-    <div className="flex flex-col items-center text-center px-4 py-5 rounded-xl bg-[#f4f6fa] dark:bg-white/[0.04] border border-black/[0.04] dark:border-white/[0.04]">
-      <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-3">
-        <FiCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-      </div>
-      <p className="text-[14px] font-bold text-[#111111] dark:text-[#ececf1]">You're all set</p>
-      <p className="text-[12.5px] text-[#6b7280] dark:text-[#9aa0a6] mt-1">NOLA SMS Pro is ready to use.</p>
     </div>
   </div>
 );
@@ -343,7 +416,6 @@ function buildSteps(): Step[] {
       tagVariant: "required",
       subtitle: "A custom Sender ID is required for production. Submit the form to begin approval.",
       content: <Step4 />,
-      cta: { label: "Open registration form", action: "settings-sender" },
     },
     {
       id: 4,
@@ -362,7 +434,6 @@ function buildSteps(): Step[] {
       tagVariant: "default",
       subtitle: "Pay as you go — no subscription, credits never expire.",
       content: <Step6 />,
-      cta: { label: "View credit packages", action: "settings-credits" },
     },
     {
       id: 6,
@@ -397,9 +468,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
   const [animDir, setAnimDir] = useState<"forward" | "back">("forward");
   const [animating, setAnimating] = useState(false);
   const [visibleStep, setVisibleStep] = useState(currentStep);
+  const [isCelebrating, setIsCelebrating] = useState(false);
   const prevStepRef = useRef(currentStep);
   const STEPS = buildSteps();
   const step = STEPS[visibleStep];
+
+  const handleFinish = () => {
+    setIsCelebrating(true);
+  };
 
   useEffect(() => {
     if (currentStep === prevStepRef.current) return;
@@ -435,10 +511,36 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    if (isCelebrating) setIsCelebrating(false);
+    return null;
+  }
 
   const isFirst = visibleStep === 0;
   const isLast = visibleStep === totalSteps - 1;
+
+  if (isCelebrating) {
+    return (
+      <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={complete} />
+        <div className="relative w-full max-w-[340px] bg-white dark:bg-[#111213] rounded-3xl shadow-2xl p-8 flex flex-col items-center text-center animate-in zoom-in-95 fade-in duration-300">
+          <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-5 shadow-inner">
+            <FiCheck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+          </div>
+          <h2 className="text-[20px] font-black text-[#111111] dark:text-white tracking-tight mb-2">You're all set!</h2>
+          <p className="text-[13px] text-[#6b7280] dark:text-[#9aa0a6] leading-relaxed mb-8">
+            NOLA SMS Pro is configured and ready to use in your daily workflow.
+          </p>
+          <button
+            onClick={complete}
+            className="w-full flex items-center justify-center py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] active:scale-[0.98]"
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
@@ -508,13 +610,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
         <div className="h-px bg-black/[0.05] dark:bg-white/[0.05] flex-shrink-0" />
 
         {/* ── Content ── */}
-        <div className="px-5 py-4 flex-1 overflow-y-auto min-h-0" style={{ scrollbarWidth: "thin" }}>
+        <div className="px-5 py-5 overflow-y-auto h-[320px] sm:h-[360px]" style={{ scrollbarWidth: "thin" }}>
           <div
-            className={`transition-all duration-180 ${
+            className={`transition-all duration-200 ${
               animating
                 ? animDir === "forward"
-                  ? "opacity-0 translate-x-2"
-                  : "opacity-0 -translate-x-2"
+                  ? "opacity-0 translate-x-3"
+                  : "opacity-0 -translate-x-3"
                 : "opacity-100 translate-x-0"
             }`}
           >
@@ -526,53 +628,47 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
         <div className="h-px bg-black/[0.05] dark:bg-white/[0.05] flex-shrink-0" />
 
         {/* ── Footer ── */}
-        <div className="px-5 py-3.5 flex items-center justify-between gap-3 flex-shrink-0">
-          {/* Left */}
-          {!isFirst ? (
+        <div className="px-5 py-4 flex items-center justify-between border-t border-black/[0.05] dark:border-white/[0.05] flex-shrink-0 bg-gray-50/50 dark:bg-white/[0.02] rounded-b-2xl">
+          {/* Left - Back Button (Hidden on first step to maintain alignment) */}
+          <div className="flex-1 flex justify-start">
             <button
               onClick={() => back()}
-              className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors px-2 py-1.5 rounded-lg hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
+              className={`flex items-center gap-1.5 text-[13px] font-semibold text-[#6b7280] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors px-3 py-2 rounded-xl hover:bg-black/[0.05] dark:hover:bg-white/[0.06] ${
+                isFirst ? 'opacity-0 pointer-events-none' : 'opacity-100'
+              }`}
+              aria-hidden={isFirst}
             >
-              <FiArrowLeft className="w-3.5 h-3.5" />
+              <FiArrowLeft className="w-4 h-4" />
               Back
             </button>
-          ) : (
+          </div>
+
+          {/* Right - Skip and Next/CTA */}
+          <div className="flex-1 flex items-center justify-end gap-1 sm:gap-2">
+            {!isLast && (
+              <button
+                onClick={step.cta ? next : handleFinish}
+                className="text-[13px] font-semibold text-[#6b7280] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#d1d5db] transition-colors pl-3 pr-2 py-2"
+              >
+                {step.cta ? "Skip for now" : "Skip"}
+              </button>
+            )}
+
             <button
-              onClick={close}
-              className="text-[12.5px] font-semibold text-[#9aa0a6] hover:text-[#6b7280] transition-colors px-2 py-1.5"
+              onClick={() => {
+                if (isLast) {
+                  handleFinish();
+                } else if (step.cta) {
+                  handleCta(step.cta.action);
+                } else {
+                  next();
+                }
+              }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#2b83fa] text-white text-[13px] font-bold rounded-xl hover:bg-[#1d6ee6] transition-all active:scale-[0.98] shadow-md shadow-blue-500/20 whitespace-nowrap"
             >
-              Skip
+              {isLast ? "Complete Setup" : (step.cta ? step.cta.label : "Continue")}
+              {!isLast && <FiArrowRight className="w-4 h-4 ml-0.5" />}
             </button>
-          )}
-
-          {/* Right */}
-          <div className="flex items-center gap-2">
-            {step.cta && !isLast && (
-              <button
-                onClick={() => next()}
-                className="text-[12.5px] font-semibold text-[#9aa0a6] hover:text-[#6b7280] dark:hover:text-[#d1d5db] transition-colors px-2 py-1.5"
-              >
-                Skip
-              </button>
-            )}
-
-            {step.cta ? (
-              <button
-                onClick={() => handleCta(step.cta!.action)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#111111] dark:bg-white text-white dark:text-[#111111] text-[13px] font-semibold rounded-xl hover:bg-[#2a2a2a] dark:hover:bg-[#f0f0f0] transition-colors active:scale-[0.98] shadow-md shadow-black/10"
-              >
-                {step.cta.label}
-                <FiArrowRight className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <button
-                onClick={() => next()}
-                className="flex items-center gap-2 px-4 py-2 bg-[#111111] dark:bg-white text-white dark:text-[#111111] text-[13px] font-semibold rounded-xl hover:bg-[#2a2a2a] dark:hover:bg-[#f0f0f0] transition-colors active:scale-[0.98] shadow-md shadow-black/10"
-              >
-                Next
-                <FiArrowRight className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
         </div>
       </div>

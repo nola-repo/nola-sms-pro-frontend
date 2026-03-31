@@ -2,8 +2,6 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { fetchContacts, addContact, updateContact, deleteContact } from "../api/contacts";
 import { deleteContact as deleteContactLocal } from "../utils/storage";
 import type { Contact } from "../types/Contact";
-import { VariableSizeList } from 'react-window';
-import { AutoSizer } from 'react-virtualized-auto-sizer';
 import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader, FiTag } from "react-icons/fi";
 
 // Normalize any PH phone to 09XXXXXXXXX (aligned with send_sms.php clean_numbers)
@@ -163,157 +161,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
     });
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [filteredContacts]);
-
-  // Flatten for virtualization
-  const flattenedList = useMemo(() => {
-    const flat: any[] = [];
-    groupedContacts.forEach(([letter, letterContacts]) => {
-      flat.push({ isHeader: true, id: `header-${letter}`, letter });
-      letterContacts.forEach((contact) => {
-        flat.push({ isHeader: false, id: contact.id, contact });
-      });
-    });
-    return flat;
-  }, [groupedContacts]);
-
-  const getItemSize = (index: number) => {
-    return flattenedList[index].isHeader ? 32 : 84; // 84px to account for row height + margin bottom
-  };
-
-  const VirtualizedRow = ({ index, style }: { index: number; style: React.CSSProperties }) => {
-    const item = flattenedList[index];
-
-    if (item.isHeader) {
-      return (
-        <div style={style} className="flex items-end pb-2">
-          <h3 className="text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 ml-1">
-            {item.letter}
-          </h3>
-        </div>
-      );
-    }
-
-    const contact = item.contact as Contact;
-    const isSelected = selectedContacts.some((c) => c.id === contact.id);
-
-    return (
-      <div style={{ ...style, overflow: 'visible' }}>
-        <div className="pb-2 h-full">
-          <div
-            onClick={() => handleToggleContact(contact)}
-            className={`
-              h-full group flex items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl cursor-pointer transition-all duration-200
-              ${isSelected
-                ? "bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 border border-[#2b83fa]/20"
-                : "bg-white dark:bg-[#1a1b1e] border border-gray-100 dark:border-white/5 hover:border-gray-200 dark:hover:border-white/10 shadow-sm"
-              }
-            `}
-          >
-            {/* Checkbox */}
-            <div
-              className={`
-                w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200 flex-shrink-0
-                ${isSelected
-                  ? "bg-[#2b83fa] border-[#2b83fa]"
-                  : "border-gray-300 dark:border-gray-600 group-hover:border-[#2b83fa]"
-                }
-              `}
-            >
-              {isSelected && <FiCheck className="h-4 w-4 text-white" />}
-            </div>
-
-            {/* Avatar */}
-            <div
-              className={`
-                w-9 sm:w-11 h-9 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center font-bold text-[13px] sm:text-[14px] flex-shrink-0 transition-all duration-200
-                ${isSelected
-                  ? "bg-[#2b83fa] text-white shadow-lg shadow-blue-500/20"
-                  : "bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300"
-                }
-              `}
-            >
-              {(() => {
-                if (/^\d/.test(contact.name)) {
-                  return (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                  );
-                }
-                const parts = contact.name.split(" ").filter((p) => p.length > 0);
-                const first = parts[0]?.charAt(0) || "";
-                const last = parts.length > 1 ? parts[parts.length - 1]?.charAt(0) || "" : "";
-                return (first + last).toUpperCase() || "?";
-              })()}
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
-              <div className="flex items-center gap-2 w-full overflow-hidden">
-                <p
-                  className={`text-[14px] font-semibold truncate transition-colors flex-shrink min-w-0 ${isSelected ? "text-[#2b83fa]" : "text-[#111111] dark:text-[#ececf1]"}`}
-                >
-                  {toProperCase(contact.name)}
-                </p>
-                {contact.tags && contact.tags.length > 0 && (
-                  <div className="flex items-center gap-1.5 overflow-hidden flex-shrink-0">
-                    {contact.tags.map((tag: string) => (
-                      <span key={tag} title={tag} className="text-[10px] font-medium bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded-md truncate max-w-[80px] sm:max-w-[120px] flex-shrink-0">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                {formatDisplayPhone(contact.phone)}
-              </p>
-            </div>
-
-            {contact.lastMessage && (
-              <div className="hidden md:block flex-1 min-w-0">
-                <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
-                  {contact.lastMessage}
-                </p>
-              </div>
-            )}
-
-            {/* More button */}
-            <div className="relative">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpenMenuId(openMenuId === contact.id ? null : contact.id);
-                }}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200"
-                title="More options"
-              >
-                <FiMoreVertical className="h-4 w-4" />
-              </button>
-              {openMenuId === contact.id && (
-                <div
-                  className="absolute right-0 top-full mt-1 bg-white dark:bg-[#2d2d2d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[120px] z-[50]"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button onClick={(e) => { e.stopPropagation(); setEditingContact(contact); setOpenMenuId(null); }} className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2">
-                    <FiEdit2 className="w-4 h-4" /> Edit
-                  </button>
-                  {onViewMessages && (
-                    <button onClick={(e) => { e.stopPropagation(); onViewMessages(contact); setOpenMenuId(null); }} className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2">
-                      <FiMessageCircle className="w-4 h-4" /> View Messages
-                    </button>
-                  )}
-                  <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(contact.id); setOpenMenuId(null); }} className="w-full px-3 py-2 text-left text-[13px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2">
-                    <FiTrash2 className="w-4 h-4" /> Delete
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const handleToggleContact = (contact: Contact) => {
     setSelectedContacts((prev) => {
@@ -614,17 +461,19 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
 
       {/* Contacts List */}
       <div
-        className="flex-1 px-3 md:px-6 py-4"
+        ref={listRef}
+        className="flex-1 overflow-y-auto px-3 md:px-6 py-4 custom-scrollbar"
         onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; }}
         onTouchEnd={(e) => {
           const delta = e.changedTouches[0].clientY - touchStartY.current;
-          if (delta > 60 && !isPullRefreshing) refreshContacts();
+          const atTop = (listRef.current?.scrollTop ?? 0) === 0;
+          if (delta > 60 && atTop && !isPullRefreshing) refreshContacts();
         }}
       >
-        <div className="max-w-5xl mx-auto h-full flex flex-col">
+        <div className="max-w-5xl mx-auto">
           {/* Pull-to-refresh spinner */}
           {isPullRefreshing && (
-            <div className="flex justify-center items-center pb-3">
+            <div className="flex justify-center items-center py-3">
               <svg className="animate-spin h-5 w-5 text-[#2b83fa]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
@@ -637,8 +486,8 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                 <ContactSkeleton key={i} />
               ))}
             </div>
-          ) : flattenedList.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 h-full">
+          ) : groupedContacts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16">
               <div className="w-16 h-16 mb-4 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center">
                 <FiSearch className="h-8 w-8 text-gray-400" />
               </div>
@@ -647,21 +496,163 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
               </p>
             </div>
           ) : (
-            <div className="flex-1 w-full h-full">
-              <AutoSizer>
-                {({ height, width }: { height: number; width: number }) => (
-                  <VariableSizeList
-                    height={height}
-                    width={width}
-                    itemCount={flattenedList.length}
-                    itemSize={getItemSize}
-                    className="custom-scrollbar"
-                    style={{ overflowX: 'hidden' }}
-                  >
-                    {VirtualizedRow}
-                  </VariableSizeList>
-                )}
-              </AutoSizer>
+            <div className="space-y-6">
+              {groupedContacts.map(([letter, letterContacts]) => (
+                <div key={letter}>
+                  <h3 className="text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2 ml-1">
+                    {letter}
+                  </h3>
+                  <div className="flex flex-col gap-1">
+                    {letterContacts.map((contact) => {
+                      const isSelected = selectedContacts.some((c) => c.id === contact.id);
+                      return (
+                        <div
+                          key={contact.id}
+                          onClick={() => handleToggleContact(contact)}
+                          className={`
+                            group flex items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl cursor-pointer transition-all duration-200
+                            ${isSelected
+                              ? "bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 border border-[#2b83fa]/20"
+                              : "bg-white dark:bg-[#1a1b1e] border border-gray-100 dark:border-white/5 hover:border-gray-200 dark:hover:border-white/10 shadow-sm"
+                            }
+                          `}
+                        >
+                          {/* Checkbox */}
+                          <div
+                            className={`
+                              w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200 flex-shrink-0
+                              ${isSelected
+                                ? "bg-[#2b83fa] border-[#2b83fa]"
+                                : "border-gray-300 dark:border-gray-600 group-hover:border-[#2b83fa]"
+                              }
+                            `}
+                          >
+                            {isSelected && <FiCheck className="h-4 w-4 text-white" />}
+                          </div>
+
+                          {/* Avatar - show phone icon for phone-number contacts */}
+                          <div
+                            className={`
+                              w-9 sm:w-11 h-9 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center font-bold text-[13px] sm:text-[14px] flex-shrink-0 transition-all duration-200
+                              ${isSelected
+                                ? "bg-[#2b83fa] text-white shadow-lg shadow-blue-500/20"
+                                : "bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300"
+                              }
+                            `}
+                          >
+                            {(() => {
+                              // If name looks like a phone number, show a phone icon
+                              if (/^\d/.test(contact.name)) {
+                                return (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                  </svg>
+                                );
+                              }
+                              // Otherwise show initials
+                              const parts = contact.name.split(" ").filter((p) => p.length > 0);
+                              const first = parts[0]?.charAt(0) || "";
+                              const last = parts.length > 1 ? parts[parts.length - 1]?.charAt(0) || "" : "";
+                              return (first + last).toUpperCase() || "?";
+                            })()}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0 flex flex-col justify-center">
+                            <div className="flex items-center gap-2 w-full overflow-hidden">
+                              <p
+                                className={`
+                                  text-[14px] font-semibold truncate transition-colors flex-shrink min-w-0
+                                  ${isSelected ? "text-[#2b83fa]" : "text-[#111111] dark:text-[#ececf1]"}
+                                `}
+                              >
+                                {toProperCase(contact.name)}
+                              </p>
+                              {contact.tags && contact.tags.length > 0 && (
+                                <div className="flex items-center gap-1.5 overflow-hidden flex-shrink-0">
+                                  {contact.tags.map(tag => (
+                                    <span key={tag} title={tag} className="text-[10px] font-medium bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded-md truncate max-w-[80px] sm:max-w-[120px] flex-shrink-0">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                              {formatDisplayPhone(contact.phone)}
+                            </p>
+                          </div>
+
+                          {/* Last message preview */}
+                          {contact.lastMessage && (
+                            <div className="hidden md:block flex-1 min-w-0">
+                              <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate">
+                                {contact.lastMessage}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* More button with dropdown */}
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(openMenuId === contact.id ? null : contact.id);
+                              }}
+                              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200"
+                              title="More options"
+                            >
+                              <FiMoreVertical className="h-4 w-4" />
+                            </button>
+                            {openMenuId === contact.id && (
+                              <div
+                                className="absolute right-0 top-full mt-1 bg-white dark:bg-[#2d2d2d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[120px] z-50"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingContact(contact);
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2"
+                                >
+                                  <FiEdit2 className="w-4 h-4" />
+                                  Edit
+                                </button>
+                                {onViewMessages && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onViewMessages(contact);
+                                      setOpenMenuId(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2"
+                                  >
+                                    <FiMessageCircle className="w-4 h-4" />
+                                    View Messages
+                                  </button>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteConfirmId(contact.id);
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-[13px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2"
+                                >
+                                  <FiTrash2 className="w-4 h-4" />
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
