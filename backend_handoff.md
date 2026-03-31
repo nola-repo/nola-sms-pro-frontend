@@ -17,9 +17,9 @@ Each document (ID: `ghl_{location_id}`) should now include:
 Create a new entry whenever an admin manually overrides a credit balance in the Admin Panel:
 - `id` (string): Unique adjustment ID (prefix `adj_`).
 - `location_id` (string): The subaccount being adjusted.
-- `amount` (number): The new credit balance.
+- `amount` (number): The **incremental change** (delta) from the previous balance (e.g., `+5` or `-1`).
 - `type` (string): `'admin_adjustment'`.
-- `description` (string): `'Manual credit override by System Admin'`.
+- `description` (string): `"Manual credit adjustment by System Admin (Applied +X credits)"`.
 - `created_at` (Timestamp): Server timestamp.
 
 ---
@@ -36,6 +36,7 @@ When updating the status of a `sender_id_request` (Approval/Rejection/Revocation
   2. **CRITICAL**: Clear the `approved_sender_id` and `semaphore_api_key` in the `integrations` document for that `location_id`. The account should fall back to the "System" default.
 
 ### `POST` Action: `manage_sender`
+- **Smart Logging**: Before updating, fetch the current `credit_balance` value. Calculate the difference (`newBalance - oldBalance`) and log this **delta** to the `credit_transactions` collection.
 - Allow updating `credit_balance` without requiring an `api_key` change.
 - Perform a "merge" set in Firestore to avoid overwriting existing tracking tokens (access/refresh tokens).
 

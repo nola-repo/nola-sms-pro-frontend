@@ -64,6 +64,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const contactsListRef = useRef<HTMLDivElement>(null);
   // Track last_message per conversation to detect new messages and notify the Composer
   const lastMessageTracker = useRef<Map<string, string>>(new Map());
+  const [onboardingDone, setOnboardingDone] = useState(
+    () => localStorage.getItem('nola_onboarding_done') === 'true'
+  );
+
+  // Keep badge in sync when modal is completed without page reload
+  useEffect(() => {
+    const handler = () => setOnboardingDone(localStorage.getItem('nola_onboarding_done') === 'true');
+    window.addEventListener('storage', handler);
+    // Also listen for GHL location change which may reset state
+    window.addEventListener('ghl-location-changed', handler);
+    return () => {
+      window.removeEventListener('storage', handler);
+      window.removeEventListener('ghl-location-changed', handler);
+    };
+  }, []);
 
   const loadContacts = useCallback(async () => {
     try {
@@ -808,8 +823,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      {/* Settings Footer */}
-      <div className={`px-2 py-2 border-t border-black/[0.05] dark:border-white/[0.05] bg-white/60 dark:bg-[#121415]/60 backdrop-blur-sm ${isCollapsed ? 'flex justify-center' : ''}`}>
+      {/* Getting Started + Settings Footer */}
+      <div className={`px-2 py-2 border-t border-black/[0.05] dark:border-white/[0.05] bg-white/60 dark:bg-[#121415]/60 backdrop-blur-sm flex flex-col gap-1 ${isCollapsed ? 'items-center' : ''}`}>
+        {/* Getting Started */}
+        <button
+          onClick={() => {
+            setOnboardingDone(false); // trigger re-render for dot
+            window.dispatchEvent(new CustomEvent('open-onboarding', { detail: { step: 0 } }));
+          }}
+          className={`
+            flex items-center rounded-xl transition-all duration-200 group relative
+            ${isCollapsed ? 'w-10 h-10 justify-center' : 'w-full gap-3 px-3 py-2'}
+            text-[#9aa0a6] dark:text-[#5f6368] hover:bg-[#2b83fa]/5 dark:hover:bg-[#2b83fa]/10 hover:text-[#2b83fa]
+          `}
+          title="Getting Started"
+        >
+          <div className="relative flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            {!onboardingDone && (
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-[#121415] animate-pulse" />
+            )}
+          </div>
+          {!isCollapsed && (
+            <div className="flex items-center justify-between flex-1 min-w-0">
+              <span className="font-medium text-[13px] truncate">Getting Started</span>
+              {!onboardingDone && (
+                <span className="ml-auto px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase tracking-wider flex-shrink-0">
+                  New
+                </span>
+              )}
+            </div>
+          )}
+        </button>
+
+        {/* Settings */}
         <button
           onClick={() => onTabChange('settings')}
           className={`

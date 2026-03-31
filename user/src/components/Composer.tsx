@@ -257,7 +257,7 @@ export const Composer: React.FC<ComposerProps> = ({
       setComposeMode("single");
     } else if (activeBulkMessage) {
       setComposeMode("bulk");
-      const derivedContacts: Contact[] = activeBulkMessage.recipientNumbers.map((num, i) => ({
+      const derivedContacts: Contact[] = (activeBulkMessage.recipientNumbers ?? []).map((num, i) => ({
         id: `bulk-derive-${num}`,
         name: activeBulkMessage.recipientNames?.[i] || num,
         phone: num
@@ -378,7 +378,7 @@ export const Composer: React.FC<ComposerProps> = ({
   const getActiveRecipients = (): Contact[] => {
     // If we have an active bulk message conversation, use its recipients
     if (activeBulkMessage) {
-      return activeBulkMessage.recipientNumbers.map((num, i) => ({
+      return (activeBulkMessage.recipientNumbers ?? []).map((num, i) => ({
         id: `bulk-${num}`,
         name: activeBulkMessage.recipientNames?.[i] || num,
         phone: num

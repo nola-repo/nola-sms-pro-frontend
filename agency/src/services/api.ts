@@ -13,11 +13,19 @@ const defaultHeaders = (agencyId, extra = {}) => ({
   ...extra,
 });
 
-const handleResponse = async (res) => {
+class APIError extends Error {
+  status?: number;
+}
+
+const handleResponse = async (res: Response) => {
   const text = await res.text();
   let json;
   try { json = JSON.parse(text); } catch { json = { status: 'error', message: text }; }
-  if (!res.ok) throw new Error(json?.message || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const error = new APIError(json?.message || `HTTP ${res.status}`);
+    error.status = res.status;
+    throw error;
+  }
   return json;
 };
 

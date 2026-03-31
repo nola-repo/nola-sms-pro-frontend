@@ -92,6 +92,30 @@ const ResetModal = ({ subaccount, onConfirm, onCancel, loading }) => (
   </div>
 );
 
+// ─── Upgrade Modal (403 Limit) ─────────────────────────────────────────────────
+const UpgradeModal = ({ onCancel }) => (
+  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[1000] animate-[fadeIn_0.15s_ease]" onClick={onCancel}>
+    <div className="bg-white dark:bg-[#141618] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] rounded-xl shadow-2xl p-7 w-full max-w-[380px] mx-4 animate-[scaleIn_0.2s_ease]" onClick={e => e.stopPropagation()}>
+      <div className="flex items-center gap-3 mb-3 text-red-500">
+        <FiAlertTriangle className="w-6 h-6" />
+        <div className="text-[16px] font-bold text-[#111111] dark:text-white">Activation Limit Reached</div>
+      </div>
+      <div className="text-[13.5px] text-[#6b7280] dark:text-[#9aa0a9] mb-6 leading-relaxed">
+        This subaccount has reached the maximum of <strong>3 activations</strong> for the myCRMSIM routing feature to prevent abuse. 
+        Please upgrade your agency plan to unlock unlimited activations.
+      </div>
+      <div className="flex justify-end">
+        <button 
+          className="flex items-center justify-center px-6 py-2 rounded-lg text-[13px] font-semibold bg-[#2b83fa] text-white hover:bg-[#1d6bd4] transition-colors shadow-md shadow-[#2b83fa]/20"
+          onClick={onCancel}
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 // ─── Skeleton Rows ─────────────────────────────────────────────────────────────
 const SkeletonRows = ({ count = 5 }) => (
   <>
@@ -124,6 +148,7 @@ export const Subaccounts = () => {
   const [toggleLoading, setToggleLoading] = useState({}); // { [id]: bool }
   const [resetModal, setResetModal]     = useState(null); // subaccount obj | null
   const [resetLoading, setResetLoading] = useState(false);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [lastPolled, setLastPolled]     = useState(null);
 
   const pollRef = useRef(null);
@@ -165,16 +190,31 @@ export const Subaccounts = () => {
 
     try {
       await toggleSubaccount(agencyId, subaccountId, enabled);
+      // Once succeeded, update toggle_activation_count roughly in optimistic state
+      setSubaccounts(prev =>
+        prev.map(s => s.subaccount_id === subaccountId 
+          ? { 
+              ...s, 
+              toggle_activation_count: enabled 
+                ? (s.toggle_activation_count || 0) + 1 
+                : s.toggle_activation_count 
+            } 
+          : s)
+      );
       showToast(
         `SMS ${enabled ? 'enabled' : 'disabled'} for subaccount.`,
         enabled ? 'success' : 'info'
       );
-    } catch (e) {
+    } catch (e: any) {
       // Rollback
       setSubaccounts(prev =>
         prev.map(s => s.subaccount_id === subaccountId ? { ...s, toggle_enabled: !enabled } : s)
       );
-      showToast(`Toggle failed: ${e.message}`, 'error');
+      if (e.status === 403) {
+        setUpgradeModalOpen(true);
+      } else {
+        showToast(`Toggle failed: ${e.message}`, 'error');
+      }
     } finally {
       setToggleLoading(prev => ({ ...prev, [subaccountId]: false }));
     }
@@ -233,6 +273,9 @@ export const Subaccounts = () => {
           onCancel={() => setResetModal(null)}
           loading={resetLoading}
         />
+      )}
+      {upgradeModalOpen && (
+        <UpgradeModal onCancel={() => setUpgradeModalOpen(false)} />
       )}
 
       {/* Page header */}
@@ -356,6 +399,9 @@ export const Subaccounts = () => {
                           <span className={`text-[11.5px] font-bold ${sub.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>
                             {sub.toggle_enabled ? 'ON' : 'OFF'}
                           </span>
+                        </div>
+                        <div className="text-[10.5px] font-medium text-[#9aa0a6] mt-1.5 ml-1">
+                          {sub.toggle_activation_count ?? 0}/3 activations
                         </div>
                       </td>
 

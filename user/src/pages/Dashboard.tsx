@@ -10,6 +10,8 @@ import { Settings } from "./Settings";
 import { FiMenu, FiSettings } from "react-icons/fi";
 import { Home } from "../components/Home";
 import { getAccountSettings } from "../utils/settingsStorage";
+import { useOnboarding } from "../components/onboarding/useOnboarding";
+import { OnboardingModal } from "../components/onboarding/OnboardingModal";
 
 interface DashboardProps {
   isMobileMenuOpen?: boolean;
@@ -19,6 +21,7 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: externalIsMobileMenuOpen, onMobileMenuToggle, darkMode, toggleDarkMode }) => {
+  const onboarding = useOnboarding();
   const [activeContact, setActiveContact] = useState<Contact | null>(() => {
     try {
       const saved = localStorage.getItem('nola_active_contact');
@@ -285,6 +288,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
           />
         )
       }
-    </div >
+
+      {/* Onboarding Modal */}
+      <OnboardingModal onboarding={onboarding} />
+    </div>
   );
 };
