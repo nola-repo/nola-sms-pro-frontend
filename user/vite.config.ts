@@ -39,6 +39,8 @@ const smsProxyPlugin = () => ({
         let cloudRunUrl = `https://smspro-api.nolacrm.io/api${path}${url.search}`;
         if (path === '/contacts') { cloudRunUrl = `https://smspro-api.nolacrm.io/api/ghl-contacts${url.search}`; }
         else if (path === '/messages' && (method === 'PUT' || method === 'DELETE')) { cloudRunUrl = `https://smspro-api.nolacrm.io/api/conversations${url.search}`; }
+        else if (path === '/public/whitelabel') { cloudRunUrl = `https://smspro-api.nolacrm.io/api/whitelabel.php${url.search}`; }
+        else if (path === '/auth/login') { cloudRunUrl = `https://smspro-api.nolacrm.io/api/login.php${url.search}`; }
 
         const response = await fetch(cloudRunUrl, {
           method,

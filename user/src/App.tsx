@@ -1,23 +1,22 @@
 import React, { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
 import { useGhlLocation } from "./hooks/useGhlLocation";
 import { GhlCallback } from "./pages/GhlCallback";
+import SharedLogin from "./pages/SharedLogin";
 import { FiSettings } from "react-icons/fi";
 
-const App: React.FC = () => {
-  // Initialize GHL Location detection at root level so it captures the URL immediately
-  const locationId = useGhlLocation();
-
+const AppLayout: React.FC = () => {
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
     if (saved !== null) {
       return JSON.parse(saved);
     }
-    // Default to light mode (false) if no preference saved
     return false;
   });
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const root = document.documentElement;
@@ -33,20 +32,12 @@ const App: React.FC = () => {
     setDarkMode(!darkMode);
   };
 
-  // When the GHL subaccount / location changes, notify the app so it can reset
-  // state (e.g., return to Home, clear selections, and refetch data).
-  useEffect(() => {
-    if (!locationId) return;
-    window.dispatchEvent(
-      new CustomEvent("ghl-location-changed", { detail: { locationId } })
-    );
-  }, [locationId]);
-
+  const isLoginPage = location.pathname.toLowerCase() === '/login';
 
   return (
-    <div className="h-screen">
+    <div className="h-screen bg-[#ffffff] dark:bg-[#1a1b1e]">
       {/* Theme & Settings - Fixed top right (Desktop only) */}
-      {
+      {!isLoginPage && (
         <div className="hidden md:flex fixed top-3 right-3 gap-2 z-50">
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'account' } }))}
@@ -71,21 +62,50 @@ const App: React.FC = () => {
             )}
           </button>
         </div>
-      }
-
-      {/* Basic Routing */}
-      {window.location.search.includes('code=') ? (
-        <GhlCallback />
-      ) : (
-        <Dashboard
-          isMobileMenuOpen={isMobileMenuOpen}
-          onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          darkMode={darkMode}
-          toggleDarkMode={toggleDarkMode}
-        />
       )}
+
+      <Routes>
+        <Route path="/login" element={<SharedLogin darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+        <Route
+          path="/"
+          element={
+            window.location.search.includes('code=') ? (
+              <GhlCallback />
+            ) : (
+              <Dashboard
+                isMobileMenuOpen={isMobileMenuOpen}
+                onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                darkMode={darkMode}
+                toggleDarkMode={toggleDarkMode}
+              />
+            )
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </div>
   );
 };
 
+const App: React.FC = () => {
+  // Initialize GHL Location detection at root level so it captures the URL immediately
+  const locationId = useGhlLocation();
+
+  // When the GHL subaccount / location changes, notify the app so it can reset
+  // state (e.g., return to Home, clear selections, and refetch data).
+  useEffect(() => {
+    if (!locationId) return;
+    window.dispatchEvent(
+      new CustomEvent("ghl-location-changed", { detail: { locationId } })
+    );
+  }, [locationId]);
+
+  return (
+    <BrowserRouter>
+      <AppLayout />
+    </BrowserRouter>
+  );
+};
+
 export default App;
+
