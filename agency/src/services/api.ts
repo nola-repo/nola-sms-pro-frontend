@@ -8,7 +8,7 @@ const BASE = '/api/agency';
 
 const defaultHeaders = (agencyId, extra = {}) => ({
   'Content-Type': 'application/json',
-  'X-Agency-ID': agencyId || '',
+  'X-GHL-Company-ID': agencyId || '',
   'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
   ...extra,
 });
@@ -38,34 +38,19 @@ export const getSubaccounts = async (agencyId) => {
   return handleResponse(res); // { status, subaccounts: [] }
 };
 
-// ── PATCH toggle ON/OFF for one subaccount ────────────────────────────────────
-export const toggleSubaccount = async (agencyId, subaccountId, enabled) => {
-  const res = await fetch(`${BASE}/toggle_subaccount.php`, {
-    method: 'PATCH',
-    headers: defaultHeaders(agencyId),
-    body: JSON.stringify({ subaccount_id: subaccountId, enabled }),
-  });
-  return handleResponse(res); // { status, subaccount_id, toggle_enabled }
-};
-
-// ── PATCH rate limit for one subaccount ───────────────────────────────────────
-export const setRateLimit = async (agencyId, subaccountId, rateLimit) => {
-  const res = await fetch(`${BASE}/set_rate_limit.php`, {
-    method: 'PATCH',
-    headers: defaultHeaders(agencyId),
-    body: JSON.stringify({ subaccount_id: subaccountId, rate_limit: rateLimit }),
-  });
-  return handleResponse(res); // { status, subaccount_id, rate_limit }
-};
-
-// ── POST reset attempt counter ────────────────────────────────────────────────
-export const resetAttemptCount = async (agencyId, subaccountId) => {
-  const res = await fetch(`${BASE}/reset_attempt_count.php`, {
+// ── POST update subaccount settings ──────────────────────────────────────────
+export const updateSubaccountSettings = async (agencyId, payload: {
+  location_id: string;
+  toggle_enabled: boolean;
+  rate_limit: number;
+  reset_counter: boolean;
+}) => {
+  const res = await fetch(`${BASE}/update_subaccount.php`, {
     method: 'POST',
     headers: defaultHeaders(agencyId),
-    body: JSON.stringify({ subaccount_id: subaccountId }),
+    body: JSON.stringify(payload),
   });
-  return handleResponse(res); // { status, subaccount_id, attempt_count }
+  return handleResponse(res);
 };
 
 // ── GET all toggle-ON subaccounts (used by main admin panel) ──────────────────

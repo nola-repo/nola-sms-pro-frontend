@@ -8,9 +8,7 @@ import { useAgency } from '../context/AgencyContext.tsx';
 import { useToast } from '../hooks/useToast.ts';
 import {
   getSubaccounts,
-  toggleSubaccount,
-  setRateLimit,
-  resetAttemptCount,
+  updateSubaccountSettings,
 } from '../services/api.ts';
 
 const POLL_MS = 10000;
@@ -32,7 +30,7 @@ const ToggleSwitch = ({ id, checked, onChange, disabled }) => (
 );
 
 // ─── Rate Limit Input ──────────────────────────────────────────────────────────
-const RateLimitInput = ({ subaccountId, value, onSave, disabled }) => {
+const RateLimitInput = ({ locationId, value, onSave, disabled }) => {
   const [local, setLocal] = useState(value);
   const [saving, setSaving] = useState(false);
 
@@ -45,13 +43,13 @@ const RateLimitInput = ({ subaccountId, value, onSave, disabled }) => {
       return;
     }
     setSaving(true);
-    await onSave(subaccountId, parsed);
+    await onSave(locationId, parsed);
     setSaving(false);
   };
 
   return (
     <input
-      id={`rate-${subaccountId}`}
+      id={`rate-${locationId}`}
       type="number"
       className="w-[72px] px-2.5 py-1.5 rounded-lg border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] bg-[#f0f2f8] dark:bg-[#1c1e21] text-[#111827] dark:text-[#f1f2f4] text-[13px] font-medium text-center focus:outline-none focus:border-[#2b83fa] focus:ring-2 focus:ring-[#2b83fa]/20 transition-all"
       value={local}
@@ -71,7 +69,7 @@ const ResetModal = ({ subaccount, onConfirm, onCancel, loading }) => (
     <div className="bg-white dark:bg-[#141618] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] rounded-xl shadow-2xl p-7 w-full max-w-[380px] mx-4 animate-[scaleIn_0.2s_ease]" onClick={e => e.stopPropagation()}>
       <div className="text-[16px] font-bold text-[#111111] dark:text-white mb-2">Reset Attempt Counter?</div>
       <div className="text-[13.5px] text-[#6b7280] dark:text-[#9aa0a9] mb-6 leading-relaxed">
-        This will reset the send counter for <strong className="text-[#111111] dark:text-white font-semibold">{subaccount?.subaccount_name || subaccount?.subaccount_id}</strong> back
+        This will reset the send counter for <strong className="text-[#111111] dark:text-white font-semibold">{subaccount?.location_name || subaccount?.location_id}</strong> back
         to <strong className="text-[#111111] dark:text-white font-semibold">0</strong>. They will immediately be able to send up to their rate limit again.
       </div>
       <div className="flex gap-2.5 justify-end">
@@ -180,19 +178,26 @@ export const Subaccounts = () => {
   }, [fetchSubaccounts]);
 
   // ── Toggle ─────────────────────────────────────────────────────────────────
-  const handleToggle = async (subaccountId, enabled) => {
-    setToggleLoading(prev => ({ ...prev, [subaccountId]: true }));
+  const handleToggle = async (locationId, enabled) => {
+    setToggleLoading(prev => ({ ...prev, [locationId]: true }));
 
     // Optimistic update
     setSubaccounts(prev =>
-      prev.map(s => s.subaccount_id === subaccountId ? { ...s, toggle_enabled: enabled } : s)
+      prev.map(s => s.location_id === locationId ? { ...s, toggle_enabled: enabled } : s)
     );
 
+    const targetSubaccount = subaccounts.find(s => s.location_id === locationId) || {};
+
     try {
-      await toggleSubaccount(agencyId, subaccountId, enabled);
+      await updateSubaccountSettings(agencyId, {
+        location_id: locationId,
+        toggle_enabled: enabled,
+        rate_limit: targetSubaccount.rate_limit ?? 5,
+        reset_counter: false
+      });
       // Once succeeded, update toggle_activation_count roughly in optimistic state
       setSubaccounts(prev =>
-        prev.map(s => s.subaccount_id === subaccountId 
+        prev.map(s => s.location_id === locationId 
           ? { 
               ...s, 
               toggle_activation_count: enabled 
@@ -208,7 +213,7 @@ export const Subaccounts = () => {
     } catch (e: any) {
       // Rollback
       setSubaccounts(prev =>
-        prev.map(s => s.subaccount_id === subaccountId ? { ...s, toggle_enabled: !enabled } : s)
+        prev.map(s => s.location_id === locationId ? { ...s, toggle_enabled: !enabled } : s)
       );
       if (e.status === 403) {
         setUpgradeModalOpen(true);
@@ -216,16 +221,22 @@ export const Subaccounts = () => {
         showToast(`Toggle failed: ${e.message}`, 'error');
       }
     } finally {
-      setToggleLoading(prev => ({ ...prev, [subaccountId]: false }));
+      setToggleLoading(prev => ({ ...prev, [locationId]: false }));
     }
   };
 
   // ── Rate Limit Save ────────────────────────────────────────────────────────
-  const handleRateLimitSave = async (subaccountId, newLimit) => {
+  const handleRateLimitSave = async (locationId, newLimit) => {
+    const targetSubaccount = subaccounts.find(s => s.location_id === locationId) || {};
     try {
-      await setRateLimit(agencyId, subaccountId, newLimit);
+      await updateSubaccountSettings(agencyId, {
+        location_id: locationId,
+        toggle_enabled: !!targetSubaccount.toggle_enabled,
+        rate_limit: newLimit,
+        reset_counter: false
+      });
       setSubaccounts(prev =>
-        prev.map(s => s.subaccount_id === subaccountId ? { ...s, rate_limit: newLimit } : s)
+        prev.map(s => s.location_id === locationId ? { ...s, rate_limit: newLimit } : s)
       );
       showToast('Rate limit updated.', 'success');
     } catch (e) {
@@ -238,15 +249,20 @@ export const Subaccounts = () => {
     if (!resetModal) return;
     setResetLoading(true);
     try {
-      await resetAttemptCount(agencyId, resetModal.subaccount_id);
+      await updateSubaccountSettings(agencyId, {
+        location_id: resetModal.location_id,
+        toggle_enabled: !!resetModal.toggle_enabled,
+        rate_limit: resetModal.rate_limit ?? 5,
+        reset_counter: true
+      });
       setSubaccounts(prev =>
         prev.map(s =>
-          s.subaccount_id === resetModal.subaccount_id
+          s.location_id === resetModal.location_id
             ? { ...s, attempt_count: 0 }
             : s
         )
       );
-      showToast(`Counter reset for ${resetModal.subaccount_name || resetModal.subaccount_id}.`, 'success');
+      showToast(`Counter reset for ${resetModal.location_name || resetModal.location_id}.`, 'success');
       setResetModal(null);
     } catch (e) {
       showToast(`Reset failed: ${e.message}`, 'error');
@@ -373,17 +389,17 @@ export const Subaccounts = () => {
                 subaccounts.map(sub => {
                   const isAtLimit   = sub.attempt_count >= sub.rate_limit;
                   const isNearLimit = !isAtLimit && sub.attempt_count >= sub.rate_limit * 0.8;
-                  const isBusy      = !!toggleLoading[sub.subaccount_id];
+                  const isBusy      = !!toggleLoading[sub.location_id];
 
                   return (
-                    <tr key={sub.subaccount_id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                    <tr key={sub.location_id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
                       {/* Name */}
                       <td className="px-6 py-4 align-middle">
                         <div className="flex flex-col">
                           <span className="text-[13.5px] font-semibold text-[#111111] dark:text-[#ececf1]">
-                            {sub.subaccount_name || <em className="text-[#9ca3af]">Unnamed</em>}
+                            {sub.location_name || <em className="text-[#9ca3af]">Unnamed</em>}
                           </span>
-                          <span className="text-[11px] font-mono text-[#6e6e73] dark:text-[#94959b] mt-0.5">{sub.subaccount_id}</span>
+                          <span className="text-[11px] font-mono text-[#6e6e73] dark:text-[#94959b] mt-0.5">{sub.location_id}</span>
                         </div>
                       </td>
 
@@ -391,9 +407,9 @@ export const Subaccounts = () => {
                       <td className="px-6 py-4 align-middle">
                         <div className="flex items-center gap-2.5">
                           <ToggleSwitch
-                            id={sub.subaccount_id}
+                            id={sub.location_id}
                             checked={!!sub.toggle_enabled}
-                            onChange={enabled => handleToggle(sub.subaccount_id, enabled)}
+                            onChange={enabled => handleToggle(sub.location_id, enabled)}
                             disabled={isBusy}
                           />
                           <span className={`text-[11.5px] font-bold ${sub.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>
@@ -408,7 +424,7 @@ export const Subaccounts = () => {
                       {/* Rate Limit */}
                       <td className="px-6 py-4 align-middle">
                         <RateLimitInput
-                          subaccountId={sub.subaccount_id}
+                          locationId={sub.location_id}
                           value={sub.rate_limit ?? 5}
                           onSave={handleRateLimitSave}
                           disabled={!agencyId}
@@ -428,7 +444,7 @@ export const Subaccounts = () => {
                           <button
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 dark:bg-red-500/10 text-red-500 text-[12.5px] font-bold rounded-lg border border-red-200 dark:border-red-500/20 hover:bg-red-500 hover:text-white transition-all whitespace-nowrap"
                             onClick={() => setResetModal(sub)}
-                            id={`reset-btn-${sub.subaccount_id}`}
+                            id={`reset-btn-${sub.location_id}`}
                             title="Reset attempt counter"
                           >
                             <FiRotateCcw className="w-3.5 h-3.5" />
