@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
+import { login as authLogin } from '../services/authService';
 
 interface SharedLoginProps {
   darkMode: boolean;
@@ -14,13 +16,14 @@ interface WebLabelData {
 }
 
 const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [email, setEmail]           = useState('');
+  const [password, setPassword]     = useState('');
+  const [showPw, setShowPw]         = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState<string | null>(null);
   const [whitelabel, setWhitelabel] = useState<WebLabelData | null>(null);
   const [isBrandingLoading, setIsBrandingLoading] = useState(true);
-  
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,35 +55,16 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
     setError(null);
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      const data = await authLogin(email, password);
 
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Invalid credentials');
-      }
-
-      const data = await res.json();
-      
-      // Store token (depending on logic, cookie or localStorage)
-      if (data.token) {
-        localStorage.setItem('auth_token', data.token);
-      }
-
-      // Handle Role-based Redirection
+      // Role-based redirect — authLogin already persisted the session
       if (data.role === 'agency') {
-        // Redirection to the separate Agency Vite app
-        // We use window.location.href to fully trigger the browser to route to the new app
         window.location.href = '/agency/';
       } else {
-        // Redirection to the User dashboard inside this same application
         navigate('/');
       }
     } catch (err: any) {
-      setError(err.message || 'Something went wrong while logging in.');
+      setError(err.message || 'Invalid email or password.');
     } finally {
       setLoading(false);
     }
@@ -171,15 +155,25 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
                 Forgot password?
               </a>
             </div>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
-              style={{ '--tw-ring-color': primaryColor } as any}
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                type={showPw ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-3.5 pr-11 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
+                style={{ '--tw-ring-color': primaryColor } as any}
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(p => !p)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                tabIndex={-1}
+              >
+                {showPw ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <button
@@ -207,8 +201,14 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 text-center space-y-3">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Don't have an account?{' '}
+            <a href="/register" className="font-semibold hover:underline" style={{ color: primaryColor }}>
+              Register now →
+            </a>
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
             By signing in, you agree to our Terms of Service and Privacy Policy.
           </p>
         </div>

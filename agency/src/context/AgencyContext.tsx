@@ -1,33 +1,66 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getAgencySession, clearAgencySession, type AgencySession } from '../services/agencyAuthHelper.ts';
 
-const AgencyContext = createContext(null);
+interface AgencyContextValue {
+  // Auth session
+  agencySession: AgencySession | null;
+  agencyId:      string | null;  // company_id from GHL (or env/query fallback for dev)
+  logout:        () => void;
+
+  // UI
+  darkMode:       boolean;
+  toggleDarkMode: () => void;
+}
+
+const AgencyContext = createContext<AgencyContextValue | null>(null);
 
 /**
- * Provides agency_id (from env or GHL SSO context).
- * During dev: reads VITE_AGENCY_ID from .env
- * In production: can be extended to read from GHL SSO iframe params
+ * AgencyProvider
+ * Provides agencyId (company_id from JWT session, then env/query fallback for dev)
+ * and the auth session + logout helper.
  */
 export const AgencyProvider = ({ children }) => {
-  const [agencyId, setAgencyId] = useState(() => {
-    // 1. Try env var (dev)
+  // ── Auth session ────────────────────────────────────────────────────────────
+  const [agencySession] = useState<AgencySession | null>(() => getAgencySession());
+
+  // ── Agency ID resolution ────────────────────────────────────────────────────
+  // Priority: 1. JWT companyId (production)  2. env var (dev)  3. query param  4. localStorage
+  const [agencyId] = useState<string | null>(() => {
+    // 1. From auth session
+    const session = getAgencySession();
+    if (session?.companyId) return session.companyId;
+
+    // 2. Env var (dev)
     const envId = import.meta.env.VITE_AGENCY_ID;
     if (envId && envId !== 'your_agency_id_here') return envId;
 
-    // 2. Try query param (GHL SSO iframe passes companyId / locationId)
+    // 3. Query param (GHL SSO iframe / dev testing)
     const params = new URLSearchParams(window.location.search);
     const qpId = params.get('agency_id') || params.get('companyId') || params.get('locationId');
     if (qpId) return qpId;
 
-    // 3. Try localStorage (persisted from a previous session)
+    // 4. Persisted from a previous session
     return localStorage.getItem('nola_agency_id') || null;
   });
 
+  // Persist agencyId for convenience
+  useEffect(() => {
+    if (agencyId) localStorage.setItem('nola_agency_id', agencyId);
+  }, [agencyId]);
+
+  // ── Logout ──────────────────────────────────────────────────────────────────
+  const logout = () => {
+    clearAgencySession();
+    localStorage.removeItem('nola_agency_id');
+    window.location.href = '/login';
+  };
+
+  // ── Dark mode ────────────────────────────────────────────────────────────────
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('agency_darkMode');
     return saved !== null ? JSON.parse(saved) : false;
   });
 
-  // Persist dark mode preference and apply to <html>
   useEffect(() => {
     const root = document.documentElement;
     if (darkMode) root.classList.add('dark');
@@ -35,15 +68,10 @@ export const AgencyProvider = ({ children }) => {
     localStorage.setItem('agency_darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
 
-  // Persist agencyId
-  useEffect(() => {
-    if (agencyId) localStorage.setItem('nola_agency_id', agencyId);
-  }, [agencyId]);
-
-  const toggleDarkMode = () => setDarkMode(prev => !prev);
+  const toggleDarkMode = () => setDarkMode((prev: boolean) => !prev);
 
   return (
-    <AgencyContext.Provider value={{ agencyId, setAgencyId, darkMode, toggleDarkMode }}>
+    <AgencyContext.Provider value={{ agencySession, agencyId, logout, darkMode, toggleDarkMode }}>
       {children}
     </AgencyContext.Provider>
   );

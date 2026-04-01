@@ -4,6 +4,9 @@ import { Dashboard } from "./pages/Dashboard";
 import { useGhlLocation } from "./hooks/useGhlLocation";
 import { GhlCallback } from "./pages/GhlCallback";
 import SharedLogin from "./pages/SharedLogin";
+import Register from "./pages/Register";
+import { AuthProvider } from "./context/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { FiSettings } from "react-icons/fi";
 
 const AppLayout: React.FC = () => {
@@ -65,22 +68,27 @@ const AppLayout: React.FC = () => {
       )}
 
       <Routes>
-        <Route path="/login" element={<SharedLogin darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-        <Route
-          path="/"
-          element={
-            window.location.search.includes('code=') ? (
-              <GhlCallback />
-            ) : (
-              <Dashboard
-                isMobileMenuOpen={isMobileMenuOpen}
-                onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                darkMode={darkMode}
-                toggleDarkMode={toggleDarkMode}
-              />
-            )
-          }
-        />
+        <Route path="/login"            element={<SharedLogin darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+        <Route path="/register"         element={<Register />} />
+        <Route path="/oauth/callback"   element={<GhlCallback />} />
+        {/* Protected routes — requires a valid auth token */}
+        <Route element={<ProtectedRoute />}>
+          <Route
+            path="/"
+            element={
+              window.location.search.includes('code=') ? (
+                <GhlCallback />
+              ) : (
+                <Dashboard
+                  isMobileMenuOpen={isMobileMenuOpen}
+                  onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  darkMode={darkMode}
+                  toggleDarkMode={toggleDarkMode}
+                />
+              )
+            }
+          />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
@@ -88,11 +96,8 @@ const AppLayout: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  // Initialize GHL Location detection at root level so it captures the URL immediately
   const locationId = useGhlLocation();
 
-  // When the GHL subaccount / location changes, notify the app so it can reset
-  // state (e.g., return to Home, clear selections, and refetch data).
   useEffect(() => {
     if (!locationId) return;
     window.dispatchEvent(
@@ -101,9 +106,11 @@ const App: React.FC = () => {
   }, [locationId]);
 
   return (
-    <BrowserRouter>
-      <AppLayout />
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <AppLayout />
+      </BrowserRouter>
+    </AuthProvider>
   );
 };
 
