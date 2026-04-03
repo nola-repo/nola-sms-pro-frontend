@@ -1,3 +1,4 @@
+import { safeStorage } from '../utils/safeStorage';
 /**
  * agencyAuthHelper.ts
  * Thin read-only helper for the agency app to read the auth session
@@ -27,17 +28,17 @@ export interface AgencySession {
 }
 
 export const getAgencySession = (): AgencySession | null => {
-  const token = localStorage.getItem(SESSION_KEYS.token);
-  const role  = localStorage.getItem(SESSION_KEYS.role);
+  const token = safeStorage.getItem(SESSION_KEYS.token);
+  const role  = safeStorage.getItem(SESSION_KEYS.role);
   if (!token || role !== 'agency') return null;
   return {
     token,
     role:      'agency',
-    companyId: localStorage.getItem(SESSION_KEYS.companyId),
-    user:      JSON.parse(localStorage.getItem(SESSION_KEYS.user) ?? 'null'),
+    companyId: safeStorage.getItem(SESSION_KEYS.companyId),
+    user:      JSON.parse(safeStorage.getItem(SESSION_KEYS.user) ?? 'null'),
   };
 };
 
 export const clearAgencySession = (): void => {
-  Object.values(SESSION_KEYS).forEach(k => localStorage.removeItem(k));
+  Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
 };

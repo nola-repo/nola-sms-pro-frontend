@@ -1,3 +1,4 @@
+import { safeStorage } from '../utils/safeStorage';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getAgencySession, clearAgencySession, type AgencySession } from '../services/agencyAuthHelper.ts';
 
@@ -40,24 +41,24 @@ export const AgencyProvider = ({ children }) => {
     if (qpId) return qpId;
 
     // 4. Persisted from a previous session
-    return localStorage.getItem('nola_agency_id') || null;
+    return safeStorage.getItem('nola_agency_id') || null;
   });
 
   // Persist agencyId for convenience
   useEffect(() => {
-    if (agencyId) localStorage.setItem('nola_agency_id', agencyId);
+    if (agencyId) safeStorage.setItem('nola_agency_id', agencyId);
   }, [agencyId]);
 
   // ── Logout ──────────────────────────────────────────────────────────────────
   const logout = () => {
     clearAgencySession();
-    localStorage.removeItem('nola_agency_id');
+    safeStorage.removeItem('nola_agency_id');
     window.location.href = '/login';
   };
 
   // ── Dark mode ────────────────────────────────────────────────────────────────
   const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('agency_darkMode');
+    const saved = safeStorage.getItem('agency_darkMode');
     return saved !== null ? JSON.parse(saved) : false;
   });
 
@@ -65,7 +66,7 @@ export const AgencyProvider = ({ children }) => {
     const root = document.documentElement;
     if (darkMode) root.classList.add('dark');
     else root.classList.remove('dark');
-    localStorage.setItem('agency_darkMode', JSON.stringify(darkMode));
+    safeStorage.setItem('agency_darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
 
   const toggleDarkMode = () => setDarkMode((prev: boolean) => !prev);

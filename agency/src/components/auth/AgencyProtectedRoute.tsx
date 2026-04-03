@@ -1,3 +1,4 @@
+import { safeStorage } from '../../utils/safeStorage';
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { SESSION_KEYS } from '../../services/agencyAuthHelper.ts';
@@ -8,8 +9,8 @@ import { SESSION_KEYS } from '../../services/agencyAuthHelper.ts';
  * If check fails, hard-navigates to the user app login page at /login.
  */
 export const AgencyProtectedRoute: React.FC = () => {
-  const token = localStorage.getItem(SESSION_KEYS.token);
-  const role  = localStorage.getItem(SESSION_KEYS.role);
+  const token = safeStorage.getItem(SESSION_KEYS.token);
+  const role  = safeStorage.getItem(SESSION_KEYS.role);
 
   if (!token || role !== 'agency') {
     // Hard navigate back to the user app's login page

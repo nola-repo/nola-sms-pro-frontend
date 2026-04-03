@@ -8,10 +8,11 @@ import Register from "./pages/Register";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { FiSettings } from "react-icons/fi";
+import { safeStorage } from "./utils/safeStorage";
 
 const AppLayout: React.FC = () => {
   const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('darkMode');
+    const saved = safeStorage.getItem('darkMode');
     if (saved !== null) {
       return JSON.parse(saved);
     }
@@ -28,7 +29,7 @@ const AppLayout: React.FC = () => {
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+    safeStorage.setItem('darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
 
   const toggleDarkMode = () => {

@@ -1,3 +1,4 @@
+import { safeStorage } from '../utils/safeStorage';
 /**
  * authService.ts
  * Centralized auth API calls and localStorage session management.
@@ -46,30 +47,30 @@ export interface RegisterPayload {
 
 // ── Session helpers ─────────────────────────────────────────────────────────
 export const getSession = (): AuthSession | null => {
-  const token = localStorage.getItem(SESSION_KEYS.token);
+  const token = safeStorage.getItem(SESSION_KEYS.token);
   if (!token) return null;
   return {
     token,
-    role:       (localStorage.getItem(SESSION_KEYS.role) as 'agency' | 'user') ?? 'user',
-    companyId:  localStorage.getItem(SESSION_KEYS.companyId),
-    locationId: localStorage.getItem(SESSION_KEYS.locationId),
-    user:       JSON.parse(localStorage.getItem(SESSION_KEYS.user) ?? 'null'),
+    role:       (safeStorage.getItem(SESSION_KEYS.role) as 'agency' | 'user') ?? 'user',
+    companyId:  safeStorage.getItem(SESSION_KEYS.companyId),
+    locationId: safeStorage.getItem(SESSION_KEYS.locationId),
+    user:       JSON.parse(safeStorage.getItem(SESSION_KEYS.user) ?? 'null'),
   };
 };
 
 export const isAuthenticated = (): boolean =>
-  !!localStorage.getItem(SESSION_KEYS.token);
+  !!safeStorage.getItem(SESSION_KEYS.token);
 
 export const saveSession = (data: LoginResponse): void => {
-  localStorage.setItem(SESSION_KEYS.token, data.token);
-  localStorage.setItem(SESSION_KEYS.role, data.role);
-  if (data.company_id)  localStorage.setItem(SESSION_KEYS.companyId,  data.company_id);
-  if (data.location_id) localStorage.setItem(SESSION_KEYS.locationId, data.location_id);
-  if (data.user)        localStorage.setItem(SESSION_KEYS.user, JSON.stringify(data.user));
+  safeStorage.setItem(SESSION_KEYS.token, data.token);
+  safeStorage.setItem(SESSION_KEYS.role, data.role);
+  if (data.company_id)  safeStorage.setItem(SESSION_KEYS.companyId,  data.company_id);
+  if (data.location_id) safeStorage.setItem(SESSION_KEYS.locationId, data.location_id);
+  if (data.user)        safeStorage.setItem(SESSION_KEYS.user, JSON.stringify(data.user));
 };
 
 export const clearSession = (): void => {
-  Object.values(SESSION_KEYS).forEach(k => localStorage.removeItem(k));
+  Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
 };
 
 // ── API calls ───────────────────────────────────────────────────────────────
