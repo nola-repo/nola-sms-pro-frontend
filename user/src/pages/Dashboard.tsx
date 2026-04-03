@@ -230,8 +230,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         </div>
 
         {/* Missing Location Alert */}
-        {!getAccountSettings().ghlLocationId && currentView !== 'settings' && (
-          <div className="px-6 py-3 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-200 dark:border-amber-800/20 flex items-center justify-between gap-4">
+        {window.self === window.top && !getAccountSettings().ghlLocationId && currentView !== 'settings' && (
+          <div className="px-6 py-3 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-200 dark:border-amber-800/20 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-800/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -239,8 +239,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
                 </svg>
               </div>
               <p className="text-[13px] text-amber-800 dark:text-amber-300 font-medium">
-                <strong>GHL Location Not Detected.</strong> Please open the app via the GoHighLevel sidebar or <button onClick={() => handleTabChange('settings')} className="underline font-bold hover:text-amber-600">enter manually in Settings</button>.
+                <strong>GHL Location Not Detected.</strong> Please open the app via the GoHighLevel sidebar, connect your account, or enter manually in Settings.
               </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => window.location.href = 'https://marketplace.gohighlevel.com/oauth/chooselocation?appId=65f8a0c2837bc281e59eef7b'} // Using generic/placeholder if they need one, but they can update the appId
+                className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white text-[12px] font-bold shadow-md hover:shadow-lg transition-all"
+              >
+                Connect GHL
+              </button>
+              <button 
+                onClick={() => handleTabChange('settings')} 
+                className="px-4 py-1.5 rounded-lg bg-amber-200 dark:bg-amber-800/50 text-amber-800 dark:text-amber-200 text-[12px] font-bold shadow-sm hover:bg-amber-300 dark:hover:bg-amber-700/50 transition-all"
+              >
+                Type Location ID
+              </button>
             </div>
           </div>
         )}

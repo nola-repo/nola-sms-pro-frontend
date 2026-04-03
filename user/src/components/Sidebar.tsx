@@ -7,7 +7,8 @@ import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
 import { renameBulkMessage, deleteBulkMessage, deleteContact as deleteContactLocal, getDeletedContactIds } from "../utils/storage";
 import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarRightCollapse } from "react-icons/tb";
-import { FiUsers, FiChevronDown, FiEdit2, FiTrash2, FiMoreVertical, FiHome, FiPlus, FiX } from "react-icons/fi";
+import { FiUsers, FiChevronDown, FiEdit2, FiTrash2, FiMoreVertical, FiHome, FiPlus, FiX, FiLogOut } from "react-icons/fi";
+import { logout } from "../services/authService";
 import GlareHover from "./GlareHover";
 import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
 import { getAccountSettings } from "../utils/settingsStorage";
@@ -79,6 +80,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       window.removeEventListener('ghl-location-changed', handler);
     };
   }, []);
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = '/login';
+  };
 
   const loadContacts = useCallback(async () => {
     try {
@@ -877,6 +883,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           {!isCollapsed && <span className="font-medium text-[13px]">Settings</span>}
         </button>
+
+        {/* Logout - Hidden when inside GHL iframe */}
+        {window.self === window.top && (
+          <button
+            onClick={handleLogout}
+            className={`
+              flex items-center rounded-xl transition-all duration-200 group mt-0.5
+              ${isCollapsed ? 'w-10 h-10 justify-center' : 'w-full gap-3 px-3 py-2'}
+              text-red-500/80 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400
+            `}
+            title="Sign out"
+          >
+            <div className="transition-transform duration-300 group-hover:-translate-x-0.5">
+              <FiLogOut className="h-4 w-4" />
+            </div>
+            {!isCollapsed && <span className="font-medium text-[13px]">Sign out</span>}
+          </button>
+        )}
       </div>
 
       {/* Rename Modal Portal */}

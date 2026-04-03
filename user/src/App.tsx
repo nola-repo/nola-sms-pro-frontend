@@ -7,7 +7,6 @@ import SharedLogin from "./pages/SharedLogin";
 import Register from "./pages/Register";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { FiSettings } from "react-icons/fi";
 import { safeStorage } from "./utils/safeStorage";
 
 const AppLayout: React.FC = () => {
@@ -40,16 +39,9 @@ const AppLayout: React.FC = () => {
 
   return (
     <div className="h-screen bg-[#ffffff] dark:bg-[#1a1b1e]">
-      {/* Theme & Settings - Fixed top right (Desktop only) */}
-      {!isLoginPage && (
+      {/* Theme Toggle - Fixed top right (Desktop only) */}
+      {!isLoginPage && location.pathname.toLowerCase() !== '/register' && (
         <div className="hidden md:flex fixed top-3 right-3 gap-2 z-50">
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'account' } }))}
-            className="p-2 rounded-lg bg-[#f7f7f7] dark:bg-[#2a2b32] hover:bg-[#e8e8e8] dark:hover:bg-[#3a3b3f] text-[#37352f] dark:text-[#ececf1] shadow-sm transition-all duration-200 settings-icon-rotate"
-            aria-label="Open Settings"
-          >
-            <FiSettings className="h-5 w-5" strokeWidth={1.5} />
-          </button>
           <button
             onClick={toggleDarkMode}
             className="p-2 rounded-lg bg-[#f7f7f7] dark:bg-[#2a2b32] hover:bg-[#e8e8e8] dark:hover:bg-[#3a3b3f] text-[#37352f] dark:text-[#ececf1] shadow-sm transition-all duration-200"

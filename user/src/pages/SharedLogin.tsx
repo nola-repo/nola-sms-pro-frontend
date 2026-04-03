@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { login as authLogin } from '../services/authService';
+import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
 
 interface SharedLoginProps {
   darkMode: boolean;
@@ -110,9 +111,7 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
           ) : whitelabel?.logo_url ? (
             <img src={whitelabel.logo_url} alt={companyName} className="h-16 object-contain mb-4" />
           ) : (
-            <div className="h-16 w-16 mb-4 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg" style={{ background: `linear-gradient(135deg, ${primaryColor}, #111)` }}>
-              {companyName.charAt(0)}
-            </div>
+            <img src={defaultLogo} alt="NOLA SMS Pro" className="h-[72px] object-contain mb-4" />
           )}
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight">
             Welcome back

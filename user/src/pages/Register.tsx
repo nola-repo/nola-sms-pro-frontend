@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   FiBriefcase, FiUser, FiArrowRight, FiArrowLeft,
   FiCheck, FiEye, FiEyeOff, FiMail, FiPhone,
-  FiLock, FiZap, FiAlertCircle,
+  FiLock, FiAlertCircle,
 } from 'react-icons/fi';
 import { register, type RegisterPayload } from '../services/authService';
+import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Role = 'agency' | 'user';
@@ -190,14 +191,9 @@ const Register: React.FC = () => {
         <div className="bg-white/80 dark:bg-[#141618]/80 backdrop-blur-2xl border border-white/30 dark:border-white/[0.07] rounded-3xl shadow-2xl shadow-black/10 dark:shadow-black/40 p-8 md:p-10 overflow-hidden">
 
           {/* Logo / Brand */}
-          <div className="flex items-center gap-2.5 mb-8">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1d6bd4] to-[#2b83fa] shadow-md flex items-center justify-center shrink-0">
-              <FiZap className="w-4.5 h-4.5 text-white" />
-            </div>
-            <div className="leading-tight">
-              <div className="text-[13px] font-bold text-[#111111] dark:text-white tracking-tight">NOLA SMS Pro</div>
-              <div className="text-[10px] font-semibold text-[#2b83fa] uppercase tracking-wider">Create Account</div>
-            </div>
+          <div className="flex flex-col items-center mb-8 text-center pt-2">
+            <img src={defaultLogo} alt="NOLA SMS Pro" className="h-[60px] object-contain mb-3" />
+            <div className="text-[11px] font-bold text-[#2b83fa] uppercase tracking-wider bg-[#2b83fa]/10 px-3 py-1 rounded-full">Create Account</div>
           </div>
 
           {/* Step bar */}
