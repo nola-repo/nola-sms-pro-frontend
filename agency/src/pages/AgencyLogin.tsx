@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
-import { login as authLogin } from '../services/authService';
+import { login as authLogin } from '../services/agencyAuthHelper';
 
-interface SharedLoginProps {
-  darkMode: boolean;
-  toggleDarkMode: () => void;
+interface AgencyLoginProps {
+  darkMode?: boolean;
+  toggleDarkMode?: () => void;
 }
 
 interface WebLabelData {
@@ -15,38 +15,21 @@ interface WebLabelData {
   primary_color?: string;
 }
 
-const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) => {
+const AgencyLogin: React.FC<AgencyLoginProps> = ({ darkMode = false, toggleDarkMode = () => {} }) => {
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
   const [showPw, setShowPw]         = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [whitelabel, setWhitelabel] = useState<WebLabelData | null>(null);
-  const [isBrandingLoading, setIsBrandingLoading] = useState(true);
+  const [isBrandingLoading, setIsBrandingLoading] = useState(false);
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Fetch custom domain branding
-    const fetchBranding = async () => {
-      try {
-        const domain = window.location.hostname;
-        // In local development, you might want to hardcode a domain to test:
-        // const testDomain = 'app.nolasms.com';
-        
-        const res = await fetch(`/api/public/whitelabel?domain=${encodeURIComponent(domain)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setWhitelabel(data);
-        }
-      } catch (err) {
-        console.error('Failed to load branding', err);
-      } finally {
-        setIsBrandingLoading(false);
-      }
-    };
-
-    fetchBranding();
+    // Basic static branding for Agency
+    setWhitelabel({ company_name: "NOLA SMS Pro Agency" });
+    setIsBrandingLoading(false);
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -56,15 +39,8 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
 
     try {
       const data = await authLogin(email, password);
-
-      if (data.role === 'agency') {
-        // Clear the token since it shouldn't be here
-        localStorage.clear();
-        setError('Please login at agency.nolasmspro.com');
-        return;
-      } else {
-        navigate('/');
-      }
+      // Navigate to Agency Dashboard
+      window.location.href = '/';
     } catch (err: any) {
       setError(err.message || 'Invalid email or password.');
     } finally {
@@ -219,4 +195,4 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
   );
 };
 
-export default SharedLogin;
+export default AgencyLogin;

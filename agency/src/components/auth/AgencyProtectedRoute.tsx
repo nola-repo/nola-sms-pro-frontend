@@ -6,16 +6,14 @@ import { SESSION_KEYS } from '../../services/agencyAuthHelper.ts';
 /**
  * AgencyProtectedRoute
  * Guards all agency routes. Requires a valid token AND role === 'agency'.
- * If check fails, hard-navigates to the user app login page at /login.
+ * If check fails, redirects to the agency login page.
  */
 export const AgencyProtectedRoute: React.FC = () => {
   const token = safeStorage.getItem(SESSION_KEYS.token);
   const role  = safeStorage.getItem(SESSION_KEYS.role);
 
   if (!token || role !== 'agency') {
-    // Hard navigate back to the user app's login page
-    window.location.href = '/login';
-    return null;
+    return <Navigate to="/login" replace />;
   }
 
   return <Outlet />;
