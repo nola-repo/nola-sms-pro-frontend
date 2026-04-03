@@ -95,42 +95,56 @@ const AccountSection: React.FC = () => {
     const ghlLocationIdFromHook = useGhlLocation();
 
     const [fetchedName, setFetchedName] = useState<string | null>(null);
+    const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+    
+    // Manage input location ID state
+    const [inputLocationId, setInputLocationId] = useState<string>(() => {
+        return ghlLocationIdFromHook || getAccountSettings().ghlLocationId || "";
+    });
 
-
+    // Update if hook updates (e.g. from URL)
     useEffect(() => {
-        let mounted = true;
-        const loadProfile = async () => {
-
-            const profile = await fetchAccountProfile();
-            if (mounted && profile?.location_name) {
-                setFetchedName(profile.location_name);
-
-                // Sync the true location name back to local storage if valid,
-                // so the Sidebar and other components can use the most up-to-date name.
-                if (profile.location_name !== "Unknown") {
-                    const currentSettings = getAccountSettings();
-                    if (currentSettings.displayName !== profile.location_name) {
-                        saveAccountSettings({
-                            ...currentSettings,
-                            displayName: profile.location_name
-                        });
-                        // Dispatch custom event if a component needs immediate live update
-                        window.dispatchEvent(new Event("account-settings-updated"));
-                    }
-                }
-            }
-
-        };
-        loadProfile();
-        return () => { mounted = false; };
+        if (ghlLocationIdFromHook && ghlLocationIdFromHook !== inputLocationId) {
+            setInputLocationId(ghlLocationIdFromHook);
+        }
     }, [ghlLocationIdFromHook]);
 
-    // Use most up-to-date values, prioritize hook for locationId
-    // If fetched name is literally "Unknown", skip it so it falls back to the form value (which might have been sniffed)
-    const subaccountName = (fetchedName && fetchedName !== "Unknown") ? fetchedName : (form.displayName || "N/A");
-    const subaccountEmail = form.email || "N/A";
-    const currentLocationId = ghlLocationIdFromHook || form.ghlLocationId || "Not detected";
+    // Handle debounced API fetch for location ID changes
+    useEffect(() => {
+        let mounted = true;
+        const timer = setTimeout(async () => {
+             if (inputLocationId.trim() === "") return;
 
+             setIsFetchingLocation(true);
+             const currentSettings = getAccountSettings();
+             if (currentSettings.ghlLocationId !== inputLocationId) {
+                 saveAccountSettings({ ...currentSettings, ghlLocationId: inputLocationId });
+                 window.dispatchEvent(new Event("ghl-location-changed"));
+             }
+
+             const profile = await fetchAccountProfile();
+             if (mounted) {
+                 setIsFetchingLocation(false);
+                 if (profile && profile.location_name && profile.location_name !== "Unknown") {
+                     setFetchedName(profile.location_name);
+                     const fresh = getAccountSettings();
+                     if (fresh.displayName !== profile.location_name) {
+                         saveAccountSettings({ ...fresh, displayName: profile.location_name });
+                         window.dispatchEvent(new Event("account-settings-updated"));
+                     }
+                 } else {
+                     setFetchedName("Location Not Found");
+                 }
+             }
+        }, 800);
+        return () => { mounted = false; clearTimeout(timer); };
+    }, [inputLocationId]);
+
+    // Derived values
+    const subaccountName = fetchedName && fetchedName !== "Location Not Found" 
+        ? fetchedName 
+        : (fetchedName === "Location Not Found" ? "Not Found" : (form.displayName || "N/A"));
+    const subaccountEmail = form.email || "N/A";
     const statusCfg = STATUS_CONFIG[form.accountStatus];
 
     return (
@@ -151,22 +165,48 @@ const AccountSection: React.FC = () => {
                         <FiUser className="w-6 h-6" />
                     </div>
                     <div>
-                        <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">{subaccountName}</h3>
+                        <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">
+                            {fetchedName === 'Location Not Found' ? <span className="text-red-500">Not Found</span> : subaccountName}
+                        </h3>
                         <p className="text-[12px] text-[#9aa0a6]">{subaccountEmail}</p>
                     </div>
                 </div>
 
                 <div className="space-y-4 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
                     <div>
-                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Location Name</label>
+                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                            <span>Location Name</span>
+                            {isFetchingLocation && <span className="text-amber-500 normal-case tracking-normal">Fetching...</span>}
+                        </label>
                         <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                            {subaccountName}
+                            {fetchedName === 'Location Not Found' ? <span className="text-red-500">Not Found</span> : subaccountName}
                         </div>
                     </div>
                     <div>
-                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">GHL Location ID</label>
-                        <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono">
-                            {currentLocationId}
+                        <label className="flex text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5 items-center justify-between gap-2">
+                            <span>GHL Location ID</span>
+                            {window.self === window.top && (
+                                <button
+                                    onClick={() => window.location.href = 'https://marketplace.gohighlevel.com/oauth/chooselocation?appId=65f8a0c2837bc281e59eef7b'}
+                                    className="text-[10px] font-bold bg-[#2b83fa]/10 text-[#2b83fa] hover:bg-[#2b83fa]/20 px-2 py-1 rounded-md transition-colors"
+                                >
+                                    Connect GHL
+                                </button>
+                            )}
+                        </label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={inputLocationId}
+                                onChange={(e) => setInputLocationId(e.target.value)}
+                                placeholder="Paste your Location ID..."
+                                className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all pr-10"
+                            />
+                            {isFetchingLocation && (
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                    <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -174,7 +214,7 @@ const AccountSection: React.FC = () => {
 
             <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20">
                 <p className="text-[12px] text-blue-700 dark:text-blue-300 leading-relaxed">
-                    <strong>Note:</strong> Account information is automatically synced from your GoHighLevel workspace. To update these details, please change them in your GHL Business Profile.
+                    <strong>Note:</strong> Account information is automatically synced from your GoHighLevel workspace. Type your Location ID above to fetch your details automatically.
                 </p>
             </div>
         </div>
