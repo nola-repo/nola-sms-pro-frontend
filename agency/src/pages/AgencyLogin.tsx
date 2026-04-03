@@ -182,7 +182,7 @@ const AgencyLogin: React.FC<AgencyLoginProps> = ({ darkMode = false, toggleDarkM
         <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 text-center space-y-3">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Don't have an account?{' '}
-            <a href="/register" className="font-semibold hover:underline" style={{ color: primaryColor }}>
+            <a href="https://app.nolasmspro.com/register" className="font-semibold hover:underline" style={{ color: primaryColor }}>
               Register now →
             </a>
           </p>

@@ -483,14 +483,20 @@ const Register: React.FC = () => {
                     <p className="text-[13.5px] text-[#6e6e73] dark:text-[#9aa0a6] mt-2 leading-relaxed max-w-sm mx-auto">
                       Welcome to NOLA SMS Pro, <strong className="text-[#111111] dark:text-white">{form.firstName}</strong>. Your account is ready.
                       {role === 'agency'
-                        ? ' Sign in to start managing your sub-accounts.'
+                        ? ' Sign in to your Agency Portal to start managing your sub-accounts.'
                         : ' Sign in to start sending messages.'}
                     </p>
                   </div>
 
                   <div className="flex flex-col items-center gap-3 w-full pt-2">
                     <button
-                      onClick={() => navigate('/login')}
+                      onClick={() => {
+                        if (role === 'agency') {
+                          window.location.href = 'https://agency.nolasmspro.com/login';
+                        } else {
+                          navigate('/login');
+                        }
+                      }}
                       className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all"
                     >
                       Sign In to Your Account <FiArrowRight />
