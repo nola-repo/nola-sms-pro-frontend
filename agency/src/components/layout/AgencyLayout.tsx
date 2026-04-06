@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { FiGrid, FiToggleLeft, FiLogOut, FiZap, FiSun, FiMoon, FiUser } from 'react-icons/fi';
+import { FiGrid, FiToggleLeft, FiLogOut, FiZap, FiSun, FiMoon, FiUser, FiSettings } from 'react-icons/fi';
 import { useAgency } from '../../context/AgencyContext.tsx';
 
 export const AgencyLayout = ({ children, title, subtitle }) => {
@@ -14,6 +14,7 @@ export const AgencyLayout = ({ children, title, subtitle }) => {
   const navItems = [
     { to: '/', label: 'Dashboard', icon: <FiGrid /> },
     { to: '/subaccounts', label: 'Subaccounts', icon: <FiToggleLeft /> },
+    { to: '/settings', label: 'Settings', icon: <FiSettings /> },
   ];
 
   return (
