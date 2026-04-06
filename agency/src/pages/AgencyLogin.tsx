@@ -5,6 +5,7 @@ import { FiEye, FiEyeOff, FiAlertTriangle, FiLink, FiArrowRight, FiCheckCircle }
 import { login as authLogin, saveCompanyId, linkCompany, MissingCompanyIdError } from '../services/agencyAuthHelper';
 import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
 import { useAgency } from '../context/AgencyContext.tsx';
+import GlareHover from '../components/ui/GlareHover';
 
 interface AgencyLoginProps {
   darkMode?: boolean;
@@ -164,24 +165,33 @@ const AgencyLogin: React.FC = () => {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden group btn-new-message"
+              <GlareHover 
+                glareColor="#ffffff" 
+                glareOpacity={0.25} 
+                glareAngle={-30} 
+                glareSize={300} 
+                borderRadius="0.75rem" 
+                className="w-full"
               >
-                <div className="absolute inset-0 w-full h-full bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-0" />
-                <span className="relative z-10 flex items-center">
-                  {loading ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Signing in...
-                    </>
-                  ) : 'Sign In'}
-                </span>
-              </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden group btn-new-message"
+                >
+                  <div className="absolute inset-0 w-full h-full bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-0" />
+                  <span className="relative z-10 flex items-center">
+                    {loading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Signing in...
+                      </>
+                    ) : 'Sign In'}
+                  </span>
+                </button>
+              </GlareHover>
             </form>
 
             <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 text-center space-y-3">
@@ -228,20 +238,28 @@ const AgencyLogin: React.FC = () => {
               </motion.div>
             )}
 
-            {/* Primary: OAuth button */}
-            <a
-              href={`https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=${encodeURIComponent(import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolasmspro.com/oauth/callback')}&client_id=${import.meta.env.VITE_GHL_CLIENT_ID ?? ''}&version_id=${(import.meta.env.VITE_GHL_CLIENT_ID ?? '').split('-')[0]}&scope=companies.readonly`}
-              className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-2xl font-bold text-white text-[15px] shadow-lg hover:shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99] relative overflow-hidden group"
-              style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #6366f1 100%)', backgroundSize: '200% 200%' }}
+            <GlareHover 
+              glareColor="#ffffff" 
+              glareOpacity={0.4} 
+              glareAngle={-30} 
+              glareSize={400} 
+              borderRadius="1rem"
+              className="w-full"
             >
-              <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-0" />
-              {/* GHL-like icon */}
-              <svg className="w-5 h-5 relative z-10" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
-              </svg>
-              <span className="relative z-10">Connect with GoHighLevel</span>
-              <FiArrowRight className="w-4 h-4 ml-auto relative z-10" />
-            </a>
+              <a
+                href={`https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=${encodeURIComponent(import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolasmspro.com/oauth/callback')}&client_id=${import.meta.env.VITE_GHL_CLIENT_ID ?? ''}&version_id=${(import.meta.env.VITE_GHL_CLIENT_ID ?? '').split('-')[0]}&scope=companies.readonly`}
+                className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-2xl font-bold text-white text-[15px] shadow-lg hover:shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99] relative overflow-hidden group"
+                style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #6366f1 100%)', backgroundSize: '200% 200%' }}
+              >
+                <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-0" />
+                {/* GHL-like icon */}
+                <svg className="w-5 h-5 relative z-10" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                </svg>
+                <span className="relative z-10">Connect with GoHighLevel</span>
+                <FiArrowRight className="w-4 h-4 ml-auto relative z-10" />
+              </a>
+            </GlareHover>
 
             <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-3">
               You'll be redirected to GoHighLevel to authorize. No password required.
