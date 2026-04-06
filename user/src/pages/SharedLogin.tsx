@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { login as authLogin } from '../services/authService';
 import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
-import GlareHover from '../components/GlareHover';
 
 interface SharedLoginProps {
   darkMode: boolean;
@@ -178,20 +177,12 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
             </div>
           </div>
 
-          <GlareHover 
-            glareColor="#ffffff" 
-            glareOpacity={0.25} 
-            glareAngle={-30} 
-            glareSize={300} 
-            borderRadius="0.75rem" 
-            className="w-full"
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden group btn-new-message"
           >
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden group btn-new-message"
-            >
-              <span className="relative z-10 flex items-center">
+            <span className="relative z-10 flex items-center">
                 {loading ? (
                   <>
                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -205,7 +196,7 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
                 )}
               </span>
             </button>
-          </GlareHover>
+
         </form>
 
         <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 text-center space-y-3">

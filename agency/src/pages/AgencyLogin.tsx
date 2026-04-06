@@ -5,7 +5,6 @@ import { FiEye, FiEyeOff, FiAlertTriangle, FiLink, FiArrowRight, FiCheckCircle }
 import { login as authLogin, saveCompanyId, linkCompany, MissingCompanyIdError } from '../services/agencyAuthHelper';
 import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
 import { useAgency } from '../context/AgencyContext.tsx';
-import GlareHover from '../components/ui/GlareHover';
 
 interface AgencyLoginProps {
   darkMode?: boolean;
@@ -165,14 +164,6 @@ const AgencyLogin: React.FC = () => {
                 </div>
               </div>
 
-              <GlareHover 
-                glareColor="#ffffff" 
-                glareOpacity={0.25} 
-                glareAngle={-30} 
-                glareSize={300} 
-                borderRadius="0.75rem" 
-                className="w-full"
-              >
                 <button
                   type="submit"
                   disabled={loading}
@@ -190,7 +181,7 @@ const AgencyLogin: React.FC = () => {
                     ) : 'Sign In'}
                   </span>
                 </button>
-              </GlareHover>
+
             </form>
 
             <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 text-center space-y-3">
@@ -237,14 +228,6 @@ const AgencyLogin: React.FC = () => {
               </motion.div>
             )}
 
-            <GlareHover 
-              glareColor="#ffffff" 
-              glareOpacity={0.4} 
-              glareAngle={-30} 
-              glareSize={400} 
-              borderRadius="1rem"
-              className="w-full"
-            >
               <a
                 href={`https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=${encodeURIComponent(import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolasmspro.com/oauth/callback')}&client_id=${import.meta.env.VITE_GHL_CLIENT_ID ?? ''}&version_id=${(import.meta.env.VITE_GHL_CLIENT_ID ?? '').split('-')[0]}&scope=companies.readonly`}
                 className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-2xl font-bold text-white text-[15px] shadow-lg hover:shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99] relative overflow-hidden group"
@@ -257,7 +240,7 @@ const AgencyLogin: React.FC = () => {
                 <span className="relative z-10">Connect with GoHighLevel</span>
                 <FiArrowRight className="w-4 h-4 ml-auto relative z-10" />
               </a>
-            </GlareHover>
+
 
             <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-3">
               You'll be redirected to GoHighLevel to authorize. No password required.

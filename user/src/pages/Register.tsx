@@ -8,7 +8,6 @@ import {
 } from 'react-icons/fi';
 import { register, type RegisterPayload } from '../services/authService';
 import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
-import GlareHover from '../components/GlareHover';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Role = 'agency' | 'user';
@@ -315,22 +314,14 @@ const Register: React.FC<RegisterProps> = ({ darkMode, toggleDarkMode }) => {
                     </button>
                   </div>
 
-                  <GlareHover 
-                    glareColor="#ffffff" 
-                    glareOpacity={0.25} 
-                    glareAngle={-30} 
-                    glareSize={300} 
-                    borderRadius="0.75rem" 
-                    className="w-full"
+                  <button
+                    onClick={() => role && goTo(2)}
+                    disabled={!role}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none btn-new-message"
                   >
-                    <button
-                      onClick={() => role && goTo(2)}
-                      disabled={!role}
-                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none btn-new-message"
-                    >
-                      Continue <FiArrowRight />
-                    </button>
-                  </GlareHover>
+                    Continue <FiArrowRight />
+                  </button>
+
                 </div>
               )}
 
@@ -432,32 +423,24 @@ const Register: React.FC<RegisterProps> = ({ darkMode, toggleDarkMode }) => {
                     >
                       <FiArrowLeft className="w-4 h-4" /> Back
                     </button>
-                    <GlareHover 
-                      glareColor="#ffffff" 
-                      glareOpacity={0.25} 
-                      glareAngle={-30} 
-                      glareSize={300} 
-                      borderRadius="0.75rem" 
-                      className="flex-1"
+                    <button
+                      onClick={handleSubmit}
+                      disabled={loading}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed btn-new-message"
                     >
-                      <button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed btn-new-message"
-                      >
-                        {loading ? (
-                          <>
-                            <svg className="animate-spin w-4 h-4 text-white" viewBox="0 0 24 24" fill="none">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                            Creating Account…
-                          </>
-                        ) : (
-                          <>{role === 'agency' ? 'Next' : 'Create Account'} <FiArrowRight /></>
-                        )}
-                      </button>
-                    </GlareHover>
+                      {loading ? (
+                        <>
+                          <svg className="animate-spin w-4 h-4 text-white" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          Creating Account…
+                        </>
+                      ) : (
+                        <>{role === 'agency' ? 'Next' : 'Create Account'} <FiArrowRight /></>
+                      )}
+                    </button>
+
                   </div>
                 </div>
               )}
@@ -495,21 +478,13 @@ const Register: React.FC<RegisterProps> = ({ darkMode, toggleDarkMode }) => {
                   </div>
 
                   <div className="flex gap-3">
-                    <GlareHover 
-                      glareColor="#ffffff" 
-                      glareOpacity={0.25} 
-                      glareAngle={-30} 
-                      glareSize={300} 
-                      borderRadius="0.75rem" 
-                      className="flex-1"
+                    <button
+                      onClick={() => goTo(4)}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all btn-new-message"
                     >
-                      <button
-                        onClick={() => goTo(4)}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all btn-new-message"
-                      >
-                        Skip for now <FiArrowRight />
-                      </button>
-                    </GlareHover>
+                      Skip for now <FiArrowRight />
+                    </button>
+
                   </div>
                 </div>
               )}
@@ -540,27 +515,19 @@ const Register: React.FC<RegisterProps> = ({ darkMode, toggleDarkMode }) => {
                   </div>
 
                   <div className="flex flex-col items-center gap-3 w-full pt-2">
-                    <GlareHover 
-                      glareColor="#ffffff" 
-                      glareOpacity={0.25} 
-                      glareAngle={-30} 
-                      glareSize={300} 
-                      borderRadius="0.75rem" 
-                      className="w-full"
+                    <button
+                      onClick={() => {
+                        if (role === 'agency') {
+                          window.location.href = 'https://agency.nolasmspro.com/login';
+                        } else {
+                          navigate('/login');
+                        }
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all btn-new-message"
                     >
-                      <button
-                        onClick={() => {
-                          if (role === 'agency') {
-                            window.location.href = 'https://agency.nolasmspro.com/login';
-                          } else {
-                            navigate('/login');
-                          }
-                        }}
-                        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all btn-new-message"
-                      >
-                        Sign In to Your Account <FiArrowRight />
-                      </button>
-                    </GlareHover>
+                      Sign In to Your Account <FiArrowRight />
+                    </button>
+
                   </div>
                 </div>
               )}
