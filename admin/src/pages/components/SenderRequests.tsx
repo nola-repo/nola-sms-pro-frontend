@@ -37,6 +37,7 @@ export const AdminSenderRequests: React.FC = () => {
     const [showInputKey, setShowInputKey] = useState(false);
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
@@ -294,7 +295,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                         </button>
                                                     )}
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); if (confirm('Are you sure you want to delete this sender request?')) doAction('delete', req.id); }}
+                                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(req.id); }}
                                                         className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
                                                         title="Delete Request"
                                                     >
@@ -591,6 +592,40 @@ export const AdminSenderRequests: React.FC = () => {
                                 </>
                             );
                         })()}
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmId && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-900/10 flex items-center justify-center mb-4">
+                                <FiAlertCircle className="w-6 h-6 text-red-500" />
+                            </div>
+                            <h3 className="text-[18px] font-bold text-[#111111] dark:text-white mb-2">Delete Request</h3>
+                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-6">
+                                Are you sure you want to delete this sender request? This action cannot be undone.
+                            </p>
+                            <div className="flex w-full gap-3">
+                                <button
+                                    onClick={() => setDeleteConfirmId(null)}
+                                    className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-[#6e6e73] bg-[#f7f7f7] hover:bg-[#e5e5e5] dark:text-[#9aa0a6] dark:bg-white/5 dark:hover:bg-white/10 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        doAction('delete', deleteConfirmId);
+                                        setDeleteConfirmId(null);
+                                    }}
+                                    className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white bg-red-500 hover:bg-red-600 transition-colors shadow-sm"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

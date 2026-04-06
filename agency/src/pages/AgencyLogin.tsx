@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiEye, FiEyeOff, FiAlertTriangle, FiLink, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
 import { login as authLogin, saveCompanyId, MissingCompanyIdError } from '../services/agencyAuthHelper';
 import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
+import { useAgency } from '../context/AgencyContext.tsx';
 
 interface AgencyLoginProps {
   darkMode?: boolean;
@@ -12,7 +13,8 @@ interface AgencyLoginProps {
 
 type LoginPhase = 'credentials' | 'connect_ghl';
 
-const AgencyLogin: React.FC<AgencyLoginProps> = ({ darkMode = false, toggleDarkMode = () => {} }) => {
+const AgencyLogin: React.FC = () => {
+  const { darkMode, toggleDarkMode } = useAgency();
   const [phase, setPhase]           = useState<LoginPhase>('credentials');
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
