@@ -46,6 +46,22 @@ export const linkCompany = async (companyId: string): Promise<void> => {
   saveCompanyId(companyId);
 };
 
+export const exchangeOAuthCode = async (code: string): Promise<string> => {
+  const redirectUri = import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolasmspro.com/oauth/callback';
+  const res = await fetch('/api/ghl/oauth_exchange.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, redirect_uri: redirectUri }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error ?? 'GHL OAuth exchange failed');
+  }
+  // Persist company_id locally
+  saveCompanyId(data.company_id);
+  return data.company_id as string;
+};
+
 export interface AgencyAuthUser {
   firstName: string;
   lastName:  string;

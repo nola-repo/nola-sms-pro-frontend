@@ -195,7 +195,7 @@ const AgencyLogin: React.FC = () => {
           </motion.div>
         )}
 
-        {/* ── Phase 2: Connect GHL Company ID ── */}
+        {/* ── Phase 2: Connect GHL (OAuth) ── */}
         {phase === 'connect_ghl' && (
           <motion.div
             key="connect_ghl"
@@ -214,14 +214,7 @@ const AgencyLogin: React.FC = () => {
                 Connect Your GHL Account
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center leading-relaxed">
-                Your account is authenticated but your <strong>GHL Company ID</strong> hasn't been linked yet. Enter it below to continue.
-              </p>
-            </div>
-
-            {/* Info callout */}
-            <div className="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
-              <p className="text-[12.5px] text-amber-700 dark:text-amber-400 leading-relaxed">
-                <strong>Where to find it:</strong> Log into GoHighLevel → <strong>Settings → Business Info</strong>. The Company ID is listed at the bottom of the page. It looks like: <code className="font-mono text-[11px] bg-amber-100 dark:bg-amber-500/10 px-1 py-0.5 rounded">ABC123xyzabc</code>
+                One last step — authorize NOLA SMS Pro to access your <strong>GoHighLevel agency</strong> to complete setup.
               </p>
             </div>
 
@@ -236,46 +229,64 @@ const AgencyLogin: React.FC = () => {
               </motion.div>
             )}
 
-            <form onSubmit={handleConnect} className="space-y-5">
+            {/* Primary: OAuth button */}
+            <a
+              href={`https://marketplace.gohighlevel.com/oauth/chooselocation?response_type=code&redirect_uri=${encodeURIComponent(import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolasmspro.com/oauth/callback')}&client_id=${import.meta.env.VITE_GHL_CLIENT_ID ?? ''}&scope=companies.readonly%20locations.readonly%20oauth.readonly`}
+              className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-2xl font-bold text-white text-[15px] shadow-lg hover:shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99]"
+              style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)' }}
+            >
+              {/* GHL-like icon */}
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+              </svg>
+              Connect with GoHighLevel
+              <FiArrowRight className="w-4 h-4 ml-auto" />
+            </a>
+
+            <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-3">
+              You'll be redirected to GoHighLevel to authorize. No password required.
+            </p>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 my-6">
+              <div className="flex-1 h-px bg-gray-200 dark:bg-white/10" />
+              <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">or enter manually</span>
+              <div className="flex-1 h-px bg-gray-200 dark:bg-white/10" />
+            </div>
+
+            {/* Fallback: manual input */}
+            <form onSubmit={handleConnect} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">GHL Company ID</label>
                 <input
                   type="text"
-                  required
                   value={companyId}
                   onChange={(e) => setCompanyId(e.target.value)}
-                  className="w-full px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 font-mono text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
+                  className="w-full px-4 py-3 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 font-mono text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all text-sm"
                   style={{ '--tw-ring-color': primaryColor } as any}
                   placeholder="e.g. ABC123xyzabc"
-                  autoFocus
                 />
               </div>
-
               <button
                 type="submit"
-                disabled={connecting}
-                className="w-full py-3.5 px-4 rounded-xl text-white font-medium shadow-md hover:shadow-lg focus:outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden group"
+                disabled={connecting || !companyId.trim()}
+                className="w-full py-3 px-4 rounded-xl text-white font-semibold text-sm shadow-sm hover:shadow-md focus:outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 style={{ backgroundColor: primaryColor }}
               >
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-0" />
-                <span className="relative z-10 flex items-center gap-2">
-                  {connecting ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Connecting...
-                    </>
-                  ) : (
-                    <>Connect & Enter Dashboard <FiArrowRight className="w-4 h-4" /></>
-                  )}
-                </span>
+                {connecting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving…
+                  </>
+                ) : 'Save & Enter Dashboard'}
               </button>
             </form>
 
             {/* Back link */}
-            <div className="mt-6 text-center">
+            <div className="mt-5 text-center">
               <button
                 onClick={() => { setPhase('credentials'); setError(null); setCompanyId(''); }}
                 className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors underline underline-offset-2"
