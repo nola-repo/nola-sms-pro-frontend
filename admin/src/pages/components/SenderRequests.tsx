@@ -294,7 +294,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                         </button>
                                                     )}
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); if (confirm('Are you sure you want to delete this sender request?')) doAction('deleted', req.id); }}
+                                                        onClick={(e) => { e.stopPropagation(); if (confirm('Are you sure you want to delete this sender request?')) doAction('delete', req.id); }}
                                                         className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
                                                         title="Delete Request"
                                                     >
