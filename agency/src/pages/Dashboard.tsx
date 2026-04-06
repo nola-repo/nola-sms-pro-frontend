@@ -55,14 +55,22 @@ export const Dashboard = () => {
       </div>
 
       {!agencyId && (
-        <div className="bg-[#f59e0b]/[0.05] border border-[#f59e0b]/30 rounded-xl p-4 mb-6 shadow-sm">
-          <div className="flex items-center gap-2 text-[#f59e0b]">
-            <FiAlertTriangle className="w-[18px] h-[18px]" />
-            <strong className="text-[13px]">No Agency ID configured.</strong>
+        <div className="bg-[#f59e0b]/[0.05] border border-[#f59e0b]/30 rounded-xl p-4 mb-6 shadow-sm flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 text-[#f59e0b]">
+              <FiAlertTriangle className="w-[18px] h-[18px]" />
+              <strong className="text-[13px]">No GHL Company ID linked.</strong>
+            </div>
+            <p className="text-[12.5px] mt-1.5 text-[#6e6e73] dark:text-[#94959b]">
+              Your account is not connected to a GoHighLevel agency yet. Log in again to link your GHL Company ID.
+            </p>
           </div>
-          <p className="text-[12.5px] mt-2 text-[#6e6e73] dark:text-[#94959b]">
-            Set <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">VITE_AGENCY_ID</code> in your <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">.env</code> file or pass <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">?agency_id=...</code> as a URL query param.
-          </p>
+          <button
+            onClick={() => navigate('/login')}
+            className="shrink-0 px-4 py-2 bg-[#f59e0b] text-white text-[12.5px] font-bold rounded-lg hover:bg-[#d97706] transition-colors"
+          >
+            Connect Now →
+          </button>
         </div>
       )}
 

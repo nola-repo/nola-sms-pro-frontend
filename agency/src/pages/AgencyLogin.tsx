@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { FiEye, FiEyeOff } from 'react-icons/fi';
-import { login as authLogin } from '../services/agencyAuthHelper';
+import { FiEye, FiEyeOff, FiAlertTriangle, FiLink, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
+import { login as authLogin, saveCompanyId, MissingCompanyIdError } from '../services/agencyAuthHelper';
 import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
 
 interface AgencyLoginProps {
@@ -10,186 +10,281 @@ interface AgencyLoginProps {
   toggleDarkMode?: () => void;
 }
 
-interface WebLabelData {
-  logo_url?: string;
-  company_name?: string;
-  primary_color?: string;
-}
+type LoginPhase = 'credentials' | 'connect_ghl';
 
 const AgencyLogin: React.FC<AgencyLoginProps> = ({ darkMode = false, toggleDarkMode = () => {} }) => {
+  const [phase, setPhase]           = useState<LoginPhase>('credentials');
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
   const [showPw, setShowPw]         = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
-  const [whitelabel, setWhitelabel] = useState<WebLabelData | null>(null);
-  const [isBrandingLoading, setIsBrandingLoading] = useState(false);
+
+  // Phase 2: manual GHL Company ID
+  const [companyId, setCompanyId]   = useState('');
+  const [connecting, setConnecting] = useState(false);
 
   const navigate = useNavigate();
+  const primaryColor = '#3b82f6';
 
-  useEffect(() => {
-    // Basic static branding for Agency
-    setWhitelabel({ company_name: "NOLA SMS Pro Agency" });
-    setIsBrandingLoading(false);
-  }, []);
-
+  // ── Phase 1: login ──────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const data = await authLogin(email, password);
-      // Navigate to Agency Dashboard
+      await authLogin(email, password);
+      // company_id was in the JWT — go straight to dashboard
       window.location.href = '/';
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password.');
+      if (err instanceof MissingCompanyIdError) {
+        // Token saved, user is authenticated, but company_id not linked yet
+        setPhase('connect_ghl');
+      } else {
+        setError(err.message || 'Invalid email or password.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const primaryColor = whitelabel?.primary_color || '#3b82f6'; // fallback to standard blue
-  const companyName = whitelabel?.company_name || 'NOLA SMS Pro';
+  // ── Phase 2: manual company ID ──────────────────────────────────────────────
+  const handleConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = companyId.trim();
+    if (!trimmed) {
+      setError('Please enter your GHL Company ID.');
+      return;
+    }
+    setConnecting(true);
+    setError(null);
+    try {
+      saveCompanyId(trimmed);
+      // Small delay so user sees the success state
+      await new Promise(r => setTimeout(r, 400));
+      window.location.href = '/';
+    } catch {
+      setError('Failed to save Company ID. Please try again.');
+      setConnecting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gray-50 dark:bg-[#0a0a0b] transition-colors duration-300">
-      
-      {/* Background Decorative Elements */}
+
+      {/* Background blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] opacity-20 dark:opacity-10 pointer-events-none" style={{ background: primaryColor }} />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] opacity-20 dark:opacity-10 pointer-events-none" style={{ background: primaryColor }} />
 
-      {/* Theme Toggle mapped for Login screen since we hid the global one */}
+      {/* Theme toggle */}
       <button
         onClick={toggleDarkMode}
         className="absolute top-6 right-6 p-2.5 rounded-xl bg-white/50 dark:bg-black/50 backdrop-blur-md border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 shadow-sm hover:bg-white dark:hover:bg-white/10 transition-all z-50"
       >
-         {darkMode ? (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            </svg>
-          )}
+        {darkMode ? (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          </svg>
+        )}
       </button>
 
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className="w-full max-w-md p-8 md:p-10 rounded-3xl bg-white/70 dark:bg-[#1a1b1e]/70 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] z-10"
-      >
-        <div className="flex flex-col items-center mb-8">
-          {isBrandingLoading ? (
-            <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-800 animate-pulse mb-4" />
-          ) : whitelabel?.logo_url ? (
-            <img src={whitelabel.logo_url} alt={companyName} className="h-16 object-contain mb-4" />
-          ) : (
-            <img src={defaultLogo} alt="NOLA SMS Pro" className="h-[72px] object-contain mb-4" />
-          )}
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight">
-            Welcome back
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Sign in to your {companyName} account
-          </p>
-        </div>
+      <AnimatePresence mode="wait">
 
-        {error && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }} 
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20"
+        {/* ── Phase 1: Credentials ── */}
+        {phase === 'credentials' && (
+          <motion.div
+            key="credentials"
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: -6 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+            className="w-full max-w-md p-8 md:p-10 rounded-3xl bg-white/70 dark:bg-[#1a1b1e]/70 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] z-10"
           >
-            {error}
+            <div className="flex flex-col items-center mb-8">
+              <img src={defaultLogo} alt="NOLA SMS Pro" className="h-[72px] object-contain mb-4" />
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight">Welcome back</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Sign in to your Agency account</p>
+            </div>
+
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2"
+              >
+                <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                {error}
+              </motion.div>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
+                  style={{ '--tw-ring-color': primaryColor } as any}
+                  placeholder="you@company.com"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5 ml-1 pr-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+                  <a href="#" className="text-xs font-medium hover:underline transition-all" style={{ color: primaryColor }}>Forgot password?</a>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPw ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3.5 pr-11 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
+                    style={{ '--tw-ring-color': primaryColor } as any}
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw(p => !p)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPw ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-4 rounded-xl text-white font-medium shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden group"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <div className="absolute inset-0 w-full h-full bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-0" />
+                <span className="relative z-10 flex items-center">
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Signing in...
+                    </>
+                  ) : 'Sign In'}
+                </span>
+              </button>
+            </form>
+
+            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 text-center space-y-3">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Don't have an account?{' '}
+                <a href="https://app.nolasmspro.com/register" className="font-semibold hover:underline" style={{ color: primaryColor }}>Register now →</a>
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">By signing in, you agree to our Terms of Service and Privacy Policy.</p>
+            </div>
           </motion.div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
-              style={{ paddingRight: '1rem', '--tw-ring-color': primaryColor } as any}
-              placeholder="you@company.com"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1.5 ml-1 pr-1">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Password
-              </label>
-              <a href="#" className="text-xs font-medium hover:underline transition-all" style={{ color: primaryColor }}>
-                Forgot password?
-              </a>
+        {/* ── Phase 2: Connect GHL Company ID ── */}
+        {phase === 'connect_ghl' && (
+          <motion.div
+            key="connect_ghl"
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: -6 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+            className="w-full max-w-md p-8 md:p-10 rounded-3xl bg-white/70 dark:bg-[#1a1b1e]/70 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] z-10"
+          >
+            {/* Header */}
+            <div className="flex flex-col items-center mb-8">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
+                <FiLink className="w-6 h-6 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight text-center">
+                Connect Your GHL Account
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center leading-relaxed">
+                Your account is authenticated but your <strong>GHL Company ID</strong> hasn't been linked yet. Enter it below to continue.
+              </p>
             </div>
-            <div className="relative">
-              <input
-                type={showPw ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3.5 pr-11 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
-                style={{ '--tw-ring-color': primaryColor } as any}
-                placeholder="••••••••"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPw(p => !p)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                tabIndex={-1}
+
+            {/* Info callout */}
+            <div className="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
+              <p className="text-[12.5px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                <strong>Where to find it:</strong> Log into GoHighLevel → <strong>Settings → Business Info</strong>. The Company ID is listed at the bottom of the page. It looks like: <code className="font-mono text-[11px] bg-amber-100 dark:bg-amber-500/10 px-1 py-0.5 rounded">ABC123xyzabc</code>
+              </p>
+            </div>
+
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-5 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2"
               >
-                {showPw ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                {error}
+              </motion.div>
+            )}
+
+            <form onSubmit={handleConnect} className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">GHL Company ID</label>
+                <input
+                  type="text"
+                  required
+                  value={companyId}
+                  onChange={(e) => setCompanyId(e.target.value)}
+                  className="w-full px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 font-mono text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
+                  style={{ '--tw-ring-color': primaryColor } as any}
+                  placeholder="e.g. ABC123xyzabc"
+                  autoFocus
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={connecting}
+                className="w-full py-3.5 px-4 rounded-xl text-white font-medium shadow-md hover:shadow-lg focus:outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden group"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-0" />
+                <span className="relative z-10 flex items-center gap-2">
+                  {connecting ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Connecting...
+                    </>
+                  ) : (
+                    <>Connect & Enter Dashboard <FiArrowRight className="w-4 h-4" /></>
+                  )}
+                </span>
+              </button>
+            </form>
+
+            {/* Back link */}
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => { setPhase('credentials'); setError(null); setCompanyId(''); }}
+                className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors underline underline-offset-2"
+              >
+                ← Back to sign in
               </button>
             </div>
-          </div>
+          </motion.div>
+        )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 px-4 rounded-xl text-white font-medium shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden group"
-            style={{ backgroundColor: primaryColor }}
-          >
-            {/* Hover reflection effect */}
-            <div className="absolute inset-0 w-full h-full bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-0" />
-            
-            <span className="relative z-10 flex items-center">
-              {loading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </span>
-          </button>
-        </form>
-
-        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 text-center space-y-3">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Don't have an account?{' '}
-            <a href="https://app.nolasmspro.com/register" className="font-semibold hover:underline" style={{ color: primaryColor }}>
-              Register now →
-            </a>
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500">
-            By signing in, you agree to our Terms of Service and Privacy Policy.
-          </p>
-        </div>
-      </motion.div>
+      </AnimatePresence>
     </div>
   );
 };

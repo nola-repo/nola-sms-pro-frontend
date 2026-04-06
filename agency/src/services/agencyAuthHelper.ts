@@ -1,9 +1,9 @@
 import { safeStorage } from '../utils/safeStorage';
 /**
  * agencyAuthHelper.ts
- * Thin read-only helper for the agency app to read the auth session
- * that was written by the user app's authService on login.
- * The agency app never writes tokens — the user app does that.
+ * Auth session helper for the Agency panel.
+ * Reads the JWT written on login and provides fallback helpers for
+ * cases where company_id is missing from the token (backend not ready yet).
  */
 
 export const SESSION_KEYS = {
@@ -13,6 +13,13 @@ export const SESSION_KEYS = {
   locationId: 'nola_location_id',
   user:       'nola_auth_user',
 } as const;
+
+/** Saves (or overwrites) the GHL Company ID independently of a full login. */
+export const saveCompanyId = (companyId: string): void => {
+  safeStorage.setItem(SESSION_KEYS.companyId, companyId);
+  // Also mirror into the agency-specific key used by AgencyContext
+  safeStorage.setItem('nola_agency_id', companyId);
+};
 
 export interface AgencyAuthUser {
   firstName: string;
@@ -43,6 +50,13 @@ export const clearAgencySession = (): void => {
   Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
 };
 
+export class MissingCompanyIdError extends Error {
+  constructor() {
+    super('MISSING_COMPANY_ID');
+    this.name = 'MissingCompanyIdError';
+  }
+}
+
 export const login = async (email: string, password: string): Promise<any> => {
   const res = await fetch(`/api/auth/login.php`, {
     method:  'POST',
@@ -51,15 +65,23 @@ export const login = async (email: string, password: string): Promise<any> => {
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error ?? json.message ?? 'Login failed');
-  
+
   if (json.role !== 'agency') {
-    throw new Error('Not an agency account. Please login at app.nolasmspro.com');
+    throw new Error('Not an agency account. Please use the sub-account login instead.');
   }
 
   safeStorage.setItem(SESSION_KEYS.token, json.token);
   safeStorage.setItem(SESSION_KEYS.role, json.role);
-  if (json.company_id) safeStorage.setItem(SESSION_KEYS.companyId, json.company_id);
   if (json.user) safeStorage.setItem(SESSION_KEYS.user, JSON.stringify(json.user));
+
+  if (json.company_id) {
+    safeStorage.setItem(SESSION_KEYS.companyId, json.company_id);
+    safeStorage.setItem('nola_agency_id', json.company_id);
+  } else {
+    // Token valid but company_id not yet linked — surface a specific error
+    // so the login page can offer the manual "Enter GHL Company ID" step.
+    throw new MissingCompanyIdError();
+  }
 
   return json;
 };
