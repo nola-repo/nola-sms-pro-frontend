@@ -197,6 +197,59 @@ Each user document should have these fields:
 | `POST /api/auth/login` | `api/auth/login.php` |
 | `POST /api/agency/ghl_autologin` | `api/agency/ghl_autologin.php` |
 | `POST /api/agency/link_company` | `api/agency/link_company.php` |
+| `GET /api/agency/get_subaccounts` | `api/agency/get_subaccounts.php` |
+| `POST /api/agency/update_subaccount` | `api/agency/update_subaccount.php` |
+
+---
+
+## Agency Subaccounts API (New)
+
+The Agency Panel Subaccounts page fetches its data directly from the `ghl_tokens` collection (since that is where GHL OAuth places the marketplace token installations).
+
+### 5. `GET /api/agency/get_subaccounts`
+Fetches all locations where `companyId == <Agency-ID>`.
+
+**Headers:**
+```
+X-Agency-ID: GHL_COMPANY_123
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "subaccounts": [
+    {
+      "location_id": "MJoecBYPutNZwRw7N7Ud",
+      "location_name": "NOLA EventPro CRM",
+      "toggle_enabled": true,
+      "rate_limit": 5,
+      "attempt_count": 0,
+      "toggle_activation_count": 1
+    }
+  ]
+}
+```
+
+### 6. `POST /api/agency/update_subaccount`
+Updates the subaccount's SMS settings. Enforces exactly a max of 3 toggle activations to prevent abuse.
+
+**Headers:** `X-Agency-ID: GHL_COMPANY_123`
+**Payload:**
+```json
+{
+  "location_id": "MJoecBYPutNZwRw7N7Ud",
+  "toggle_enabled": true,
+  "rate_limit": 10,
+  "reset_counter": false
+}
+```
+
+**Behavior:**
+1. Looks up `ghl_tokens` where `document_id == location_id`.
+2. Validates that the doc's `companyId == X-Agency-ID`.
+3. If `reset_counter` is `true`, sets `attempt_count` back to `0`.
+4. If `toggle_enabled` is moving from `false` to `true`, bumps `toggle_activation_count`. Errors with status 403 if limit of 3 is reached.
 
 ---
 

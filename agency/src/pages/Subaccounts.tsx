@@ -369,7 +369,7 @@ export const Subaccounts = () => {
           <FiUsers className="w-8 h-8 mx-auto mb-3 opacity-30" />
           <div className="text-[15px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">No subaccounts found for your agency.</div>
           <div className="text-[13px] text-[#9ca3af] mt-1">
-            Subaccounts will appear here once they are registered in the <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">agency_subaccounts</code> Firestore collection.
+            Subaccounts will appear here once they are registered in the <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">ghl_tokens</code> Firestore collection.
           </div>
         </div>
       ) : (
