@@ -123,6 +123,10 @@ const Register: React.FC<RegisterProps> = ({ darkMode, toggleDarkMode }) => {
   const [loading, setLoading]   = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
+  // Check if we came from agency or user
+  const query = new URLSearchParams(window.location.search);
+  const originAgency = query.get('from') === 'agency';
+
   const strength = getStrength(form.password);
 
   const goTo = (next: Step, forward = true) => {
@@ -568,7 +572,16 @@ const Register: React.FC<RegisterProps> = ({ darkMode, toggleDarkMode }) => {
           {step !== 4 && (
             <p className="text-center text-[12px] text-[#9aa0a6] mt-8">
               Already have an account?{' '}
-              <button onClick={() => navigate('/login')} className="text-[#2b83fa] font-semibold hover:underline">
+              <button 
+                onClick={() => {
+                  if (originAgency) {
+                    window.location.href = 'https://agency.nolasmspro.com/login';
+                  } else {
+                    navigate('/login');
+                  }
+                }} 
+                className="text-[#2b83fa] font-semibold hover:underline"
+              >
                 Sign in
               </button>
             </p>
