@@ -97,6 +97,33 @@ export const register = async (payload: RegisterPayload): Promise<{ status: stri
   return json;
 };
 
+export const linkCompany = async (companyId: string): Promise<void> => {
+  const token = safeStorage.getItem(SESSION_KEYS.token);
+  if (!token) throw new Error('Not authenticated');
+
+  const res = await fetch('/api/agency/link_company.php', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ company_id: companyId }),
+  });
+  
+  if (!res.ok) {
+    let errorMsg = 'Failed to link Company ID';
+    try {
+      const data = await res.json();
+      if (data.error) errorMsg = data.error;
+    } catch (e) {}
+    throw new Error(errorMsg);
+  }
+
+  // If successful, save it locally too
+  safeStorage.setItem(SESSION_KEYS.companyId, companyId);
+  safeStorage.setItem('nola_agency_id', companyId);
+};
+
 export const logout = (): void => {
   clearSession();
 };

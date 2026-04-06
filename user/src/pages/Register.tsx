@@ -6,7 +6,7 @@ import {
   FiCheck, FiEye, FiEyeOff, FiMail, FiPhone,
   FiLock, FiAlertCircle,
 } from 'react-icons/fi';
-import { register, type RegisterPayload } from '../services/authService';
+import { register, login, linkCompany, type RegisterPayload } from '../services/authService';
 import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -122,6 +122,10 @@ const Register: React.FC<RegisterProps> = ({ darkMode, toggleDarkMode }) => {
   const [loading, setLoading]   = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
+  // GHL Connect state
+  const [companyId, setCompanyId] = useState('');
+  const [connecting, setConnecting] = useState(false);
+
   // Check if we came from agency or user
   const query = new URLSearchParams(window.location.search);
   const originAgency = query.get('from') === 'agency';
@@ -169,6 +173,9 @@ const Register: React.FC<RegisterProps> = ({ darkMode, toggleDarkMode }) => {
         role,
       };
       await register(payload);
+      // Automatically log the user in to get the token for Step 3
+      await login(payload.email, payload.password);
+      
       // For agency → go to GHL connect step (step 3), for user → go to success (step 4)
       if (role === 'agency') {
         goTo(3);
@@ -179,6 +186,26 @@ const Register: React.FC<RegisterProps> = ({ darkMode, toggleDarkMode }) => {
       setApiError(err.message ?? 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = companyId.trim();
+    if (!trimmed) {
+      setApiError('Please enter your GHL Company ID.');
+      return;
+    }
+    setConnecting(true);
+    setApiError(null);
+    try {
+      await linkCompany(trimmed);
+      await new Promise(r => setTimeout(r, 400));
+      goTo(4);
+    } catch (err: any) {
+      setApiError(err.message || 'Failed to save Company ID. Please try again.');
+    } finally {
+      setConnecting(false);
     }
   };
 
@@ -453,38 +480,79 @@ const Register: React.FC<RegisterProps> = ({ darkMode, toggleDarkMode }) => {
                       Connect GoHighLevel
                     </h1>
                     <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1 leading-relaxed">
-                      Link your GHL Company account so NOLA SMS Pro can access your sub-accounts. This step is optional — you can do it later from your dashboard.
+                      One last step — authorize NOLA SMS Pro to access your <strong>GoHighLevel agency</strong> to complete setup.
                     </p>
                   </div>
 
-                  {/* GHL Connect placeholder box */}
-                  <div className="p-6 rounded-2xl border-2 border-dashed border-[#e5e7eb] dark:border-[#2a2b32] flex flex-col items-center gap-4 text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#22c55e]/20 to-[#16a34a]/10 flex items-center justify-center">
-                      <svg viewBox="0 0 40 40" className="w-8 h-8" fill="none">
-                        <rect width="40" height="40" rx="10" fill="#16a34a"/>
-                        <text x="50%" y="58%" dominantBaseline="middle" textAnchor="middle" fontSize="18" fontWeight="bold" fill="white">G</text>
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-[14px] font-bold text-[#111111] dark:text-white">GoHighLevel OAuth</p>
-                      <p className="text-[12px] text-[#9aa0a6] mt-0.5">
-                        OAuth integration is being set up. You'll be able to connect your GHL account from the Agency dashboard once it's ready.
-                      </p>
-                    </div>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11.5px] font-semibold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      Coming Soon
-                    </div>
+                  {apiError && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 text-red-600 dark:text-red-400 text-[12.5px] font-medium"
+                    >
+                      <FiAlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" /> {apiError}
+                    </motion.div>
+                  )}
+
+                  <a
+                    href={`https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=${encodeURIComponent(import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolasmspro.com/oauth/callback')}&client_id=${import.meta.env.VITE_GHL_CLIENT_ID ?? ''}&version_id=${(import.meta.env.VITE_GHL_CLIENT_ID ?? '').split('-')[0]}&scope=companies.readonly`}
+                    className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-2xl font-bold text-white text-[15px] shadow-lg hover:shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99] relative overflow-hidden group"
+                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #6366f1 100%)', backgroundSize: '200% 200%' }}
+                  >
+                    <svg className="w-5 h-5 relative z-10" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+                    </svg>
+                    <span className="relative z-10">Connect with GoHighLevel</span>
+                    <FiArrowRight className="w-4 h-4 ml-auto relative z-10" />
+                  </a>
+
+                  <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-2">
+                    You'll be redirected to GoHighLevel to authorize.
+                  </p>
+
+                  <div className="flex items-center gap-3 my-4">
+                    <div className="flex-1 h-px bg-gray-200 dark:bg-white/10" />
+                    <span className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500 font-bold">or enter manually</span>
+                    <div className="flex-1 h-px bg-gray-200 dark:bg-white/10" />
                   </div>
 
-                  <div className="flex gap-3">
+                  <form onSubmit={handleConnect} className="space-y-4">
+                    <Field label="GHL Company ID" icon={<FiBriefcase className="w-4 h-4" />}>
+                      <input
+                        type="text"
+                        value={companyId}
+                        onChange={(e) => setCompanyId(e.target.value)}
+                        className={inputCls}
+                        placeholder="e.g. ABC123xyzabc"
+                      />
+                    </Field>
+                    
+                    <button
+                      type="submit"
+                      disabled={connecting || !companyId.trim()}
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed btn-new-message"
+                    >
+                      {connecting ? (
+                        <>
+                          <svg className="animate-spin w-4 h-4 text-white" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          Saving…
+                        </>
+                      ) : (
+                        <>{'Save & Continue'} <FiArrowRight /></>
+                      )}
+                    </button>
+                  </form>
+
+                  <div className="pt-2 text-center">
                     <button
                       onClick={() => goTo(4)}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all btn-new-message"
+                      className="text-[13px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"
                     >
-                      Skip for now <FiArrowRight />
+                      Skip for now
                     </button>
-
                   </div>
                 </div>
               )}

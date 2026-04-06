@@ -4,7 +4,7 @@ import { FiGrid, FiToggleLeft, FiLogOut, FiZap, FiSun, FiMoon, FiUser } from 're
 import { useAgency } from '../../context/AgencyContext.tsx';
 
 export const AgencyLayout = ({ children, title, subtitle }) => {
-  const { agencyId, agencySession, logout, darkMode, toggleDarkMode } = useAgency();
+  const { agencyId, agencySession, logout, darkMode, toggleDarkMode, isGhlFrame } = useAgency();
   const location = useLocation();
 
   const userName = agencySession?.user
@@ -73,12 +73,21 @@ export const AgencyLayout = ({ children, title, subtitle }) => {
               Agency ID: <span className="font-mono text-[#111111] dark:text-[#ececf1] font-semibold">{agencyId.slice(0, 12)}…</span>
             </div>
           )}
-          <button
-            onClick={logout}
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-bold text-[#6e6e73] dark:text-[#94959b] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-          >
-            <FiLogOut className="w-4 h-4" /> Sign Out
-          </button>
+          {isGhlFrame ? (
+            <div className="px-2 py-1.5 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                GoHighLevel Connected
+              </span>
+            </div>
+          ) : (
+            <button
+              onClick={logout}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-bold text-[#6e6e73] dark:text-[#94959b] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+            >
+              <FiLogOut className="w-4 h-4" /> Sign Out
+            </button>
+          )}
         </div>
       </div>
 

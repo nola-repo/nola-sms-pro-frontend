@@ -62,6 +62,37 @@ export const exchangeOAuthCode = async (code: string): Promise<string> => {
   return data.company_id as string;
 };
 
+/**
+ * ghlAutoLogin
+ * Called when the Agency app is running inside a GHL iframe.
+ * Exchanges a GHL company_id for a NOLA JWT without requiring a password.
+ * The backend looks up the agency account linked to this company_id
+ * and issues a signed JWT.
+ */
+export const ghlAutoLogin = async (companyId: string): Promise<AgencySession> => {
+  const res = await fetch('/api/agency/ghl_autologin', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ company_id: companyId }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.token) {
+    throw new Error(data.error ?? 'GHL auto-login failed. Ensure your agency is linked to this GHL account.');
+  }
+  // Persist session (same keys as normal login)
+  safeStorage.setItem(SESSION_KEYS.token,     data.token);
+  safeStorage.setItem(SESSION_KEYS.role,      'agency');
+  if (data.user)       safeStorage.setItem(SESSION_KEYS.user,      JSON.stringify(data.user));
+  if (data.company_id) saveCompanyId(data.company_id);
+
+  return {
+    token:     data.token,
+    role:      'agency',
+    companyId: data.company_id ?? companyId,
+    user:      data.user ?? null,
+  };
+};
+
 export interface AgencyAuthUser {
   firstName: string;
   lastName:  string;

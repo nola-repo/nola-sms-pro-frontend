@@ -8,7 +8,7 @@ const BASE = '/api/agency';
 
 const defaultHeaders = (agencyId, extra = {}) => ({
   'Content-Type': 'application/json',
-  'X-GHL-Company-ID': agencyId || '',
+  'X-Agency-ID': agencyId || '',
   'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
   ...extra,
 });
