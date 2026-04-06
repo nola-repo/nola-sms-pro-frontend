@@ -14,11 +14,36 @@ export const SESSION_KEYS = {
   user:       'nola_auth_user',
 } as const;
 
-/** Saves (or overwrites) the GHL Company ID independently of a full login. */
 export const saveCompanyId = (companyId: string): void => {
   safeStorage.setItem(SESSION_KEYS.companyId, companyId);
   // Also mirror into the agency-specific key used by AgencyContext
   safeStorage.setItem('nola_agency_id', companyId);
+};
+
+export const linkCompany = async (companyId: string): Promise<void> => {
+  const token = safeStorage.getItem(SESSION_KEYS.token);
+  if (!token) throw new Error('Not authenticated');
+
+  const res = await fetch('/api/agency/link_company.php', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ company_id: companyId }),
+  });
+  
+  if (!res.ok) {
+    let errorMsg = 'Failed to link Company ID';
+    try {
+      const data = await res.json();
+      if (data.error) errorMsg = data.error;
+    } catch (e) {}
+    throw new Error(errorMsg);
+  }
+
+  // If successful, save it locally too
+  saveCompanyId(companyId);
 };
 
 export interface AgencyAuthUser {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { FiEye, FiEyeOff, FiAlertTriangle, FiLink, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
-import { login as authLogin, saveCompanyId, MissingCompanyIdError } from '../services/agencyAuthHelper';
+import { login as authLogin, saveCompanyId, linkCompany, MissingCompanyIdError } from '../services/agencyAuthHelper';
 import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
 import { useAgency } from '../context/AgencyContext.tsx';
 
@@ -62,12 +62,12 @@ const AgencyLogin: React.FC = () => {
     setConnecting(true);
     setError(null);
     try {
-      saveCompanyId(trimmed);
+      await linkCompany(trimmed);
       // Small delay so user sees the success state
       await new Promise(r => setTimeout(r, 400));
       window.location.href = '/';
-    } catch {
-      setError('Failed to save Company ID. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to save Company ID. Please try again.');
       setConnecting(false);
     }
   };
