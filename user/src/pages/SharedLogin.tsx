@@ -180,11 +180,10 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 px-4 rounded-xl text-white font-medium shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden group"
-            style={{ backgroundColor: primaryColor }}
+            className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden group btn-new-message"
           >
             {/* Hover reflection effect */}
-            <div className="absolute inset-0 w-full h-full bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-0" />
+            <div className="absolute inset-0 w-full h-full bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-0" />
             
             <span className="relative z-10 flex items-center">
               {loading ? (
@@ -205,7 +204,7 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
         <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 text-center space-y-3">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Don't have an account?{' '}
-            <a href="/register" className="font-semibold hover:underline" style={{ color: primaryColor }}>
+            <a href="/register" className="font-semibold hover:underline text-[#2b83fa]">
               Register now →
             </a>
           </p>

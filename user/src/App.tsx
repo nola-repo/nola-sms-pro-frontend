@@ -62,7 +62,7 @@ const AppLayout: React.FC = () => {
 
       <Routes>
         <Route path="/login"            element={<SharedLogin darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-        <Route path="/register"         element={<Register />} />
+        <Route path="/register"         element={<Register darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
         <Route path="/oauth/callback"   element={<GhlCallback />} />
         {/* Protected routes — requires a valid auth token */}
         <Route element={<ProtectedRoute />}>
