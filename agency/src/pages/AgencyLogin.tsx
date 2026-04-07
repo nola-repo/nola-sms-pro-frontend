@@ -14,7 +14,7 @@ interface AgencyLoginProps {
 type LoginPhase = 'credentials' | 'connect_ghl';
 
 const AgencyLogin: React.FC = () => {
-  const { darkMode, toggleDarkMode } = useAgency();
+  const { darkMode, toggleDarkMode, isGhlFrame, autoLoginStatus, autoLoginError } = useAgency();
   const [phase, setPhase]           = useState<LoginPhase>('credentials');
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
@@ -28,6 +28,57 @@ const AgencyLogin: React.FC = () => {
 
   const navigate = useNavigate();
   const primaryColor = '#3b82f6';
+
+  // ── GHL iframe: never show login form inside GHL ─────────────────────────
+  // Auto-login is handled by useGhlCompany hook. Just show status here.
+  if (isGhlFrame) {
+    // Success → redirect immediately
+    if (autoLoginStatus === 'success') {
+      navigate('/', { replace: true });
+      return null;
+    }
+
+    // Error → show a friendly error card (no login form)
+    if (autoLoginStatus === 'error') {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0a0a0b] px-4">
+          <div className="w-full max-w-sm p-8 rounded-3xl bg-white dark:bg-[#1a1b1e] border border-gray-200 dark:border-white/10 shadow-xl text-center space-y-4">
+            <img src={defaultLogo} alt="NOLA SMS Pro" className="h-12 object-contain mx-auto" />
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto">
+              <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 4a8 8 0 100 16 8 8 0 000-16z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[16px] font-bold text-gray-900 dark:text-white">GHL Connection Failed</p>
+              <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
+                {autoLoginError ?? 'Could not authenticate your agency account.'}
+              </p>
+            </div>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500">
+              Make sure your agency is registered at{' '}
+              <a href="https://app.nolasmspro.com/register" target="_blank" rel="noreferrer" className="text-[#2b83fa] hover:underline">
+                app.nolasmspro.com/register
+              </a>
+              {' '}and your GHL account is connected.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // idle or loading → show connecting spinner
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-[#0a0a0b] gap-5">
+        <div className="w-14 h-14 rounded-full border-4 border-[#2b83fa]/20 border-t-[#2b83fa] animate-spin" />
+        <div className="text-center">
+          <img src={defaultLogo} alt="NOLA SMS Pro" className="h-10 object-contain mx-auto mb-4" />
+          <p className="text-[15px] font-bold text-gray-900 dark:text-white">Connecting to GoHighLevel…</p>
+          <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1">Logging you in automatically</p>
+        </div>
+      </div>
+    );
+  }
 
   // ── Phase 1: login ──────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
