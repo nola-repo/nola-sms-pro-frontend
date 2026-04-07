@@ -46,12 +46,6 @@ export const Dashboard = () => {
           <h1 className="text-2xl font-bold text-[#111111] dark:text-white tracking-tight">Dashboard</h1>
           <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">Real-time overview of your subaccounts and SMS activity.</p>
         </div>
-        <button 
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[14px] font-bold rounded-xl shadow-md shadow-blue-500/20 hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] hover:-translate-y-[2px] active:scale-95 transition-all"
-          onClick={() => navigate('/subaccounts')}
-        >
-          Manage Subaccounts <FiArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-        </button>
       </div>
 
       {!agencyId && (
@@ -153,11 +147,11 @@ export const Dashboard = () => {
                 {subaccounts
                   .filter(s => s.attempt_count >= s.rate_limit)
                   .map((s, i) => (
-                    <tr key={s.subaccount_id} className="border-b border-[#00000005] dark:border-[#ffffff05] hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                    <tr key={s.location_id || i} className="border-b border-[#00000005] dark:border-[#ffffff05] hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
                       <td className="px-6 py-4 align-middle">
                         <div className="flex flex-col">
-                          <span className="text-[13.5px] font-semibold text-[#111111] dark:text-[#ececf1]">{s.subaccount_name || 'Unnamed'}</span>
-                          <span className="text-[11px] font-mono text-[#6e6e73] dark:text-[#94959b] mt-0.5">{s.subaccount_id}</span>
+                          <span className="text-[13.5px] font-semibold text-[#111111] dark:text-[#ececf1]">{s.location_name || s.company_name || 'Unnamed'}</span>
+                          <span className="text-[11px] font-mono text-[#6e6e73] dark:text-[#94959b] mt-0.5">{s.location_id}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 align-middle text-[13.5px] font-bold text-red-500">{s.attempt_count}</td>
@@ -193,11 +187,11 @@ export const Dashboard = () => {
                   const isNearLimit = s.attempt_count >= s.rate_limit * 0.8;
                   
                   return (
-                    <tr key={s.subaccount_id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                    <tr key={s.location_id || i} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
                       <td className="px-6 py-4 align-middle">
                         <div className="flex flex-col">
-                          <span className="text-[13.5px] font-semibold text-[#111111] dark:text-[#ececf1]">{s.subaccount_name || 'Unnamed'}</span>
-                          <span className="text-[11px] font-mono text-[#6e6e73] dark:text-[#94959b] mt-0.5">{s.subaccount_id}</span>
+                          <span className="text-[13.5px] font-semibold text-[#111111] dark:text-[#ececf1]">{s.location_name || s.company_name || 'Unnamed'}</span>
+                          <span className="text-[11px] font-mono text-[#6e6e73] dark:text-[#94959b] mt-0.5">{s.location_id}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 align-middle">

@@ -4,7 +4,7 @@ import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 
 export const Settings = () => {
-  const { agencyId, agencySession, isGhlFrame } = useAgency();
+  const { agencyId, agencySession, isGhlFrame, logout } = useAgency();
   const [copiedId, setCopiedId] = useState(false);
 
   const handleCopyId = () => {
@@ -99,14 +99,28 @@ export const Settings = () => {
             </div>
 
             <div className="pt-4">
-              <div className="flex items-start gap-3 p-4 bg-[#f0f2f8] dark:bg-white/5 rounded-xl border border-[rgba(0,0,0,0.05)] dark:border-white/5">
-                <FiInfo className="w-5 h-5 text-[#2b83fa] shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-[13px] font-bold text-[#111111] dark:text-white">Environment Status</h4>
-                  <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1 leading-relaxed">
-                    You are currently logged in via <strong>{isGhlFrame ? 'the GoHighLevel iframe auto-login' : 'the standalone NOLA SMS Pro portal'}</strong>.
-                  </p>
+              <div className="flex items-start justify-between gap-4 p-4 bg-[#f0f2f8] dark:bg-white/5 rounded-xl border border-[rgba(0,0,0,0.05)] dark:border-white/5 flex-wrap">
+                <div className="flex items-start gap-3">
+                  <FiInfo className="w-5 h-5 text-[#2b83fa] shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-[13px] font-bold text-[#111111] dark:text-white">Environment Status</h4>
+                    <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1 leading-relaxed">
+                      You are currently logged in via <strong>{isGhlFrame ? 'the GoHighLevel iframe auto-login' : 'the standalone NOLA SMS Pro portal'}</strong>.
+                    </p>
+                  </div>
                 </div>
+                {!isGhlFrame && (
+                  <button
+                    onClick={() => logout()}
+                    className={`shrink-0 px-4 py-2 rounded-lg text-[13px] font-bold transition-all shadow-sm ${
+                      agencyId 
+                      ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-500 hover:text-white dark:bg-red-500/10 dark:border-red-500/20' 
+                      : 'bg-[#2b83fa] text-white hover:bg-[#1d6bd4]'
+                    }`}
+                  >
+                    {agencyId ? 'Disconnect' : 'Connect GHL'}
+                  </button>
+                )}
               </div>
             </div>
           </div>

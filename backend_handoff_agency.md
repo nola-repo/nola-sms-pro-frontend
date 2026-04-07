@@ -10,9 +10,10 @@ The agency portal operates via two custom headers passed on every fetch request:
 ## 2. Database Schema (Firestore)
 A new collection `agency_subaccounts` must be utilized.
 **Document Structure:**
-- `subaccount_id` (string)
-- `subaccount_name` (string)
+- `location_id` (string)
+- `location_name` (string)
 - `agency_id` (string)
+- `agency_name` (string) - New requirement from frontend to be displayed in the Subaccounts table.
 - `toggle_enabled` (boolean)
 - `rate_limit` (number)
 - `attempt_count` (number)
@@ -21,22 +22,23 @@ A new collection `agency_subaccounts` must be utilized.
 
 ### `GET /api/agency/get_subaccounts.php`
 - **Behavior**: Return all subaccounts where `agency_id == {X-Agency-ID}`.
-- **Success Return**: `{"status": "success", "subaccounts": [{"subaccount_id": "...", ...}]}`
+- **Data enhancement**: Ensure the returned object for each subaccount includes the string `agency_name` (or `company_name`) representing the parent agency name.
+- **Success Return**: `{"status": "success", "subaccounts": [{"location_id": "...", "agency_name": "My Agency", ...}]}`
 
 ### `PATCH /api/agency/toggle_subaccount.php`
-- **Payload**: `{"subaccount_id": "LOC_ID", "enabled": true/false}`
+- **Payload**: `{"location_id": "LOC_ID", "enabled": true/false}`
 - **Behavior**: Validate `X-Agency-ID` owns `LOC_ID`. Update `toggle_enabled`.
-- **Success Return**: `{"status": "success", "subaccount_id": "LOC_ID", "toggle_enabled": true}`
+- **Success Return**: `{"status": "success", "location_id": "LOC_ID", "toggle_enabled": true}`
 
 ### `PATCH /api/agency/set_rate_limit.php`
-- **Payload**: `{"subaccount_id": "LOC_ID", "rate_limit": 500}`
+- **Payload**: `{"location_id": "LOC_ID", "rate_limit": 500}`
 - **Behavior**: Validate `X-Agency-ID` owns `LOC_ID`. Update `rate_limit`.
-- **Success Return**: `{"status": "success", "subaccount_id": "LOC_ID", "rate_limit": 500}`
+- **Success Return**: `{"status": "success", "location_id": "LOC_ID", "rate_limit": 500}`
 
 ### `POST /api/agency/reset_attempt_count.php`
-- **Payload**: `{"subaccount_id": "LOC_ID"}`
+- **Payload**: `{"location_id": "LOC_ID"}`
 - **Behavior**: Validate `X-Agency-ID` owns `LOC_ID`. Set `attempt_count` = 0.
-- **Success Return**: `{"status": "success", "subaccount_id": "LOC_ID", "attempt_count": 0}`
+- **Success Return**: `{"status": "success", "location_id": "LOC_ID", "attempt_count": 0}`
 
 ### `GET /api/agency/get_all_active.php`
 - **Behavior**: *Does not require `X-Agency-ID`*. Requires `X-Webhook-Secret`.

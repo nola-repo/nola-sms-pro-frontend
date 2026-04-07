@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-  FiRefreshCw, FiAlertTriangle, FiToggleLeft, FiUsers, FiX, FiRotateCcw
+  FiRefreshCw, FiAlertTriangle, FiToggleLeft, FiUsers, FiX, FiRotateCcw, FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
 import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { ToastContainer } from '../components/ui/ToastContainer.tsx';
@@ -25,7 +25,7 @@ const ToggleSwitch = ({ id, checked, onChange, disabled }) => (
       disabled={disabled}
       aria-label={`Toggle SMS for subaccount ${id}`}
     />
-    <div className="w-11 h-6 bg-[#f0f2f8] dark:bg-[#1c1e21] rounded-full border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#2b83fa]/50 transition-colors peer-checked:bg-[#2b83fa] peer-checked:border-[#2b83fa] after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-[#9ca3af] dark:after:bg-[#5a6070] after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white peer-checked:after:bg-white shadow-sm"></div>
+    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#2b83fa]/50 dark:bg-[#1c1e21] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2b83fa] shadow-sm border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)]" />
   </label>
 );
 
@@ -48,18 +48,21 @@ const RateLimitInput = ({ locationId, value, onSave, disabled }) => {
   };
 
   return (
-    <input
-      id={`rate-${locationId}`}
-      type="number"
-      className="w-[72px] px-2.5 py-1.5 rounded-lg border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] bg-[#f0f2f8] dark:bg-[#1c1e21] text-[#111827] dark:text-[#f1f2f4] text-[13px] font-medium text-center focus:outline-none focus:border-[#2b83fa] focus:ring-2 focus:ring-[#2b83fa]/20 transition-all"
-      value={local}
-      min={1}
-      max={9999}
-      onChange={e => setLocal(e.target.value)}
-      onBlur={handleBlur}
-      disabled={disabled || saving}
-      title="Auto-saves on blur"
-    />
+    <div className="relative inline-flex items-center">
+      <input
+        id={`rate-${locationId}`}
+        type="number"
+        className="w-[100px] pl-3 pr-9 py-1.5 rounded-lg border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] bg-[#f0f2f8] dark:bg-[#1c1e21] text-[#111827] dark:text-[#f1f2f4] text-[13px] font-medium focus:outline-none focus:border-[#2b83fa] focus:ring-2 focus:ring-[#2b83fa]/20 transition-all text-center"
+        value={local}
+        min={1}
+        max={9999}
+        onChange={e => setLocal(e.target.value)}
+        onBlur={handleBlur}
+        disabled={disabled || saving}
+        title="Auto-saves on blur"
+      />
+      <span className="absolute right-3 text-[11px] font-semibold text-[#9ca3af] pointer-events-none">/mo</span>
+    </div>
   );
 };
 
@@ -125,10 +128,11 @@ const SkeletonRows = ({ count = 5 }) => (
             <div className="skeleton h-2.5 w-24 rounded-md" />
           </div>
         </td>
-        <td className="px-6 py-4"><div className="skeleton h-6 w-11 rounded-full" /></td>
-        <td className="px-6 py-4"><div className="skeleton h-[30px] w-[72px] rounded-lg" /></td>
+        <td className="px-6 py-4"><div className="skeleton h-4 w-28 rounded-md" /></td>
+        <td className="px-6 py-4"><div className="skeleton h-[30px] w-24 rounded-lg" /></td>
         <td className="px-6 py-4"><div className="skeleton h-6 w-16 rounded-full" /></td>
         <td className="px-6 py-4"><div className="skeleton h-[30px] w-20 rounded-lg" /></td>
+        <td className="px-6 py-4 flex justify-end"><div className="skeleton h-6 w-11 rounded-full" /></td>
       </tr>
     ))}
   </>
@@ -148,6 +152,7 @@ export const Subaccounts = () => {
   const [resetLoading, setResetLoading] = useState(false);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [lastPolled, setLastPolled]     = useState(null);
+  const [currentPage, setCurrentPage]   = useState(1);
 
   const pollRef = useRef(null);
 
@@ -276,6 +281,16 @@ export const Subaccounts = () => {
   const active  = subaccounts.filter(s => s.toggle_enabled).length;
   const atLimit = subaccounts.filter(s => s.attempt_count >= s.rate_limit).length;
 
+  const ITEMS_PER_PAGE = 10;
+  const totalPages = Math.ceil(subaccounts.length / ITEMS_PER_PAGE);
+  const paginatedSubaccounts = subaccounts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [subaccounts.length, currentPage, totalPages]);
+
   return (
     <AgencyLayout
       title="Subaccounts"
@@ -384,17 +399,18 @@ export const Subaccounts = () => {
             <thead>
               <tr className="border-b border-[#0000000a] dark:border-[#ffffff0a]">
                 <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Subaccount</th>
-                <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">SMS Active</th>
+                <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Agency Name</th>
                 <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Rate Limit</th>
                 <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Sends Used</th>
                 <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Actions</th>
+                <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap text-right">SMS Active</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[rgba(0,0,0,0.05)] dark:divide-[rgba(255,255,255,0.05)]">
               {loading ? (
                 <SkeletonRows count={5} />
               ) : (
-                subaccounts.map(sub => {
+                paginatedSubaccounts.map(sub => {
                   const isAtLimit   = sub.attempt_count >= sub.rate_limit;
                   const isNearLimit = !isAtLimit && sub.attempt_count >= sub.rate_limit * 0.8;
                   const isBusy      = !!toggleLoading[sub.location_id];
@@ -411,22 +427,11 @@ export const Subaccounts = () => {
                         </div>
                       </td>
 
-                      {/* Toggle */}
+                      {/* Agency Name */}
                       <td className="px-6 py-4 align-middle">
-                        <div className="flex items-center gap-2.5">
-                          <ToggleSwitch
-                            id={sub.location_id}
-                            checked={!!sub.toggle_enabled}
-                            onChange={enabled => handleToggle(sub.location_id, enabled)}
-                            disabled={isBusy}
-                          />
-                          <span className={`text-[11.5px] font-bold ${sub.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>
-                            {sub.toggle_enabled ? 'ON' : 'OFF'}
-                          </span>
-                        </div>
-                        <div className="text-[10.5px] font-medium text-[#9aa0a6] mt-1.5 ml-1">
-                          {sub.toggle_activation_count ?? 0}/3 activations
-                        </div>
+                        <span className="text-[13px] font-medium text-[#6b7280] dark:text-[#9ca3af]">
+                          {sub.agency_name || sub.company_name || <em className="text-[#9ca3af] opacity-50">Unknown Agency</em>}
+                        </span>
                       </td>
 
                       {/* Rate Limit */}
@@ -446,7 +451,7 @@ export const Subaccounts = () => {
                         </span>
                       </td>
 
-                      {/* Reset Button — only shown when at limit */}
+                      {/* Actions */}
                       <td className="px-6 py-4 align-middle">
                         {isAtLimit ? (
                           <button
@@ -464,6 +469,26 @@ export const Subaccounts = () => {
                           </span>
                         )}
                       </td>
+
+                      {/* SMS Active Toggle (Rightmost) */}
+                      <td className="px-6 py-4 align-middle">
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`text-[11.5px] font-bold ${sub.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>
+                              {sub.toggle_enabled ? 'ON' : 'OFF'}
+                            </span>
+                            <ToggleSwitch
+                              id={sub.location_id}
+                              checked={!!sub.toggle_enabled}
+                              onChange={enabled => handleToggle(sub.location_id, enabled)}
+                              disabled={isBusy}
+                            />
+                          </div>
+                          <div className="text-[10.5px] font-medium text-[#9ca3af]">
+                            {sub.toggle_activation_count ?? 0}/3 activations
+                          </div>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
@@ -474,11 +499,34 @@ export const Subaccounts = () => {
 
         {/* Table footer */}
         {!loading && total > 0 && (
-          <div className="px-6 py-3 border-t border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] flex items-center justify-between text-[12px] text-[#6b7280] dark:text-[#9aa0a9] font-medium bg-black/[0.01] dark:bg-white/[0.01]">
-            <span>{total} subaccount{total !== 1 ? 's' : ''}</span>
-            <span>
-              Polling every {POLL_MS / 1000}s
-            </span>
+          <div className="px-6 py-3 border-t border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] flex items-center justify-between text-[12px] bg-black/[0.01] dark:bg-white/[0.01]">
+            <div className="text-[#6b7280] dark:text-[#9aa0a9] font-medium">
+              Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, total)} of {total} subaccounts
+            </div>
+            
+            <div className="flex items-center gap-3">
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1 rounded bg-white dark:bg-[#1a1c1e] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] text-[#6b7280] dark:text-[#9ca3af] disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <FiChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-[12px] font-medium text-[#111111] dark:text-[#ececf1] px-1">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1 rounded bg-white dark:bg-[#1a1c1e] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] text-[#6b7280] dark:text-[#9ca3af] disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                  >
+                    <FiChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
