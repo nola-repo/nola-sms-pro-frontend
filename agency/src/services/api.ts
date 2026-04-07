@@ -64,3 +64,16 @@ export const getAllActiveSubaccounts = async () => {
   });
   return handleResponse(res); // { status, active_subaccounts: [] }
 };
+
+// ── GET which locations have the NOLA SMS Pro user app installed ───────────────
+// Returns string[] of locationIds with a valid ghl_token in the backend.
+// Used to gate the enable/disable toggle per sub-account.
+export const checkInstallStatus = async (agencyId: string): Promise<string[]> => {
+  const res = await fetch(`${BASE}/check_installs.php?company_id=${encodeURIComponent(agencyId)}`, {
+    method: 'GET',
+    headers: defaultHeaders(agencyId),
+  });
+  const data = await handleResponse(res); // { installed_locations: string[] }
+  return data.installed_locations ?? [];
+};
+

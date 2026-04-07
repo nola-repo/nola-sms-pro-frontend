@@ -9,6 +9,7 @@ import { useToast } from '../hooks/useToast.ts';
 import {
   getSubaccounts,
   updateSubaccountSettings,
+  checkInstallStatus,
 } from '../services/api.ts';
 
 const POLL_MS = 10000;
@@ -169,6 +170,7 @@ export const Subaccounts = () => {
   const [refreshing, setRefreshing]     = useState(false);
   const [error, setError]               = useState(null);
   const [toggleLoading, setToggleLoading] = useState({}); // { [id]: bool }
+  const [installedLocations, setInstalledLocations] = useState(new Set());
   const [resetModal, setResetModal]     = useState(null); // subaccount obj | null
   const [resetLoading, setResetLoading] = useState(false);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
@@ -186,8 +188,12 @@ export const Subaccounts = () => {
     if (!silent) setRefreshing(true);
 
     try {
-      const data = await getSubaccounts(agencyId);
+      const [data, installs] = await Promise.all([
+        getSubaccounts(agencyId),
+        checkInstallStatus(agencyId).catch(() => []) // fail gracefully if endpoint doesn't exist yet
+      ]);
       setSubaccounts(data.subaccounts || []);
+      setInstalledLocations(new Set(installs));
       setError(null);
       setLastPolled(new Date());
     } catch (e) {
@@ -531,20 +537,36 @@ export const Subaccounts = () => {
                       {/* SMS Active Toggle (Rightmost) */}
                       <td className="px-6 py-4 align-middle">
                         <div className="flex flex-col items-end gap-1">
-                          <div className="flex items-center gap-2.5">
-                            <span className={`text-[11.5px] font-bold ${sub.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>
-                              {sub.toggle_enabled ? 'ON' : 'OFF'}
-                            </span>
-                            <ToggleSwitch
-                              id={sub.location_id}
-                              checked={!!sub.toggle_enabled}
-                              onChange={enabled => handleToggle(sub.location_id, enabled)}
-                              disabled={isBusy}
-                            />
-                          </div>
-                          <div className="text-[10.5px] font-medium text-[#9ca3af]">
-                            {sub.toggle_activation_count ?? 0}/3 activations
-                          </div>
+                          {installedLocations.has(sub.location_id) ? (
+                            <>
+                              <div className="flex items-center gap-2.5">
+                                <span className={`text-[11.5px] font-bold ${sub.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>
+                                  {sub.toggle_enabled ? 'ON' : 'OFF'}
+                                </span>
+                                <ToggleSwitch
+                                  id={sub.location_id}
+                                  checked={!!sub.toggle_enabled}
+                                  onChange={enabled => handleToggle(sub.location_id, enabled)}
+                                  disabled={isBusy}
+                                />
+                              </div>
+                              <div className="text-[10.5px] font-medium text-[#9ca3af]">
+                                {sub.toggle_activation_count ?? 0}/3 activations
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-end gap-1.5">
+                              <a
+                                href="https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Fsms-api-116662437564.asia-southeast1.run.app%2Foauth%2Fcallback&client_id=6999da2b8f278296d95f7274-mmn30t4f&scope=workflows.readonly+conversations%2Fmessage.readonly+conversations.readonly+conversations.write+contacts.readonly+contacts.write+conversations%2Fmessage.write+saas%2Flocation.read+locations.readonly+locations%2Ftags.readonly+locations%2Ftags.write&version_id=6999da2b8f278296d95f7274"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-3 py-1.5 bg-[#2b83fa] hover:bg-[#1d6bd4] text-white text-[11.5px] font-bold inline-flex items-center rounded flex-shrink-0 transition-colors shadow-sm whitespace-nowrap"
+                              >
+                                Install App
+                              </a>
+                              <span className="text-[10px] text-[#ef4444] font-medium">Not Installed</span>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
