@@ -373,16 +373,6 @@ export const Subaccounts = () => {
           </p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="relative">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-              <input 
-                  type="text"
-                  placeholder="Search subaccounts..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 pr-4 py-1.5 rounded-lg text-[12.5px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all w-48 sm:w-64"
-              />
-          </div>
           {lastPolled && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#f0f2f8] dark:bg-[#1c1e21] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] rounded-full text-[11px] font-medium text-[#6b7280] dark:text-[#9aa0a9]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-[pulse_2s_ease-in-out_infinite]" />
@@ -454,9 +444,21 @@ export const Subaccounts = () => {
         </div>
       ) : (
         <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-          <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/5">
-            <div className="text-[15px] font-bold text-[#111111] dark:text-white tracking-tight">Subaccounts</div>
-            <div className="text-[13px] text-[#6e6e73] dark:text-[#94959b] mt-1">Changes take effect immediately. Rate limit auto-saves on blur.</div>
+          <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <div className="text-[15px] font-bold text-[#111111] dark:text-white tracking-tight">Subaccounts</div>
+              <div className="text-[13px] text-[#6e6e73] dark:text-[#94959b] mt-1">Changes take effect immediately. Rate limit auto-saves on blur.</div>
+            </div>
+            <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                <input 
+                    type="text"
+                    placeholder="Search subaccounts..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 pr-4 py-1.5 rounded-lg text-[12.5px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all w-48 sm:w-64"
+                />
+            </div>
           </div>
 
         <div className="overflow-x-auto">
