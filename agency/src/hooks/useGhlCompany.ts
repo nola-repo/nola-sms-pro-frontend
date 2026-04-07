@@ -52,6 +52,14 @@ export function useGhlCompany(): GhlCompanyState {
   const urlCompanyId = resolveCompanyId();
   const isGhlFrame   = !!urlCompanyId;
 
+  // ── Debug: always log what we detected ─────────────────────────────────────
+  console.log('[NOLA Agency] GHL Context Detection:', {
+    urlCompanyId,
+    isGhlFrame,
+    rawSearch: window.location.search,
+    rawHash:   window.location.hash,
+  });
+
   const [state, setState] = useState<GhlCompanyState>({
     companyId:       urlCompanyId ?? safeStorage.getItem('nola_agency_id'),
     isGhlFrame,
@@ -75,6 +83,8 @@ export function useGhlCompany(): GhlCompanyState {
       return;
     }
 
+    console.log('[NOLA Agency] Attempting auto-login with company_id:', urlCompanyId);
+
     // ── Trigger auto-login ───────────────────────────────────────────────────
     setState(s => ({ ...s, companyId: urlCompanyId, autoLoginStatus: 'loading' }));
 
@@ -88,6 +98,7 @@ export function useGhlCompany(): GhlCompanyState {
         if (!ok || !data.token) {
           throw new Error(data.error ?? 'Auto-login failed');
         }
+        console.log('[NOLA Agency] Auto-login SUCCESS. company_id:', data.company_id);
         // Save the JWT just like a normal login
         safeStorage.setItem(SESSION_KEYS.token, data.token);
         safeStorage.setItem(SESSION_KEYS.role, 'agency');
@@ -101,6 +112,7 @@ export function useGhlCompany(): GhlCompanyState {
         setState(s => ({ ...s, autoLoginStatus: 'success' }));
       })
       .catch((err: Error) => {
+        console.error('[NOLA Agency] Auto-login FAILED:', err.message, '| company_id was:', urlCompanyId);
         setState(s => ({
           ...s,
           autoLoginStatus: 'error',
