@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiToggleLeft, FiUsers, FiCheckCircle, FiAlertTriangle, FiArrowRight, FiSend } from 'react-icons/fi';
+import { FiToggleLeft, FiUsers, FiCheckCircle, FiAlertTriangle, FiArrowRight, FiSend, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 import { getSubaccounts } from '../services/api.ts';
@@ -14,6 +14,8 @@ export const Dashboard = () => {
   const [subaccounts, setSubaccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const fetchData = async () => {
     if (!agencyId) return;
@@ -38,6 +40,13 @@ export const Dashboard = () => {
   const active  = subaccounts.filter(s => s.toggle_enabled).length;
   const atLimit = subaccounts.filter(s => s.attempt_count >= s.rate_limit).length;
   const totalSends = subaccounts.reduce((sum, s) => sum + (s.attempt_count || 0), 0);
+
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+  const paginatedSubaccounts = subaccounts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) setCurrentPage(totalPages);
+  }, [total, currentPage, totalPages]);
 
   return (
     <AgencyLayout title="Dashboard" subtitle="Agency overview and quick stats">
@@ -182,7 +191,7 @@ export const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[rgba(0,0,0,0.05)] dark:divide-[rgba(255,255,255,0.05)]">
-                {subaccounts.map((s, i) => {
+                {paginatedSubaccounts.map((s, i) => {
                   const isAtLimit = s.attempt_count >= s.rate_limit;
                   const isNearLimit = s.attempt_count >= s.rate_limit * 0.8;
                   
@@ -214,6 +223,46 @@ export const Dashboard = () => {
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-[rgba(0,0,0,0.05)] dark:border-[#ffffff0a]">
+                <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] font-medium">
+                    Showing <span className="font-bold text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-bold text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, total)}</span> of <span className="font-bold text-[#111111] dark:text-white">{total}</span> entries
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <button
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    >
+                        <FiChevronLeft className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                            <button
+                                key={page}
+                                onClick={() => setCurrentPage(page)}
+                                className={`w-7 h-7 rounded-lg text-[12px] font-bold flex items-center justify-center transition-all ${
+                                    currentPage === page
+                                        ? 'bg-[#2b83fa] text-white shadow-sm'
+                                        : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5'
+                                }`}
+                            >
+                                {page}
+                            </button>
+                        ))}
+                    </div>
+
+                    <button
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    >
+                        <FiChevronRight className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+          )}
         </div>
       )}
 

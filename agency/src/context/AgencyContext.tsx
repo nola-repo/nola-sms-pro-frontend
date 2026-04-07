@@ -8,6 +8,7 @@ interface AgencyContextValue {
   agencySession:   AgencySession | null;
   agencyId:        string | null;   // company_id from GHL (or env/query fallback for dev)
   logout:          () => void;
+  disconnectGhl:   () => void;
 
   // GHL iframe state
   isGhlFrame:      boolean;
@@ -43,7 +44,7 @@ export const AgencyProvider = ({ children }) => {
 
   // ── Agency ID resolution ────────────────────────────────────────────────────
   // Priority: 1. GHL iframe URL param  2. JWT companyId  3. env var  4. localStorage
-  const [agencyId] = useState<string | null>(() => {
+  const [agencyId, setAgencyId] = useState<string | null>(() => {
     // 1. GHL iframe (highest priority)
     if (ghlCompanyId) return ghlCompanyId;
 
@@ -69,11 +70,16 @@ export const AgencyProvider = ({ children }) => {
     if (agencyId) safeStorage.setItem('nola_agency_id', agencyId);
   }, [agencyId]);
 
-  // ── Logout ──────────────────────────────────────────────────────────────────
+  // ── Logout & Disconnect ────────────────────────────────────────────────────
   const logout = () => {
     clearAgencySession();
     safeStorage.removeItem('nola_agency_id');
     window.location.href = '/login';
+  };
+
+  const disconnectGhl = () => {
+    setAgencyId(null);
+    safeStorage.removeItem('nola_agency_id');
   };
 
   // ── Dark mode ────────────────────────────────────────────────────────────────
@@ -96,6 +102,7 @@ export const AgencyProvider = ({ children }) => {
       agencySession,
       agencyId,
       logout,
+      disconnectGhl,
       isGhlFrame,
       autoLoginStatus,
       autoLoginError,

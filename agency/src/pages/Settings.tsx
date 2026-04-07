@@ -4,7 +4,7 @@ import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 
 export const Settings = () => {
-  const { agencyId, agencySession, isGhlFrame, logout } = useAgency();
+  const { agencyId, agencySession, isGhlFrame, disconnectGhl } = useAgency();
   const [copiedId, setCopiedId] = useState(false);
 
   const handleCopyId = () => {
@@ -111,7 +111,13 @@ export const Settings = () => {
                 </div>
                 {!isGhlFrame && (
                   <button
-                    onClick={() => logout()}
+                    onClick={() => {
+                        if (agencyId) {
+                            disconnectGhl();
+                        } else {
+                            window.location.href = '/login'; // Or whatever connects GHL
+                        }
+                    }}
                     className={`shrink-0 px-4 py-2 rounded-lg text-[13px] font-bold transition-all shadow-sm ${
                       agencyId 
                       ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-500 hover:text-white dark:bg-red-500/10 dark:border-red-500/20' 
