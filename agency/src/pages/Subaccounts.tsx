@@ -309,6 +309,9 @@ export const Subaccounts = () => {
   // ── Derived stats ──────────────────────────────────────────────────────────
   const active  = subaccounts.filter(s => s.toggle_enabled).length;
   const atLimit = subaccounts.filter(s => s.attempt_count >= s.rate_limit).length;
+  const agencyTitleName = subaccounts.find(s => s.agency_name || s.company_name)?.agency_name 
+    || subaccounts.find(s => s.agency_name || s.company_name)?.company_name 
+    || 'NOLA CRM';
 
   const filtered = subaccounts.filter(s => 
     s.location_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -354,8 +357,8 @@ export const Subaccounts = () => {
 
   return (
     <AgencyLayout
-      title="Subaccounts"
-      subtitle="Control SMS access, rate limits, and attempt counters for each subaccount"
+      title={`${agencyTitleName} Subaccounts`}
+      subtitle="Toggle SMS access, set rate limits, and reset send counters for each subaccount under your agency."
     >
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       {resetModal && (
@@ -370,31 +373,23 @@ export const Subaccounts = () => {
         <UpgradeModal onCancel={() => setUpgradeModalOpen(false)} />
       )}
 
-      {/* Page header */}
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#111111] dark:text-white tracking-tight">Subaccounts</h1>
-          <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">
-            Toggle SMS access, set rate limits, and reset send counters for each subaccount under your agency.
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {lastPolled && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#f0f2f8] dark:bg-[#1c1e21] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] rounded-full text-[11px] font-medium text-[#6b7280] dark:text-[#9aa0a9]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-[pulse_2s_ease-in-out_infinite]" />
-              Live · {lastPolled.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </span>
-          )}
-          <button
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold bg-[#f0f2f8] dark:bg-[#1c1e21] text-[#6b7280] dark:text-[#9aa0a9] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] hover:text-[#111111] dark:hover:text-white border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => fetchSubaccounts()}
-            disabled={refreshing}
-            id="refresh-subaccounts-btn"
-          >
-            <FiRefreshCw className={refreshing ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-        </div>
+      {/* Header Actions (Refresh / Polling Status) */}
+      <div className="flex items-center justify-end mb-6 gap-2.5">
+        {lastPolled && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#f0f2f8] dark:bg-[#1c1e21] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] rounded-full text-[11px] font-medium text-[#6b7280] dark:text-[#9aa0a9]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-[pulse_2s_ease-in-out_infinite]" />
+            Live · {lastPolled.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </span>
+        )}
+        <button
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold bg-[#f0f2f8] dark:bg-[#1c1e21] text-[#6b7280] dark:text-[#9aa0a9] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] hover:text-[#111111] dark:hover:text-white border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => fetchSubaccounts()}
+          disabled={refreshing}
+          id="refresh-subaccounts-btn"
+        >
+          <FiRefreshCw className={refreshing ? 'animate-spin' : ''} />
+          Refresh
+        </button>
       </div>
 
       {/* No Agency ID warning */}
@@ -450,11 +445,7 @@ export const Subaccounts = () => {
         </div>
       ) : (
         <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-          <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <div className="text-[15px] font-bold text-[#111111] dark:text-white tracking-tight">Subaccounts</div>
-              <div className="text-[13px] text-[#6e6e73] dark:text-[#94959b] mt-1">Changes take effect immediately. Rate limit auto-saves on blur.</div>
-            </div>
+          <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-end flex-wrap gap-4">
             <div className="relative">
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                 <input 
