@@ -312,10 +312,10 @@ const Step6 = () => {
   const [topUpAmount, setTopUpAmount] = useState<number>(500);
   const [submitted, setSubmitted] = useState(false);
   const packages = [
-      { credits: 500, price: 95 },
-      { credits: 1000, price: 185 },
-      { credits: 2500, price: 450 },
-      { credits: 5000, price: 850 },
+      { credits: 500, price: 500 },
+      { credits: 1100, price: 1000 },
+      { credits: 2750, price: 2500 },
+      { credits: 6000, price: 5000 },
   ];
 
   const handleTopUp = (e: React.FormEvent) => {
