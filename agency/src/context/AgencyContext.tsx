@@ -1,52 +1,41 @@
 import { safeStorage } from '../utils/safeStorage';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getAgencySession, clearAgencySession, type AgencySession } from '../services/agencyAuthHelper.ts';
-import { useGhlCompany, type GhlAutoLoginStatus } from '../hooks/useGhlCompany.ts';
+import { useGhlCompany } from '../hooks/useGhlCompany.ts';
 
 interface AgencyContextValue {
-  // Auth session
-  agencySession:   AgencySession | null;
-  agencyId:        string | null;   // company_id from GHL (or env/query fallback for dev)
-  logout:          () => void;
-  disconnectGhl:   () => void;
+  // Auth session (used for standalone/manual login only)
+  agencySession: AgencySession | null;
+
+  // Company ID — from URL when inside GHL, or from JWT when standalone
+  agencyId: string | null;
+  logout: () => void;
 
   // GHL iframe state
-  isGhlFrame:      boolean;
-  autoLoginStatus: GhlAutoLoginStatus;
-  autoLoginError:  string | null;
+  isGhlFrame: boolean;
 
   // UI
-  darkMode:        boolean;
-  toggleDarkMode:  () => void;
+  darkMode: boolean;
+  toggleDarkMode: () => void;
 }
 
 const AgencyContext = createContext<AgencyContextValue | null>(null);
 
-/**
- * AgencyProvider
- * Provides agencyId and the auth session + logout helper.
- * Handles both manual login and GHL iframe auto-login.
- */
 export const AgencyProvider = ({ children }) => {
-  // ── GHL iframe detection + auto-login ─────────────────────────────────────
-  const { companyId: ghlCompanyId, isGhlFrame, autoLoginStatus, autoLoginError } = useGhlCompany();
+  // ── GHL iframe detection (URL param only, no backend call) ─────────────────
+  const { companyId: ghlCompanyId, isGhlFrame } = useGhlCompany();
 
-  // ── Auth session ────────────────────────────────────────────────────────────
-  // Re-evaluate after auto-login completes (autoLoginStatus changes)
+  // ── Auth session (standalone login only) ────────────────────────────────────
   const [agencySession, setAgencySession] = useState<AgencySession | null>(() => getAgencySession());
 
-  useEffect(() => {
-    if (autoLoginStatus === 'success') {
-      // Re-read session from storage after auto-login writes the JWT
-      setAgencySession(getAgencySession());
-    }
-  }, [autoLoginStatus]);
-
   // ── Agency ID resolution ────────────────────────────────────────────────────
-  // Priority: 1. GHL iframe URL param  2. JWT companyId  3. env var  4. localStorage
-  const [agencyId, setAgencyId] = useState<string | null>(() => {
-    // 1. GHL iframe (highest priority)
-    if (ghlCompanyId) return ghlCompanyId;
+  // Priority: 1. GHL URL param  2. JWT companyId  3. env var  4. localStorage
+  const [agencyId] = useState<string | null>(() => {
+    // 1. GHL iframe URL param (highest priority)
+    if (ghlCompanyId) {
+      safeStorage.setItem('nola_agency_id', ghlCompanyId);
+      return ghlCompanyId;
+    }
 
     // 2. From auth session JWT
     const session = getAgencySession();
@@ -56,30 +45,20 @@ export const AgencyProvider = ({ children }) => {
     const envId = import.meta.env.VITE_AGENCY_ID;
     if (envId && envId !== 'your_agency_id_here') return envId;
 
-    // 4. Query param fallback (dev testing without GHL keys)
+    // 4. Query param fallback (dev testing)
     const params = new URLSearchParams(window.location.search);
-    const qpId = params.get('agency_id') || params.get('companyId') || params.get('locationId');
+    const qpId = params.get('agency_id') || params.get('locationId');
     if (qpId) return qpId;
 
     // 5. Persisted from a previous session
     return safeStorage.getItem('nola_agency_id') || null;
   });
 
-  // Persist agencyId for convenience
-  useEffect(() => {
-    if (agencyId) safeStorage.setItem('nola_agency_id', agencyId);
-  }, [agencyId]);
-
-  // ── Logout & Disconnect ────────────────────────────────────────────────────
+  // ── Logout ─────────────────────────────────────────────────────────────────
   const logout = () => {
     clearAgencySession();
     safeStorage.removeItem('nola_agency_id');
     window.location.href = '/login';
-  };
-
-  const disconnectGhl = () => {
-    setAgencyId(null);
-    safeStorage.removeItem('nola_agency_id');
   };
 
   // ── Dark mode ────────────────────────────────────────────────────────────────
@@ -102,10 +81,7 @@ export const AgencyProvider = ({ children }) => {
       agencySession,
       agencyId,
       logout,
-      disconnectGhl,
       isGhlFrame,
-      autoLoginStatus,
-      autoLoginError,
       darkMode,
       toggleDarkMode,
     }}>
