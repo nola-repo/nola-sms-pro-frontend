@@ -10,6 +10,7 @@ interface AgencyContextValue {
   // Company ID — from URL when inside GHL, or from JWT when standalone
   agencyId: string | null;
   logout: () => void;
+  disconnectGhl: () => void;
 
   // GHL iframe state
   isGhlFrame: boolean;
@@ -30,7 +31,7 @@ export const AgencyProvider = ({ children }) => {
 
   // ── Agency ID resolution ────────────────────────────────────────────────────
   // Priority: 1. GHL URL param  2. JWT companyId  3. env var  4. localStorage
-  const [agencyId] = useState<string | null>(() => {
+  const [agencyId, setAgencyId] = useState<string | null>(() => {
     // 1. GHL iframe URL param (highest priority)
     if (ghlCompanyId) {
       safeStorage.setItem('nola_agency_id', ghlCompanyId);
@@ -61,6 +62,11 @@ export const AgencyProvider = ({ children }) => {
     window.location.href = '/login';
   };
 
+  const disconnectGhl = () => {
+    setAgencyId(null);
+    safeStorage.removeItem('nola_agency_id');
+  };
+
   // ── Dark mode ────────────────────────────────────────────────────────────────
   const [darkMode, setDarkMode] = useState(() => {
     const saved = safeStorage.getItem('agency_darkMode');
@@ -81,6 +87,7 @@ export const AgencyProvider = ({ children }) => {
       agencySession,
       agencyId,
       logout,
+      disconnectGhl,
       isGhlFrame,
       darkMode,
       toggleDarkMode,
