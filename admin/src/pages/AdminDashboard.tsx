@@ -163,13 +163,13 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
 
                 {/* Recent Sender Requests */}
                 <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col h-[400px]">
-                    <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center justify-between mb-5 flex-shrink-0">
                         <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider">Recent Requests</h3>
                         <button onClick={() => onNavigate('requests')} className="group text-[11px] font-black text-[#2b83fa] hover:underline transition-all duration-300 flex items-center gap-1 active:scale-95 uppercase tracking-wider">
                             See All <FiChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                         </button>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1 pr-2 pb-2">
                         {loading ? (
                             [1,2,3].map(i => <div key={i} className="h-16 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)
                         ) : recentRequests.length === 0 ? (

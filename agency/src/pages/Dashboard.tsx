@@ -238,7 +238,7 @@ export const Dashboard = () => {
                     </button>
                     
                     <div className="flex items-center gap-1">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        {Array.from({ length: Math.min(5, totalPages - Math.floor((currentPage - 1) / 5) * 5) }, (_, i) => Math.floor((currentPage - 1) / 5) * 5 + 1 + i).map(page => (
                             <button
                                 key={page}
                                 onClick={() => setCurrentPage(page)}
