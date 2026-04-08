@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { fetchCreditBalance, fetchCreditTransactions, fetchCreditPackages } from "../api/credits";
-import type { CreditTransaction, CreditPackage } from "../api/credits";
+import { fetchCreditStatus, fetchCreditTransactions, fetchCreditPackages } from "../api/credits";
+import type { CreditStatus, CreditTransaction, CreditPackage } from "../api/credits";
 import {
     FiUser, FiSend, FiBell, FiCreditCard,
     FiSave, FiPlus, FiCheck,
@@ -543,7 +543,7 @@ function deriveStats(txs: CreditTransaction[]) {
 
 const CreditsSection: React.FC = () => {
     const ghlLocationIdFromHook = useGhlLocation();
-    const [balance, setBalance] = useState<number | null>(null);
+    const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
     const [balanceLoading, setBalanceLoading] = useState(true);
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
     const [txLoading, setTxLoading] = useState(true);
@@ -564,13 +564,13 @@ const CreditsSection: React.FC = () => {
     const load = useCallback(async () => {
         setBalanceLoading(true);
         setTxLoading(true);
-        const [bal, txs, pkgs] = await Promise.all([
-            fetchCreditBalance(),
+        const [status, txs, pkgs] = await Promise.all([
+            fetchCreditStatus(),
             fetchCreditTransactions('default', 50),
             fetchCreditPackages(),
         ]);
         if (!mountedRef.current) return;
-        setBalance(bal);
+        setCreditStatus(status);
         setTransactions(txs);
         setPackages(pkgs);
 
@@ -617,9 +617,14 @@ const CreditsSection: React.FC = () => {
     }, [load]);
 
 
-    const displayBalance = balance ?? 0;
-    const usagePercent = Math.min(100, (displayBalance / 1000) * 100);
-    const usageColor = displayBalance < 50 ? 'bg-red-500' : displayBalance < 200 ? 'bg-amber-400' : 'bg-emerald-500';
+    // ── Derived billing state ──────────────────────────────────────────────
+    const displayBalance  = creditStatus?.credit_balance ?? 0;
+    const trialUsed       = creditStatus?.free_usage_count ?? 0;
+    const trialTotal      = creditStatus?.free_credits_total ?? 0;
+    const isTrialActive   = trialTotal > 0 && trialUsed < trialTotal;
+    const trialLeft       = trialTotal - trialUsed;
+    const usagePercent    = Math.min(100, (displayBalance / 1000) * 100);
+    const usageColor      = displayBalance < 50 ? 'bg-red-500' : displayBalance < 200 ? 'bg-amber-400' : 'bg-emerald-500';
     const { sentToday, creditsUsedToday, creditsUsedMonth } = deriveStats(transactions);
 
 
@@ -679,18 +684,36 @@ const CreditsSection: React.FC = () => {
 
 
             {/* Balance Card */}
-            <div className="bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] rounded-2xl p-5 text-white shadow-lg shadow-blue-500/25">
+            <div className={`rounded-2xl p-5 text-white shadow-lg transition-colors duration-500 ${
+                isTrialActive
+                    ? 'bg-gradient-to-br from-emerald-400 to-teal-500 shadow-emerald-500/25'
+                    : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-blue-500/25'
+            }`}>
                 <div className="flex items-start justify-between mb-4">
-                    <div>
-                        <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wider">Available Credits</p>
-                        {balanceLoading ? (
-                            <div className="mt-2 h-10 w-28 bg-white/20 rounded-lg animate-pulse" />
+                    <div className="flex-1 min-w-0">
+                        {isTrialActive ? (
+                            <>
+                                <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wider">Free Trial Active</p>
+                                {balanceLoading ? (
+                                    <div className="mt-2 h-10 w-28 bg-white/20 rounded-lg animate-pulse" />
+                                ) : (
+                                    <p className="text-[42px] font-black leading-none mt-1">{trialLeft.toLocaleString()}</p>
+                                )}
+                                <p className="text-[12px] text-white/60 mt-1">free messages remaining</p>
+                            </>
                         ) : (
-                            <p className="text-[42px] font-black leading-none mt-1">{displayBalance.toLocaleString()}</p>
+                            <>
+                                <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wider">Available Credits</p>
+                                {balanceLoading ? (
+                                    <div className="mt-2 h-10 w-28 bg-white/20 rounded-lg animate-pulse" />
+                                ) : (
+                                    <p className="text-[42px] font-black leading-none mt-1">{displayBalance.toLocaleString()}</p>
+                                )}
+                                <p className="text-[12px] text-white/60 mt-1">1 credit ≈ 1 SMS (160 chars)</p>
+                            </>
                         )}
-                        <p className="text-[12px] text-white/60 mt-1">1 credit ≈ 1 SMS (160 chars)</p>
                     </div>
-                    <div className="flex flex-col items-center gap-2">
+                    <div className="flex flex-col items-center gap-2 flex-shrink-0">
                         <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
                             <FiCreditCard className="w-6 h-6 text-white" />
                         </div>
@@ -703,15 +726,37 @@ const CreditsSection: React.FC = () => {
                         </button>
                     </div>
                 </div>
-                <div className="mb-1">
-                    <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-                        <div className={`h-full ${usageColor} rounded-full transition-all duration-700`} style={{ width: `${usagePercent}%` }} />
-                    </div>
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-white/60">
-                    <span>0</span>
-                    <span>1,000+</span>
-                </div>
+
+                {/* Trial progress bar */}
+                {isTrialActive ? (
+                    <>
+                        <div className="mb-1">
+                            <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-white/70 rounded-full transition-all duration-700"
+                                    style={{ width: `${Math.round((trialUsed / trialTotal) * 100)}%` }}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-white/60">
+                            <span>{trialUsed} used</span>
+                            <span>{trialTotal} total free</span>
+                        </div>
+                        <p className="mt-2 text-[11px] text-white/50">{displayBalance.toLocaleString()} paid credits also available</p>
+                    </>
+                ) : (
+                    <>
+                        <div className="mb-1">
+                            <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                                <div className={`h-full ${usageColor} rounded-full transition-all duration-700`} style={{ width: `${usagePercent}%` }} />
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-white/60">
+                            <span>0</span>
+                            <span>1,000+</span>
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Stats Row */}

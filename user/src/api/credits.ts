@@ -1,6 +1,46 @@
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
 
+// ─── Credit Status (Three-Tier Billing) ──────────────────────────────────────
+export interface CreditStatus {
+    credit_balance: number;
+    free_usage_count: number;
+    free_credits_total: number;
+    currency: string;
+}
+
+/**
+ * Fetch the current credit and trial status.
+ * Returns full billing metadata including free-trial counters.
+ */
+export async function fetchCreditStatus(): Promise<CreditStatus | null> {
+    try {
+        const accountSettings = getAccountSettings();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (accountSettings.ghlLocationId) {
+            headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+        }
+
+        let url = API_CONFIG.credits;
+        if (accountSettings.ghlLocationId) {
+            url += `?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+        }
+
+        const res = await fetch(url, { headers });
+        if (!res.ok) return null;
+        const data = await res.json();
+
+        return {
+            credit_balance: data.credit_balance ?? data.balance ?? data.data?.balance ?? 0,
+            free_usage_count: data.free_usage_count ?? 0,
+            free_credits_total: data.free_credits_total ?? 0,
+            currency: data.currency ?? 'PHP',
+        };
+    } catch {
+        return null;
+    }
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface CreditTransaction {
     transaction_id: string;
@@ -22,32 +62,13 @@ export interface CreditPackage {
 // ─── API Calls ───────────────────────────────────────────────────────────────
 
 /**
- * Fetch the current credit balance from the internal proxy.
+ * Fetch the current credit balance.
+ * Thin wrapper around fetchCreditStatus for backward compatibility.
  * Returns 0 on failure to allow graceful degradation.
  */
 export async function fetchCreditBalance(): Promise<number> {
-    try {
-        const accountSettings = getAccountSettings();
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-        };
-
-        if (accountSettings.ghlLocationId) {
-            headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
-        }
-
-        let url = API_CONFIG.credits;
-        if (accountSettings.ghlLocationId) {
-            url += `?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
-        }
-
-        const res = await fetch(url, { headers });
-        if (!res.ok) return 0;
-        const data = await res.json();
-        return data.credit_balance ?? data.balance ?? data.data?.balance ?? 0;
-    } catch {
-        return 0;
-    }
+    const status = await fetchCreditStatus();
+    return status?.credit_balance ?? 0;
 }
 
 /**

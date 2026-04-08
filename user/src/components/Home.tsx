@@ -4,7 +4,7 @@ import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
 import { fetchConversations, type SenderId } from "../api/sms";
 import { fetchContacts } from "../api/contacts";
-import { fetchCreditBalance } from "../api/credits";
+import { fetchCreditStatus, type CreditStatus } from "../api/credits";
 import SplitText from "./SplitText";
 import AnimatedContent from "./AnimatedContent";
 import FadeContent from "./FadeContent";
@@ -18,7 +18,7 @@ interface HomeProps {
 }
 
 export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSelectBulkMessage }) => {
-    const [balance, setBalance] = useState<number | null>(null);
+    const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [contactsCount, setContactsCount] = useState<number>(0);
@@ -31,14 +31,14 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
             if (isInitial) setLoading(true);
 
             // Run all three fetches independently — one failure won't block the others
-            const [credPrice, convs, contactsRes] = await Promise.allSettled([
-                fetchCreditBalance(),
+            const [credStatus, convs, contactsRes] = await Promise.allSettled([
+                fetchCreditStatus(),
                 fetchConversations().catch(() => []),
                 fetchContacts().catch(() => []),
             ]);
 
-            if (credPrice.status === 'fulfilled') {
-                setBalance(credPrice.value);
+            if (credStatus.status === 'fulfilled') {
+                setCreditStatus(credStatus.value);
             }
 
             if (convs.status === 'fulfilled') {
@@ -210,30 +210,61 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
                     <AnimatedContent delay={0.1} distance={50} direction="vertical">
-                        <div className="p-6 rounded-3xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all group overflow-hidden relative h-full">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-                                <FiCreditCard className="w-24 h-24 text-white" />
-                            </div>
-                            <div className="relative z-10">
-                                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
-                                    <FiCreditCard className="h-5 w-5" />
+                        {(() => {
+                            const balance      = creditStatus?.credit_balance ?? 0;
+                            const trialUsed    = creditStatus?.free_usage_count ?? 0;
+                            const trialTotal   = creditStatus?.free_credits_total ?? 0;
+                            const isTrialActive = trialTotal > 0 && trialUsed < trialTotal;
+                            const trialLeft    = trialTotal - trialUsed;
+                            return (
+                                <div className={`p-6 rounded-3xl shadow-lg transition-all group overflow-hidden relative h-full ${
+                                    isTrialActive
+                                        ? 'bg-gradient-to-br from-emerald-400 to-teal-500 shadow-emerald-500/20 hover:shadow-emerald-500/30'
+                                        : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-blue-500/20 hover:shadow-blue-500/30'
+                                }`}>
+                                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                                        <FiCreditCard className="w-24 h-24 text-white" />
+                                    </div>
+                                    <div className="relative z-10">
+                                        <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
+                                            <FiCreditCard className="h-5 w-5" />
+                                        </div>
+                                        <p className="text-[13px] font-bold text-white/70 uppercase tracking-widest mb-1">
+                                            {isTrialActive ? 'Trial Messages' : 'Available Credits'}
+                                        </p>
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div>
+                                                <h2 className="text-3xl font-black text-white">
+                                                    {loading ? '---' : (isTrialActive ? trialLeft : balance).toLocaleString()}
+                                                </h2>
+                                                {isTrialActive && (
+                                                    <p className="text-[11px] text-white/60 mt-0.5">{balance.toLocaleString()} paid credits also available</p>
+                                                )}
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }));
+                                                }}
+                                                className="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold transition-all flex items-center gap-1.5 flex-shrink-0"
+                                            >
+                                                <FiPlus className="w-3 h-3" /> {isTrialActive ? 'Top Up' : 'Top Up'}
+                                            </button>
+                                        </div>
+                                        {isTrialActive && (
+                                            <div className="mt-3">
+                                                <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-white/70 rounded-full transition-all duration-700"
+                                                        style={{ width: `${Math.round((trialUsed / trialTotal) * 100)}%` }}
+                                                    />
+                                                </div>
+                                                <p className="text-[10px] text-white/50 mt-1">{trialUsed}/{trialTotal} free messages used</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                 <p className="text-[13px] font-bold text-white/70 uppercase tracking-widest mb-1">Available Credits</p>
-                                <div className="flex items-center justify-between gap-4">
-                                    <h2 className="text-3xl font-black text-white">
-                                        {loading ? "---" : balance?.toLocaleString()}
-                                    </h2>
-                                    <button
-                                        onClick={() => {
-                                            window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }));
-                                        }}
-                                        className="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold transition-all flex items-center gap-1.5"
-                                    >
-                                        <FiPlus className="w-3 h-3" /> Top Up
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                            );
+                        })()}
                     </AnimatedContent>
 
                     <AnimatedContent delay={0.2} distance={50} direction="vertical">
