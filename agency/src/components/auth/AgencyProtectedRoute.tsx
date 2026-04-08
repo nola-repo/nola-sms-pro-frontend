@@ -8,9 +8,10 @@ import { useAgency } from '../../context/AgencyContext.tsx';
  * AgencyProtectedRoute
  * Guards all agency routes. Behaviour differs depending on context:
  *
- * 1. INSIDE GHL iframe (isGhlFrame = true):
- *    - 'loading' → show a "Connecting to GHL…" splash
- *    - 'error'   → show a GHL-specific error card (no login redirect)
+ * 1. INSIDE GHL iframe (companyId in URL params):
+ *    - Bypass login entirely — companyId is the implicit auth (matches user app pattern)
+ *    - 'loading' → show a "Connecting to GHL…" splash (UX polish)
+ *    - 'error'   → show a helpful error card (no login redirect)
  *    - 'success' → render the dashboard
  *
  * 2. OUTSIDE GHL (isGhlFrame = false):
@@ -20,13 +21,10 @@ import { useAgency } from '../../context/AgencyContext.tsx';
 export const AgencyProtectedRoute: React.FC = () => {
   const { isGhlFrame, autoLoginStatus, autoLoginError } = useAgency();
 
-  const token = safeStorage.getItem(SESSION_KEYS.token);
-  const role  = safeStorage.getItem(SESSION_KEYS.role);
-
-  // ── Inside GHL iframe ──────────────────────────────────────────────────────
+  // ── Inside GHL iframe: bypass login, companyId IS the auth ────────────────
   if (isGhlFrame) {
-    // Still fetching the JWT — show connecting splash
-    if (autoLoginStatus === 'idle' || autoLoginStatus === 'loading') {
+    // Show connecting splash while auto-login runs (UX polish only)
+    if (autoLoginStatus === 'loading') {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-[#0a0a0b] gap-5">
           <div className="w-14 h-14 rounded-full border-4 border-[#2b83fa]/20 border-t-[#2b83fa] animate-spin" />
@@ -38,7 +36,7 @@ export const AgencyProtectedRoute: React.FC = () => {
       );
     }
 
-    // Auto-login failed — show error (don't redirect to login; that won't help inside GHL)
+    // Auto-login failed — show error card (never redirect to login inside GHL)
     if (autoLoginStatus === 'error') {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-[#0a0a0b] px-4">
@@ -62,13 +60,19 @@ export const AgencyProtectedRoute: React.FC = () => {
       );
     }
 
-    // Auto-login succeeded — fall through to render <Outlet />
+    // GHL frame detected (idle or success) — render dashboard directly
+    // companyId from URL is the auth source, same as the user app
+    return <Outlet />;
   }
 
-  // ── Outside GHL (or after success) ─────────────────────────────────────────
+  // ── Outside GHL: require a valid JWT ──────────────────────────────────────
+  const token = safeStorage.getItem(SESSION_KEYS.token);
+  const role  = safeStorage.getItem(SESSION_KEYS.role);
+
   if (!token || role !== 'agency') {
     return <Navigate to="/login" replace />;
   }
 
   return <Outlet />;
 };
+
