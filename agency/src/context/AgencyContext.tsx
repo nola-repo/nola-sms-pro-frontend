@@ -1,7 +1,7 @@
 import { safeStorage } from '../utils/safeStorage';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getAgencySession, clearAgencySession, type AgencySession } from '../services/agencyAuthHelper.ts';
-import { useGhlCompany } from '../hooks/useGhlCompany.ts';
+import { useGhlCompany, type GhlAutoLoginStatus } from '../hooks/useGhlCompany.ts';
 
 interface AgencyContextValue {
   // Auth session (used for standalone/manual login only)
@@ -14,6 +14,8 @@ interface AgencyContextValue {
 
   // GHL iframe state
   isGhlFrame: boolean;
+  autoLoginStatus: GhlAutoLoginStatus;
+  autoLoginError: string | null;
 
   // UI
   darkMode: boolean;
@@ -23,8 +25,8 @@ interface AgencyContextValue {
 const AgencyContext = createContext<AgencyContextValue | null>(null);
 
 export const AgencyProvider = ({ children }) => {
-  // ── GHL iframe detection (URL param only, no backend call) ─────────────────
-  const { companyId: ghlCompanyId, isGhlFrame } = useGhlCompany();
+  // ── GHL iframe detection (SSO postMessage & fallback param) ─────────────────
+  const { companyId: ghlCompanyId, isGhlFrame, autoLoginStatus, autoLoginError } = useGhlCompany();
 
   // ── Auth session (standalone login only) ────────────────────────────────────
   const [agencySession, setAgencySession] = useState<AgencySession | null>(() => getAgencySession());
@@ -89,6 +91,8 @@ export const AgencyProvider = ({ children }) => {
       logout,
       disconnectGhl,
       isGhlFrame,
+      autoLoginStatus,
+      autoLoginError,
       darkMode,
       toggleDarkMode,
     }}>

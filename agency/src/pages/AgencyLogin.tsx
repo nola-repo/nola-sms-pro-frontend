@@ -14,7 +14,7 @@ interface AgencyLoginProps {
 type LoginPhase = 'credentials' | 'connect_ghl';
 
 const AgencyLogin: React.FC = () => {
-  const { darkMode, toggleDarkMode } = useAgency();
+  const { darkMode, toggleDarkMode, isGhlFrame, autoLoginStatus, autoLoginError } = useAgency();
   const [phase, setPhase]           = useState<LoginPhase>('credentials');
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
@@ -28,6 +28,28 @@ const AgencyLogin: React.FC = () => {
 
   const navigate = useNavigate();
   const primaryColor = '#3b82f6';
+
+  // ── GHL iframe: never show login form inside GHL ─────────────────────────
+  if (isGhlFrame) {
+    if (autoLoginStatus === 'success') {
+      navigate('/', { replace: true });
+      return null;
+    }
+
+
+
+
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-[#0a0a0b] gap-5">
+        <div className="w-14 h-14 rounded-full border-4 border-[#2b83fa]/20 border-t-[#2b83fa] animate-spin" />
+        <div className="text-center">
+          <img src={defaultLogo} alt="NOLA SMS Pro" className="h-10 object-contain mx-auto mb-4" />
+          <p className="text-[15px] font-bold text-gray-900 dark:text-white">Connecting to GoHighLevel…</p>
+          <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1">Logging you in automatically</p>
+        </div>
+      </div>
+    );
+  }
 
 
   // ── Phase 1: login ──────────────────────────────────────────────────────────
