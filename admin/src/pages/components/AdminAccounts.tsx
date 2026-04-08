@@ -218,7 +218,6 @@ export const AdminAccounts: React.FC = () => {
                                                                 onClick={async (e) => {
                                                                     e.stopPropagation();
                                                                     await navigator.clipboard.writeText(apiKey || '');
-                                                                    // We could add a toast here, but simple is better
                                                                 }}
                                                                 className="p-0.5 text-[#9aa0a6] hover:text-[#2b83fa] transition-colors"
                                                                 title="Copy API Key"
@@ -230,13 +229,14 @@ export const AdminAccounts: React.FC = () => {
                                                 </div>
                                             ) : (
                                                 <span className="text-[11px] font-medium text-[#9aa0a6] opacity-60 flex items-center gap-1 pl-2">
-                                                    <FiX size={10} /> None
+                                                    {acc.approved_sender_id ? (
+                                                        <><FiX size={10} /> Missing</>
+                                                    ) : (
+                                                        <>—</>
+                                                    )}
                                                 </span>
                                             );
                                         })()}
-                                        {!acc.approved_sender_id && (
-                                            <span className="text-[11px] text-[#9aa0a6] italic pl-2 opacity-50">—</span>
-                                        )}
                                     </td>
                                     <td className="py-4 pr-4">
                                         <div className="flex flex-col">

@@ -288,7 +288,13 @@ export const AdminAccounts: React.FC = () => {
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <span className="text-[11px] text-[#9aa0a6] italic pl-2">None</span>
+                                                <span className="text-[11px] font-medium text-[#9aa0a6] opacity-60 flex items-center gap-1 pl-2">
+                                                    {acc.approved_sender_id ? (
+                                                        <><FiX size={10} /> Missing</>
+                                                    ) : (
+                                                        <>—</>
+                                                    )}
+                                                </span>
                                             );
                                         })()}
                                     </td>
