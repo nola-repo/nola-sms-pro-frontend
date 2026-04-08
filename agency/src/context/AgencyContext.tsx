@@ -33,6 +33,13 @@ export const AgencyProvider = ({ children }) => {
     return safeStorage.getItem('nola_agency_id') || null;
   });
 
+  useEffect(() => {
+    if (ghlCompanyId && ghlCompanyId !== agencyId) {
+      setAgencyId(ghlCompanyId);
+      safeStorage.setItem('nola_agency_id', ghlCompanyId);
+    }
+  }, [ghlCompanyId]);
+
   const logout = () => {
     clearAgencySession();
     safeStorage.removeItem('nola_agency_id');

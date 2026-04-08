@@ -6,21 +6,20 @@ import { useAgency } from '../../context/AgencyContext.tsx';
 
 /**
  * AgencyProtectedRoute
- * Mirrors the user app ProtectedRoute exactly:
- *
- * - companyId in URL (GHL iframe) → render dashboard immediately, no login
- * - No companyId + valid JWT       → render dashboard (standalone)
- * - No companyId + no JWT          → redirect to /login (standalone)
+ * 
+ * Simply bypasses login if embedded in a GHL iframe environment.
+ * The dashboard will load directly and show an 'Agency ID missing' 
+ * state if the companyId couldn't be detected via url/postMessage.
  */
 export const AgencyProtectedRoute: React.FC = () => {
   const { isGhlFrame } = useAgency();
 
-  // GHL iframe — bypass auth entirely, same as user app on locationId
+  // If inside ANY iframe context (GHL), directly show the dashboard block without a login flash.
   if (isGhlFrame) {
     return <Outlet />;
   }
 
-  // Standalone — require a valid JWT
+  // Standalone logic
   const token = safeStorage.getItem(SESSION_KEYS.token);
   const role  = safeStorage.getItem(SESSION_KEYS.role);
 
