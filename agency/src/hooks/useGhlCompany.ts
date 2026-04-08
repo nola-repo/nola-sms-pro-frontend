@@ -27,11 +27,18 @@ export function useGhlCompany(): { companyId: string | null; isGhlFrame: boolean
 
   let companyId: string | null = null;
   for (const key of companyKeys) {
-    const val = searchParams.get(key) || hashParams?.get(key) || null;
-    if (val && val.trim() !== '' && !val.includes('{{')) {
-      companyId = val;
-      break;
+    const vals = [
+      ...(searchParams.getAll(key) || []),
+      ...(hashParams?.getAll(key) || [])
+    ];
+    
+    for (const val of vals) {
+      if (val && val.trim() !== '' && !val.includes('{{')) {
+        companyId = val;
+        break;
+      }
     }
+    if (companyId) break;
   }
 
   // Fallback to stored company id from previous session
