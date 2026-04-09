@@ -49,17 +49,24 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                     parseFirestoreDate(b.created_at).getTime()
             );
 
-            const formatted: Message[] = sorted.map((row) => ({
-                id: row.id,
-                text: row.message || "",
-                timestamp: parseFirestoreDate(row.created_at),
-                senderName: row.sender_id || "NOLASMSPro",
-                // Normalize to lowercase — backend sends sending, sent, failed
-                status: (row.status as string || 'sending').toLowerCase() as Message["status"],
-                batch_id: row.batch_id,
-                message: row.message,
-                errorReason: row.error_reason,
-            }));
+            const formatted: Message[] = sorted.map((row) => {
+                let status = (row.status as string || 'sending').toLowerCase();
+                // Revert: Legacy optimistic upgrade to make UI feel incredibly fast
+                if (status === 'queued' || status === 'pending' || status === 'sending') {
+                    status = 'sent';
+                }
+
+                return {
+                    id: row.id,
+                    text: row.message || "",
+                    timestamp: parseFirestoreDate(row.created_at),
+                    senderName: row.sender_id || "NOLASMSPro",
+                    status: status as Message["status"],
+                    batch_id: row.batch_id,
+                    message: row.message,
+                    errorReason: row.error_reason,
+                };
+            });
 
             // Frontend status priority guard — mirrors backend retrieve_status.php
             // Prevents a lagging DB poll (Queued/Pending) from overwriting an
@@ -170,7 +177,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             text,
             timestamp: new Date(),
             senderName,
-            status: "sending",
+            status: "sent", // REVERTED: default to sent optimistically to prevent infinite spinners
         };
         setMessages((prev) => [...prev, newMsg]);
         return id;
