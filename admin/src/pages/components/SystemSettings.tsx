@@ -395,7 +395,12 @@ export const AdminLogs: React.FC = () => {
                             <div className="text-right flex-shrink-0"><span className="block text-[11px] font-bold text-[#111111] dark:text-white">{date}</span><span className="block text-[10px] uppercase text-[#9aa0a6]">{time}</span></div>
                         </div>
                         <div className="flex items-center justify-between gap-3">
-                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">{isFreeTrial ? 'Deducted' : (isUsage ? 'Deducted' : 'Added')} <span className={`font-bold ${isUsage ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{!isUsage && '+'}{isFreeTrial ? '1' : log.amount?.toLocaleString()}</span> {isFreeTrial ? 'free message' : 'credits'}</p>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate">{isFreeTrial ? 'Deducted' : (isUsage ? 'Deducted' : 'Added')} <span className={`font-bold ${isUsage ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{!isUsage && '+'}{isFreeTrial ? '1' : log.amount?.toLocaleString()}</span> {isFreeTrial ? 'free message' : 'credits'}</p>
+                                {log.balance_after !== undefined && (
+                                    <p className="text-[10px] text-[#9aa0a6] mt-0.5">Balance: {log.balance_after?.toLocaleString()} credits</p>
+                                )}
+                            </div>
                             <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
                                 {log.status && <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30">{log.status === 'completed' ? 'Paid' : log.status}</span>}
                                 {subAccountPill}
