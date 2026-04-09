@@ -684,34 +684,23 @@ const CreditsSection: React.FC = () => {
 
 
             {/* Balance Card */}
-            <div className={`rounded-2xl p-5 text-white shadow-lg transition-colors duration-500 ${
-                isTrialActive
-                    ? 'bg-gradient-to-br from-emerald-400 to-teal-500 shadow-emerald-500/25'
-                    : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-blue-500/25'
-            }`}>
+            <div className="rounded-2xl p-5 text-white shadow-lg transition-colors duration-500 bg-gradient-to-br from-emerald-400 to-teal-500 shadow-emerald-500/25">
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 min-w-0">
-                        {isTrialActive ? (
-                            <>
-                                <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wider">Free Trial Active</p>
-                                {balanceLoading ? (
-                                    <div className="mt-2 h-10 w-28 bg-white/20 rounded-lg animate-pulse" />
-                                ) : (
-                                    <p className="text-[42px] font-black leading-none mt-1">{trialLeft.toLocaleString()}</p>
-                                )}
-                                <p className="text-[12px] text-white/60 mt-1">free messages remaining</p>
-                            </>
+                        <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wider mb-2">Available Credits</p>
+                        {balanceLoading ? (
+                            <div className="h-10 w-28 bg-white/20 rounded-lg animate-pulse" />
                         ) : (
-                            <>
-                                <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wider">Available Credits</p>
-                                {balanceLoading ? (
-                                    <div className="mt-2 h-10 w-28 bg-white/20 rounded-lg animate-pulse" />
-                                ) : (
-                                    <p className="text-[42px] font-black leading-none mt-1">{displayBalance.toLocaleString()}</p>
+                            <div className="flex items-center gap-3">
+                                <p className="text-[42px] font-black leading-none">{displayBalance.toLocaleString()}</p>
+                                {isTrialActive && (
+                                    <span className="text-[11px] font-bold bg-[#ffffff30] text-white px-3 py-1 rounded-full shadow-sm whitespace-nowrap">
+                                        {trialLeft} Free Trial
+                                    </span>
                                 )}
-                                <p className="text-[12px] text-white/60 mt-1">1 credit ≈ 1 SMS (160 chars)</p>
-                            </>
+                            </div>
                         )}
+                        <p className="text-[12px] text-white/60 mt-1">1 credit ≈ 1 SMS (160 chars)</p>
                     </div>
                     <div className="flex flex-col items-center gap-2 flex-shrink-0">
                         <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
@@ -742,7 +731,6 @@ const CreditsSection: React.FC = () => {
                             <span>{trialUsed} used</span>
                             <span>{trialTotal} total free</span>
                         </div>
-                        <p className="mt-2 text-[11px] text-white/50">{displayBalance.toLocaleString()} paid credits also available</p>
                     </>
                 ) : (
                     <>
@@ -791,7 +779,7 @@ const CreditsSection: React.FC = () => {
                                     : 'border-[#e0e0e0] dark:border-[#2a2b32] hover:border-[#2b83fa]/40'
                                     }`}
                             >
-                                <span className={`text-[16px] font-black ${topUpAmount === pkg.credits ? 'text-[#2b83fa]' : 'text-[#111111] dark:text-[#ececf1]'}`}>{pkg.credits.toLocaleString()}</span>
+                                <span className={`text-[16px] font-black ${topUpAmount === pkg.credits ? 'text-[#2b83fa]' : 'text-[#111111] dark:text-[#ececf1]'}`}>{pkg.credits?.toLocaleString() || pkg.credits}</span>
                                 <span className="text-[11px] text-[#9aa0a6]">credits</span>
                                 <span className={`text-[12px] font-bold mt-1 ${topUpAmount === pkg.credits ? 'text-[#2b83fa]' : 'text-[#6e6e73] dark:text-[#94959b]'}`}>₱{pkg.price}</span>
                             </button>
@@ -870,9 +858,9 @@ const CreditsSection: React.FC = () => {
                                         </div>
                                         <div className="flex flex-col items-end flex-shrink-0">
                                             <span className={`text-[13px] font-bold ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
-                                                {sign}{absAmount.toLocaleString()} cr
+                                                {absAmount === 0 && !isCredit ? '−1 free trial' : `${sign}${absAmount?.toLocaleString() || absAmount} credits`}
                                             </span>
-                                            <span className="text-[10px] text-[#9aa0a6]">bal: {tx.balance_after.toLocaleString()}</span>
+                                            <span className="text-[10px] text-[#9aa0a6]">balance: {tx.balance_after?.toLocaleString() || tx.balance_after || 0}</span>
                                         </div>
                                     </div>
                                 );

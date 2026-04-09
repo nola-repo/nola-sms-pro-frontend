@@ -217,28 +217,28 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                             const isTrialActive = trialTotal > 0 && trialUsed < trialTotal;
                             const trialLeft    = trialTotal - trialUsed;
                             return (
-                                <div className={`p-6 rounded-3xl shadow-lg transition-all group overflow-hidden relative h-full ${
-                                    isTrialActive
-                                        ? 'bg-gradient-to-br from-emerald-400 to-teal-500 shadow-emerald-500/20 hover:shadow-emerald-500/30'
-                                        : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-blue-500/20 hover:shadow-blue-500/30'
-                                }`}>
+                                <div className="p-6 rounded-3xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all group overflow-hidden relative h-full">
                                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
                                         <FiCreditCard className="w-24 h-24 text-white" />
                                     </div>
-                                    <div className="relative z-10">
-                                        <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
-                                            <FiCreditCard className="h-5 w-5" />
+                                    <div className="relative z-10 flex flex-col h-full justify-between">
+                                        <div>
+                                            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4">
+                                                <FiCreditCard className="h-5 w-5" />
+                                            </div>
+                                            <p className="text-[13px] font-bold text-white/70 uppercase tracking-widest mb-1">
+                                                Available Credits
+                                            </p>
                                         </div>
-                                        <p className="text-[13px] font-bold text-white/70 uppercase tracking-widest mb-1">
-                                            {isTrialActive ? 'Trial Messages' : 'Available Credits'}
-                                        </p>
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div>
-                                                <h2 className="text-3xl font-black text-white">
-                                                    {loading ? '---' : (isTrialActive ? trialLeft : balance).toLocaleString()}
+                                        <div className="flex items-center justify-between gap-4 mt-auto">
+                                            <div className="flex items-center gap-3">
+                                                <h2 className="text-3xl font-black text-white leading-none">
+                                                    {loading ? '---' : balance.toLocaleString()}
                                                 </h2>
-                                                {isTrialActive && (
-                                                    <p className="text-[11px] text-white/60 mt-0.5">{balance.toLocaleString()} paid credits also available</p>
+                                                {isTrialActive && !loading && (
+                                                    <span className="text-[10px] font-bold bg-[#ffffff30] text-white px-2.5 py-0.5 rounded-full shadow-sm whitespace-nowrap">
+                                                        {trialLeft} Free Trial
+                                                    </span>
                                                 )}
                                             </div>
                                             <button
@@ -247,20 +247,9 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                                 }}
                                                 className="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold transition-all flex items-center gap-1.5 flex-shrink-0"
                                             >
-                                                <FiPlus className="w-3 h-3" /> {isTrialActive ? 'Top Up' : 'Top Up'}
+                                                <FiPlus className="w-3 h-3" /> Top Up
                                             </button>
                                         </div>
-                                        {isTrialActive && (
-                                            <div className="mt-3">
-                                                <div className="h-1 bg-white/20 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-white/70 rounded-full transition-all duration-700"
-                                                        style={{ width: `${Math.round((trialUsed / trialTotal) * 100)}%` }}
-                                                    />
-                                                </div>
-                                                <p className="text-[10px] text-white/50 mt-1">{trialUsed}/{trialTotal} free messages used</p>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             );
