@@ -54,16 +54,8 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 text: row.message || "",
                 timestamp: parseFirestoreDate(row.created_at),
                 senderName: row.sender_id || "NOLASMSPro",
-                // Normalize to lowercase — backend (retrieve_status.php) stores Title Case (Sent, Pending, Queued)
-                status: ((() => {
-                    let mappedStatus = (row.status as string || 'sent').toLowerCase();
-                    // Optimistically show 'sent' (green) for messages that have reached Semaphore (pending delivery)
-                    // This stops the UI from flickering back to gray 'pending' while the backend syncs
-                    if (mappedStatus === 'pending' || mappedStatus === 'queued') {
-                        mappedStatus = 'sent';
-                    }
-                    return mappedStatus as Message["status"];
-                })()),
+                // Normalize to lowercase — backend sends sending, sent, failed
+                status: (row.status as string || 'sending').toLowerCase() as Message["status"],
                 batch_id: row.batch_id,
                 message: row.message,
                 errorReason: row.error_reason,

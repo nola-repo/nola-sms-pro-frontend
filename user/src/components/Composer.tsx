@@ -29,7 +29,7 @@ interface ComposerProps {
   onToggleMobileMenu?: () => void;
 }
 
-const StatusBadgeSummary: React.FC<{ stats: { sent: number, pending: number, failed: number, total: number }, minimal?: boolean }> = ({ stats, minimal }) => {
+const StatusBadgeSummary: React.FC<{ stats: { sent: number, sending: number, failed: number, total: number }, minimal?: boolean }> = ({ stats, minimal }) => {
   if (minimal) {
     const isFullySent = stats.sent === stats.total && stats.total > 0;
     const isFailed = stats.failed === stats.total && stats.total > 0;
@@ -41,13 +41,12 @@ const StatusBadgeSummary: React.FC<{ stats: { sent: number, pending: number, fai
             <FiAlertCircle size={11} className="animate-pulse" /> {isFailed ? 'Failed' : `${stats.failed} Failed`}
           </span>
         ) : isFullySent ? (
-          <span className="text-green-500 flex items-center gap-0.5">
-            <FiCheck size={11} className="text-blue-400" />
-            <FiCheck size={11} className="-ml-1.5 text-blue-400" />
+          <span className="text-green-500 flex items-center gap-0.5 uppercase tracking-wider">
+            <FiCheck size={11} /> Sent
           </span>
         ) : (
           <span className="text-gray-400 dark:text-gray-500 uppercase flex items-center gap-1">
-            <FiCheck size={10} /> {stats.sent}/{stats.total}
+            <FiLoader className="animate-spin" size={10} /> {stats.sent}/{stats.total}
           </span>
         )}
       </div>
@@ -61,9 +60,9 @@ const StatusBadgeSummary: React.FC<{ stats: { sent: number, pending: number, fai
           <FiAlertCircle size={10} /> {stats.failed} Failed
         </span>
       )}
-      {stats.pending > 0 && (
-        <span className="text-blue-500 flex items-center gap-1">
-          <FiLoader className="animate-spin" size={10} /> {stats.pending} Pending
+      {stats.sending > 0 && (
+        <span className="text-gray-400 dark:text-gray-500 flex items-center gap-1">
+          <FiLoader className="animate-spin" size={10} /> {stats.sending} Sending
         </span>
       )}
       <span className="text-gray-400 dark:text-gray-500 flex items-center gap-1">
@@ -198,12 +197,22 @@ export const Composer: React.FC<ComposerProps> = ({
   // Guard: prevents multiple toasts firing from same send action
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = (severity: "success" | "error", msg: string) => {
+    // Prevent flickering if the same message is already visible
+    if (toastOpen && toastSeverity === severity && toastMessage === msg) {
+        return;
+    }
+    
     // Cancel any pending open so rapid-fire calls collapse into one
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    
     setToastOpen(false);
-    setToastSeverity(severity);
-    setToastMessage(msg);
-    toastTimerRef.current = setTimeout(() => { setToastOpen(true); }, 50);
+    
+    // Wait slightly longer for MUI's slide-down exit animation to start
+    toastTimerRef.current = setTimeout(() => { 
+        setToastSeverity(severity);
+        setToastMessage(msg);
+        setToastOpen(true); 
+    }, 200);
   };
   const [showDisabledReason, setShowDisabledReason] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -1138,26 +1147,18 @@ export const Composer: React.FC<ComposerProps> = ({
                             <span className="text-[10px] text-gray-400">•</span>
                             <span
                               className={`text-[10px] font-bold capitalize tracking-wider ${
-                                ['sent', 'delivered'].includes(msg.status)
+                                msg.status === 'sent'
                                   ? "text-green-500"
-                                  : ['failed', 'rejected', 'undelivered', 'error'].includes(msg.status)
+                                  : msg.status === 'failed'
                                   ? "text-red-500"
                                   : "text-gray-400"
                               }`}
                             >
-                              {['sending', 'pending', 'queued'].includes(msg.status)
-                                ? "⟳"
-                                : msg.status === "delivered"
-                                ? "✓✓"
-                                : msg.status === "sent"
-                                ? "✓"
-                                : (
-                                    <FiAlertCircle
-                                      size={10}
-                                      className="inline mb-0.5"
-                                    />
-                                  )}{" "}
-                              {msg.status}
+                              {msg.status === 'sending'
+                                ? <FiLoader className="animate-spin inline mb-0.5" size={10} />
+                                : msg.status === 'sent'
+                                ? <FiCheck className="inline mb-0.5" size={10} />
+                                : <FiAlertCircle size={10} className="inline mb-0.5" />} {msg.status}
                             </span>
                           </div>
                         </div>
@@ -1230,8 +1231,8 @@ export const Composer: React.FC<ComposerProps> = ({
                     const showDateSeparator = !prevDateStr || prevDateStr !== msgDateStr;
 
                     const campaignStats = {
-                      sent: grp.rows.filter(m => (m.status || '').toLowerCase() === 'sent' || (m.status || '').toLowerCase() === 'delivered').length,
-                      pending: grp.rows.filter(m => (m.status || '').toLowerCase() === 'pending' || (m.status || '').toLowerCase() === 'queued').length,
+                      sent: grp.rows.filter(m => (m.status || '').toLowerCase() === 'sent').length,
+                      sending: grp.rows.filter(m => (m.status || '').toLowerCase() === 'sending').length,
                       failed: grp.rows.filter(m => ['failed', 'error'].includes((m.status || '').toLowerCase())).length,
                       total: grp.rows.length
                     };
@@ -1355,8 +1356,8 @@ export const Composer: React.FC<ComposerProps> = ({
                               {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                             <span className="text-[10px] text-gray-400">•</span>
-                            <span className={`text-[10px] font-bold capitalize tracking-wider ${['sent', 'delivered'].includes(msg.status) ? 'text-green-500' : ['failed', 'rejected', 'undelivered', 'error'].includes(msg.status) ? 'text-red-500' : 'text-gray-400'}`}>
-                              {['sending', 'pending', 'queued'].includes(msg.status) ? '⟳' : msg.status === 'delivered' ? '✓✓' : msg.status === 'sent' ? '✓' : <FiAlertCircle size={10} className="inline mb-0.5" />} {msg.status}
+                            <span className={`text-[10px] font-bold capitalize tracking-wider ${msg.status === 'sent' ? 'text-green-500' : msg.status === 'failed' ? 'text-red-500' : 'text-gray-400'}`}>
+                              {msg.status === 'sending' ? <FiLoader className="animate-spin inline mb-0.5" size={10} /> : msg.status === 'sent' ? <FiCheck className="inline mb-0.5" size={10} /> : <FiAlertCircle size={10} className="inline mb-0.5" />} {msg.status}
                             </span>
                           </div>
                         </div>
