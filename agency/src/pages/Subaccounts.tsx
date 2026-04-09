@@ -422,7 +422,7 @@ export const Subaccounts = () => {
 
       {/* Quick stats strip */}
       {!loading && total > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
           <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] rounded-2xl p-5 shadow-sm hover:shadow-md hover:-translate-y-[1px] transition-all group">
             <div className="text-[11.5px] font-semibold uppercase tracking-widest text-[#6e6e73] dark:text-[#9aa0a6] mb-2">Total</div>
             <div className="text-3xl font-extrabold tracking-tight leading-none text-[#2b83fa]">{total}</div>
@@ -437,6 +437,13 @@ export const Subaccounts = () => {
             <div className="text-[11.5px] font-semibold uppercase tracking-widest text-[#6e6e73] dark:text-[#9aa0a6] mb-2">At Limit</div>
             <div className="text-3xl font-extrabold tracking-tight leading-none text-[#ef4444]">{atLimit}</div>
             <div className="text-[11.5px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1.5 line-clamp-1">need reset</div>
+          </div>
+          <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] rounded-2xl p-5 shadow-sm hover:shadow-md hover:-translate-y-[1px] transition-all group">
+            <div className="text-[11.5px] font-semibold uppercase tracking-widest text-[#6e6e73] dark:text-[#9aa0a6] mb-2">Total Credits</div>
+            <div className="text-3xl font-extrabold tracking-tight leading-none text-purple-600">
+              {subaccounts.reduce((acc, s) => acc + (s.credit_balance || s.credits || 0), 0).toLocaleString()}
+            </div>
+            <div className="text-[11.5px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1.5 line-clamp-1">across all locations</div>
           </div>
         </div>
       )}
@@ -477,6 +484,7 @@ export const Subaccounts = () => {
                 <th onClick={() => handleSort('agency_name')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Agency Name <SortIcon field="agency_name" /></th>
                 <th onClick={() => handleSort('rate_limit')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Rate Limit <SortIcon field="rate_limit" /></th>
                 <th onClick={() => handleSort('attempt_count')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Sends Used <SortIcon field="attempt_count" /></th>
+                <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Credits</th>
                 <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap text-right">SMS Active</th>
               </tr>
             </thead>
@@ -533,6 +541,16 @@ export const Subaccounts = () => {
                               <FiRotateCcw className="w-3.5 h-3.5" />
                             </button>
                           )}
+                        </div>
+                      </td>
+
+                      {/* Credit Balance */}
+                      <td className="px-6 py-4 align-middle">
+                        <div className="flex flex-col">
+                          <span className="text-[14px] font-bold text-[#111111] dark:text-white">
+                            {(sub.credit_balance ?? sub.credits ?? 0).toLocaleString()}
+                          </span>
+                          <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">balance</span>
                         </div>
                       </td>
 

@@ -1,55 +1,57 @@
-# Backend Handoff: Admin Panel Enhancements (SMS Pro)
+# Consolidated Backend Handoff: Credit & SMS Billing System
 
-This document outlines the necessary logic and database changes for the backend team to support the new Admin Panel account management and sender registration features.
-
-## 1. Firestore Schema Considerations
-
-### `integrations` Collection
-Each document (ID: `ghl_{location_id}`) should now include:
-- `semaphore_api_key` (string): The master API key for the approved sender ID.
-- `nola_pro_api_key` (string): Duplicate for backward compatibility.
-- `approved_sender_id` (string): The currently active sender registration.
-- `credit_balance` (number): The manual manual credit limit set by the admin.
-- `free_usage_count` (number): Count of "free" SMS sent by the subaccount.
-- `free_credits_total` (number): The limit for free usages before credits are consumed.
-
-### `credit_transactions` Collection
-Create a new entry whenever an admin manually overrides a credit balance in the Admin Panel:
-- `id` (string): Unique adjustment ID (prefix `adj_`).
-- `location_id` (string): The subaccount being adjusted.
-- `amount` (number): The **incremental change** (delta) from the previous balance (e.g., `+5` or `-1`).
-- `type` (string): `'admin_adjustment'`.
-- `description` (string): `"Manual credit adjustment by System Admin (Applied +X credits)"`.
-- `created_at` (Timestamp): Server timestamp.
+This document outlines the standardization requirements for the backend team to ensure the "Free Trial" and "Credit Management" features are fully functional and correctly displayed in the Frontend (User, Agency, and Admin panels).
 
 ---
 
-## 2. API Endpoint Requirements (`admin_sender_requests.php`)
+## 1. Credit Logging Standard (Ledger / Transactions)
 
-### `POST` Action: `status` Update
-When updating the status of a `sender_id_request` (Approval/Rejection/Revocation):
-- **Approval**:
-  1. Set status in `sender_id_requests` to `'approved'`.
-  2. Map the `requested_id` and provided `api_key` to the `integrations` document for the associated `location_id`.
-- **Revocation**:
-  1. Set status in `sender_id_requests` to `'revoked'`.
-  2. **CRITICAL**: Clear the `approved_sender_id` and `semaphore_api_key` in the `integrations` document for that `location_id`. The account should fall back to the "System" default.
+To ensure the UI correctly identifies "Free Trial" versus "Paid" usage, please follow this format for the `ledger` table and related API responses.
 
-### `POST` Action: `manage_sender`
-- **Smart Logging**: Before updating, fetch the current `credit_balance` value. Calculate the difference (`newBalance - oldBalance`) and log this **delta** to the `credit_transactions` collection.
-- Allow updating `credit_balance` without requiring an `api_key` change.
-- Perform a "merge" set in Firestore to avoid overwriting existing tracking tokens (access/refresh tokens).
+### 1.1 Free Trial Event (Quota Deduction)
+When a user on a Free Trial sends an SMS and it consumes their free quota:
+- **`type`**: `deduction` (or `credit_usage`)
+- **`amount`**: `0` (This is the critical signal)
+- **`description`**: "SMS Message to 09XXXXXXXXX"
+- **Result**: The UI will display **"−1 free trial"** and label it as **"Free Trial Used"**.
 
-### `GET` Action: `accounts`
-- Ensure all accounts return the `semaphore_api_key` for display in the Admin Dashboard.
-- Automatically populate the `location_name` if missing by querying the GHL Locations API using the stored `access_token`.
+### 1.2 Paid Credit Usage
+- **`type`**: `deduction`
+- **`amount`**: `-1` (or negative cost)
+- **Result**: The UI will display **"−1 credits"** and label it as **"Credits Used"**.
+
+### 1.3 Credit Purchase (Top-Up)
+- **`type`**: `top_up` (or `credit_purchase`)
+- **`amount`**: `1000` (Positive integer)
+- **Result**: The UI will display **"+1,000 credits"** (Green) and label it as **"Credits Purchased"**.
+
+> [!CAUTION]
+> Avoid logging Free Trial events with `type=top_up` and `amount=0`. This causes the Admin UI to show "Credits Purchased: +0", which is confusing for account management.
+
+---
+
+## 2. Agency Panel Requirements (`api/agency/`)
+
+### 2.1 `get_subaccounts.php` Update
+The Frontend now includes a **"Credits"** column and a **"Total Credits"** summary card.
+- **Requirement**: Each subaccount object in the `subaccounts` array must now include a `credit_balance` (or `credits`) field.
+- **Current Status**: Missing. Please add this field by joining the `integrations`/`credits` table or retrieving it from the subaccount metadata.
 
 ---
 
-## 3. Immediate Database Action Required
+## 3. Admin Panel Requirements (`api/admin_sender_requests.php`)
 
-**Action Item**: Please run a script or manually update existing approved accounts in the `integrations` collection to ensure the `semaphore_api_key` field is populated. If this field is missing, the Admin Panel table will display "None" for that account.
+### 3.1 Metadata Fields
+Ensure all accounts return the following fields for the multi-tier billing UI:
+- `credit_balance` (number): Current paid credit balance.
+- `free_usage_count` (number): How many free messages have been used.
+- `free_credits_total` (number): The total limit of the free trial (usually 10).
+- `approved_sender_id` (string): The active Sender ID.
+
+### 3.2 Revocation Logic
+When an admin revokes a Sender ID:
+- **Requirement**: Clear the `approved_sender_id` and `semaphore_api_key` in the `integrations` collection. The account should fall back to the "System" default automatically.
 
 ---
-*Status: Ready for Deployment*
-*Deployment Target: Google Cloud Run*
+*Status: Ready for Implementation*
+*Standard Version: 2.0 (Three-Tier Billing Alignment)*
