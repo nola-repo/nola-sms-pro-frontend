@@ -520,26 +520,6 @@ function formatTxDate(iso: string): string {
     }
 }
 
-/** Derive stats from a transaction array. */
-function deriveStats(txs: CreditTransaction[]) {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-
-    let sentToday = 0;
-    let creditsUsedToday = 0;
-    let creditsUsedMonth = 0;
-
-    for (const tx of txs) {
-        if (tx.type !== 'deduction') continue;
-        const t = new Date(tx.created_at).getTime();
-        const abs = Math.abs(tx.amount);
-        if (t >= todayStart) { sentToday += 1; creditsUsedToday += abs; }
-        if (t >= monthStart) creditsUsedMonth += abs;
-    }
-
-    return { sentToday, creditsUsedToday, creditsUsedMonth };
-}
 
 const CreditsSection: React.FC = () => {
     const ghlLocationIdFromHook = useGhlLocation();
@@ -617,7 +597,6 @@ const CreditsSection: React.FC = () => {
     }, [load]);
 
 
-    // ── Derived billing state ──────────────────────────────────────────────
     const displayBalance  = creditStatus?.credit_balance ?? 0;
     const trialUsed       = creditStatus?.free_usage_count ?? 0;
     const trialTotal      = creditStatus?.free_credits_total ?? 0;
@@ -625,7 +604,10 @@ const CreditsSection: React.FC = () => {
     const trialLeft       = trialTotal - trialUsed;
     const usagePercent    = Math.min(100, (displayBalance / 1000) * 100);
     const usageColor      = displayBalance < 50 ? 'bg-red-500' : displayBalance < 200 ? 'bg-amber-400' : 'bg-emerald-500';
-    const { sentToday, creditsUsedToday, creditsUsedMonth } = deriveStats(transactions);
+
+    const sentToday = creditStatus?.stats?.sent_today ?? 0;
+    const creditsUsedToday = creditStatus?.stats?.credits_used_today ?? 0;
+    const creditsUsedMonth = creditStatus?.stats?.credits_used_month ?? 0;
 
 
     const handleTopUp = (e: React.FormEvent) => {

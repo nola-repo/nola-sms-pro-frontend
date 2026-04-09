@@ -7,6 +7,11 @@ export interface CreditStatus {
     free_usage_count: number;
     free_credits_total: number;
     currency: string;
+    stats?: {
+        sent_today: number;
+        credits_used_today: number;
+        credits_used_month: number;
+    };
 }
 
 /**
@@ -35,6 +40,7 @@ export async function fetchCreditStatus(): Promise<CreditStatus | null> {
             free_usage_count: data.free_usage_count ?? 0,
             free_credits_total: data.free_credits_total ?? 0,
             currency: data.currency ?? 'PHP',
+            stats: data.stats
         };
     } catch {
         return null;
