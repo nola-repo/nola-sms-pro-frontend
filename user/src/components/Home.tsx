@@ -30,11 +30,16 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         const loadHomeData = async (isInitial = false) => {
             if (isInitial) setLoading(true);
 
-            // Run all three fetches independently — one failure won't block the others
-            const [credStatus, convs, contactsRes] = await Promise.allSettled([
+            // Fetch contacts independently in background so it doesn't block the UI
+            fetchContacts().then((data) => {
+                setContacts(data);
+                setContactsCount(data.length);
+            }).catch(() => []);
+
+            // Wait ONLY for critical UI elements (credits and history)
+            const [credStatus, convs] = await Promise.allSettled([
                 fetchCreditStatus(),
                 fetchConversations().catch(() => []),
-                fetchContacts().catch(() => []),
             ]);
 
             if (credStatus.status === 'fulfilled') {
@@ -51,21 +56,9 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                         return timeB - timeA;
                     });
 
-                    // If we have no previous conversations, just return the sorted ones
                     if (prev.length === 0) return sortedNew;
-
-                    // If we have existing ones, React will diff them. 
-                    // To ensure "smooth" updates and "add new on top" feel, 
-                    // we'll just return the sorted ones, but React's reconciler 
-                    // handles the DOM stability if IDs are the same.
                     return sortedNew;
                 });
-            }
-
-            if (contactsRes.status === 'fulfilled') {
-                const data = contactsRes.value as Contact[];
-                setContacts(data);
-                setContactsCount(data.length);
             }
 
             if (isInitial) setLoading(false);
