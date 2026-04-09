@@ -187,9 +187,10 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                     ) : logs.map(log => {
                         // Determine type based on explicit type or fallback properties
                         const isNegative = typeof log.amount === 'number' && log.amount < 0;
+                        const isFreeTrial = log.amount === 0;
                         const type = log.type || (
                             log.requested_id ? 'sender_request' :
-                            log.amount ? (isNegative ? 'credit_usage' : 'credit_purchase') :
+                            log.amount !== undefined ? (isNegative || isFreeTrial ? 'credit_usage' : 'credit_purchase') :
                             'message'
                         );
                         
@@ -251,7 +252,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
 
                         // Credit Purchase/Usage Event
                         if (type === 'credit_purchase' || type === 'credit_usage') {
-                            const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0);
+                            const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0) || isFreeTrial;
                             return (
                                 <div key={log.id} className="group flex items-center gap-4 p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                                     <div className={`w-10 h-10 rounded-[16px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}>
@@ -260,13 +261,13 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                     <div className="flex-1 min-w-0 flex flex-col justify-center">
                                         <div className="flex items-center justify-between mb-1 gap-2">
                                             <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
-                                                {isUsage ? 'Credits Used' : 'Credits Purchased'}
+                                                {isFreeTrial ? 'Free Trial Used' : (isUsage ? 'Credits Used' : 'Credits Purchased')}
                                             </p>
                                             <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">{timeString}</span>
                                         </div>
                                         <div className="flex items-center justify-between gap-3">
                                             <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">
-                                                {isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{!isUsage && '+'}{log.amount?.toLocaleString()}</span> credits
+                                                {isFreeTrial ? 'Deducted' : (isUsage ? 'Deducted' : 'Added')} <span className={`font-bold ${isUsage ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{!isUsage && '+'}{isFreeTrial ? '1' : log.amount?.toLocaleString()}</span> {isFreeTrial ? 'free message' : 'credits'}
                                             </p>
                                             <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
                                                 {log.status && <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border shadow-sm bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30">{log.status === 'completed' ? 'Paid' : log.status}</span>}

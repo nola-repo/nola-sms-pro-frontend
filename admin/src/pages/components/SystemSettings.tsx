@@ -274,10 +274,12 @@ export const AdminLogs: React.FC = () => {
     }, [fetchLogs]);
 
     const getType = (log: any) => {
-        if (log.type === 'message' && log.amount === undefined) return 'message';
+        if (log.type === 'message' && (log.amount === undefined || log.amount === null)) return 'message';
         
+        const isFreeTrial = log.amount === 0;
         const neg = (typeof log.amount === 'number' && log.amount < 0) || (typeof log.amount === 'string' && log.amount.startsWith('-'));
-        if (neg || log.type === 'deduction' || log.type === 'credit_usage') return 'credit_usage';
+        
+        if (neg || log.type === 'deduction' || log.type === 'credit_usage' || isFreeTrial) return 'credit_usage';
         if (log.amount !== undefined || log.type === 'top_up' || log.type === 'credit_purchase') return 'credit_purchase';
         
         return log.type || 'message';
@@ -327,6 +329,7 @@ export const AdminLogs: React.FC = () => {
 
     const renderRow = (log: any, isModal = false) => {
         const type = getType(log);
+        const isFreeTrial = log.amount === 0;
         const ts = log.timestamp || log.date_created || log.created_at;
         const date = ts ? new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
         const time = ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
@@ -380,7 +383,7 @@ export const AdminLogs: React.FC = () => {
 
 
         if (type === 'credit_purchase' || type === 'credit_usage') {
-            const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0);
+            const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0) || isFreeTrial;
             return (
                 <div key={log.id} className={base} onClick={() => !isModal && setSelectedLog(log)}>
                     <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}>
@@ -388,11 +391,11 @@ export const AdminLogs: React.FC = () => {
                     </div>
                     <div className="flex-1 min-w-0 flex flex-col justify-center">
                         <div className="flex items-center justify-between mb-1 gap-2">
-                            <p className="text-[14px] font-bold text-[#111111] dark:text-white">{isUsage ? 'Credits Used' : 'Credits Purchased'}</p>
+                            <p className="text-[14px] font-bold text-[#111111] dark:text-white">{isFreeTrial ? 'Free Trial Used' : (isUsage ? 'Credits Used' : 'Credits Purchased')}</p>
                             <div className="text-right flex-shrink-0"><span className="block text-[11px] font-bold text-[#111111] dark:text-white">{date}</span><span className="block text-[10px] uppercase text-[#9aa0a6]">{time}</span></div>
                         </div>
                         <div className="flex items-center justify-between gap-3">
-                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">{isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{!isUsage && '+'}{log.amount?.toLocaleString()}</span> credits</p>
+                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">{isFreeTrial ? 'Deducted' : (isUsage ? 'Deducted' : 'Added')} <span className={`font-bold ${isUsage ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{!isUsage && '+'}{isFreeTrial ? '1' : log.amount?.toLocaleString()}</span> {isFreeTrial ? 'free message' : 'credits'}</p>
                             <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
                                 {log.status && <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30">{log.status === 'completed' ? 'Paid' : log.status}</span>}
                                 {subAccountPill}
