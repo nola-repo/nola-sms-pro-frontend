@@ -205,12 +205,13 @@ export const Subaccounts = () => {
     }
   }, [agencyId]);
 
-  // Initial load + polling
+  // Initial load + polling — only runs when agencyId is available
   useEffect(() => {
+    if (!agencyId) return; // Don't poll until we have an agency ID (avoids 401s during auto-login)
     fetchSubaccounts();
     pollRef.current = setInterval(() => fetchSubaccounts({ silent: true }), POLL_MS);
     return () => clearInterval(pollRef.current);
-  }, [fetchSubaccounts]);
+  }, [fetchSubaccounts, agencyId]);
 
   // ── Toggle ─────────────────────────────────────────────────────────────────
   const handleToggle = async (locationId, enabled) => {
