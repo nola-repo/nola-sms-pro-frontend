@@ -41,15 +41,24 @@ export function useGhlCompany(): GhlCompanyState {
     const hashParams   = window.location.hash.includes('?') ? new URLSearchParams(window.location.hash.split('?')[1]) : null;
 
     let urlCompanyId: string | null = null;
-    for (const key of companyKeys) {
-      const vals = [...(searchParams.getAll(key) || []), ...(hashParams?.getAll(key) || [])];
-      for (const val of vals) {
-        if (val && val.trim() !== '' && !val.includes('{{')) {
-          urlCompanyId = val;
-          break;
+    
+    // Check path for /agency/{companyId} or /location/{locationId}
+    const pathMatch = window.location.pathname.match(/\/(?:location|agency)\/([a-zA-Z0-9_-]+)/i);
+    if (pathMatch && pathMatch[1] && !pathMatch[1].includes('{{')) {
+      urlCompanyId = pathMatch[1];
+    }
+
+    if (!urlCompanyId) {
+      for (const key of companyKeys) {
+        const vals = [...(searchParams.getAll(key) || []), ...(hashParams?.getAll(key) || [])];
+        for (const val of vals) {
+          if (val && val.trim() !== '' && !val.includes('{{')) {
+            urlCompanyId = val;
+            break;
+          }
         }
+        if (urlCompanyId) break;
       }
-      if (urlCompanyId) break;
     }
 
     const finalize = (cid: string) => {

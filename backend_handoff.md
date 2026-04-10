@@ -4,54 +4,92 @@ This document outlines the standardization requirements for the backend team to 
 
 ---
 
-## 1. Credit Logging Standard (Ledger / Transactions)
+## 1. Credit Transaction Logging — `balance_after` Field
 
-To ensure the UI correctly identifies "Free Trial" versus "Paid" usage, please follow this format for the `ledger` table and related API responses.
+### ❌ Current Problem
+The Admin Dashboard "Platform Activity" and "Recent Activity" sections show credit events (Credits Used / Credits Purchased) but **cannot display the remaining balance** because the backend does not return a `balance_after` field in the log rows.
 
-### 1.1 Free Trial Event (Quota Deduction)
-When a user on a Free Trial sends an SMS and it consumes their free quota:
-- **`type`**: `deduction` (or `credit_usage`)
-- **`amount`**: `0` (This is the critical signal)
-- **`description`**: "SMS Message to 09XXXXXXXXX"
-- **Result**: The UI will display **"−1 free trial"** and label it as **"Free Trial Used"**.
+**Screenshot**: We can currently see `"Deducted -1 credits"` but the sub-line `"Balance: X credits"` is blank.
 
-### 1.2 Paid Credit Usage
-- **`type`**: `deduction`
-- **`amount`**: `-1` (or negative cost)
-- **Result**: The UI will display **"−1 credits"** and label it as **"Credits Used"**.
+### ✅ Required Fix
 
-### 1.3 Credit Purchase (Top-Up)
-- **`type`**: `top_up` (or `credit_purchase`)
-- **`amount`**: `1000` (Positive integer)
-- **Result**: The UI will display **"+1,000 credits"** (Green) and label it as **"Credits Purchased"**.
+For every row returned by `/api/admin_sender_requests.php?action=logs`, add a `balance_after` field:
 
-> [!CAUTION]
-> Avoid logging Free Trial events with `type=top_up` and `amount=0`. This causes the Admin UI to show "Credits Purchased: +0", which is confusing for account management.
+```json
+{
+  "id": "txn_001",
+  "type": "deduction",
+  "amount": -1,
+  "location_id": "ghl_J3xCOJ...",
+  "timestamp": "2025-04-09T14:07:00Z",
+  "description": "SMS to 09938905125",
+  "balance_after": 249
+}
+```
 
----
+#### How to calculate `balance_after`
+- For each ledger row (ordered oldest → newest), track the running credit balance per `location_id`.
+- `balance_after = previous_balance + amount`
+- For Free Trial events (`amount = 0`), `balance_after` should equal the current `credit_balance` unchanged.
 
-## 2. Agency Panel Requirements (`api/agency/`)
-
-### 2.1 `get_subaccounts.php` Update
-The Frontend now includes a **"Credits"** column and a **"Total Credits"** summary card.
-- **Requirement**: Each subaccount object in the `subaccounts` array must now include a `credit_balance` (or `credits`) field.
-- **Current Status**: Missing. Please add this field by joining the `integrations`/`credits` table or retrieving it from the subaccount metadata.
+> **Important:** The frontend checks `log.balance_after !== undefined` before rendering. If the field is missing or `null`, the balance line is silently hidden. Just adding the field is enough — no frontend changes needed.
 
 ---
 
-## 3. Admin Panel Requirements (`api/admin_sender_requests.php`)
+## 2. Agency Subaccounts — `credit_balance` Field
 
-### 3.1 Metadata Fields
-Ensure all accounts return the following fields for the multi-tier billing UI:
-- `credit_balance` (number): Current paid credit balance.
-- `free_usage_count` (number): How many free messages have been used.
-- `free_credits_total` (number): The total limit of the free trial (usually 10).
-- `approved_sender_id` (string): The active Sender ID.
+### ❌ Current Problem
+The Agency panel (`/agency`) shows a "Credits" column and "Total Credits" stat card. These always show **0** because `get_subaccounts.php` does not return `credit_balance`.
 
-### 3.2 Revocation Logic
-When an admin revokes a Sender ID:
-- **Requirement**: Clear the `approved_sender_id` and `semaphore_api_key` in the `integrations` collection. The account should fall back to the "System" default automatically.
+### ✅ Required Fix
+
+Add `credit_balance` to every subaccount object in:
+`GET /api/agency/get_subaccounts.php`
+
+```json
+{
+  "location_id": "ugBqfQsPtGijLjrmLdmA",
+  "location_name": "J&K Car Rentals",
+  "toggle_enabled": true,
+  "rate_limit": 5,
+  "attempt_count": 2,
+  "credit_balance": 249
+}
+```
+
+Fetch this from the same `integrations` Firestore doc (field: `credit_balance`).
 
 ---
-*Status: Ready for Implementation*
-*Standard Version: 2.0 (Three-Tier Billing Alignment)*
+
+## 3. Free Trial Credit Logging Standard
+
+### Rule
+When a Free Trial SMS is sent (user has no paid credits):
+
+| Field | Value |
+|-------|-------|
+| `type` | `deduction` |
+| `amount` | `0` |
+| `balance_after` | Current paid credit balance (unchanged) |
+
+> **Do NOT use** `type=top_up` with `amount=0`. This causes the admin to see **"Credits Purchased: +0"** which is incorrect.
+
+---
+
+## 4. Admin Panel Account Fields
+
+For `/api/admin_sender_requests.php?action=accounts`, ensure each account returns:
+
+| Field | Description |
+|-------|-------------|
+| `credit_balance` | Current paid SMS credit balance |
+| `free_usage_count` | Number of free trial messages sent |
+| `free_credits_total` | Max free trial limit (usually `10`) |
+| `approved_sender_id` | Active sender registration |
+| `semaphore_api_key` | API key for sender display in Admin |
+
+---
+
+*Status: Pending Backend Implementation*
+*Frontend: Fully wired and ready — just needs the data fields*
+

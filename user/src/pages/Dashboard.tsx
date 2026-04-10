@@ -1,5 +1,6 @@
 import { safeStorage } from '../utils/safeStorage';
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
 import { Sidebar } from "../components/Sidebar";
@@ -19,9 +20,11 @@ interface DashboardProps {
   onMobileMenuToggle?: () => void;
   darkMode?: boolean;
   toggleDarkMode?: () => void;
+  initialView?: ViewTab;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: externalIsMobileMenuOpen, onMobileMenuToggle, darkMode, toggleDarkMode }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: externalIsMobileMenuOpen, onMobileMenuToggle, darkMode, toggleDarkMode, initialView }) => {
+  const navigate = useNavigate();
   const onboarding = useOnboarding();
   const [activeContact, setActiveContact] = useState<Contact | null>(() => {
     try {
@@ -42,8 +45,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       return contact ? [contact] : [];
     } catch { return []; }
   });
+  // initialView from the router takes priority; fall back to persisted storage
   const [currentView, setCurrentView] = useState<ViewTab>(
-    () => (safeStorage.getItem('nola_active_tab') as ViewTab) || 'home'
+    () => initialView || (safeStorage.getItem('nola_active_tab') as ViewTab) || 'home'
   );
   const [settingsTab, setSettingsTab] = useState<"account" | "senderIds" | "notifications" | "credits" | undefined>(undefined);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -98,6 +102,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const handleTabChange = (tab: ViewTab) => {
     setCurrentView(tab);
     safeStorage.setItem('nola_active_tab', tab);
+
+    // Sync to URL so the browser history and address bar stay up to date
+    const urlMap: Record<ViewTab, string> = {
+      home: '/',
+      compose: '/compose',
+      contacts: '/contacts',
+      settings: '/settings',
+      templates: '/templates',
+    };
+    navigate(urlMap[tab] ?? '/', { replace: false });
 
     // Clear selection for ALL tab changes to ensure Sidebar highlights are removed
     setSelectedContacts([]);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { BrowserRouter } from "react-router-dom";
 import { AdminLayout } from "./pages/AdminLayout";
 
 export const AdminApp: React.FC = () => {
@@ -22,8 +23,10 @@ export const AdminApp: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-full">
-      <AdminLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
-    </div>
+    <BrowserRouter>
+      <div className="h-screen w-full">
+        <AdminLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+      </div>
+    </BrowserRouter>
   );
 };

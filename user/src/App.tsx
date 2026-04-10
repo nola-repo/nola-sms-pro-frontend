@@ -77,8 +77,57 @@ const AppLayout: React.FC = () => {
                   onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                   darkMode={darkMode}
                   toggleDarkMode={toggleDarkMode}
+                  initialView="home"
                 />
               )
+            }
+          />
+          <Route
+            path="/compose"
+            element={
+              <Dashboard
+                isMobileMenuOpen={isMobileMenuOpen}
+                onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                darkMode={darkMode}
+                toggleDarkMode={toggleDarkMode}
+                initialView="compose"
+              />
+            }
+          />
+          <Route
+            path="/contacts"
+            element={
+              <Dashboard
+                isMobileMenuOpen={isMobileMenuOpen}
+                onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                darkMode={darkMode}
+                toggleDarkMode={toggleDarkMode}
+                initialView="contacts"
+              />
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <Dashboard
+                isMobileMenuOpen={isMobileMenuOpen}
+                onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                darkMode={darkMode}
+                toggleDarkMode={toggleDarkMode}
+                initialView="settings"
+              />
+            }
+          />
+          <Route
+            path="/templates"
+            element={
+              <Dashboard
+                isMobileMenuOpen={isMobileMenuOpen}
+                onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                darkMode={darkMode}
+                toggleDarkMode={toggleDarkMode}
+                initialView="templates"
+              />
             }
           />
         </Route>

@@ -1,6 +1,6 @@
 import { safeStorage } from '../utils/safeStorage';
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getAgencySession, clearAgencySession, type AgencySession } from '../services/agencyAuthHelper.ts';
+import { getAgencySession, clearAgencySession, type AgencySession, ghlAutoLogin } from '../services/agencyAuthHelper.ts';
 import { useGhlCompany } from '../hooks/useGhlCompany.ts';
 
 interface AgencyContextValue {
@@ -11,6 +11,8 @@ interface AgencyContextValue {
   isGhlFrame:    boolean;
   darkMode:      boolean;
   toggleDarkMode: () => void;
+  autoLoginLoading: boolean;
+  autoLoginError: string | null;
 }
 
 const AgencyContext = createContext<AgencyContextValue | null>(null);
@@ -18,7 +20,9 @@ const AgencyContext = createContext<AgencyContextValue | null>(null);
 export const AgencyProvider = ({ children }) => {
   const { companyId: ghlCompanyId, isGhlFrame } = useGhlCompany();
 
-  const [agencySession] = useState<AgencySession | null>(() => getAgencySession());
+  const [agencySession, setAgencySession] = useState<AgencySession | null>(() => getAgencySession());
+  const [autoLoginLoading, setAutoLoginLoading] = useState(false);
+  const [autoLoginError, setAutoLoginError] = useState<string | null>(null);
 
   // Priority: 1. GHL URL param  2. JWT  3. env  4. localStorage
   const [agencyId, setAgencyId] = useState<string | null>(() => {
@@ -39,6 +43,31 @@ export const AgencyProvider = ({ children }) => {
       safeStorage.setItem('nola_agency_id', ghlCompanyId);
     }
   }, [ghlCompanyId]);
+
+  useEffect(() => {
+    if (!isGhlFrame || !ghlCompanyId || agencySession) return;
+
+    let isMounted = true;
+    setAutoLoginLoading(true);
+
+    ghlAutoLogin(ghlCompanyId)
+      .then(session => {
+        if (!isMounted) return;
+        setAgencyId(session.companyId);
+        setAgencySession(session);
+        // Force re-render to pick up session cleanly
+        window.location.reload(); 
+      })
+      .catch(err => {
+        if (!isMounted) return;
+        setAutoLoginError(err.message);
+      })
+      .finally(() => {
+        if (isMounted) setAutoLoginLoading(false);
+      });
+
+    return () => { isMounted = false; };
+  }, [isGhlFrame, ghlCompanyId, agencySession]);
 
   const logout = () => {
     clearAgencySession();
@@ -74,6 +103,8 @@ export const AgencyProvider = ({ children }) => {
       isGhlFrame,
       darkMode,
       toggleDarkMode,
+      autoLoginLoading,
+      autoLoginError,
     }}>
       {children}
     </AgencyContext.Provider>

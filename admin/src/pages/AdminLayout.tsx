@@ -1,12 +1,7 @@
 // @ts-nocheck
-import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft } from 'react-icons/fi';
-import logoUrl from '../assets/NOLA SMS PRO Logo.png';
-import Antigravity from '../components/ui/Antigravity';
-
-const ADMIN_API = '/api/admin_sender_requests.php';
-const POLL_INTERVAL = 15000; // 15 seconds real-time sync
-
+import React, { useState } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiHome, FiActivity, FiShield, FiSun, FiMoon } from 'react-icons/fi';
 
 import { AdminLogin } from './components/AdminLogin';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -15,37 +10,58 @@ import { AdminAccounts } from './components/AdminAccounts';
 import { AdminTeamManagement } from './components/AdminUsersManagement';
 import { AdminLogs, AdminSettings } from './components/SystemSettings';
 
+const NAV_ITEMS = [
+    { path: '/dashboard',  label: 'Dashboard',        icon: <FiHome /> },
+    { path: '/requests',   label: 'Sender Requests',   icon: <FiSend /> },
+    { path: '/activity',   label: 'Platform Activity', icon: <FiActivity /> },
+    { path: '/accounts',   label: 'All Accounts',      icon: <FiUsers /> },
+    { path: '/admins',     label: 'Admin Users',       icon: <FiShield /> },
+    { path: '/settings',   label: 'System Settings',   icon: <FiSettings /> },
+] as const;
 
-export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode, toggleDarkMode }) => {
-    const [isAuthenticated, setIsAuthenticated] = useState(() => {
-        return localStorage.getItem('nola_admin_auth') === 'true';
-    });
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'accounts' | 'requests' | 'admins' | 'activity' | 'settings'>('dashboard');
+const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
+    '/dashboard': { title: 'Dashboard',         subtitle: 'Platform-wide overview of all accounts and activity.' },
+    '/requests':  { title: 'Sender Requests',   subtitle: 'Management overview and administrative actions.' },
+    '/activity':  { title: 'Platform Activity', subtitle: 'All SMS, credit, and billing events across accounts.' },
+    '/accounts':  { title: 'All Accounts',      subtitle: 'Overview of all mapped GHL subaccounts and credits.' },
+    '/admins':    { title: 'Admin Users',        subtitle: 'Manage admin access and team permissions.' },
+    '/settings':  { title: 'System Settings',   subtitle: 'Global configuration and platform settings.' },
+};
+
+export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => void }> = ({ darkMode, toggleDarkMode }) => {
+    const [isAuthenticated, setIsAuthenticated] = useState(() =>
+        localStorage.getItem('nola_admin_auth') === 'true'
+    );
+
+    const navigate   = useNavigate();
+    const { pathname } = useLocation();
 
     const handleLogin = (username: string) => {
         localStorage.setItem('nola_admin_auth', 'true');
         localStorage.setItem('nola_admin_user', username);
         setIsAuthenticated(true);
-        // Fire-and-forget: record last_login to backend
         fetch('/api/admin_users.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'record_login', username }),
-        }).catch(() => {}); // Silently ignore if backend not ready
+        }).catch(() => {});
     };
 
     const handleLogout = () => {
         localStorage.removeItem('nola_admin_auth');
         setIsAuthenticated(false);
+        navigate('/dashboard');
     };
 
     if (!isAuthenticated) {
         return <AdminLogin onLogin={handleLogin} />;
     }
 
+    const page = PAGE_TITLES[pathname] ?? PAGE_TITLES['/dashboard'];
+
     return (
         <div className={`h-screen flex overflow-hidden bg-[#f7f7f7] dark:bg-[#111111] ${darkMode ? 'dark' : ''}`}>
-            {/* Admin Sidebar */}
+            {/* Sidebar */}
             <div className="w-64 bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border-r border-[#0000000a] dark:border-[#ffffff0a] shadow-[1px_0_0_rgba(0,0,0,0.05)] flex flex-col z-20">
                 <div className="p-6">
                     <h1 className="text-xl font-black text-[#111111] dark:text-white tracking-tight flex items-center gap-2">
@@ -57,27 +73,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode, toggleDarkMo
                 </div>
 
                 <nav className="flex-1 px-4 py-2 space-y-1.5">
-                    {[
-                        { id: 'dashboard', label: 'Dashboard', icon: <FiHome /> },
-                        { id: 'requests', label: 'Sender Requests', icon: <FiSend /> },
-                        { id: 'activity', label: 'Platform Activity', icon: <FiActivity /> },
-                        { id: 'accounts', label: 'All Accounts', icon: <FiUsers /> },
-                        { id: 'admins', label: 'Admin Users', icon: <FiShield /> },
-                        { id: 'settings', label: 'System Settings', icon: <FiSettings /> },
-                    ].map(tab => {
-                        const isActive = activeTab === tab.id;
+                    {NAV_ITEMS.map(item => {
+                        const isActive = pathname === item.path || (pathname === '/' && item.path === '/dashboard');
                         return (
                             <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
+                                key={item.path}
+                                onClick={() => navigate(item.path)}
                                 className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[14px] font-medium transition-all group ${
                                     isActive
                                         ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
                                         : 'text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]'
                                 }`}
                             >
-                                <span className={`transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110 group-hover:text-[#2b83fa]'}`}>{tab.icon}</span>
-                                <span className={isActive ? 'font-bold' : ''}>{tab.label}</span>
+                                <span className={`transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110 group-hover:text-[#2b83fa]'}`}>{item.icon}</span>
+                                <span className={isActive ? 'font-bold' : ''}>{item.label}</span>
                             </button>
                         );
                     })}
@@ -93,16 +102,12 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode, toggleDarkMo
                 </div>
             </div>
 
-            {/* Main Content Area */}
+            {/* Main Content */}
             <div className="flex-1 flex flex-col h-full overflow-hidden">
                 <header className="px-8 py-5 bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border-b border-[#0000000a] dark:border-[#ffffff0a] flex-shrink-0 flex items-center justify-between">
                     <div>
-                        <h2 className="text-xl font-bold text-[#111111] dark:text-white capitalize tracking-tight">
-                            {activeTab === 'dashboard' ? 'Dashboard' : activeTab === 'requests' ? 'Sender Requests' : activeTab === 'accounts' ? 'All Accounts' : activeTab === 'admins' ? 'Admin Users' : activeTab === 'activity' ? 'Platform Activity' : 'System Settings'}
-                        </h2>
-                        <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">
-                            {activeTab === 'dashboard' ? 'Platform-wide overview of all accounts and activity.' : 'Management overview and administrative actions.'}
-                        </p>
+                        <h2 className="text-xl font-bold text-[#111111] dark:text-white capitalize tracking-tight">{page.title}</h2>
+                        <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">{page.subtitle}</p>
                     </div>
                     <button
                         onClick={toggleDarkMode}
@@ -116,16 +121,19 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ darkMode, toggleDarkMo
 
                 <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                     <div className="max-w-6xl mx-auto">
-                        {activeTab === 'dashboard' && <AdminDashboard onNavigate={setActiveTab} />}
-                        {activeTab === 'requests' && <AdminSenderRequests />}
-                        {activeTab === 'accounts' && <AdminAccounts />}
-                        {activeTab === 'admins' && <AdminTeamManagement />}
-                        {activeTab === 'activity' && <AdminLogs />}
-                        {activeTab === 'settings' && <AdminSettings />}
+                        <Routes>
+                            <Route path="/"           element={<Navigate to="/dashboard" replace />} />
+                            <Route path="/dashboard"  element={<AdminDashboard onNavigate={(tab) => navigate(`/${tab}`)} />} />
+                            <Route path="/requests"   element={<AdminSenderRequests />} />
+                            <Route path="/activity"   element={<AdminLogs />} />
+                            <Route path="/accounts"   element={<AdminAccounts />} />
+                            <Route path="/admins"     element={<AdminTeamManagement />} />
+                            <Route path="/settings"   element={<AdminSettings />} />
+                            <Route path="*"           element={<Navigate to="/dashboard" replace />} />
+                        </Routes>
                     </div>
                 </main>
             </div>
         </div>
     );
 };
-
