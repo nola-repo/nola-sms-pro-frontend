@@ -183,17 +183,16 @@ export const Subaccounts = () => {
   const pollRef = useRef(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
+  // Phase 1: fetch subaccounts immediately so the table renders right away.
+  // Phase 2: fetch install status in the background and update without blocking.
   const fetchSubaccounts = useCallback(async ({ silent = false } = {}) => {
     if (!agencyId) { setLoading(false); return; }
     if (!silent) setRefreshing(true);
 
     try {
-      const [data, installs] = await Promise.all([
-        getSubaccounts(agencyId),
-        checkInstallStatus(agencyId).catch(() => []) // fail gracefully if endpoint doesn't exist yet
-      ]);
+      // Show subaccounts as fast as possible
+      const data = await getSubaccounts(agencyId);
       setSubaccounts(data.subaccounts || []);
-      setInstalledLocations(new Set(installs));
       setError(null);
       setLastPolled(new Date());
     } catch (e) {
@@ -203,6 +202,11 @@ export const Subaccounts = () => {
       setLoading(false);
       setRefreshing(false);
     }
+
+    // Phase 2: install status loads in the background — doesn't block the table
+    checkInstallStatus(agencyId)
+      .then(installs => setInstalledLocations(new Set(installs)))
+      .catch(() => {}); // silently fail if check_installs.php is unavailable
   }, [agencyId]);
 
   // Initial load + polling — only runs when agencyId is available

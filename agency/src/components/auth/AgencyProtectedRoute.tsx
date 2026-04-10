@@ -1,5 +1,5 @@
 import { safeStorage } from '../../utils/safeStorage';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { SESSION_KEYS } from '../../services/agencyAuthHelper.ts';
 import { useAgency } from '../../context/AgencyContext.tsx';
@@ -12,11 +12,22 @@ import { useAgency } from '../../context/AgencyContext.tsx';
  * state if the companyId couldn't be detected via url/postMessage.
  */
 export const AgencyProtectedRoute: React.FC = () => {
-  const { isGhlFrame, agencySession, autoLoginLoading, autoLoginError } = useAgency();
+  const { isGhlFrame, agencySession, autoLoginLoading, autoLoginError, agencyId } = useAgency();
 
-  // If inside ANY iframe context (GHL), we wait for autoLogin check
+  // Hard timeout escape: never show spinner for more than 5 seconds.
+  // This prevents infinite loading if GHL postMessage never responds.
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    if (!isGhlFrame) return;
+    const t = setTimeout(() => setTimedOut(true), 5000);
+    return () => clearTimeout(t);
+  }, [isGhlFrame]);
+
+  // If inside ANY iframe context (GHL), wait for autoLogin OR timeout
   if (isGhlFrame) {
-    if (autoLoginLoading || (!agencySession && !autoLoginError)) {
+    // Still loading AND haven't timed out yet AND don't have a session
+    const stillLoading = (autoLoginLoading || (!agencySession && !autoLoginError && !agencyId)) && !timedOut;
+    if (stillLoading) {
       return (
         <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-[#0a0a0b] transition-colors duration-300">
            <svg className="animate-spin h-8 w-8 text-[#2b83fa]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

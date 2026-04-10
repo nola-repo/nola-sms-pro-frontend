@@ -18,7 +18,7 @@ interface AgencyContextValue {
 const AgencyContext = createContext<AgencyContextValue | null>(null);
 
 export const AgencyProvider = ({ children }) => {
-  const { companyId: ghlCompanyId, isGhlFrame } = useGhlCompany();
+  const { companyId: ghlCompanyId, isGhlFrame, status: ghlStatus } = useGhlCompany();
 
   const [agencySession, setAgencySession] = useState<AgencySession | null>(() => getAgencySession());
   const [autoLoginLoading, setAutoLoginLoading] = useState(false);
@@ -43,6 +43,14 @@ export const AgencyProvider = ({ children }) => {
       safeStorage.setItem('nola_agency_id', ghlCompanyId);
     }
   }, [ghlCompanyId]);
+
+  // If GHL postMessage detection failed and there's no stored agency ID,
+  // surface this as an autoLoginError so the route guard exits the loading state.
+  useEffect(() => {
+    if (ghlStatus === 'error' && !agencyId && !autoLoginError) {
+      setAutoLoginError('Could not detect GHL Company ID. Please refresh or re-open the app from the GHL sidebar.');
+    }
+  }, [ghlStatus, agencyId, autoLoginError]);
 
   useEffect(() => {
     if (!isGhlFrame || !ghlCompanyId || agencySession) return;
