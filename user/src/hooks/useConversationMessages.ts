@@ -51,9 +51,14 @@ export const useConversationMessages = (conversationId: string | undefined, reci
 
             const formatted: Message[] = sorted.map((row) => {
                 let status = (row.status as string || 'sending').toLowerCase();
-                // Revert: Legacy optimistic upgrade to make UI feel incredibly fast
-                if (status === 'queued' || status === 'pending' || status === 'sending') {
+                
+                // Strictly unify statuses for UI
+                if (['queued', 'pending'].includes(status)) {
+                    status = 'sending';
+                } else if (['delivered'].includes(status)) {
                     status = 'sent';
+                } else if (['rejected', 'undelivered', 'expired'].includes(status)) {
+                    status = 'failed';
                 }
 
                 return {
@@ -62,6 +67,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                     timestamp: parseFirestoreDate(row.created_at),
                     senderName: row.sender_id || "NOLASMSPro",
                     status: status as Message["status"],
+
                     batch_id: row.batch_id,
                     message: row.message,
                     errorReason: row.error_reason,
@@ -177,7 +183,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             text,
             timestamp: new Date(),
             senderName,
-            status: "sent", // REVERTED: default to sent optimistically to prevent infinite spinners
+            status: "sending",
         };
         setMessages((prev) => [...prev, newMsg]);
         return id;

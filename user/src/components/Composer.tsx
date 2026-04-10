@@ -87,6 +87,7 @@ export const Composer: React.FC<ComposerProps> = ({
   const [loading, setLoading] = useState(false);
   const [senderName, setSenderName] = useState<SenderId>("NOLASMSPro");
   const [approvedSenderId, setApprovedSenderId] = useState<string | undefined>(undefined);
+  const [toggleEnabled, setToggleEnabled] = useState(true);
 
   const handleSenderChange = (val: SenderId) => {
     setSenderName(val);
@@ -103,6 +104,10 @@ export const Composer: React.FC<ComposerProps> = ({
       
       if (cfg.approved_sender_id) {
         setApprovedSenderId(cfg.approved_sender_id);
+      }
+      
+      if (cfg.toggle_enabled !== undefined) {
+        setToggleEnabled(cfg.toggle_enabled);
       }
       
       if (preferred) {
@@ -564,7 +569,7 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   const isSendDisabled = () => {
-    if (loading || !message) return true;
+    if (loading || !message || !toggleEnabled) return true;
     // Allow sending when viewing an existing conversation
     if (activeBulkMessage || activeContact) {
       return false;
@@ -575,6 +580,7 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   const getSendDisabledReason = (): string => {
+    if (!toggleEnabled) return "SMS sending is disabled for this account";
     if (loading) return "Sending in progress...";
     if (!message) return "Enter a message to send";
     // Allow sending when viewing an existing conversation
@@ -1398,6 +1404,19 @@ export const Composer: React.FC<ComposerProps> = ({
           </button>
         </div>
         <div className="max-w-5xl mx-auto">
+          {!toggleEnabled && (
+            <div className="mb-3 mx-2 sm:mx-0 px-4 py-3 bg-red-50 dark:bg-red-900/10 border border-red-200/60 dark:border-red-800/40 rounded-2xl flex items-start gap-3 shadow-sm">
+              <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div>
+                <h4 className="text-[13px] font-bold text-red-800 dark:text-red-300 tracking-tight">SMS Sending Disabled</h4>
+                <p className="text-[12px] text-red-700/90 dark:text-red-400/80 leading-snug mt-0.5">
+                  Your agency has restricted SMS sending out of this account. Manual messages and workflow automations are currently blocked. Please contact your agency to re-enable messaging.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="bg-white dark:bg-[#1a1b1e] rounded-[1.5rem] border border-gray-200/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-2 transition-all focus-within:ring-2 focus-within:ring-[#2b83fa]/20 dark:focus-within:ring-[#2b83fa]/10 relative z-20">
             <div className="flex flex-col">
               <textarea

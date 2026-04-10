@@ -18,6 +18,7 @@ export interface AccountSenderConfig {
     semaphore_api_key: string | null;    // Legacy fallback
     free_usage_count: number;
     system_default_sender: string;
+    toggle_enabled?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -94,6 +95,7 @@ export const fetchAccountSenderConfig = async (): Promise<AccountSenderConfig> =
         semaphore_api_key: null,
         free_usage_count: 0,
         system_default_sender: "NOLASMSPro",
+        toggle_enabled: true,
     };
 
     let url = API_CONFIG.account_sender;
