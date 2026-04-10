@@ -13,9 +13,15 @@ export const ProtectedRoute: React.FC = () => {
   // Check for GHL iframe parameters to bypass login
   const searchParams = new URLSearchParams(window.location.search);
   const hashString = window.location.hash;
-  const isGHL = searchParams.has('location_id') || searchParams.has('locationId') || searchParams.has('location') || searchParams.has('id') ||
+  const urlHasParams = searchParams.has('location_id') || searchParams.has('locationId') || searchParams.has('location') || searchParams.has('id') ||
                 hashString.includes('location_id=') || hashString.includes('locationId=') || hashString.includes('location=') || hashString.includes('id=') ||
                 searchParams.has('sessionkey') || hashString.includes('sessionkey=');
+
+  if (urlHasParams) {
+    sessionStorage.setItem('is_ghl_frame', 'true');
+  }
+
+  const isGHL = urlHasParams || sessionStorage.getItem('is_ghl_frame') === 'true' || window.self !== window.top;
 
   if (!isAuth && !isGHL) {
     return <Navigate to="/login" replace />;

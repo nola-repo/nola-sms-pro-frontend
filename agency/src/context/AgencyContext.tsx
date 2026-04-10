@@ -55,8 +55,6 @@ export const AgencyProvider = ({ children }) => {
         if (!isMounted) return;
         setAgencyId(session.companyId);
         setAgencySession(session);
-        // Force re-render to pick up session cleanly
-        window.location.reload(); 
       })
       .catch(err => {
         if (!isMounted) return;

@@ -57,7 +57,7 @@ export const AgencyLayout = ({ children, title, subtitle }) => {
 
         <div className="p-4 border-t border-[#00000005] dark:border-[#ffffff05] flex flex-col gap-2">
           {/* Logged-in user info */}
-          {userName && (
+          {userName && !isGhlFrame && (
             <div className="flex items-center gap-2 px-2 py-1.5">
               <div className="w-7 h-7 rounded-full bg-[#2b83fa]/10 flex items-center justify-center flex-shrink-0">
                 <FiUser className="w-3.5 h-3.5 text-[#2b83fa]" />
