@@ -227,7 +227,14 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (msgAreaRef.current) {
+      msgAreaRef.current.scrollTo({
+        top: msgAreaRef.current.scrollHeight,
+        behavior: "smooth"
+      });
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   const prevConversationId = useRef<string | undefined>(undefined);
@@ -951,7 +958,7 @@ export const Composer: React.FC<ComposerProps> = ({
           }
         }}
       >
-        <div className="max-w-5xl mx-auto w-full h-full flex flex-col">
+        <div className="max-w-5xl mx-auto w-full min-h-full flex flex-col pb-2">
           {/* Pull-to-refresh spinner */}
           {isPullRefreshing && (
             <div className="flex justify-center items-center py-2">
@@ -1049,7 +1056,7 @@ export const Composer: React.FC<ComposerProps> = ({
               </p>
             </div>
           ) : useRawLogView ? (
-            <div className="space-y-1 max-w-4xl mx-auto w-full">
+            <div className="space-y-1 max-w-4xl mx-auto w-full mt-auto">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
@@ -1169,7 +1176,7 @@ export const Composer: React.FC<ComposerProps> = ({
               )}
             </div>
           ) : (
-            <div className={`space-y-1 ${composeMode === 'bulk' && bulkSelectedContacts.length > 1 ? 'max-w-4xl mx-auto w-full' : ''}`}>
+            <div className={`space-y-1 mt-auto w-full ${composeMode === 'bulk' && bulkSelectedContacts.length > 1 ? 'max-w-4xl mx-auto' : ''}`}>
               {(() => {
                 // Group view: show bulk messages organized by batch
                 const isGroupView = (composeMode === 'bulk' && bulkSelectedContacts.length > 1) || activeBulkMessage;
@@ -1369,7 +1376,7 @@ export const Composer: React.FC<ComposerProps> = ({
             </div>
           )}
         </div>
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-4 w-full flex-shrink-0" />
       </div>
 
       {/* 3. Floating Input Card Area */}
