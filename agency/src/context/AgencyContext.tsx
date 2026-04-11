@@ -1,4 +1,4 @@
-import { safeStorage } from '../utils/safeStorage';
+`import { safeStorage } from '../utils/safeStorage';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getAgencySession, clearAgencySession, type AgencySession, ghlAutoLogin } from '../services/agencyAuthHelper.ts';
 import { useGhlCompany } from '../hooks/useGhlCompany.ts';
@@ -122,3 +122,4 @@ export const useAgency = () => {
   if (!ctx) throw new Error('useAgency must be used within <AgencyProvider>');
   return ctx;
 };
+`
