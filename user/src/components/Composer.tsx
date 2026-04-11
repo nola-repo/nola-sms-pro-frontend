@@ -648,7 +648,7 @@ export const Composer: React.FC<ComposerProps> = ({
               >
                 <FiMenu className="h-5 w-5" />
               </button>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#7c3aed] to-[#a78bfa] flex-shrink-0 flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-md shadow-purple-500/20">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex-shrink-0 flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-md shadow-blue-500/20">
                 <FiUsers className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
               <div className="flex flex-col min-w-0">
@@ -705,11 +705,8 @@ export const Composer: React.FC<ComposerProps> = ({
                   <FiMenu className="h-5 w-5" />
                 </button>
 
-                {/* Circular Avatar - Blue for new message, Purple for bulk */}
-                <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-base shadow-md 
-                  ${activeBulkMessage
-                    ? 'bg-gradient-to-br from-[#7c3aed] to-[#a78bfa] shadow-purple-500/20'
-                    : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-blue-500/20'}`}>
+                {/* Circular Avatar - Standardized Blue for new message / bulk */}
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-base shadow-md bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-blue-500/20">
                   {activeBulkMessage ? (
                     <FiUsers className="h-5 w-5" />
                   ) : (
@@ -1182,7 +1179,7 @@ export const Composer: React.FC<ComposerProps> = ({
               )}
             </div>
           ) : (
-            <div className={`space-y-1 mt-auto w-full ${composeMode === 'bulk' && bulkSelectedContacts.length > 1 ? 'max-w-4xl mx-auto' : ''}`}>
+            <div className="space-y-1 mt-auto w-full">
               {(() => {
                 // Group view: show bulk messages organized by batch
                 const isGroupView = (composeMode === 'bulk' && bulkSelectedContacts.length > 1) || activeBulkMessage;

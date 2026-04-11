@@ -50,12 +50,7 @@ export const Dashboard = () => {
 
   return (
     <AgencyLayout title="Dashboard" subtitle="Agency overview and quick stats">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[#111111] dark:text-white tracking-tight">Dashboard</h1>
-          <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">Real-time overview of your subaccounts and SMS activity.</p>
-        </div>
-      </div>
+
 
       {!agencyId && (
         <div className="bg-[#f59e0b]/[0.05] border border-[#f59e0b]/30 rounded-xl p-4 mb-6 shadow-sm flex items-start justify-between gap-4 flex-wrap">
@@ -93,7 +88,7 @@ export const Dashboard = () => {
                 </div>
                 <div className="text-[12px] font-bold text-white/80 uppercase tracking-widest mb-1.5">{stat.label}</div>
                 <div className="text-4xl font-black text-white tracking-tight drop-shadow-sm leading-none">
-                  {loading ? '—' : stat.value}
+                  {loading ? <span className="inline-block w-12 h-10 skeleton rounded-lg bg-white/20" /> : stat.value}
                 </div>
                 <div className="text-[12px] text-white/70 mt-2 line-clamp-1">{stat.sub}</div>
             </div>
@@ -118,7 +113,7 @@ export const Dashboard = () => {
                 </div>
                 <div className="text-[11.5px] font-bold text-white/80 uppercase tracking-widest mb-1.5">{stat.label}</div>
                 <div className="text-3xl font-black text-white tracking-tight drop-shadow-sm leading-none">
-                  {loading ? '—' : stat.value}
+                  {loading ? <span className="inline-block w-10 h-8 skeleton rounded-lg bg-white/20" /> : stat.value}
                 </div>
                 <div className="text-[11.5px] text-white/70 mt-1.5 line-clamp-1">{stat.sub}</div>
             </div>

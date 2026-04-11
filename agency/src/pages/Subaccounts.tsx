@@ -375,35 +375,6 @@ export const Subaccounts = () => {
         <UpgradeModal onCancel={() => setUpgradeModalOpen(false)} />
       )}
 
-      {/* Page header */}
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#111111] dark:text-white tracking-tight">
-            {subaccounts[0]?.agency_name || subaccounts[0]?.company_name || 'NOLA SMS Pro'} Subaccounts
-          </h1>
-          <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">
-            Toggle SMS access, set rate limits, and reset send counters for each subaccount under your agency.
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {lastPolled && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#f0f2f8] dark:bg-[#1c1e21] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] rounded-full text-[11px] font-medium text-[#6b7280] dark:text-[#9aa0a9]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-[pulse_2s_ease-in-out_infinite]" />
-              Live · {lastPolled.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </span>
-          )}
-          <button
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold bg-[#f0f2f8] dark:bg-[#1c1e21] text-[#6b7280] dark:text-[#9aa0a9] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] hover:text-[#111111] dark:hover:text-white border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => fetchSubaccounts()}
-            disabled={refreshing}
-            id="refresh-subaccounts-btn"
-          >
-            <FiRefreshCw className={refreshing ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-        </div>
-      </div>
-
       {/* No Agency ID warning */}
       {!agencyId && (
         <div className="bg-[#f59e0b]/[0.05] border border-[#f59e0b]/30 rounded-xl p-4 mb-5 shadow-sm flex items-start justify-between gap-4 flex-wrap">

@@ -50,14 +50,7 @@ export const Settings = () => {
       subtitle="Manage your agency account settings and view system information"
     >
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#111111] dark:text-white tracking-tight">Account Settings</h1>
-          <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">
-            View your GoHighLevel integration details and profile information.
-          </p>
-        </div>
-      </div>
+
 
       <div className={`grid grid-cols-1 gap-6 ${!isGhlFrame ? 'md:grid-cols-2' : 'max-w-2xl'}`}>
         {/* Profile Card - Hidden in GHL Iframe */}
