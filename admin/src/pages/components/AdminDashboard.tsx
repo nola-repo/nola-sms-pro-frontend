@@ -246,7 +246,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             See All
                         </button>
                     </div>
-                    <AdminLogs />
+                    <AdminLogs hideHeader onCardClick={() => onNavigate('activity')} />
                 </AnimatedContent>
             </div>
         </div>

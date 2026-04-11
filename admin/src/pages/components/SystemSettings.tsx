@@ -222,7 +222,7 @@ export const AdminSettings: React.FC = () => {
 };
 
 
-export const AdminLogs: React.FC = () => {
+export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => void }> = ({ hideHeader = false, onCardClick }) => {
     const [logs, setLogs] = useState<any[]>([]);
     const [accounts, setAccounts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -336,6 +336,11 @@ export const AdminLogs: React.FC = () => {
         
         const base = `group flex items-center gap-4 p-4 rounded-[16px] border transition-all duration-300 ${isModal ? 'border-transparent bg-transparent' : 'bg-white dark:bg-[#1a1b1e] border-[#e5e5e5] dark:border-white/10 hover:border-[#2b83fa]/40 dark:hover:border-[#2b83fa]/50 hover:shadow-lg dark:hover:shadow-[#2b83fa]/5 cursor-pointer hover:-translate-y-1'}`;
 
+        const handleClick = () => {
+            if (isModal) return;
+            if (onCardClick) { onCardClick(); } else { setSelectedLog(log); }
+        };
+
         const locId = log.location_id || log.account_id;
         const account = accounts.find(a => a.id === locId || a.location_id === locId);
         
@@ -352,9 +357,8 @@ export const AdminLogs: React.FC = () => {
         ) : null;
 
         if (type === 'message') {
-
             return (
-                <div key={log.id} className={base} onClick={() => !isModal && setSelectedLog(log)}>
+                <div key={log.id} className={base} onClick={handleClick}>
                     <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa] dark:text-[#569cfe]`}>
                         <FiMessageSquare className="w-5 h-5" />
                     </div>
@@ -388,7 +392,7 @@ export const AdminLogs: React.FC = () => {
         if (type === 'credit_purchase' || type === 'credit_usage') {
             const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0) || isFreeTrial;
             return (
-                <div key={log.id} className={base} onClick={() => !isModal && setSelectedLog(log)}>
+                <div key={log.id} className={base} onClick={handleClick}>
                     <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}>
                         {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
                     </div>
@@ -419,6 +423,7 @@ export const AdminLogs: React.FC = () => {
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] dark:shadow-[0_2px_15px_rgba(0,0,0,0.2)]">
             {/* Header */}
+            {!hideHeader && (
             <div className="px-6 pt-6 pb-5 border-b border-[#e5e5e5] dark:border-white/5">
                 <div className="flex items-center justify-end mb-2">
                     {!loading && (
@@ -470,6 +475,7 @@ export const AdminLogs: React.FC = () => {
                     })}
                 </div>
             </div>
+            )}
 
             {/* Body */}
             <div className="p-6">
