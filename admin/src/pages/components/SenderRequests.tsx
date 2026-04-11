@@ -3,6 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiShieldOff, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
+import { useToast } from '../../hooks/useToast';
+import { ToastContainer } from '../../components/ui/ToastContainer';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
@@ -27,17 +29,16 @@ export const AdminSenderRequests: React.FC = () => {
     const [requests, setRequests] = useState<SenderRequest[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [rejectNote, setRejectNote] = useState('');
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [successMsg, setSuccessMsg] = useState<string | null>(null);
     const [showApiKey, setShowApiKey] = useState(false);
     const [showInputKey, setShowInputKey] = useState(false);
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    const { toasts, showToast, dismissToast } = useToast();
 
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
@@ -50,7 +51,6 @@ export const AdminSenderRequests: React.FC = () => {
 
     const fetchRequests = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
-        setError(null);
         try {
             const [reqRes, accRes] = await Promise.all([
                 fetch(ADMIN_API),
@@ -63,7 +63,7 @@ export const AdminSenderRequests: React.FC = () => {
             if (reqJson.status === 'success') {
                 setRequests(reqJson.data || []);
             } else {
-                setError(reqJson.message || 'Failed to load requests.');
+                showToast(reqJson.message || 'Failed to load requests.', 'error');
             }
 
             if (accJson.status === 'success') {
@@ -75,7 +75,7 @@ export const AdminSenderRequests: React.FC = () => {
             }
             setLastRefreshed(new Date());
         } catch {
-            setError('Network error. Could not reach the backend.');
+            showToast('Network error. Could not reach the backend.', 'error');
         } finally {
             if (isInitial) setLoading(false);
         }
@@ -97,8 +97,7 @@ export const AdminSenderRequests: React.FC = () => {
             });
             const json = await res.json();
             if (json.status === 'success') {
-                setSuccessMsg(json.message || 'Action completed.');
-                setTimeout(() => setSuccessMsg(null), 3000);
+                showToast(json.message || 'Action completed.', 'success');
                 fetchRequests();
                 setExpandedId(null);
                 setRejectNote('');
@@ -106,10 +105,10 @@ export const AdminSenderRequests: React.FC = () => {
                 setShowApiKey(false);
                 setShowInputKey(false);
             } else {
-                setError(json.message || 'Action failed.');
+                showToast(json.message || 'Action failed.', 'error');
             }
         } catch {
-            setError('Network error.');
+            showToast('Network error.', 'error');
         } finally {
             setActionLoading(null);
         }
@@ -117,6 +116,7 @@ export const AdminSenderRequests: React.FC = () => {
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+            <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <div className="flex items-center justify-end mb-2">
                 {!loading && (
                     <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
@@ -198,17 +198,6 @@ export const AdminSenderRequests: React.FC = () => {
                 })}
             </div>
 
-            {successMsg && (
-                <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 text-green-700 dark:text-green-400 text-[13px] font-medium">
-                    <FiCheck className="w-4 h-4 flex-shrink-0" /> {successMsg}
-                </div>
-            )}
-
-            {error && (
-                <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 text-[13px] font-medium">
-                    <FiAlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
-                </div>
-            )}
 
             {loading ? (
                 <div className="space-y-3">

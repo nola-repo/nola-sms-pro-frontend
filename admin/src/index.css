@@ -97,6 +97,47 @@ html.dark .sidebar-scroll:hover::-webkit-scrollbar-thumb {
   background-color: rgba(255,255,255,0.12);
 }
 
+/* Content area scrollbar (named utility) */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(209, 213, 219) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(209, 213, 219);
+  border-radius: 9999px;
+}
+html.dark .custom-scrollbar {
+  scrollbar-color: rgb(75, 85, 99) transparent;
+}
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(75, 85, 99);
+}
+
+/* Toast Container & Animations */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.toast-animate {
+  animation: slideUp 0.25s ease;
+}
+
+/* Skeleton Loading */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+.skeleton {
+  background-image: linear-gradient(90deg, rgba(200,200,200,0.1) 25%, rgba(200,200,200,0.2) 50%, rgba(200,200,200,0.1) 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+html.dark .skeleton {
+  background-image: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+}
+
 /* Scoped dark autofill for Admin Login */
 .admin-login-fields input:-webkit-autofill,
 .admin-login-fields input:-webkit-autofill:hover,

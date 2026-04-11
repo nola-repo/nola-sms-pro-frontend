@@ -3,6 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
+import { useToast } from '../../hooks/useToast';
+import { ToastContainer } from '../../components/ui/ToastContainer';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
@@ -12,10 +14,9 @@ const POLL_INTERVAL = 15000; // 15 seconds real-time sync
 export const AdminTeamManagement: React.FC = () => {
     const [admins, setAdmins] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [successMsg, setSuccessMsg] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const { toasts, showToast, dismissToast } = useToast();
 
     // Action menu – uses fixed positioning to avoid table clipping
     const [actionMenuId, setActionMenuId] = useState<string | null>(null);
@@ -88,8 +89,7 @@ export const AdminTeamManagement: React.FC = () => {
     }, [fetchAdmins]);
 
     const toast = (msg: string, isError = false) => {
-        if (isError) { setError(msg); setTimeout(() => setError(null), 4000); }
-        else { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 3500); }
+        showToast(msg, isError ? 'error' : 'success');
     };
 
     const handleCreateAdmin = async (e: React.FormEvent) => {
@@ -212,6 +212,7 @@ export const AdminTeamManagement: React.FC = () => {
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+            <ToastContainer toasts={toasts} onDismiss={dismissToast} />
             <div className="flex items-center justify-end mb-2">
                 {!loading && <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">Synced: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
             </div>
@@ -233,9 +234,6 @@ export const AdminTeamManagement: React.FC = () => {
                 />
                 {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"><FiX className="w-3 h-3" /></button>}
             </div>
-
-            {successMsg && <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 text-green-700 dark:text-green-400 text-[13px] font-medium animate-in fade-in duration-200"><FiCheck className="w-4 h-4 flex-shrink-0" /> {successMsg}</div>}
-            {error && <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 text-[13px] font-medium animate-in fade-in duration-200"><FiAlertCircle className="w-4 h-4 flex-shrink-0" /> {error}</div>}
 
             <div className="overflow-x-auto pb-4">
                 <table className="w-full text-left border-collapse">

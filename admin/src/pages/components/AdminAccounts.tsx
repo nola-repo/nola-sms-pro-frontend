@@ -3,6 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
+import { useToast } from '../../hooks/useToast';
+import { ToastContainer } from '../../components/ui/ToastContainer';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
@@ -15,8 +17,7 @@ export const AdminAccounts: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-    const [successMsg, setSuccessMsg] = useState<string | null>(null);
+    const { toasts, showToast, dismissToast } = useToast();
     
     // Manage Sender States
     const [searchTerm, setSearchTerm] = useState('');
@@ -86,15 +87,14 @@ export const AdminAccounts: React.FC = () => {
             });
             const json = await res.json();
             if (json.status === 'success') {
-                setSuccessMsg(json.message || 'Sender ID updated successfully.');
+                showToast(json.message || 'Sender ID updated successfully.', 'success');
                 setManagingAccount(null);
-                setTimeout(() => setSuccessMsg(null), 3000);
                 fetchAccounts();
             } else {
-                setError(json.message || 'Failed to update sender.');
+                showToast(json.message || 'Failed to update sender.', 'error');
             }
         } catch {
-            setError('Network error during update.');
+            showToast('Network error during update.', 'error');
         } finally {
             setActionLoading(null);
         }
@@ -104,46 +104,7 @@ export const AdminAccounts: React.FC = () => {
 
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-end mb-2">
-                {!loading && (
-                    <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
-                        Last Pull: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    </span>
-                )}
-            </div>
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">All User Accounts</h3>
-                    <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Overview of all mapped GHL subaccounts, credits, and active Sender IDs.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <FiUsers className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                        <input 
-                            type="text"
-                            placeholder="Search accounts..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-9 pr-4 py-2 rounded-xl text-[12px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all w-64"
-                        />
-                    </div>
-                    <button onClick={() => fetchAccounts(true)} className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all">
-                        <FiRefreshCw className={`w-4 h-4 ${loading && !accounts.length ? 'animate-spin' : ''}`} />
-                    </button>
-                </div>
-            </div>
-
-            {successMsg && (
-                <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30 text-green-700 dark:text-green-400 text-[13px] font-medium">
-                    <FiCheck className="w-4 h-4 flex-shrink-0" /> {successMsg}
-                </div>
-            )}
-
-            {error && (
-                <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 text-[13px] font-medium">
-                    <FiAlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
-                </div>
-            )}
+            <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
             {loading ? (
                 <div className="space-y-3">

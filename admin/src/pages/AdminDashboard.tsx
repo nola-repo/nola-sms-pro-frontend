@@ -252,7 +252,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             const isSent = ['sent', 'delivered', 'pending', 'queued'].includes(log.status);
                             const isFailed = ['failed', 'rejected', 'undelivered', 'error'].includes(log.status);
                             return (
-                                <div key={log.id} className="group flex items-center gap-4 p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                                <div key={log.id} onClick={() => onNavigate('activity')} className="group flex items-center gap-4 p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
                                     <div className={`w-10 h-10 rounded-[16px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa] dark:text-[#569cfe]`}>
                                         <FiMessageSquare className="w-5 h-5" />
                                     </div>
@@ -275,6 +275,9 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                         <div className="flex items-center justify-between gap-3">
                                             <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">{log.message || 'No content'}</p>
                                             <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
+                                                <span className="text-[10px] font-medium text-gray-500 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-1.5 py-0.5 rounded-md shadow-sm">
+                                                    {(log.message || '').length} <span className="opacity-70 text-[9px]">chars</span>
+                                                </span>
                                                 {log.sendername && <span className="text-[10px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-1.5 py-0.5 rounded-md shadow-sm">Via: {log.sendername}</span>}
                                                 {subAccountPill}
                                             </div>
@@ -288,7 +291,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                         if (type === 'credit_purchase' || type === 'credit_usage') {
                             const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0) || isFreeTrial;
                             return (
-                                <div key={log.id} className="group flex items-center gap-4 p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                                <div key={log.id} onClick={() => onNavigate('activity')} className="group flex items-center gap-4 p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
                                     <div className={`w-10 h-10 rounded-[16px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}>
                                         {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
                                     </div>
