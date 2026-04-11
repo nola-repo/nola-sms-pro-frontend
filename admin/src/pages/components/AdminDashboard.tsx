@@ -64,7 +64,10 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
     const recentRequests = [...requests].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 6);
 
     const StatCard = ({ label, value, color, icon, index = 0 }: { label: string; value: number | string; color: string; icon: React.ReactNode, index?: number }) => (
-        <AnimatedContent delay={0.1 + index * 0.1} distance={50} direction="vertical" className="h-full">
+        <div
+            className="animate-in fade-in slide-in-from-bottom-4 duration-700 h-full"
+            style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'both' }}
+        >
             <div className={`relative p-6 rounded-3xl bg-gradient-to-br ${color} shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group h-full`}>
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
                     <div className="w-20 h-20">{icon}</div>
@@ -83,7 +86,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                     </div>
                 </div>
             </div>
-        </AnimatedContent>
+        </div>
     );
 
     const getGreeting = () => {
