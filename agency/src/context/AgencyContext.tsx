@@ -1,4 +1,4 @@
-`import { safeStorage } from '../utils/safeStorage';
+import { safeStorage } from '../utils/safeStorage';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getAgencySession, clearAgencySession, type AgencySession, ghlAutoLogin } from '../services/agencyAuthHelper.ts';
 import { useGhlCompany } from '../hooks/useGhlCompany.ts';
@@ -17,7 +17,7 @@ interface AgencyContextValue {
 
 const AgencyContext = createContext<AgencyContextValue | null>(null);
 
-export const AgencyProvider = ({ children }) => {
+export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
   const { companyId: ghlCompanyId, isGhlFrame, status: ghlStatus } = useGhlCompany();
 
   const [agencySession, setAgencySession] = useState<AgencySession | null>(() => getAgencySession());
@@ -122,4 +122,3 @@ export const useAgency = () => {
   if (!ctx) throw new Error('useAgency must be used within <AgencyProvider>');
   return ctx;
 };
-`

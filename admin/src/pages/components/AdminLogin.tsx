@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FiEye, FiEyeOff, FiAlertTriangle, FiCheck } from 'react-icons/fi';
+// @ts-ignore
 import defaultLogo from '../../assets/NOLA SMS PRO Logo.png';
 
 interface AdminLoginProps {

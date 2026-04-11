@@ -2,14 +2,20 @@ import { useState, useCallback } from 'react';
 
 let _id = 0;
 
+export interface ToastMessage {
+  id: number;
+  message: string;
+  type: 'info' | 'success' | 'error' | 'warning';
+}
+
 /**
  * useToast — lightweight toast notification hook
  * Returns { toasts, showToast, dismissToast }
  */
 export const useToast = () => {
-  const [toasts, setToasts] = useState([]);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const showToast = useCallback((message, type = 'info', duration = 3500) => {
+  const showToast = useCallback((message: string, type: ToastMessage['type'] = 'info', duration = 3500) => {
     const id = ++_id;
     setToasts(prev => [...prev, { id, message, type }]);
     if (duration > 0) {
@@ -18,7 +24,7 @@ export const useToast = () => {
     return id;
   }, []);
 
-  const dismissToast = useCallback((id) => {
+  const dismissToast = useCallback((id: number) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
