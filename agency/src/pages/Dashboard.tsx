@@ -232,6 +232,14 @@ export const Dashboard = () => {
                 <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
                     All Subaccounts
                 </h3>
+                {subaccounts.length > ITEMS_PER_PAGE && (
+                    <button
+                        onClick={() => navigate('/subaccounts')}
+                        className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                    >
+                        See All
+                    </button>
+                )}
             </div>
             
             <div className="bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] rounded-3xl shadow-sm overflow-hidden mb-6">
