@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiToggleLeft, FiUsers, FiCheckCircle, FiAlertTriangle, FiArrowRight, FiSend, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiToggleLeft, FiUsers, FiCheckCircle, FiAlertTriangle, FiArrowRight, FiSend, FiChevronLeft, FiChevronRight, FiHome } from 'react-icons/fi';
 import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 import { getSubaccounts } from '../services/api.ts';
+import SplitText from '../components/SplitText.tsx';
+import FadeContent from '../components/FadeContent.tsx';
+import AnimatedContent from '../components/AnimatedContent.tsx';
 
 const POLL_MS = 10000;
 
@@ -48,10 +51,42 @@ export const Dashboard = () => {
     if (currentPage > totalPages && totalPages > 0) setCurrentPage(totalPages);
   }, [total, currentPage, totalPages]);
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
   return (
     <AgencyLayout title="Dashboard" subtitle="Agency overview and quick stats">
-
-
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center shadow-[0_8px_25px_rgba(43,131,250,0.4)] flex-shrink-0 hidden sm:flex">
+                  <FiHome className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                  <SplitText
+                      text={`${getGreeting()}, Agency`}
+                      className="text-3xl font-extrabold text-[#111111] dark:text-white tracking-tight"
+                      delay={40}
+                      duration={1.2}
+                      ease="power3.out"
+                      splitType="chars"
+                      from={{ opacity: 0, y: 30 }}
+                      to={{ opacity: 1, y: 0 }}
+                      threshold={0.1}
+                      rootMargin="-100px"
+                      textAlign="left"
+                      tag="h1"
+                  />
+                  <FadeContent blur={false} duration={1200} ease="ease-out" initialOpacity={0}>
+                      <p className="text-[#6e6e73] dark:text-[#a0a0ab] font-medium">Welcome back to NOLA SMS PRO</p>
+                  </FadeContent>
+              </div>
+          </div>
+      </div>
       {!agencyId && (
         <div className="bg-[#f59e0b]/[0.05] border border-[#f59e0b]/30 rounded-xl p-4 mb-6 shadow-sm flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -78,21 +113,27 @@ export const Dashboard = () => {
           { label: 'Total Subaccounts', value: total, sub: 'registered under your agency', color: 'from-[#2b83fa] to-[#60a5fa]', icon: <FiUsers className="w-full h-full" /> },
           { label: 'Total Sends', value: totalSends, sub: 'across all subaccounts', color: 'from-indigo-500 to-purple-600', icon: <FiSend className="w-full h-full" /> },
         ].map((stat, idx) => (
-          <div key={`top-${idx}`} className={`relative p-5 rounded-3xl bg-gradient-to-br ${stat.color} shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group`}>
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
-                <div className="w-20 h-20">{stat.icon}</div>
+          <AnimatedContent key={`top-${idx}`} delay={0.1 + idx * 0.1} distance={50} direction="vertical" className="h-full">
+            <div className={`relative p-5 rounded-3xl bg-gradient-to-br ${stat.color} shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group h-full`}>
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
+                  <div className="w-20 h-20">{stat.icon}</div>
+              </div>
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                  <div>
+                      <div className="w-10 h-10 p-2.5 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-3 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
+                          {stat.icon}
+                      </div>
+                      <div className="text-[12px] font-bold text-white/80 uppercase tracking-widest mb-1.5">{stat.label}</div>
+                  </div>
+                  <div className="mt-auto pt-2 flex items-baseline gap-2">
+                      <div className="text-4xl font-black text-white tracking-tight drop-shadow-sm leading-none">
+                        {loading ? <span className="inline-block w-12 h-10 skeleton rounded-lg bg-white/20" /> : stat.value}
+                      </div>
+                      <div className="text-[11.5px] text-white/70 font-medium leading-none">{stat.sub}</div>
+                  </div>
+              </div>
             </div>
-            <div className="relative z-10">
-                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-3 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
-                    {stat.icon}
-                </div>
-                <div className="text-[12px] font-bold text-white/80 uppercase tracking-widest mb-1.5">{stat.label}</div>
-                <div className="text-4xl font-black text-white tracking-tight drop-shadow-sm leading-none">
-                  {loading ? <span className="inline-block w-12 h-10 skeleton rounded-lg bg-white/20" /> : stat.value}
-                </div>
-                <div className="text-[12px] text-white/70 mt-2 line-clamp-1">{stat.sub}</div>
-            </div>
-          </div>
+          </AnimatedContent>
         ))}
       </div>
 
@@ -103,21 +144,27 @@ export const Dashboard = () => {
           { label: 'Inactive (SMS OFF)', value: total - active, sub: 'hidden from main admin', color: 'from-slate-400 to-slate-500', icon: <FiUsers className="w-full h-full" /> },
           { label: 'At Rate Limit', value: atLimit, sub: 'blocked until reset', color: atLimit > 0 ? 'from-amber-500 to-orange-500' : 'from-slate-400 to-slate-500', icon: <FiAlertTriangle className="w-full h-full" /> },
         ].map((stat, idx) => (
-          <div key={`bottom-${idx}`} className={`relative p-5 rounded-3xl bg-gradient-to-br ${stat.color} shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group`}>
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
-                <div className="w-16 h-16">{stat.icon}</div>
+          <AnimatedContent key={`bottom-${idx}`} delay={0.3 + idx * 0.1} distance={50} direction="vertical" className="h-full">
+            <div className={`relative p-5 rounded-3xl bg-gradient-to-br ${stat.color} shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group h-full`}>
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
+                  <div className="w-16 h-16">{stat.icon}</div>
+              </div>
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                  <div>
+                      <div className="w-10 h-10 p-2.5 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-3 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
+                          {stat.icon}
+                      </div>
+                      <div className="text-[11.5px] font-bold text-white/80 uppercase tracking-widest mb-1.5">{stat.label}</div>
+                  </div>
+                  <div className="mt-auto pt-2 flex items-baseline gap-2">
+                      <div className="text-3xl font-black text-white tracking-tight drop-shadow-sm leading-none">
+                        {loading ? <span className="inline-block w-10 h-8 skeleton rounded-lg bg-white/20" /> : stat.value}
+                      </div>
+                      <div className="text-[11px] text-white/70 font-medium leading-none">{stat.sub}</div>
+                  </div>
+              </div>
             </div>
-            <div className="relative z-10">
-                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-3 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
-                    {stat.icon}
-                </div>
-                <div className="text-[11.5px] font-bold text-white/80 uppercase tracking-widest mb-1.5">{stat.label}</div>
-                <div className="text-3xl font-black text-white tracking-tight drop-shadow-sm leading-none">
-                  {loading ? <span className="inline-block w-10 h-8 skeleton rounded-lg bg-white/20" /> : stat.value}
-                </div>
-                <div className="text-[11.5px] text-white/70 mt-1.5 line-clamp-1">{stat.sub}</div>
-            </div>
-          </div>
+          </AnimatedContent>
         ))}
       </div>
 
@@ -170,94 +217,109 @@ export const Dashboard = () => {
 
       {/* All subaccounts summary */}
       {!loading && total > 0 && (
-        <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[#0000000a] dark:border-[#ffffff0a] rounded-2xl shadow-sm overflow-hidden mb-6">
-          <div className="p-6 border-b border-[#0000000a] dark:border-[#ffffff0a]">
-            <div className="text-[15px] font-bold text-[#111111] dark:text-white tracking-tight">All Subaccounts</div>
-            <div className="text-[13px] text-[#6e6e73] dark:text-[#94959b] mt-1">Summary of all subaccounts under your agency.</div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[#0000000a] dark:border-[#ffffff0a]">
-                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Subaccount</th>
-                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Status</th>
-                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Sends Used</th>
-                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Limit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[rgba(0,0,0,0.05)] dark:divide-[rgba(255,255,255,0.05)]">
-                {paginatedSubaccounts.map((s, i) => {
-                  const isAtLimit = s.attempt_count >= s.rate_limit;
-                  const isNearLimit = s.attempt_count >= s.rate_limit * 0.8;
-                  
-                  return (
-                    <tr key={s.location_id || i} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
-                      <td className="px-6 py-4 align-middle">
-                        <div className="flex flex-col">
-                          <span className="text-[13.5px] font-semibold text-[#111111] dark:text-[#ececf1]">{s.location_name || s.company_name || 'Unnamed'}</span>
-                          <span className="text-[11px] font-mono text-[#6e6e73] dark:text-[#94959b] mt-0.5">{s.location_id}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 align-middle">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${s.toggle_enabled ? 'bg-[#22c55e] shadow-[0_0_0_3px_rgba(34,197,94,0.1)]' : 'bg-[#9ca3af]'}`} />
-                          <span className={`text-[12px] font-semibold ${s.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>
-                            {s.toggle_enabled ? 'Active' : 'Inactive'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 align-middle">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-semibold ${isAtLimit ? 'bg-red-50 dark:bg-red-500/10 text-red-500' : isNearLimit ? 'bg-[#f59e0b]/10 text-[#f59e0b]' : 'bg-[#f0f2f8] dark:bg-white/5 text-[#6b7280] dark:text-[#94959b]'}`}>
-                          {s.attempt_count} / {s.rate_limit}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 align-middle text-[13.5px] text-[#6e6e73] dark:text-[#94959b]">{s.rate_limit}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-[rgba(0,0,0,0.05)] dark:border-[#ffffff0a]">
-                <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] font-medium">
-                    Showing <span className="font-bold text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-bold text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, total)}</span> of <span className="font-bold text-[#111111] dark:text-white">{total}</span> entries
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <button
-                        disabled={currentPage === 1}
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                    >
-                        <FiChevronLeft className="w-4 h-4" />
-                    </button>
-                    
-                    <div className="flex items-center gap-1">
-                        {Array.from({ length: Math.min(5, totalPages - Math.floor((currentPage - 1) / 5) * 5) }, (_, i) => Math.floor((currentPage - 1) / 5) * 5 + 1 + i).map(page => (
-                            <button
-                                key={page}
-                                onClick={() => setCurrentPage(page)}
-                                className={`w-7 h-7 rounded-lg text-[12px] font-bold flex items-center justify-center transition-all ${
-                                    currentPage === page
-                                        ? 'bg-[#2b83fa] text-white shadow-sm'
-                                        : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5'
-                                }`}
-                            >
-                                {page}
-                            </button>
-                        ))}
-                    </div>
-
-                    <button
-                        disabled={currentPage === totalPages}
-                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                        className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                    >
-                        <FiChevronRight className="w-4 h-4" />
-                    </button>
-                </div>
+        <div className="mt-10">
+          <AnimatedContent delay={0.4} distance={50} direction="vertical">
+            <div className="flex items-center justify-between mb-5">
+                <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
+                    All Subaccounts
+                </h3>
             </div>
-          )}
+            
+            <div className="bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] rounded-3xl shadow-sm overflow-hidden mb-6">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-[#00000005] dark:border-[#ffffff05] bg-gray-50/50 dark:bg-gray-800/20">
+                      <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">Subaccount</th>
+                      <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">Status</th>
+                      <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">Sends Used</th>
+                      <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">Limit</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#00000005] dark:divide-[#ffffff05]">
+                    {paginatedSubaccounts.map((s, i) => {
+                      const isAtLimit = s.attempt_count >= s.rate_limit;
+                      const isNearLimit = s.attempt_count >= s.rate_limit * 0.8;
+                      
+                      return (
+                        <tr key={s.location_id || i} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors group">
+                          <td className="px-6 py-4 align-middle">
+                            <div className="flex flex-col">
+                              <span className="text-[13.5px] font-bold text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors">{s.location_name || s.company_name || 'Unnamed'}</span>
+                              <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mt-0.5">{s.location_id}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 align-middle">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${s.toggle_enabled ? 'bg-[#22c55e] shadow-[0_0_0_3px_rgba(34,197,94,0.1)]' : 'bg-gray-400'}`} />
+                              <span className={`text-[12px] font-bold ${s.toggle_enabled ? 'text-[#22c55e]' : 'text-gray-500 dark:text-gray-400'}`}>
+                                {s.toggle_enabled ? 'ACTIVE' : 'INACTIVE'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 align-middle">
+                            <span className="text-[13.5px] font-bold text-[#111111] dark:text-white">{s.attempt_count.toLocaleString()}</span>
+                          </td>
+                          <td className="px-6 py-4 align-middle">
+                            <div className="flex items-center gap-3">
+                              <span className="text-[13.5px] font-bold text-gray-500 dark:text-gray-400">{s.rate_limit.toLocaleString()}</span>
+                              {isAtLimit ? (
+                                <span className="bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-[10px] font-black uppercase tracking-widest px-2-5 py-1 rounded-full">Blocked</span>
+                              ) : isNearLimit ? (
+                                <span className="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">Warning</span>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-4 border-t border-[rgba(0,0,0,0.05)] dark:border-[#ffffff05] bg-gray-50/50 dark:bg-gray-800/20">
+                    <div className="text-[12px] text-gray-500 dark:text-gray-400 font-medium tracking-wide">
+                        Showing <span className="font-bold text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-bold text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, total)}</span> of <span className="font-bold text-[#111111] dark:text-white">{total}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            disabled={currentPage === 1}
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            className="p-1.5 rounded-lg text-gray-500 hover:text-[#111111] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors shadow-sm bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a]"
+                        >
+                            <FiChevronLeft className="w-4 h-4" />
+                        </button>
+                        
+                        <div className="flex items-center gap-1">
+                            {Array.from({ length: Math.min(5, totalPages - Math.floor((currentPage - 1) / 5) * 5) }, (_, i) => Math.floor((currentPage - 1) / 5) * 5 + 1 + i).map(page => (
+                                <button
+                                    key={page}
+                                    onClick={() => setCurrentPage(page)}
+                                    className={`w-7 h-7 rounded-lg text-[12px] font-bold flex items-center justify-center transition-all ${
+                                        currentPage === page
+                                            ? 'bg-[#2b83fa] text-white shadow-sm ring-1 ring-[#2b83fa]/50'
+                                            : 'text-gray-500 hover:text-[#111111] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a]'
+                                    }`}
+                                >
+                                    {page}
+                                </button>
+                            ))}
+                        </div>
+
+                        <button
+                            disabled={currentPage === totalPages}
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            className="p-1.5 rounded-lg text-gray-500 hover:text-[#111111] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors shadow-sm bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a]"
+                        >
+                            <FiChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+              )}
+            </div>
+          </AnimatedContent>
         </div>
       )}
 

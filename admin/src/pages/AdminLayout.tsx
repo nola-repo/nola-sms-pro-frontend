@@ -69,19 +69,19 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                         key={item.path}
                         onClick={() => { navigate(item.path); onNav?.(); }}
                         className={`
-                          w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-300 relative group
+                          w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 relative group
                           ${isActive
                               ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
                               : 'text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]'}
                         `}
                     >
                         {isActive && (
-                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-[#2b83fa] rounded-r-full shadow-sm" />
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#2b83fa] rounded-r-full shadow-sm" />
                         )}
-                        <div className={`text-[17px] transition-all duration-500 ${isActive ? 'scale-110 text-[#2b83fa]' : 'group-hover:scale-105 group-hover:text-[#2b83fa]'} active:scale-90`}>
+                        <div className={`text-[19px] transition-all duration-500 ${isActive ? 'scale-110 text-[#2b83fa]' : 'group-hover:scale-105 group-hover:text-[#2b83fa]'} active:scale-90`}>
                             {item.icon}
                         </div>
-                        <span className={`text-[12.5px] transition-all duration-200 ${isActive ? 'font-bold tracking-tight' : 'font-medium'}`}>
+                        <span className={`text-[13.5px] transition-all duration-200 ${isActive ? 'font-bold tracking-tight' : 'font-medium'}`}>
                             {item.label}
                         </span>
                     </button>
