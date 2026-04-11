@@ -371,6 +371,9 @@ export const AdminLogs: React.FC = () => {
                         <div className="flex items-center justify-between gap-3">
                             <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">{log.message || 'No content'}</p>
                             <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
+                                 <span className="text-[10px] font-medium text-gray-500 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-1.5 py-0.5 rounded-md shadow-sm">
+                                    {(log.message || '').length} <span className="opacity-70 text-[9px]">chars</span>
+                                </span>
                                 {log.sendername && <span className="text-[10px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-1.5 py-0.5 rounded">Via: {log.sendername}</span>}
                                 {subAccountPill}
                             </div>
@@ -533,7 +536,12 @@ export const AdminLogs: React.FC = () => {
                                     </div>
                                     <div>
                                         <div className="flex items-center justify-between mb-2">
-                                            <p className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest">Message Content</p>
+                                            <p className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest flex items-center gap-2">
+                                                Message Content
+                                                <span className="text-[9px] px-1.5 py-0.5 bg-gray-100 dark:bg-white/5 rounded-md border border-gray-200 dark:border-white/10 normal-case tracking-tight font-medium text-gray-500">
+                                                    {(log.message || '').length} chars
+                                                </span>
+                                            </p>
                                             <button
                                                 onClick={() => { navigator.clipboard.writeText(log.message || ''); setCopiedContent(true); setTimeout(() => setCopiedContent(false), 2000); }}
                                                 className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-colors border ${copiedContent ? 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800/30' : 'text-[#6e6e73] border-[#e5e5e5] dark:border-white/5 hover:border-[#d0d0d0]'}`}
