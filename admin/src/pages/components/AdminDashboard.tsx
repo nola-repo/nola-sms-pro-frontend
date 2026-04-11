@@ -246,10 +246,68 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             See All
                         </button>
                     </div>
-                    <AdminLogs hideHeader onCardClick={() => onNavigate('activity')} />
+                    <div className="space-y-3">
+                        {loading ? (
+                            [...Array(5)].map((_, i) => (
+                                <div key={i} className="h-[72px] rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />
+                            ))
+                        ) : logs.length === 0 ? (
+                            <div className="py-12 text-center rounded-2xl border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
+                                <FiActivity className="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+                                <p className="text-[13px] text-gray-400 dark:text-gray-500 font-medium italic">No activity yet.</p>
+                            </div>
+                        ) : logs.slice(0, 8).map((log: any) => {
+                            const isNeg = typeof log.amount === 'number' && log.amount < 0;
+                            const isFreeTrial = log.amount === 0;
+                            const type = log.type === 'message' && log.amount === undefined ? 'message'
+                                : (isNeg || log.type === 'deduction' || log.type === 'credit_usage' || isFreeTrial) ? 'credit_usage'
+                                : log.amount !== undefined || log.type === 'top_up' || log.type === 'credit_purchase' ? 'credit_purchase'
+                                : 'message';
+                            const ts = log.timestamp || log.date_created || log.created_at;
+                            const time = ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                            const date = ts ? new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
+                            const locId = log.location_id || log.account_id;
+                            const account = accounts.find((a: any) => a.id === locId || a.location_id === locId);
+                            const isUsage = type === 'credit_usage';
+                            return (
+                                <button
+                                    key={log.id || Math.random()}
+                                    onClick={() => onNavigate('activity')}
+                                    className="w-full group flex items-center gap-4 p-4 rounded-2xl border bg-white dark:bg-[#1a1b1e] border-[#e5e5e5] dark:border-white/10 hover:border-[#2b83fa]/40 dark:hover:border-[#2b83fa]/50 hover:shadow-lg transition-all duration-300 cursor-pointer hover:-translate-y-0.5 text-left"
+                                >
+                                    <div className={`w-11 h-11 rounded-[14px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 transition-transform duration-300 ${
+                                        type === 'message'         ? 'bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa]' :
+                                        type === 'credit_purchase' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' :
+                                                                     'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400'
+                                    }`}>
+                                        {type === 'message'         && <FiMessageSquare className="w-5 h-5" />}
+                                        {type === 'credit_purchase' && <FiCreditCard className="w-5 h-5" />}
+                                        {type === 'credit_usage'    && <FiActivity className="w-5 h-5" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-[13.5px] font-bold text-[#111111] dark:text-white truncate">
+                                            {type === 'message'         ? `SMS to ${log.number || log.to || 'Unknown'}` :
+                                             type === 'credit_purchase' ? `+${log.amount?.toLocaleString()} credits added` :
+                                             isFreeTrial                ? 'Free trial SMS sent' :
+                                                                          `${Math.abs(log.amount)} credits used`}
+                                        </p>
+                                        <p className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                                            {account?.location_name || (locId ? locId.substring(0, 12) + '…' : 'System')}
+                                            {log.sendername ? ` · via ${log.sendername}` : ''}
+                                        </p>
+                                    </div>
+                                    {time && (
+                                        <div className="text-right flex-shrink-0">
+                                            <span className="block text-[11px] font-bold text-[#111111] dark:text-white">{date}</span>
+                                            <span className="block text-[10px] uppercase text-[#9aa0a6]">{time}</span>
+                                        </div>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </AnimatedContent>
             </div>
         </div>
     );
 };
-
