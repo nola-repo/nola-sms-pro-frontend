@@ -17,6 +17,7 @@ export const Dashboard = () => {
   const [subaccounts, setSubaccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
@@ -25,6 +26,7 @@ export const Dashboard = () => {
     try {
       const data = await getSubaccounts(agencyId);
       setSubaccounts(data.subaccounts || []);
+      setLastRefreshed(new Date());
       setError(null);
     } catch (e) {
       setError(e.message);
@@ -86,6 +88,13 @@ export const Dashboard = () => {
                   </FadeContent>
               </div>
           </div>
+          {!loading && (
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  <span className="text-[11px] text-[#9aa0a6] font-medium bg-white/50 dark:bg-[#1a1b1e]/50 px-3 py-1.5 rounded-full border border-[#0000000a] dark:border-[#ffffff0a]">
+                      Last checked: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+              </div>
+          )}
       </div>
       {!agencyId && (
         <div className="bg-[#f59e0b]/[0.05] border border-[#f59e0b]/30 rounded-xl p-4 mb-6 shadow-sm flex items-start justify-between gap-4 flex-wrap">
