@@ -246,7 +246,8 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             See All
                         </button>
                     </div>
-                    <div className="space-y-3">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] dark:shadow-[0_2px_15px_rgba(0,0,0,0.2)] p-4">
+                        <div className="space-y-2">
                         {loading ? (
                             [...Array(5)].map((_, i) => (
                                 <div key={i} className="h-[72px] rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />
@@ -273,7 +274,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                 <button
                                     key={log.id || Math.random()}
                                     onClick={() => onNavigate('activity')}
-                                    className="w-full group flex items-center gap-4 p-4 rounded-2xl border bg-white dark:bg-[#1a1b1e] border-[#e5e5e5] dark:border-white/10 hover:border-[#2b83fa]/40 dark:hover:border-[#2b83fa]/50 hover:shadow-lg transition-all duration-300 cursor-pointer hover:-translate-y-0.5 text-left"
+                                    className="w-full group flex items-center gap-4 p-3.5 rounded-xl border bg-[#f7f8fa] dark:bg-white/[0.02] border-[#f0f0f0] dark:border-white/5 hover:border-[#2b83fa]/40 dark:hover:border-[#2b83fa]/40 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all duration-200 cursor-pointer text-left"
                                 >
                                     <div className={`w-11 h-11 rounded-[14px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 transition-transform duration-300 ${
                                         type === 'message'         ? 'bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa]' :
@@ -305,6 +306,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                 </button>
                             );
                         })}
+                        </div>
                     </div>
                 </AnimatedContent>
             </div>
