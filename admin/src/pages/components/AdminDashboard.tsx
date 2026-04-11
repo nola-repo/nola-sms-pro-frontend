@@ -6,6 +6,7 @@ import Antigravity from '../../components/ui/Antigravity';
 import SplitText from './SplitText';
 import FadeContent from './FadeContent';
 import AnimatedContent from './AnimatedContent';
+import { AdminLogs } from '../AdminLogs';
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
 
@@ -245,90 +246,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             See All
                         </button>
                     </div>
-                    <div className="bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] rounded-3xl p-6 shadow-sm flex flex-col h-[600px]">
-                        <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-2">
-                            {loading ? (
-                                [1,2,3,4,5,6].map(i => (
-                                    <div key={i} className="w-full p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#121415] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse flex-shrink-0" />
-                                        <div className="space-y-2 w-full max-w-[200px]">
-                                            <div className="h-3 w-3/4 bg-gray-100 dark:bg-gray-800 animate-pulse rounded" />
-                                        </div>
-                                    </div>
-                                ))
-                            ) : logs.length === 0 ? (
-                                <div className="p-10 text-center rounded-3xl border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
-                                    <FiActivity className="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-gray-500" />
-                                    <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No logs recorded yet.</p>
-                                </div>
-                            ) : logs.map(log => {
-                                const isNegative = typeof log.amount === 'number' && log.amount < 0;
-                                const isFreeTrial = log.amount === 0;
-                                const type = log.type || (
-                                    log.requested_id ? 'sender_request' :
-                                    log.amount !== undefined ? (isNegative || isFreeTrial ? 'credit_usage' : 'credit_purchase') :
-                                    'message'
-                                );
-                                
-                                const timestamp = log.timestamp || log.date_created || log.created_at;
-                                const timeString = timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                                
-                                const locId = log.location_id || log.account_id;
-                                const account = accounts.find((a: any) => a.id === locId || a.location_id === locId);
-                                
-                                const subAccountPill = locId ? (
-                                    <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 pl-1 pr-2 py-0.5 rounded-full" title={account?.location_name || 'Unknown Account'}>
-                                        <div className="w-4 h-4 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-500">
-                                            {account?.location_name ? account.location_name.substring(0, 1).toUpperCase() : '?'}
-                                        </div>
-                                        <div className="flex items-baseline gap-1">
-                                            <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate max-w-[80px]">{account?.location_name || 'System'}</span>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/20 pl-1 pr-2 py-0.5 rounded-full text-[#2b83fa]">
-                                        <FiShield className="w-3 h-3 ml-1" />
-                                        <span className="text-[10px] font-bold">Admin Action</span>
-                                    </div>
-                                );
-
-                                return (
-                                    <div key={log.id || Math.random().toString()} className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] hover:shadow-sm hover:border-[#2b83fa]/20 transition-all flex items-center justify-between group">
-                                        <div className="flex items-center gap-4 min-w-0">
-                                            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm relative text-[13px] font-bold bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                                                {type === 'sender_request' && <FiUsers className="w-4 h-4" />}
-                                                {type === 'credit_purchase' && <FiCreditCard className="w-4 h-4 text-emerald-500" />}
-                                                {type === 'credit_usage' && <FiMessageSquare className="w-4 h-4 text-[#2b83fa]" />}
-                                                {type === 'message' && <FiSend className="w-4 h-4" />}
-                                                {(!['sender_request', 'credit_purchase', 'credit_usage', 'message'].includes(type)) && <FiActivity className="w-4 h-4" />}
-                                            </div>
-                                            <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="text-[13.5px] font-bold text-[#111111] dark:text-white tracking-tight truncate">
-                                                        {type === 'sender_request' ? `Sender Request: ${log.requested_id}` :
-                                                         type === 'credit_purchase' ? `Added ${log.amount} Credits` :
-                                                         type === 'credit_usage' ? (isFreeTrial ? 'Free Trial SMS Sent' : `Deducted ${Math.abs(log.amount)} Credits`) :
-                                                         type === 'message' ? `Sent SMS to ${log.to || 'Unknown'}` :
-                                                         'System Event'}
-                                                    </span>
-                                                    {subAccountPill}
-                                                </div>
-                                                <span className="text-[11.5px] font-medium text-gray-500 dark:text-gray-400 truncate pr-4">
-                                                    {log.description || log.message || log.details || 'No details provided'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        {timeString && (
-                                            <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase tracking-tighter flex-shrink-0">
-                                                <FiClock size={10} />
-                                                {timeString}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
+                    <AdminLogs />
                 </AnimatedContent>
             </div>
         </div>
