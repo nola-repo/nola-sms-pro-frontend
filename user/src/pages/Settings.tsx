@@ -666,7 +666,7 @@ const CreditsSection: React.FC = () => {
 
 
             {/* Balance Card */}
-            <div className="rounded-2xl p-5 text-white shadow-lg transition-colors duration-500 bg-gradient-to-br from-emerald-400 to-teal-500 shadow-emerald-500/25">
+            <div className="rounded-2xl p-5 text-white shadow-lg transition-colors duration-500 bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-blue-500/25">
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 min-w-0">
                         <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wider mb-2">Available Credits</p>
