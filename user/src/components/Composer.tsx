@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Snackbar, Alert, Slide } from "@mui/material";
+
 import { fetchContacts } from "../api/contacts";
 import { sendSms, sendBulkSms, type SenderId } from "../api/sms";
 import { getRecipientKey } from "../utils/storage";
@@ -196,29 +196,30 @@ export const Composer: React.FC<ComposerProps> = ({
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
-  // Toast states
-  const [toastOpen, setToastOpen] = useState(false);
-  const [toastSeverity, setToastSeverity] = useState<"success" | "error">("success");
-  const [toastMessage, setToastMessage] = useState("");
-  // Guard: prevents multiple toasts firing from same send action
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showToast = (severity: "success" | "error", msg: string) => {
-    // Prevent flickering if the same message is already visible
-    if (toastOpen && toastSeverity === severity && toastMessage === msg) {
-        return;
-    }
-    
-    // Cancel any pending open so rapid-fire calls collapse into one
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    
-    setToastOpen(false);
-    
-    // Wait slightly longer for MUI's slide-down exit animation to start
-    toastTimerRef.current = setTimeout(() => { 
-        setToastSeverity(severity);
-        setToastMessage(msg);
-        setToastOpen(true); 
-    }, 200);
+  // ─── Toast (custom, no-blink) ───────────────────────────────────────────────
+  // We keep toast state in a ref *and* in state so the equality check is never
+  // stale, and we never do a close→open cycle (which caused the blink).
+  const [toast, setToast] = useState<{ open: boolean; severity: 'success' | 'error'; message: string }>({
+    open: false, severity: 'success', message: ''
+  });
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+  const toastHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (severity: 'success' | 'error', msg: string) => {
+    // If the exact same toast is already visible — do nothing
+    if (toastRef.current.open && toastRef.current.severity === severity && toastRef.current.message === msg) return;
+    // Cancel any pending auto-close from a previous toast
+    if (toastHideTimer.current) clearTimeout(toastHideTimer.current);
+    // Update in-place (no close→open = no blink)
+    setToast({ open: true, severity, message: msg });
+    // Auto-dismiss after 3 s
+    toastHideTimer.current = setTimeout(() => setToast(t => ({ ...t, open: false })), 3000);
+  };
+
+  const dismissToast = () => {
+    if (toastHideTimer.current) clearTimeout(toastHideTimer.current);
+    setToast(t => ({ ...t, open: false }));
   };
   const [showDisabledReason, setShowDisabledReason] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -1581,76 +1582,49 @@ export const Composer: React.FC<ComposerProps> = ({
         </div>
       </div>
 
-      {/* 4. Toast Overlay */}
-      <Snackbar
-        open={toastOpen}
-        autoHideDuration={2500}
-        onClose={() => setToastOpen(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        TransitionComponent={(props) => <Slide {...props} direction="up" />}
-        transitionDuration={300}
+      {/* 4. Toast Overlay — custom, no-blink */}
+      <div
+        aria-live="polite"
+        role="status"
+        style={{ pointerEvents: toast.open ? 'auto' : 'none' }}
+        className={`
+          fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999]
+          flex items-center gap-2.5 px-5 py-3 rounded-full
+          text-[13px] font-semibold tracking-wide
+          shadow-lg backdrop-blur-xl
+          border transition-none
+          ${toast.severity === 'success'
+            ? 'bg-white/80 dark:bg-[#1a1b1e]/90 border-emerald-200/60 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+            : 'bg-white/80 dark:bg-[#1a1b1e]/90 border-red-200/60 dark:border-red-500/20 text-red-600 dark:text-red-400'
+          }
+          ${toast.open
+            ? 'opacity-100 translate-y-0 transition-all duration-300 ease-out'
+            : 'opacity-0 translate-y-3 transition-all duration-200 ease-in pointer-events-none'
+          }
+        `}
       >
-        <Alert
-          onClose={() => setToastOpen(false)}
-          severity={toastSeverity}
-          sx={{
-            // Minimal capsule glassmorphism
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            borderRadius: '9999px',
-            px: 2.5,
-            py: 1,
-            fontSize: '0.85rem',
-            fontWeight: 500,
-            minWidth: 'auto',
-            // Light mode glass effect
-            background: toastSeverity === 'success'
-              ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.55) 100%)'
-              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.55) 100%)',
-            border: '1px solid rgba(255, 255, 255, 0.4)',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
-            color: '#1f2937',
-            alignItems: 'center',
-            justifyContent: 'center',
-            '& .MuiAlert-icon': {
-              color: toastSeverity === 'success' ? '#059669' : '#dc2626',
-              mr: 1,
-              fontSize: '1.1rem',
-            },
-            '& .MuiAlert-message': {
-              py: 0,
-            },
-            '& .MuiAlert-action': {
-              color: '#6b7280',
-              pl: 1,
-              '&:hover': {
-                backgroundColor: 'rgba(0, 0, 0, 0.05)',
-              },
-            },
-            // Dark mode glassmorphism
-            '&.dark, .dark &': {
-              background: toastSeverity === 'success'
-                ? 'linear-gradient(135deg, rgba(30, 30, 35, 0.8) 0%, rgba(20, 20, 25, 0.85) 100%)'
-                : 'linear-gradient(135deg, rgba(30, 30, 35, 0.8) 0%, rgba(20, 20, 25, 0.85) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
-              color: '#f3f4f6',
-              '& .MuiAlert-icon': {
-                color: toastSeverity === 'success' ? '#34d399' : '#f87171',
-              },
-              '& .MuiAlert-action': {
-                color: '#9ca3af',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                },
-              },
-            },
-          }}
-          variant="filled"
+        {/* Icon */}
+        {toast.severity === 'success' ? (
+          <svg className="w-4 h-4 flex-shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          <svg className="w-4 h-4 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        )}
+        <span>{toast.message}</span>
+        {/* Dismiss */}
+        <button
+          onClick={dismissToast}
+          className="ml-1 opacity-50 hover:opacity-100 transition-opacity"
+          aria-label="Dismiss"
         >
-          {toastMessage}
-        </Alert>
-      </Snackbar>
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
     </div >
   );
 };
