@@ -41,29 +41,11 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                 setTransactions([]); // Clear previous transactions on location change
             }
 
-            // Fetch transactions immediately and independently to avoid any delay
-            fetchCreditTransactions('default', 50, locationId || undefined)
-                .then(txs => {
-                    const sortedTxs = (txs as CreditTransaction[]).sort((a, b) => {
-                        const timeA = new Date(a.created_at || 0).getTime();
-                        const timeB = new Date(b.created_at || 0).getTime();
-                        return timeB - timeA;
-                    });
-                    setTransactions(sortedTxs);
-                    // If transactions arrive first, we can show them immediately
-                })
-                .catch(() => setTransactions([]));
-
-            // Fetch contacts independently
-            fetchContacts(locationId || undefined).then((data) => {
-                setContacts(data);
-                setContactsCount(data.length);
-            }).catch(() => []);
-
-            // Wait ONLY for critical UI elements (credits and history)
-            const [credStatus, convs] = await Promise.allSettled([
+            // Fetch critical dashboard data in parallel (credits, history, and transactions)
+            const [credStatus, convs, txRes] = await Promise.allSettled([
                 fetchCreditStatus(locationId || undefined),
                 fetchConversations(locationId || undefined).catch(() => []),
+                fetchCreditTransactions('default', 50, locationId || undefined).catch(() => [])
             ]);
 
             if (credStatus.status === 'fulfilled') {
@@ -72,17 +54,20 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
 
             if (convs.status === 'fulfilled') {
                 const fetchedConvs = convs.value as Conversation[];
-                setConversations(prev => {
-                    // Sort the new conversations
-                    const sortedNew = [...fetchedConvs].sort((a, b) => {
-                        const timeA = new Date(a.last_message_at || a.updated_at || 0).getTime();
-                        const timeB = new Date(b.last_message_at || b.updated_at || 0).getTime();
-                        return timeB - timeA;
-                    });
+                setConversations([...fetchedConvs].sort((a, b) => {
+                    const timeA = new Date(a.last_message_at || a.updated_at || 0).getTime();
+                    const timeB = new Date(b.last_message_at || b.updated_at || 0).getTime();
+                    return timeB - timeA;
+                }));
+            }
 
-                    if (prev.length === 0) return sortedNew;
-                    return sortedNew;
+            if (txRes.status === 'fulfilled') {
+                const sortedTxs = (txRes.value as CreditTransaction[]).sort((a, b) => {
+                    const timeA = new Date(a.created_at || 0).getTime();
+                    const timeB = new Date(b.created_at || 0).getTime();
+                    return timeB - timeA;
                 });
+                setTransactions(sortedTxs);
             }
 
             if (isInitial) setLoading(false);
@@ -469,7 +454,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     </AnimatedContent>
 
                         <div className="flex flex-col gap-3">
-                            {loading && transactions.length === 0 ? (
+                            {loading ? (
                                 [...Array(3)].map((_, idx) => (
                                     <AnimatedContent key={`tx-skel-${idx}`} delay={0.5 + idx * 0.1} distance={10} direction="vertical">
                                         <div className="h-[74px] rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent shadow-sm animate-pulse" />
