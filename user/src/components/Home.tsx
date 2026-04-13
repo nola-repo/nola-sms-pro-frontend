@@ -45,23 +45,25 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
             }).catch(() => []);
 
             // Wait ONLY for critical UI elements (credits and history)
-            const [credStatus, convs, txs] = await Promise.allSettled([
+            // But fetch transactions independently so they appear right away
+            fetchCreditTransactions('default', 50, locationId || undefined)
+                .then(txs => {
+                    const sortedTxs = (txs as CreditTransaction[]).sort((a, b) => {
+                        const timeA = new Date(a.created_at || 0).getTime();
+                        const timeB = new Date(b.created_at || 0).getTime();
+                        return timeB - timeA;
+                    });
+                    setTransactions(sortedTxs);
+                })
+                .catch(() => setTransactions([]));
+
+            const [credStatus, convs] = await Promise.allSettled([
                 fetchCreditStatus(locationId || undefined),
                 fetchConversations(locationId || undefined).catch(() => []),
-                fetchCreditTransactions('default', 50, locationId || undefined).catch(() => []),
             ]);
 
             if (credStatus.status === 'fulfilled') {
                 setCreditStatus(credStatus.value);
-            }
-
-            if (txs.status === 'fulfilled') {
-                const sortedTxs = (txs.value as CreditTransaction[]).sort((a, b) => {
-                    const timeA = new Date(a.created_at || 0).getTime();
-                    const timeB = new Date(b.created_at || 0).getTime();
-                    return timeB - timeA;
-                });
-                setTransactions(sortedTxs);
             }
 
             if (convs.status === 'fulfilled') {
@@ -445,8 +447,8 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                 </div>
 
                 {/* Credit Transactions (Recent Transactions) */}
-                <div className="mt-10 bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col">
-                    <AnimatedContent delay={0.7} distance={50} direction="vertical">
+                <AnimatedContent delay={0.7} distance={50} direction="vertical">
+                    <div className="mt-10 bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col">
                         <div className="flex items-center justify-between mb-5 h-8">
                             <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
                                 Recent Transactions
@@ -460,30 +462,26 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 </button>
                             )}
                         </div>
-                    </AnimatedContent>
 
-                    <div className="flex flex-col gap-3">
-                        {loading && transactions.length === 0 ? (
-                            [1, 2, 3].map((i, idx) => (
-                                <AnimatedContent key={`tx-skel-${i}`} delay={0.7 + idx * 0.05} distance={15} direction="vertical">
-                                    <div className="h-[74px] rounded-2xl bg-white dark:bg-[#1a1b1e] border border-[#0000000a] dark:border-white/5 shadow-sm animate-pulse" />
-                                </AnimatedContent>
-                            ))
-                        ) : transactions.length > 0 ? (
-                            (() => {
-                                const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
-                                const currentTxs = transactions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-                                
-                                return (
-                                    <>
-                                        {currentTxs.map((log: any, idx) => {
-                                            const isUsage = log.type === 'deduction';
-                                            const timeString = log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                                            const dateString = log.created_at ? new Date(log.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
+                        <div className="flex flex-col gap-3">
+                            {loading && transactions.length === 0 ? (
+                                [...Array(3)].map((_, idx) => (
+                                    <div key={`tx-skel-${idx}`} className="h-[74px] rounded-2xl bg-white dark:bg-[#1a1b1e] border border-[#0000000a] dark:border-white/5 shadow-sm animate-pulse" />
+                                ))
+                            ) : transactions.length > 0 ? (
+                                (() => {
+                                    const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
+                                    const currentTxs = transactions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+                                    
+                                    return (
+                                        <>
+                                            {currentTxs.map((log: any, idx) => {
+                                                const isUsage = log.type === 'deduction';
+                                                const timeString = log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                                                const dateString = log.created_at ? new Date(log.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
 
-                                            return (
-                                                <AnimatedContent key={log.transaction_id || log.id || `tx-${idx}`} delay={0.7 + idx * 0.05} distance={15} direction="vertical">
-                                                    <div className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                                                return (
+                                                    <div key={log.transaction_id || log.id || `tx-${idx}`} className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-500' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500'}`}>
                                                             {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
                                                         </div>
@@ -496,48 +494,46 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                                                     {dateString} • {timeString}
                                                                 </span>
                                                             </div>
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] leading-snug flex-1">
-                                                        {isUsage && Math.abs(log.amount || 0) === 0 ? (
-                                                            <span className="font-bold text-purple-500">-1 free trial</span>
-                                                        ) : (
-                                                            <>
-                                                                {isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-purple-500' : 'text-emerald-500'}`}>{!isUsage && '+'}{Math.abs(log.amount || 0).toLocaleString()}</span> credits
-                                                            </>
-                                                        )}
-                                                    </p>
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] leading-snug flex-1">
+                                                                    {isUsage && Math.abs(log.amount || 0) === 0 ? (
+                                                                        <span className="font-bold text-purple-500">-1 free trial</span>
+                                                                    ) : (
+                                                                        <>
+                                                                            {isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-purple-500' : 'text-emerald-500'}`}>{!isUsage && '+'}{Math.abs(log.amount || 0).toLocaleString()}</span> credits
+                                                                        </>
+                                                                    )}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {totalPages > 1 && (
+                                                <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#e5e5e5] dark:border-white/5">
+                                                    <div className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] uppercase font-bold tracking-wider">
+                                                        Showing <b className="text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</b> – <b className="text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, transactions.length)}</b> of <b className="text-[#111111] dark:text-white">{transactions.length}</b>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiArrowRight className="w-4 h-4 rotate-180" /></button>
+                                                        {Array.from({ length: Math.min(5, totalPages - Math.floor((currentPage - 1) / 5) * 5) }, (_, i) => Math.floor((currentPage - 1) / 5) * 5 + 1 + i).map(page => (
+                                                            <button key={page} onClick={() => setCurrentPage(page)} className={`w-6 h-6 rounded-md text-[11px] font-bold flex items-center justify-center transition-all ${currentPage === page ? 'bg-[#2b83fa] text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5'}`}>{page}</button>
+                                                        ))}
+                                                        <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiArrowRight className="w-4 h-4" /></button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                        </AnimatedContent>
+                                            )}
+                                        </>
                                     );
-                                })}
-                                {totalPages > 1 && (
-                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#e5e5e5] dark:border-white/5">
-                                        <div className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] uppercase font-bold tracking-wider">
-                                            Showing <b className="text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</b> – <b className="text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, transactions.length)}</b> of <b className="text-[#111111] dark:text-white">{transactions.length}</b>
-                                        </div>
-                                        <div className="flex items-center gap-1.5">
-                                            <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiArrowRight className="w-4 h-4 rotate-180" /></button>
-                                            {Array.from({ length: Math.min(5, totalPages - Math.floor((currentPage - 1) / 5) * 5) }, (_, i) => Math.floor((currentPage - 1) / 5) * 5 + 1 + i).map(page => (
-                                                <button key={page} onClick={() => setCurrentPage(page)} className={`w-6 h-6 rounded-md text-[11px] font-bold flex items-center justify-center transition-all ${currentPage === page ? 'bg-[#2b83fa] text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5'}`}>{page}</button>
-                                            ))}
-                                            <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiArrowRight className="w-4 h-4" /></button>
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        );
-                    })()
-                ) : (
-                            <AnimatedContent delay={0.7} distance={15} direction="vertical">
+                                })()
+                            ) : (
                                 <div className="p-10 text-center rounded-3xl border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
                                     <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No recent transactions found.</p>
                                 </div>
-                            </AnimatedContent>
-                        )}
+                            )}
+                        </div>
                     </div>
-                </div>
+                </AnimatedContent>
             </div>
 
             {/* All Activity Popup */}
