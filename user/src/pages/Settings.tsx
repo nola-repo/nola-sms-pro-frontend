@@ -286,6 +286,7 @@ const AccountSection: React.FC = () => {
 
 // ─── Section: Sender IDs ────────────────────────────────────────────────────
 const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAddModal }) => {
+    const locationId = useGhlLocation() || getAccountSettings().ghlLocationId || undefined;
     const [senderRequests, setSenderRequests] = useState<SenderRequest[]>([]);
     const [config, setConfig] = useState<AccountSenderConfig | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -305,11 +306,11 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
 
         setIsLoading(true);
         Promise.all([
-            fetchSenderRequests().catch(err => {
+            fetchSenderRequests(locationId).catch(err => {
                 console.error("Failed to fetch sender requests:", err);
                 return [];
             }),
-            fetchAccountSenderConfig().catch(err => {
+            fetchAccountSenderConfig(locationId).catch(err => {
                 console.error("Failed to fetch account sender config:", err);
                 return null;
             })
@@ -335,7 +336,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
         });
 
         return () => { cancelled = true; };
-    }, []);
+    }, [locationId]);
 
     const systemDefault = config?.system_default_sender || "NOLASMSPro";
     const freeUsageCount = config?.free_usage_count || 0;
@@ -388,7 +389,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
 
         // Fetch from server after index delay catch-up
         setTimeout(() => {
-            fetchSenderRequests().then(setSenderRequests);
+            fetchSenderRequests(locationId).then(setSenderRequests);
         }, 1500);
     };
 
@@ -608,8 +609,8 @@ const CreditsSection: React.FC = () => {
         setBalanceLoading(true);
         setTxLoading(true);
         const [status, txs, pkgs] = await Promise.all([
-            fetchCreditStatus(),
-            fetchCreditTransactions('default', 50),
+            fetchCreditStatus(locationId || undefined),
+            fetchCreditTransactions('default', 50, locationId || undefined),
             fetchCreditPackages(),
         ]);
         if (!mountedRef.current) return;
@@ -623,7 +624,7 @@ const CreditsSection: React.FC = () => {
         }
         setBalanceLoading(false);
         setTxLoading(false);
-    }, []);
+    }, [locationId]);
 
     useEffect(() => {
         mountedRef.current = true;

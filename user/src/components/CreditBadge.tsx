@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { FiCreditCard, FiRefreshCw, FiZap, FiPlus, FiGift } from "react-icons/fi";
 import { fetchCreditStatus, type CreditStatus } from "../api/credits";
+import { useLocationId } from "../context/LocationContext";
 
 export const CreditBadge = () => {
     const [status, setStatus] = useState<CreditStatus | null>(null);
     const [loading, setLoading] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
+    const { locationId } = useLocationId();
 
     const navigateToCredits = () => {
         window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }));
@@ -14,7 +16,7 @@ export const CreditBadge = () => {
     const fetchStatus = async () => {
         setLoading(true);
         try {
-            const result = await fetchCreditStatus();
+            const result = await fetchCreditStatus(locationId || undefined);
             setStatus(result);
         } catch (error) {
             console.error("Failed to fetch credit status", error);
@@ -33,7 +35,9 @@ export const CreditBadge = () => {
             window.removeEventListener('sms-sent', fetchStatus);
             window.removeEventListener('bulk-message-sent', fetchStatus);
         };
-    }, []);
+    // Re-fetch whenever the active subaccount changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [locationId]);
 
     // ── Derived billing state ─────────────────────────────────────────────────
     const balance      = status?.credit_balance ?? 0;

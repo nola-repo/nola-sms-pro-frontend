@@ -73,8 +73,8 @@ export interface CreditPackage {
  * Thin wrapper around fetchCreditStatus for backward compatibility.
  * Returns 0 on failure to allow graceful degradation.
  */
-export async function fetchCreditBalance(): Promise<number> {
-    const status = await fetchCreditStatus();
+export async function fetchCreditBalance(explicitLocationId?: string): Promise<number> {
+    const status = await fetchCreditStatus(explicitLocationId);
     return status?.credit_balance ?? 0;
 }
 

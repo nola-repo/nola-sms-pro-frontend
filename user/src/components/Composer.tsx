@@ -99,7 +99,7 @@ export const Composer: React.FC<ComposerProps> = ({
   // Dynamic sender default: prioritize user's preferred sender, else approved sender, else system default
   useEffect(() => {
     let cancelled = false;
-    fetchAccountSenderConfig().then(cfg => {
+    fetchAccountSenderConfig(locationId || undefined).then(cfg => {
       if (cancelled) return;
       
       const preferred = getPreferredSender();
@@ -121,7 +121,7 @@ export const Composer: React.FC<ComposerProps> = ({
       }
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [locationId]);
   const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null);
   const [lottieError, setLottieError] = useState(false);
 
@@ -313,9 +313,9 @@ export const Composer: React.FC<ComposerProps> = ({
 
   useEffect(() => {
     if (isNewMessage) {
-      fetchContacts().then(setAllContacts).catch(console.error);
+      fetchContacts(locationId || undefined).then(setAllContacts).catch(console.error);
     }
-  }, [isNewMessage]);
+  }, [isNewMessage, locationId]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
