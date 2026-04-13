@@ -44,7 +44,14 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
             }
             if (logsRes) {
                 const logsJson = await logsRes.json();
-                if (logsJson.status === 'success') setLogs(logsJson.data || []);
+                if (logsJson.status === 'success') {
+                    const sortedLogs = (logsJson.data || []).sort((a: any, b: any) => {
+                        const timeA = new Date(a.timestamp || a.date_created || a.created_at || 0).getTime();
+                        const timeB = new Date(b.timestamp || b.date_created || b.created_at || 0).getTime();
+                        return timeB - timeA;
+                    });
+                    setLogs(sortedLogs);
+                }
             }
             setLastRefreshed(new Date());
         } catch (err) {
@@ -297,7 +304,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between mb-1 gap-2">
-                                                    <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
+                                                    <p className="text-[14px] font-bold text-[#111111] dark:text-white leading-tight">
                                                         {type === 'message'         ? `SMS to ${log.number || log.to || 'Unknown'}` :
                                                          type === 'credit_purchase' ? `+${log.amount?.toLocaleString()} credits added` :
                                                          isFreeTrial                ? 'Free trial SMS sent' :
@@ -306,7 +313,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                                     <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">{time}</span>
                                                 </div>
                                                 <div className="flex items-center justify-between gap-3">
-                                                    <p className="text-[13px] text-gray-500 dark:text-gray-400 truncate flex-1">
+                                                    <p className="text-[13px] text-gray-500 dark:text-gray-400 flex-1 leading-snug">
                                                         {account?.location_name || (locId ? locId.substring(0, 12) + '…' : 'System')}
                                                         {log.sendername ? ` · via ${log.sendername}` : ''}
                                                     </p>

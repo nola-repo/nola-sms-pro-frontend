@@ -56,7 +56,12 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
             }
 
             if (txs.status === 'fulfilled') {
-                setTransactions(txs.value as CreditTransaction[]);
+                const sortedTxs = (txs.value as CreditTransaction[]).sort((a, b) => {
+                    const timeA = new Date(a.created_at || 0).getTime();
+                    const timeB = new Date(b.created_at || 0).getTime();
+                    return timeB - timeA;
+                });
+                setTransactions(sortedTxs);
             }
 
             if (convs.status === 'fulfilled') {
@@ -471,7 +476,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 
                                 return (
                                     <>
-                                        {currentTxs.map((log, idx) => {
+                                        {currentTxs.map((log: any, idx) => {
                                             const isUsage = log.type === 'deduction';
                                             const timeString = log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                                             const dateString = log.created_at ? new Date(log.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
@@ -484,7 +489,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                                         </div>
                                                         <div className="flex-1 min-w-0 flex flex-col justify-center">
                                                             <div className="flex items-center justify-between mb-1 gap-2">
-                                                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
+                                                                <p className="text-[14px] font-bold text-[#111111] dark:text-white leading-tight">
                                                                     {log.description || (isUsage ? 'Credits Used' : 'Credits Purchased')}
                                                                 </p>
                                                                 <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">
@@ -492,7 +497,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                                                 </span>
                                                             </div>
                                                 <div className="flex items-center justify-between gap-3">
-                                                    <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">
+                                                    <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] leading-snug flex-1">
                                                         {isUsage && Math.abs(log.amount || 0) === 0 ? (
                                                             <span className="font-bold text-purple-500">-1 free trial</span>
                                                         ) : (
