@@ -12,6 +12,7 @@ import { logout } from "../services/authService";
 import GlareHover from "./GlareHover";
 import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
 import { getAccountSettings } from "../utils/settingsStorage";
+import { useLocationId } from "../context/LocationContext";
 
 export type ViewTab = 'home' | 'compose' | 'contacts' | 'templates' | 'settings';
 
@@ -48,6 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectBulkMessage,
   onCloseMobile
 }) => {
+  const { locationId } = useLocationId();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [directHistory, setDirectHistory] = useState<Contact[]>([]);
   const [bulkHistory, setBulkHistory] = useState<BulkMessageHistoryItem[]>([]);
@@ -88,14 +90,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const loadContacts = useCallback(async () => {
     try {
-      const data = await fetchContacts();
+      const data = await fetchContacts(locationId || undefined);
       const deletedIds = getDeletedContactIds();
       const filtered = data.filter(c => !deletedIds.includes(c.id));
       setContacts(filtered);
 
       // Load conversations from server
       try {
-        const conversations = await fetchConversations();
+        const conversations = await fetchConversations(locationId || undefined);
         
         // Build a phone -> name lookup map from freshly-fetched contacts (not stale state)
         const contactMap = new Map<string, string>();
@@ -256,7 +258,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [locationId]);
 
   useEffect(() => {
     loadContacts();

@@ -22,13 +22,14 @@ export interface AccountSenderConfig {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-function getLocationHeaders(): { headers: Record<string, string>; locationId: string } {
+function getLocationHeaders(explicitLocationId?: string): { headers: Record<string, string>; locationId: string } {
     const { ghlLocationId } = getAccountSettings();
+    const locationId = explicitLocationId || ghlLocationId || '';
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (ghlLocationId) {
-        headers["X-GHL-Location-ID"] = ghlLocationId;
+    if (locationId) {
+        headers["X-GHL-Location-ID"] = locationId;
     }
-    return { headers, locationId: ghlLocationId };
+    return { headers, locationId };
 }
 
 // ─── API Functions ───────────────────────────────────────────────────────────
@@ -65,8 +66,8 @@ export const submitSenderRequest = async (
 /**
  * Fetch all sender ID requests for the current location.
  */
-export const fetchSenderRequests = async (): Promise<SenderRequest[]> => {
-    const { headers, locationId } = getLocationHeaders();
+export const fetchSenderRequests = async (explicitLocationId?: string): Promise<SenderRequest[]> => {
+    const { headers, locationId } = getLocationHeaders(explicitLocationId);
 
     let url = API_CONFIG.sender_requests;
     if (locationId) {
@@ -86,8 +87,8 @@ export const fetchSenderRequests = async (): Promise<SenderRequest[]> => {
 /**
  * Fetch the account's sender configuration (approved sender, API key, free usage).
  */
-export const fetchAccountSenderConfig = async (): Promise<AccountSenderConfig> => {
-    const { headers, locationId } = getLocationHeaders();
+export const fetchAccountSenderConfig = async (explicitLocationId?: string): Promise<AccountSenderConfig> => {
+    const { headers, locationId } = getLocationHeaders(explicitLocationId);
 
     const DEFAULT_CONFIG: AccountSenderConfig = {
         approved_sender_id: null,

@@ -4,6 +4,7 @@ import { type SenderId } from "../api/sms";
 import { SenderRequestModal } from "./SenderRequestModal";
 import { type StoredSenderId } from "../utils/settingsStorage";
 import { fetchAccountSenderConfig, type AccountSenderConfig } from "../api/senderRequests";
+import { useLocationId } from "../context/LocationContext";
 
 interface SenderOption {
     id: SenderId;
@@ -46,19 +47,20 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
     const [config, setConfig] = useState<AccountSenderConfig | null>(null);
     const [configLoading, setConfigLoading] = useState(true);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const { locationId } = useLocationId();
 
-    // Fetch account sender config on mount
+    // Fetch account sender config on mount and when location changes
     useEffect(() => {
         let cancelled = false;
         setConfigLoading(true);
-        fetchAccountSenderConfig().then(cfg => {
+        fetchAccountSenderConfig(locationId || undefined).then(cfg => {
             if (!cancelled) {
                 setConfig(cfg);
                 setConfigLoading(false);
             }
         });
         return () => { cancelled = true; };
-    }, []);
+    }, [locationId]);
 
     // Build options dynamically from API config
     const allOptions = useMemo<SenderOption[]>(() => {

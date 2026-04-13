@@ -41,9 +41,9 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
 
             // Wait ONLY for critical UI elements (credits and history)
             const [credStatus, convs, txs] = await Promise.allSettled([
-                fetchCreditStatus(),
-                fetchConversations().catch(() => []),
-                fetchCreditTransactions('default', 10).catch(() => []),
+                fetchCreditStatus(locationId || undefined),
+                fetchConversations(locationId || undefined).catch(() => []),
+                fetchCreditTransactions('default', 10, locationId || undefined).catch(() => []),
             ]);
 
             if (credStatus.status === 'fulfilled') {

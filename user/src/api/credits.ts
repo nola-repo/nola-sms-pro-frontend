@@ -18,17 +18,18 @@ export interface CreditStatus {
  * Fetch the current credit and trial status.
  * Returns full billing metadata including free-trial counters.
  */
-export async function fetchCreditStatus(): Promise<CreditStatus | null> {
+export async function fetchCreditStatus(explicitLocationId?: string): Promise<CreditStatus | null> {
     try {
         const accountSettings = getAccountSettings();
+        const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (accountSettings.ghlLocationId) {
-            headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+        if (locationId) {
+            headers['X-GHL-Location-ID'] = locationId;
         }
 
         let url = API_CONFIG.credits;
-        if (accountSettings.ghlLocationId) {
-            url += `?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+        if (locationId) {
+            url += `?location_id=${encodeURIComponent(locationId)}`;
         }
 
         const res = await fetch(url, { headers });
@@ -84,20 +85,22 @@ export async function fetchCreditBalance(): Promise<number> {
 export async function fetchCreditTransactions(
     accountId = 'default',
     limit = 50,
+    explicitLocationId?: string,
 ): Promise<CreditTransaction[]> {
     try {
         const accountSettings = getAccountSettings();
+        const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
         };
 
-        if (accountSettings.ghlLocationId) {
-            headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+        if (locationId) {
+            headers['X-GHL-Location-ID'] = locationId;
         }
 
         let url = `${API_CONFIG.base}/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`;
-        if (accountSettings.ghlLocationId) {
-            url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+        if (locationId) {
+            url += `&location_id=${encodeURIComponent(locationId)}`;
         }
 
         const res = await fetch(url, { headers });

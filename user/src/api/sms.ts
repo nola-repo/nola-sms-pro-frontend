@@ -410,17 +410,17 @@ export const fetchMessagesByConversationId = async (
  * Used by Sidebar to build the direct/bulk message list from server state.
  * Deduplicates conversations by phone number, preferring scoped IDs.
  */
-export const fetchConversations = async (): Promise<Conversation[]> => {
+export const fetchConversations = async (explicitLocationId?: string): Promise<Conversation[]> => {
   try {
     const accountSettings = getAccountSettings();
+    const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
     const headers: Record<string, string> = {};
-    if (accountSettings.ghlLocationId) {
-      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
-    }
+
+    if (locationId) headers['X-GHL-Location-ID'] = locationId;
 
     let CONVERSATIONS_URL = API_CONFIG.conversations;
-    if (accountSettings.ghlLocationId) {
-      CONVERSATIONS_URL += `?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    if (locationId) {
+      CONVERSATIONS_URL += `?location_id=${encodeURIComponent(locationId)}`;
     }
     const res = await fetch(CONVERSATIONS_URL, { headers });
     if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
@@ -463,8 +463,8 @@ export const fetchConversations = async (): Promise<Conversation[]> => {
     // Legacy unscoped (conv_PHONE) entries are silently hidden from the sidebar and
     // recent activity — they had no location fingerprint so we can't trust which
     // sub-account they belong to.
-    const currentLocationPrefix = accountSettings.ghlLocationId
-      ? `${accountSettings.ghlLocationId}_conv_`
+    const currentLocationPrefix = locationId
+      ? `${locationId}_conv_`
       : null;
 
     const scopedDirectConvs = Array.from(directDedup.values()).filter(conv => {
