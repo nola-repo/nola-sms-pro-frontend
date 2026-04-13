@@ -48,7 +48,9 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
     const [requests, setRequests] = useState<SenderRequest[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+    const ITEMS_PER_PAGE = 5;
 
     const fetchData = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
@@ -133,7 +135,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
             {/* Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Quick Actions */}
-                <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+                <div className="flex flex-col">
                     <div className="flex items-center justify-between mb-5 h-8">
                         <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider">Quick Actions</h3>
                     </div>
@@ -144,7 +146,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             { tab: 'settings', label: 'System Settings', desc: 'Global sender ID and free tier config', color: 'text-slate-500 bg-slate-50 dark:bg-slate-900/20', icon: <FiSettings className="w-5 h-5" />, badge: 0 },
                         ].map(item => (
                             <button key={item.tab} onClick={() => onNavigate(item.tab)}
-                                className="w-full min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left group">
+                                className="w-full min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-[#1a1b1e] border border-[#0000000a] dark:border-white/5 shadow-sm hover:border-[#2b83fa]/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left group">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.color} group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 ring-1 ring-inset ring-black/5 dark:ring-white/10`}>
                                     {item.icon}
                                 </div>
@@ -164,7 +166,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                 </div>
 
                 {/* Recent Sender Requests */}
-                <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col overflow-hidden">
+                <div className="flex flex-col overflow-hidden">
                     <div className="flex items-center justify-between mb-5 h-8 flex-shrink-0">
                         <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider">Recent Requests</h3>
                         <button onClick={() => onNavigate('requests')} className="group text-[11px] font-black text-[#2b83fa] hover:underline transition-all duration-300 flex items-center gap-1 active:scale-95 uppercase tracking-wider">
@@ -181,7 +183,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             </div>
                         ) : recentRequests.slice(0, 3).map(req => (
                             <div key={req.id} onClick={() => onNavigate('requests')}
-                                className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
+                                className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-[#1a1b1e] border border-[#0000000a] dark:border-white/5 shadow-sm hover:border-[#2b83fa]/30 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-[13px] font-black flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 ${
                                     req.status === 'pending' ? 'bg-gradient-to-br from-amber-400 to-orange-500' : req.status === 'approved' ? 'bg-gradient-to-br from-emerald-400 to-teal-500' : 'bg-gradient-to-br from-red-400 to-rose-600'
                                 }`}>
@@ -203,7 +205,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
             </div>
 
             {/* Platform Activity Logs (Full Width Bottom) */}
-            <div className="flex flex-col mt-4">
+            <div className="flex flex-col mt-4 bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-5 h-8">
                     <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
                         <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Recent Activity
@@ -214,13 +216,19 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                 </div>
                 <div className="flex flex-col gap-3">
                     {loading ? (
-                        [1,2,3].map(i => <div key={i} className="h-[74px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)
+                        [1,2,3].map(i => <div key={i} className="h-[74px] rounded-2xl bg-white dark:bg-[#1a1b1e] border border-[#0000000a] dark:border-white/5 shadow-sm animate-pulse" />)
                     ) : logs.length === 0 ? (
                         <div className="py-10 text-center">
                             <FiMessageSquare className="w-8 h-8 mx-auto mb-2 text-[#d0d0d0] dark:text-[#3a3b3f]" />
                             <p className="text-[13px] text-[#9aa0a6]">No logs recorded yet.</p>
                         </div>
-                    ) : logs.map(log => {
+                    ) : (() => {
+                        const totalPages = Math.ceil(logs.length / ITEMS_PER_PAGE);
+                        const currentLogs = logs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+                        
+                        return (
+                            <>
+                                {currentLogs.map(log => {
                         // Determine type based on explicit type or fallback properties
                         const isNegative = typeof log.amount === 'number' && log.amount < 0;
                         const isFreeTrial = log.amount === 0;
@@ -249,12 +257,11 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             </div>
                         ) : null;
                         
-                        // Message Event
                         if (type === 'message') {
                             const isSent = ['sent', 'delivered', 'pending', 'queued'].includes(log.status);
                             const isFailed = ['failed', 'rejected', 'undelivered', 'error'].includes(log.status);
                             return (
-                                <div key={log.id} onClick={() => onNavigate('activity')} className="group flex items-center gap-4 p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
+                                <div key={log.id} onClick={() => onNavigate('activity')} className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-[#1a1b1e] border border-[#0000000a] dark:border-white/5 shadow-sm hover:border-[#2b83fa]/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
                                     <div className={`w-10 h-10 rounded-[16px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa] dark:text-[#569cfe]`}>
                                         <FiMessageSquare className="w-5 h-5" />
                                     </div>
@@ -293,7 +300,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                         if (type === 'credit_purchase' || type === 'credit_usage') {
                             const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0) || isFreeTrial;
                             return (
-                                <div key={log.id} onClick={() => onNavigate('activity')} className="group flex items-center gap-4 p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
+                                <div key={log.id} onClick={() => onNavigate('activity')} className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-[#1a1b1e] border border-[#0000000a] dark:border-white/5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
                                     <div className={`w-10 h-10 rounded-[16px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}>
                                         {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
                                     </div>
@@ -319,6 +326,23 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                         }
 
                         return null;
+                                })}
+                                {totalPages > 1 && (
+                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#e5e5e5] dark:border-white/5">
+                                        <div className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] uppercase font-bold tracking-wider">
+                                            Showing <b className="text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</b> – <b className="text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, logs.length)}</b> of <b className="text-[#111111] dark:text-white">{logs.length}</b>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronLeft className="w-4 h-4" /></button>
+                                            {Array.from({ length: Math.min(5, totalPages - Math.floor((currentPage - 1) / 5) * 5) }, (_, i) => Math.floor((currentPage - 1) / 5) * 5 + 1 + i).map(page => (
+                                                <button key={page} onClick={() => setCurrentPage(page)} className={`w-6 h-6 rounded-md text-[11px] font-bold flex items-center justify-center transition-all ${currentPage === page ? 'bg-[#2b83fa] text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5'}`}>{page}</button>
+                                            ))}
+                                            <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronRight className="w-4 h-4" /></button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        );
                     })}
                 </div>
             </div>
