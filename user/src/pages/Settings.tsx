@@ -232,45 +232,54 @@ const AccountSection: React.FC = () => {
                                 </button>
                             )}
                         </label>
-                        <div className="flex gap-2 relative">
-                            <div className="relative flex-1">
-                                <input
-                                    type="text"
-                                    value={inputLocationId}
-                                    onChange={(e) => setInputLocationId(e.target.value)}
-                                    placeholder="Paste your Location ID..."
-                                    className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all pr-10"
-                                />
-                                {isFetchingLocation && (
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                        <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />
-                                    </div>
-                                )}
+                        {window.self === window.top ? (
+                            <div className="flex gap-2 relative">
+                                <div className="relative flex-1">
+                                    <input
+                                        type="text"
+                                        value={inputLocationId}
+                                        onChange={(e) => setInputLocationId(e.target.value)}
+                                        placeholder="Paste your Location ID..."
+                                        className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all pr-10"
+                                    />
+                                    {isFetchingLocation && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />
+                                        </div>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={handleSaveLocation}
+                                    disabled={isFetchingLocation || inputLocationId === ghlLocationIdFromHook}
+                                    className="px-4 py-2.5 rounded-xl bg-[#2b83fa] text-white text-[13px] font-bold shadow-md hover:bg-[#1a65d1] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    onClick={handleResetToDefault}
+                                    disabled={isFetchingLocation || inputLocationId === ghlLocationIdFromHook}
+                                    className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-[13px] font-bold shadow-sm hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    Reset To Default
+                                </button>
                             </div>
-                            <button
-                                onClick={handleSaveLocation}
-                                disabled={isFetchingLocation || inputLocationId === ghlLocationIdFromHook}
-                                className="px-4 py-2.5 rounded-xl bg-[#2b83fa] text-white text-[13px] font-bold shadow-md hover:bg-[#1a65d1] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                            >
-                                Save
-                            </button>
-                            <button
-                                onClick={handleResetToDefault}
-                                disabled={isFetchingLocation || inputLocationId === ghlLocationIdFromHook}
-                                className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-[13px] font-bold shadow-sm hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                            >
-                                Reset To Default
-                            </button>
-                        </div>
+                        ) : (
+                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono flex items-center justify-between">
+                                <span>{ghlLocationIdFromHook || "Not Found"}</span>
+                                {isFetchingLocation && <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />}
+                            </div>
+                        )}
                     </div>
                 </div>
             </Card>
 
-            <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20">
-                <p className="text-[12px] text-blue-700 dark:text-blue-300 leading-relaxed">
-                    <strong>Note:</strong> Account information is automatically synced from your GoHighLevel workspace. Type your Location ID above to fetch your details automatically.
-                </p>
-            </div>
+            {window.self === window.top && (
+                <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20">
+                    <p className="text-[12px] text-blue-700 dark:text-blue-300 leading-relaxed">
+                        <strong>Note:</strong> Account information is automatically synced from your GoHighLevel workspace. Type your Location ID above to fetch your details automatically.
+                    </p>
+                </div>
+            )}
         </div>
     );
 };
