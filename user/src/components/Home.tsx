@@ -443,8 +443,8 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                 </div>
 
                 {/* Credit Transactions (Recent Transactions) */}
-                <div className="mt-10 bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col">
-                    <AnimatedContent delay={0.4} distance={20} direction="vertical">
+                <AnimatedContent delay={0.6} distance={50} direction="vertical">
+                    <div className="mt-10 bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col">
                         <div className="flex items-center justify-between mb-5 h-8">
                             <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
                                 <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Recent Transactions
@@ -458,14 +458,11 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 </button>
                             )}
                         </div>
-                    </AnimatedContent>
 
                         <div className="flex flex-col gap-3">
-                            {loading && transactions.length === 0 ? (
-                                [...Array(3)].map((_, idx) => (
-                                    <AnimatedContent key={`tx-skel-${idx}`} delay={0.5 + idx * 0.1} distance={10} direction="vertical">
-                                        <div className="h-[74px] rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent shadow-sm animate-pulse" />
-                                    </AnimatedContent>
+                            {loading ? (
+                                [...Array(5)].map((_, idx) => (
+                                    <div key={`tx-skel-${idx}`} className="h-[74px] rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent shadow-sm animate-pulse" />
                                 ))
                             ) : transactions.length > 0 ? (
                                 (() => {
@@ -480,8 +477,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                                 const dateString = log.created_at ? new Date(log.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
 
                                                 return (
-                                                    <AnimatedContent key={`tx-${idx}-${log.transaction_id || log.id || 'none'}`} delay={0.1 + idx * 0.05} distance={10} direction="vertical">
-                                                        <div className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                                                    <div key={`tx-${idx}-${log.transaction_id || log.id || 'none'}`} className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-500' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500'}`}>
                                                             {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
                                                         </div>
@@ -505,10 +501,8 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                                                     )}
                                                                 </p>
                                                             </div>
-                                                        </div>
                                                     </div>
-                                                </AnimatedContent>
-                                            );
+                                                );
                                             })}
                                             {totalPages > 1 && (
                                                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#e5e5e5] dark:border-white/5">
@@ -534,6 +528,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                             )}
                         </div>
                     </div>
+                </AnimatedContent>
 
 
             {/* All Activity Popup */}
