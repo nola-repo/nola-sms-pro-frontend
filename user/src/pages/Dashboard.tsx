@@ -113,7 +113,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       settings: '/settings',
       templates: '/templates',
     };
-    navigate(urlMap[tab] ?? '/', { replace: false });
+    const search = window.location.search;
+    navigate({ pathname: urlMap[tab] ?? '/', search }, { replace: false });
 
     // Clear selection for ALL tab changes to ensure Sidebar highlights are removed
     setSelectedContacts([]);
@@ -137,6 +138,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const toggleCollapse = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
+
+  // When locationId changes (e.g., switching subaccounts in GHL), clear the active contact
+  // to avoid showing a "No history yet" screen for the previous subaccount's phone number
+  // in the new subaccount's context.
+  useEffect(() => {
+    setSelectedContacts([]);
+    setActiveContact(null);
+    setActiveBulkMessage(null);
+    safeStorage.removeItem('nola_active_contact');
+    safeStorage.removeItem('nola_active_bulk_message');
+  }, [locationId]);
 
   // Handle navigation to settings tabs from CreditBadge
   useEffect(() => {
