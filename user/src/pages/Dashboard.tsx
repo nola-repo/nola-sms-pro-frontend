@@ -276,7 +276,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         )}
 
         {/* Content Router */}
-        <div className="flex-1 h-full overflow-hidden">
+        <div key={locationId || 'default'} className="flex-1 h-full overflow-hidden">
           {currentView === 'home' ? (
             <Home
               onTabChange={handleTabChange}
