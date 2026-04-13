@@ -36,16 +36,12 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         setCurrentPage(1);
         
         const loadHomeData = async (isInitial = false) => {
-            if (isInitial) setLoading(true);
+            if (isInitial) {
+                setLoading(true);
+                setTransactions([]); // Clear previous transactions on location change
+            }
 
-            // Fetch contacts independently in background so it doesn't block the UI
-            fetchContacts(locationId || undefined).then((data) => {
-                setContacts(data);
-                setContactsCount(data.length);
-            }).catch(() => []);
-
-            // Wait ONLY for critical UI elements (credits and history)
-            // But fetch transactions independently so they appear right away
+            // Fetch transactions immediately and independently to avoid any delay
             fetchCreditTransactions('default', 50, locationId || undefined)
                 .then(txs => {
                     const sortedTxs = (txs as CreditTransaction[]).sort((a, b) => {
@@ -54,9 +50,17 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                         return timeB - timeA;
                     });
                     setTransactions(sortedTxs);
+                    // If transactions arrive first, we can show them immediately
                 })
                 .catch(() => setTransactions([]));
 
+            // Fetch contacts independently
+            fetchContacts(locationId || undefined).then((data) => {
+                setContacts(data);
+                setContactsCount(data.length);
+            }).catch(() => []);
+
+            // Wait ONLY for critical UI elements (credits and history)
             const [credStatus, convs] = await Promise.allSettled([
                 fetchCreditStatus(locationId || undefined),
                 fetchConversations(locationId || undefined).catch(() => []),
@@ -447,18 +451,18 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                 </div>
 
                 {/* Credit Transactions (Recent Transactions) */}
-                <AnimatedContent delay={0.7} distance={50} direction="vertical">
+                <AnimatedContent delay={0.4} distance={50} direction="vertical">
                     <div className="mt-10 bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col">
                         <div className="flex items-center justify-between mb-5 h-8">
                             <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
-                                Recent Transactions
+                                <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Recent Transactions
                             </h3>
                             {transactions.length > 0 && (
                                 <button
                                     onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }))}
                                     className="group text-[11px] font-black text-[#2b83fa] hover:underline transition-all duration-300 flex items-center gap-1 active:scale-95 uppercase tracking-wider"
                                 >
-                                    See All <FiArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                                    See All <FiChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                                 </button>
                             )}
                         </div>
