@@ -259,10 +259,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                 <FiActivity className="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                                 <p className="text-[13px] text-gray-400 dark:text-gray-500 font-medium italic">No activity yet.</p>
                             </div>
-                                </button>
-                            );
-                        })
-                    ) : (() => {
+                        ) : (() => {
                         const totalPages = Math.ceil(logs.length / ITEMS_PER_PAGE);
                         const currentLogs = logs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
                         
@@ -335,7 +332,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                 )}
                             </>
                         );
-                    })())}
+                    })()}
                     </div>
                 </div>
                 </AnimatedContent>
