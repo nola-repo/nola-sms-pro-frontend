@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { FiHome, FiPlus, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX } from "react-icons/fi";
+import { FiHome, FiPlus, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity } from "react-icons/fi";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
 import { fetchConversations, type SenderId } from "../api/sms";
 import { fetchContacts } from "../api/contacts";
-import { fetchCreditStatus, type CreditStatus } from "../api/credits";
+import { fetchCreditStatus, fetchCreditTransactions, type CreditStatus, type CreditTransaction } from "../api/credits";
 import SplitText from "./SplitText";
 import AnimatedContent from "./AnimatedContent";
 import FadeContent from "./FadeContent";
@@ -20,6 +20,7 @@ interface HomeProps {
 export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSelectBulkMessage }) => {
     const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
     const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [contactsCount, setContactsCount] = useState<number>(0);
     const [loading, setLoading] = useState(true);
@@ -37,13 +38,18 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
             }).catch(() => []);
 
             // Wait ONLY for critical UI elements (credits and history)
-            const [credStatus, convs] = await Promise.allSettled([
+            const [credStatus, convs, txs] = await Promise.allSettled([
                 fetchCreditStatus(),
                 fetchConversations().catch(() => []),
+                fetchCreditTransactions('default', 10).catch(() => []),
             ]);
 
             if (credStatus.status === 'fulfilled') {
                 setCreditStatus(credStatus.value);
+            }
+
+            if (txs.status === 'fulfilled') {
+                setTransactions(txs.value as CreditTransaction[]);
             }
 
             if (convs.status === 'fulfilled') {
@@ -296,54 +302,54 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                             <AnimatedContent delay={0.45} distance={30} direction="vertical">
                                 <button
                                     onClick={() => onTabChange('compose')}
-                                    className="w-full p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-indigo-500/10 hover:border-[#2b83fa]/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
+                                    className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-indigo-500/10 hover:border-[#2b83fa]/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-[#2b83fa] transition-transform duration-300 group-hover:scale-110">
-                                            <FiPlus className="h-6 w-6" />
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-[#2b83fa] transition-transform duration-300 group-hover:scale-110">
+                                            <FiPlus className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <h4 className="font-bold text-[#111111] dark:text-white text-[15px]">Start New Chat</h4>
-                                            <p className="text-[12px] text-gray-500 dark:text-gray-400 font-medium">Create a single or bulk message</p>
+                                            <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px]">Start New Chat</h4>
+                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium">Create a single or bulk message</p>
                                         </div>
                                     </div>
-                                    <FiArrowRight className="h-5 w-5 text-gray-300 group-hover:text-[#2b83fa] group-hover:translate-x-1 transition-all" />
+                                    <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-[#2b83fa] group-hover:translate-x-1 transition-all" />
                                 </button>
                             </AnimatedContent>
 
                             <AnimatedContent delay={0.5} distance={30} direction="vertical">
                                 <button
                                     onClick={() => onTabChange('contacts')}
-                                    className="w-full p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
+                                    className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-500 transition-transform duration-300 group-hover:scale-110">
-                                            <FiUsers className="h-6 w-6" />
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-500 transition-transform duration-300 group-hover:scale-110">
+                                            <FiUsers className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <h4 className="font-bold text-[#111111] dark:text-white text-[15px]">Manage Contacts</h4>
-                                            <p className="text-[12px] text-gray-500 dark:text-gray-400 font-medium">Add, edit, or remove recipients</p>
+                                            <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px]">Manage Contacts</h4>
+                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium">Add, edit, or remove recipients</p>
                                         </div>
                                     </div>
-                                    <FiArrowRight className="h-5 w-5 text-gray-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
+                                    <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
                                 </button>
                             </AnimatedContent>
 
                             <AnimatedContent delay={0.55} distance={30} direction="vertical">
                                 <button
                                     onClick={() => onTabChange('settings')}
-                                    className="w-full p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-gray-500/10 hover:border-gray-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
+                                    className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-gray-500/10 hover:border-gray-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 transition-transform duration-300 group-hover:scale-110">
-                                            <FiSettings className="h-6 w-6" />
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 transition-transform duration-300 group-hover:scale-110">
+                                            <FiSettings className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <h4 className="font-bold text-[#111111] dark:text-white text-[15px]">Account Settings</h4>
-                                            <p className="text-[12px] text-gray-500 dark:text-gray-400 font-medium">Profile, API keys, and more</p>
+                                            <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px]">Account Settings</h4>
+                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium">Profile, API keys, and more</p>
                                         </div>
                                     </div>
-                                    <FiArrowRight className="h-5 w-5 text-gray-300 group-hover:text-gray-600 group-hover:translate-x-1 transition-all" />
+                                    <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-gray-600 group-hover:translate-x-1 transition-all" />
                                 </button>
                             </AnimatedContent>
                         </div>
@@ -384,7 +390,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                     </AnimatedContent>
                                 ))
                             ) : conversations.length > 0 ? (
-                                conversations.slice(0, 5).map((conv, idx) => (
+                                conversations.slice(0, 3).map((conv, idx) => (
                                     <AnimatedContent key={conv.id} delay={0.6 + idx * 0.05} distance={15} direction="vertical">
                                         <button
                                             onClick={() => handleRecentClick(conv)}
@@ -423,6 +429,72 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 </AnimatedContent>
                             )}
                         </div>
+                    </div>
+                </div>
+
+                {/* Credit Transactions (Platform Activity) */}
+                <div className="mt-10">
+                    <AnimatedContent delay={0.7} distance={50} direction="vertical">
+                        <div className="flex items-center justify-between mb-5">
+                            <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
+                                Platform Activity
+                            </h3>
+                            {transactions.length > 0 && (
+                                <button
+                                    onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }))}
+                                    className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                >
+                                    See All
+                                </button>
+                            )}
+                        </div>
+                    </AnimatedContent>
+
+                    <div className="space-y-2">
+                        {loading && transactions.length === 0 ? (
+                            [1, 2, 3].map((i, idx) => (
+                                <AnimatedContent key={`tx-skel-${i}`} delay={0.7 + idx * 0.05} distance={15} direction="vertical">
+                                    <div className="h-14 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] animate-pulse" />
+                                </AnimatedContent>
+                            ))
+                        ) : transactions.length > 0 ? (
+                            transactions.slice(0, 5).map((log, idx) => {
+                                const isUsage = log.type === 'deduction';
+                                const timeString = log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                                const dateString = log.created_at ? new Date(log.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
+
+                                return (
+                                    <AnimatedContent key={log.transaction_id} delay={0.7 + idx * 0.05} distance={15} direction="vertical">
+                                        <div className="group flex items-center gap-4 p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:border-[#2b83fa]/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-500' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500'}`}>
+                                                {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                <div className="flex items-center justify-between mb-1 gap-2">
+                                                    <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
+                                                        {isUsage ? 'Credits Used' : 'Credits Purchased'}
+                                                    </p>
+                                                    <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">
+                                                        {dateString} • {timeString}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">
+                                                        {isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-purple-500' : 'text-emerald-500'}`}>{!isUsage && '+'}{Math.abs(log.amount || 0).toLocaleString()}</span> credits
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </AnimatedContent>
+                                );
+                            })
+                        ) : (
+                            <AnimatedContent delay={0.7} distance={15} direction="vertical">
+                                <div className="p-10 text-center rounded-3xl border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
+                                    <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No recent transactions found.</p>
+                                </div>
+                            </AnimatedContent>
+                        )}
                     </div>
                 </div>
             </div>

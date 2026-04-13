@@ -102,46 +102,81 @@ const AccountSection: React.FC = () => {
         return ghlLocationIdFromHook || getAccountSettings().ghlLocationId || "";
     });
 
-    // Update if hook updates (e.g. from URL)
+    // Update if hook updates (e.g. from URL or from postMessage)
     useEffect(() => {
         if (ghlLocationIdFromHook && ghlLocationIdFromHook !== inputLocationId) {
             setInputLocationId(ghlLocationIdFromHook);
+            fetchAndSetLocation(ghlLocationIdFromHook);
         }
     }, [ghlLocationIdFromHook]);
 
-    // Handle debounced API fetch for location ID changes
+    const fetchAndSetLocation = async (locId: string) => {
+         if (!locId || locId.trim() === "") return;
+
+         setIsFetchingLocation(true);
+         const currentSettings = getAccountSettings();
+         if (currentSettings.ghlLocationId !== locId) {
+             saveAccountSettings({ ...currentSettings, ghlLocationId: locId });
+             // Notify LocationContext so all subscribers get the new location reactively
+             window.dispatchEvent(
+                 new CustomEvent('ghl-location-set', { detail: { locationId: locId } })
+             );
+         }
+
+         const profile = await fetchAccountProfile();
+         setIsFetchingLocation(false);
+         if (profile && profile.location_name && profile.location_name !== "Unknown") {
+             setFetchedName(profile.location_name);
+             const fresh = getAccountSettings();
+             if (fresh.displayName !== profile.location_name) {
+                 saveAccountSettings({ ...fresh, displayName: profile.location_name });
+                 window.dispatchEvent(new Event("account-settings-updated"));
+             }
+         } else {
+             setFetchedName("Location Not Found");
+         }
+    };
+
+    // Initial fetch on mount
     useEffect(() => {
-        let mounted = true;
-        const timer = setTimeout(async () => {
-             if (inputLocationId.trim() === "") return;
+        if (inputLocationId) {
+            fetchAndSetLocation(inputLocationId);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-             setIsFetchingLocation(true);
-             const currentSettings = getAccountSettings();
-             if (currentSettings.ghlLocationId !== inputLocationId) {
-                 saveAccountSettings({ ...currentSettings, ghlLocationId: inputLocationId });
-                 // Notify LocationContext so all subscribers get the new location reactively
-                 window.dispatchEvent(
-                     new CustomEvent('ghl-location-set', { detail: { locationId: inputLocationId } })
-                 );
-             }
+    const handleSaveLocation = () => {
+        fetchAndSetLocation(inputLocationId);
+    };
 
-             const profile = await fetchAccountProfile();
-             if (mounted) {
-                 setIsFetchingLocation(false);
-                 if (profile && profile.location_name && profile.location_name !== "Unknown") {
-                     setFetchedName(profile.location_name);
-                     const fresh = getAccountSettings();
-                     if (fresh.displayName !== profile.location_name) {
-                         saveAccountSettings({ ...fresh, displayName: profile.location_name });
-                         window.dispatchEvent(new Event("account-settings-updated"));
-                     }
-                 } else {
-                     setFetchedName("Location Not Found");
-                 }
-             }
-        }, 800);
-        return () => { mounted = false; clearTimeout(timer); };
-    }, [inputLocationId]);
+    const handleResetToDefault = () => {
+        // Try to get the dynamic location from the URL
+        const keys = ['location_id', 'locationId', 'location', 'id'];
+        const search = window.location.search;
+        const hash = window.location.hash;
+        
+        let dynamicId = null;
+        for (const k of keys) {
+            const val = new URLSearchParams(search).get(k);
+            if (val && val.length > 4) { dynamicId = val; break; }
+        }
+        if (!dynamicId && hash.includes('?')) {
+            const hashQuery = hash.split('?')[1];
+            for (const k of keys) {
+                const val = new URLSearchParams('?' + hashQuery).get(k);
+                if (val && val.length > 4) { dynamicId = val; break; }
+            }
+        }
+        
+        if (dynamicId) {
+            setInputLocationId(dynamicId);
+            fetchAndSetLocation(dynamicId);
+        } else if (ghlLocationIdFromHook) {
+            // Fallback to whatever the hook thinks is right
+            setInputLocationId(ghlLocationIdFromHook);
+            fetchAndSetLocation(ghlLocationIdFromHook);
+        }
+    };
 
     // Derived values
     const subaccountName = fetchedName && fetchedName !== "Location Not Found" 
@@ -197,19 +232,35 @@ const AccountSection: React.FC = () => {
                                 </button>
                             )}
                         </label>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={inputLocationId}
-                                onChange={(e) => setInputLocationId(e.target.value)}
-                                placeholder="Paste your Location ID..."
-                                className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all pr-10"
-                            />
-                            {isFetchingLocation && (
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                    <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />
-                                </div>
-                            )}
+                        <div className="flex gap-2 relative">
+                            <div className="relative flex-1">
+                                <input
+                                    type="text"
+                                    value={inputLocationId}
+                                    onChange={(e) => setInputLocationId(e.target.value)}
+                                    placeholder="Paste your Location ID..."
+                                    className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all pr-10"
+                                />
+                                {isFetchingLocation && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={handleSaveLocation}
+                                disabled={isFetchingLocation || inputLocationId === ghlLocationIdFromHook}
+                                className="px-4 py-2.5 rounded-xl bg-[#2b83fa] text-white text-[13px] font-bold shadow-md hover:bg-[#1a65d1] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                Save
+                            </button>
+                            <button
+                                onClick={handleResetToDefault}
+                                disabled={isFetchingLocation || inputLocationId === ghlLocationIdFromHook}
+                                className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-[13px] font-bold shadow-sm hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                Reset To Default
+                            </button>
                         </div>
                     </div>
                 </div>
