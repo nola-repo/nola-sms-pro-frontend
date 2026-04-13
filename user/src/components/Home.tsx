@@ -41,6 +41,12 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                 setTransactions([]); // Clear previous transactions on location change
             }
 
+            // Fetch contacts independently in background
+            fetchContacts(locationId || undefined).then((data) => {
+                setContacts(data);
+                setContactsCount(data.length);
+            }).catch(() => []);
+
             // Fetch critical dashboard data in parallel (credits, history, and transactions)
             const [credStatus, convs, txRes] = await Promise.allSettled([
                 fetchCreditStatus(locationId || undefined),
