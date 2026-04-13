@@ -282,7 +282,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                     
                                     return (
                                         <div
-                                            key={log.id || Math.random()}
+                                            key={log.id || log.transaction_id || `log-${idx}`}
                                             onClick={() => onNavigate('activity')}
                                             className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
                                         >

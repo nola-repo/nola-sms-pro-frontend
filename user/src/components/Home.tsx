@@ -32,6 +32,9 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
     const ITEMS_PER_PAGE = 5;
 
     useEffect(() => {
+        // Reset pagination when switching locations
+        setCurrentPage(1);
+        
         const loadHomeData = async (isInitial = false) => {
             if (isInitial) setLoading(true);
 
@@ -470,24 +473,24 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                     <>
                                         {currentTxs.map((log, idx) => {
                                             const isUsage = log.type === 'deduction';
-                                const timeString = log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                                const dateString = log.created_at ? new Date(log.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
+                                            const timeString = log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                                            const dateString = log.created_at ? new Date(log.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
 
-                                return (
-                                    <AnimatedContent key={log.transaction_id} delay={0.7 + idx * 0.05} distance={15} direction="vertical">
-                                        <div className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-500' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500'}`}>
-                                                {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
-                                            </div>
-                                            <div className="flex-1 min-w-0 flex flex-col justify-center">
-                                                <div className="flex items-center justify-between mb-1 gap-2">
-                                                    <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
-                                                        {log.description || (isUsage ? 'Credits Used' : 'Credits Purchased')}
-                                                    </p>
-                                                    <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">
-                                                        {dateString} • {timeString}
-                                                    </span>
-                                                </div>
+                                            return (
+                                                <AnimatedContent key={log.transaction_id || log.id || `tx-${idx}`} delay={0.7 + idx * 0.05} distance={15} direction="vertical">
+                                                    <div className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-500' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500'}`}>
+                                                            {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                                            <div className="flex items-center justify-between mb-1 gap-2">
+                                                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
+                                                                    {log.description || (isUsage ? 'Credits Used' : 'Credits Purchased')}
+                                                                </p>
+                                                                <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">
+                                                                    {dateString} • {timeString}
+                                                                </span>
+                                                            </div>
                                                 <div className="flex items-center justify-between gap-3">
                                                     <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">
                                                         {isUsage && Math.abs(log.amount || 0) === 0 ? (
