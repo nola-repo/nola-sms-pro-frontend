@@ -38,6 +38,21 @@ export const getSubaccounts = async (agencyId) => {
   return handleResponse(res); // { status, subaccounts: [] }
 };
 
+// ── PATCH toggle a single subaccount ON/OFF ────────────────────────────────────
+// Calls toggle_subaccount.php which enforces 3-activation limit and
+// correctly writes toggle_enabled to BOTH agency_subaccounts AND ghl_tokens.
+export const toggleSubaccount = async (agencyId: string, payload: {
+  subaccount_id: string;
+  enabled: boolean;
+}) => {
+  const res = await fetch(`${BASE}/toggle_subaccount.php`, {
+    method: 'PATCH',
+    headers: defaultHeaders(agencyId),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+};
+
 // ── POST update subaccount settings ──────────────────────────────────────────
 export const updateSubaccountSettings = async (agencyId, payload: {
   location_id: string;

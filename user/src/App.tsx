@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
-import { useGhlLocation } from "./hooks/useGhlLocation";
 import { GhlCallback } from "./pages/GhlCallback";
 import SharedLogin from "./pages/SharedLogin";
 import Register from "./pages/Register";
 import { AuthProvider } from "./context/AuthContext";
+import { LocationProvider } from "./context/LocationContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { safeStorage } from "./utils/safeStorage";
 
@@ -138,23 +138,15 @@ const AppLayout: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  const locationId = useGhlLocation();
-
-  useEffect(() => {
-    if (!locationId) return;
-    window.dispatchEvent(
-      new CustomEvent("ghl-location-changed", { detail: { locationId } })
-    );
-  }, [locationId]);
-
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppLayout />
-      </BrowserRouter>
+      <LocationProvider>
+        <BrowserRouter>
+          <AppLayout />
+        </BrowserRouter>
+      </LocationProvider>
     </AuthProvider>
   );
 };
 
 export default App;
-

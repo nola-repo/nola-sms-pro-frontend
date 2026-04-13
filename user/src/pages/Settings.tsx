@@ -119,7 +119,10 @@ const AccountSection: React.FC = () => {
              const currentSettings = getAccountSettings();
              if (currentSettings.ghlLocationId !== inputLocationId) {
                  saveAccountSettings({ ...currentSettings, ghlLocationId: inputLocationId });
-                 window.dispatchEvent(new Event("ghl-location-changed"));
+                 // Notify LocationContext so all subscribers get the new location reactively
+                 window.dispatchEvent(
+                     new CustomEvent('ghl-location-set', { detail: { locationId: inputLocationId } })
+                 );
              }
 
              const profile = await fetchAccountProfile();

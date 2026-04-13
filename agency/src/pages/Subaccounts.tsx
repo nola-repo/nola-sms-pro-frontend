@@ -8,6 +8,7 @@ import { useAgency } from '../context/AgencyContext.tsx';
 import { useToast } from '../hooks/useToast.ts';
 import {
   getSubaccounts,
+  toggleSubaccount,
   updateSubaccountSettings,
   checkInstallStatus,
 } from '../services/api.ts';
@@ -229,11 +230,9 @@ export const Subaccounts = () => {
     const targetSubaccount = subaccounts.find(s => s.location_id === locationId) || {};
 
     try {
-      await updateSubaccountSettings(agencyId, {
-        location_id: locationId,
-        toggle_enabled: enabled,
-        rate_limit: targetSubaccount.rate_limit ?? 5,
-        reset_counter: false
+      await toggleSubaccount(agencyId, {
+        subaccount_id: locationId,
+        enabled,
       });
       // Once succeeded, update toggle_activation_count roughly in optimistic state
       setSubaccounts(prev =>
@@ -533,7 +532,7 @@ export const Subaccounts = () => {
                       {/* SMS Active Toggle (Rightmost) */}
                       <td className="px-6 py-4 align-middle">
                         <div className="flex flex-col items-end gap-1">
-                          {installedLocations.has(sub.location_id) ? (
+                          {(installedLocations.size === 0 || installedLocations.has(sub.location_id) || sub.is_live) ? (
                             <>
                               <div className="flex items-center gap-2.5">
                                 <span className={`text-[11.5px] font-bold ${sub.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>

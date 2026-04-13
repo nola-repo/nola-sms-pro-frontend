@@ -11,9 +11,9 @@ import { TemplatesTab } from "../components/TemplatesTab";
 import { Settings } from "./Settings";
 import { FiMenu, FiSettings } from "react-icons/fi";
 import { Home } from "../components/Home";
-import { getAccountSettings } from "../utils/settingsStorage";
 import { useOnboarding } from "../components/onboarding/useOnboarding";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
+import { useLocationId } from "../context/LocationContext";
 
 interface DashboardProps {
   isMobileMenuOpen?: boolean;
@@ -26,6 +26,8 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: externalIsMobileMenuOpen, onMobileMenuToggle, darkMode, toggleDarkMode, initialView }) => {
   const navigate = useNavigate();
   const onboarding = useOnboarding();
+  // Reactive location ID from context — re-renders whenever subaccount changes
+  const { locationId } = useLocationId();
   const [activeContact, setActiveContact] = useState<Contact | null>(() => {
     try {
       const saved = safeStorage.getItem('nola_active_contact');
@@ -244,7 +246,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         </div>
 
         {/* Missing Location Alert */}
-        {window.self === window.top && !getAccountSettings().ghlLocationId && currentView !== 'settings' && (
+        {window.self === window.top && !locationId && currentView !== 'settings' && (
           <div className="px-6 py-3 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-200 dark:border-amber-800/20 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-800/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
