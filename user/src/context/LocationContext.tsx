@@ -83,7 +83,14 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [locationId, setLocationIdState] = useState<string>(() => {
     // Priority 1: URL param on initial load
     const fromUrl = extractLocationFromUrl();
-    if (fromUrl) return fromUrl;
+    if (fromUrl) {
+      // Synchronously write to localStorage so children reading getAccountSettings on mount see it immediately
+      const settings = getAccountSettings();
+      if (settings.ghlLocationId !== fromUrl) {
+        saveAccountSettings({ ...settings, ghlLocationId: fromUrl });
+      }
+      return fromUrl;
+    }
     // Priority 2: persisted storage
     return getAccountSettings().ghlLocationId || '';
   });
