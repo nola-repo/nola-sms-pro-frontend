@@ -5,10 +5,10 @@ import type { Contact } from "../types/Contact";
 // Use the GHL contacts proxy endpoint (calls GoHighLevel API directly)
 const CONTACTS_API_URL = API_CONFIG.ghl_contacts;
 
-export const fetchContacts = async (): Promise<Contact[]> => {
+export const fetchContacts = async (explicitLocationId?: string): Promise<Contact[]> => {
   try {
     const accountSettings = getAccountSettings();
-    const locationId = accountSettings.ghlLocationId || null;
+    const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
 
     console.log('NOLA SMS: Detected GHL Location:', locationId);
 

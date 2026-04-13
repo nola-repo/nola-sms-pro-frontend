@@ -10,6 +10,7 @@ import AnimatedContent from "./AnimatedContent";
 import FadeContent from "./FadeContent";
 import { SenderSelector } from "./SenderSelector";
 import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
+import { useLocationId } from "../context/LocationContext";
 
 interface HomeProps {
     onTabChange: (tab: any) => void;
@@ -18,6 +19,7 @@ interface HomeProps {
 }
 
 export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSelectBulkMessage }) => {
+    const { locationId } = useLocationId();
     const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
@@ -32,7 +34,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
             if (isInitial) setLoading(true);
 
             // Fetch contacts independently in background so it doesn't block the UI
-            fetchContacts().then((data) => {
+            fetchContacts(locationId || undefined).then((data) => {
                 setContacts(data);
                 setContactsCount(data.length);
             }).catch(() => []);
@@ -78,7 +80,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         }, 15000);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [locationId]);
 
     const getGreeting = () => {
         const hour = new Date().getHours();

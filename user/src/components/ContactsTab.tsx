@@ -3,6 +3,7 @@ import { fetchContacts, addContact, updateContact, deleteContact } from "../api/
 import { deleteContact as deleteContactLocal } from "../utils/storage";
 import type { Contact } from "../types/Contact";
 import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader, FiTag } from "react-icons/fi";
+import { useLocationId } from "../context/LocationContext";
 
 // Normalize any PH phone to 09XXXXXXXXX (aligned with send_sms.php clean_numbers)
 const normalizePHPhone = (input: string): string => {
@@ -51,6 +52,7 @@ const ContactSkeleton = () => (
 );
 
 export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onViewMessages }) => {
+  const { locationId } = useLocationId();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -80,16 +82,16 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
   }, [searchQuery]);
 
   useEffect(() => {
-    fetchContacts()
+    fetchContacts(locationId || undefined)
       .then(setContacts)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [locationId]);
 
   const refreshContacts = async () => {
     setIsPullRefreshing(true);
     try {
-      const data = await fetchContacts();
+      const data = await fetchContacts(locationId || undefined);
       setContacts(data);
     } catch (e) {
       console.error(e);

@@ -63,15 +63,6 @@ const DEFAULT_NOTIFICATIONS: NotificationSettings = {
     marketingEmails: false,
 };
 
-// ─── In-Memory Location State ────────────────────────────────────────────────
-// Protects against multi-tab local_storage bleeding by pinning the location ID
-// strictly to the runtime memory and URL of the active browser tab.
-let IN_MEMORY_LOCATION_ID: string | null = null;
-
-export const setRuntimeLocationId = (locId: string) => {
-    IN_MEMORY_LOCATION_ID = locId;
-};
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function load<T>(key: string, fallback: T): T {
     try {
@@ -123,25 +114,11 @@ export const getAccountSettings = (): AccountSettings => {
         }
     }
 
-    // Highest Priority: Dynamic Runtime State (e.g., from postMessage subaccount switches)
-    if (IN_MEMORY_LOCATION_ID) {
-        settings.ghlLocationId = IN_MEMORY_LOCATION_ID;
-    }
-
     return settings;
 };
 
-export const saveAccountSettings = (data: AccountSettings): void => {
-    // NEVER save the location ID to localStorage to prevent cross-tab account bleeding.
-    // Sync it to the runtime tab memory instead!
-    const { ghlLocationId, ...safeData } = data;
-    
-    if (ghlLocationId) {
-        setRuntimeLocationId(ghlLocationId);
-    }
-    
-    save(KEYS.account, safeData as AccountSettings);
-};
+export const saveAccountSettings = (data: AccountSettings): void =>
+    save(KEYS.account, data);
 
 // ─── API / Webhook ────────────────────────────────────────────────────────────
 export const getAPISettings = (): APISettings => load(KEYS.api, DEFAULT_API);
