@@ -439,7 +439,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     <AnimatedContent delay={0.7} distance={50} direction="vertical">
                         <div className="flex items-center justify-between mb-5">
                             <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                                Platform Activity
+                                Recent Transactions
                             </h3>
                             {transactions.length > 0 && (
                                 <button
@@ -474,7 +474,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                             <div className="flex-1 min-w-0 flex flex-col justify-center">
                                                 <div className="flex items-center justify-between mb-1 gap-2">
                                                     <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
-                                                        {isUsage ? 'Credits Used' : 'Credits Purchased'}
+                                                        {log.description || (isUsage ? 'Credits Used' : 'Credits Purchased')}
                                                     </p>
                                                     <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">
                                                         {dateString} • {timeString}
@@ -482,7 +482,13 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                                 </div>
                                                 <div className="flex items-center justify-between gap-3">
                                                     <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">
-                                                        {isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-purple-500' : 'text-emerald-500'}`}>{!isUsage && '+'}{Math.abs(log.amount || 0).toLocaleString()}</span> credits
+                                                        {isUsage && Math.abs(log.amount || 0) === 0 ? (
+                                                            <span className="font-bold text-purple-500">-1 free trial</span>
+                                                        ) : (
+                                                            <>
+                                                                {isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-purple-500' : 'text-emerald-500'}`}>{!isUsage && '+'}{Math.abs(log.amount || 0).toLocaleString()}</span> credits
+                                                            </>
+                                                        )}
                                                     </p>
                                                 </div>
                                             </div>
