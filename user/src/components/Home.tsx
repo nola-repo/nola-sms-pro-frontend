@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FiHome, FiPlus, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiChevronRight } from "react-icons/fi";
+import { FiHome, FiPlus, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiChevronRight, FiChevronLeft } from "react-icons/fi";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
 import { fetchConversations, type SenderId } from "../api/sms";
@@ -524,11 +524,11 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                                         Showing <b className="text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</b> – <b className="text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, transactions.length)}</b> of <b className="text-[#111111] dark:text-white">{transactions.length}</b>
                                                     </div>
                                                     <div className="flex items-center gap-1.5">
-                                                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiArrowRight className="w-4 h-4 rotate-180" /></button>
+                                                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronLeft className="w-4 h-4" /></button>
                                                         {Array.from({ length: Math.min(5, totalPages - Math.floor((currentPage - 1) / 5) * 5) }, (_, i) => Math.floor((currentPage - 1) / 5) * 5 + 1 + i).map(page => (
                                                             <button key={page} onClick={() => setCurrentPage(page)} className={`w-6 h-6 rounded-md text-[11px] font-bold flex items-center justify-center transition-all ${currentPage === page ? 'bg-[#2b83fa] text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5'}`}>{page}</button>
                                                         ))}
-                                                        <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiArrowRight className="w-4 h-4" /></button>
+                                                        <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronRight className="w-4 h-4" /></button>
                                                     </div>
                                                 </div>
                                             )}
@@ -542,8 +542,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                             )}
                         </div>
                     </div>
-                </div>
-            </div>
+
 
             {/* All Activity Popup */}
             {showAllActivity && (
@@ -597,5 +596,6 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                 </div>
             )}
         </div>
-    );
+    </div>
+);
 };
