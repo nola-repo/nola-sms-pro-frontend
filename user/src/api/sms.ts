@@ -63,22 +63,25 @@ const isValidPHNumber = (number: string): boolean => {
   return /^09\d{9}$/.test(number);
 };
 
-export const fetchSmsLogs = async (phoneNumber: string): Promise<SmsLog[]> => {
+// Function to fetch SMS History (legacy full sync + client filter method)
+export const fetchSmsLogs = async (phoneNumber?: string, explicitLocationId?: string): Promise<SmsLog[]> => {
+  if (!phoneNumber) return [];
   const formattedNumber = normalizePHNumber(phoneNumber);
   if (!formattedNumber) return [];
 
   try {
     const accountSettings = getAccountSettings();
+    const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
     const headers: Record<string, string> = {};
-    if (accountSettings.ghlLocationId) {
-      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    if (locationId) {
+      headers['X-GHL-Location-ID'] = locationId;
     }
 
     // Fetch ALL outbound messages (without number filter)
     // Then filter client-side by checking if phoneNumber is in the numbers array
     let url = `${WEBHOOK_URL}?direction=outbound&limit=500`;
-    if (accountSettings.ghlLocationId) {
-      url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    if (locationId) {
+      url += `&location_id=${encodeURIComponent(locationId)}`;
     }
     const res = await fetch(url, { headers });
     if (!res.ok) throw new Error("Failed to fetch message history");
@@ -100,7 +103,7 @@ export const fetchSmsLogs = async (phoneNumber: string): Promise<SmsLog[]> => {
 
     const filteredMessages = allMessages.filter(log => {
       // Block messages from other sub-accounts (cross-account isolation)
-      if (log.location_id && accountSettings.ghlLocationId && log.location_id !== accountSettings.ghlLocationId) {
+      if (log.location_id && locationId && log.location_id !== locationId) {
         return false;
       }
       const normalizedNumbers = (log.numbers || []).map(n => normalizePHNumber(n)).filter(Boolean);
@@ -300,21 +303,23 @@ export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => 
 export const fetchMessagesByConversationId = async (
   conversationId: string,
   limit = 100,
-  recipientKey?: string
+  recipientKey?: string,
+  explicitLocationId?: string
 ): Promise<FirestoreMessage[]> => {
   if (!conversationId) return [];
 
   const accountSettings = getAccountSettings();
+  const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
   const headers: Record<string, string> = {};
-  if (accountSettings.ghlLocationId) {
-    headers["X-GHL-Location-ID"] = accountSettings.ghlLocationId;
+  if (locationId) {
+    headers["X-GHL-Location-ID"] = locationId;
   }
 
   let url = `${API_CONFIG.messages}?conversation_id=${encodeURIComponent(
     conversationId
   )}&limit=${limit}`;
-  if (accountSettings.ghlLocationId) {
-    url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+  if (locationId) {
+    url += `&location_id=${encodeURIComponent(locationId)}`;
   }
 
   // If recipientKey is provided, we're isolating a single user's history within a bulk campaign
@@ -485,19 +490,20 @@ export const fetchConversations = async (explicitLocationId?: string): Promise<C
 
 
 // Fetch messages by recipient_key (conversation key)
-export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise<SmsLog[]> => {
+export const fetchMessagesByRecipientKey = async (recipientKey: string, explicitLocationId?: string): Promise<SmsLog[]> => {
   if (!recipientKey) return [];
 
   try {
     const accountSettings = getAccountSettings();
+    const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
     const headers: Record<string, string> = {};
-    if (accountSettings.ghlLocationId) {
-      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    if (locationId) {
+      headers['X-GHL-Location-ID'] = locationId;
     }
 
     let url = `${WEBHOOK_URL}?recipient_key=${encodeURIComponent(recipientKey)}&limit=500`;
-    if (accountSettings.ghlLocationId) {
-      url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    if (locationId) {
+      url += `&location_id=${encodeURIComponent(locationId)}`;
     }
     const res = await fetch(url, { headers });
     if (!res.ok) throw new Error("Failed to fetch messages by recipient_key");
@@ -511,17 +517,18 @@ export const fetchMessagesByRecipientKey = async (recipientKey: string): Promise
 };
 
 // Fetch all bulk messages from Firestore (grouped by batch)
-export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> => {
+export const fetchAllBulkMessages = async (explicitLocationId?: string): Promise<BulkMessageHistoryItem[]> => {
   try {
     const accountSettings = getAccountSettings();
+    const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
     const headers: Record<string, string> = {};
-    if (accountSettings.ghlLocationId) {
-      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    if (locationId) {
+      headers['X-GHL-Location-ID'] = locationId;
     }
 
     let BULK_CAMPAIGNS_URL = API_CONFIG.bulk_campaigns;
-    if (accountSettings.ghlLocationId) {
-      BULK_CAMPAIGNS_URL += `?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    if (locationId) {
+      BULK_CAMPAIGNS_URL += `?location_id=${encodeURIComponent(locationId)}`;
     }
     const res = await fetch(BULK_CAMPAIGNS_URL, { headers });
     console.log('[fetchAllBulkMessages] Response status:', res.status);
@@ -557,19 +564,20 @@ export const fetchAllBulkMessages = async (): Promise<BulkMessageHistoryItem[]> 
 /**
  * Rename a conversation (bulk or direct) in the backend.
  */
-export const renameConversation = async (conversationId: string, newName: string): Promise<boolean> => {
+export const renameConversation = async (conversationId: string, newName: string, explicitLocationId?: string): Promise<boolean> => {
   if (!conversationId || !newName) return false;
 
   try {
     const accountSettings = getAccountSettings();
+    const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (accountSettings.ghlLocationId) {
-      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    if (locationId) {
+      headers['X-GHL-Location-ID'] = locationId;
     }
 
     let url = API_CONFIG.messages;
-    if (accountSettings.ghlLocationId) {
-      url += `?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
+    if (locationId) {
+      url += `?location_id=${encodeURIComponent(locationId)}`;
     }
 
     const res = await fetch(url, {

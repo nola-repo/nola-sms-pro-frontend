@@ -10,10 +10,11 @@ import ShinyText from "./ShinyText";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useConversationMessages } from "../hooks/useConversationMessages";
 import { useMessages as usePhoneMessages } from "../hooks/useMessages";
+import { useLocationId } from "../context/LocationContext";
 import { SenderSelector } from "./SenderSelector";
 import { CreditBadge } from "./CreditBadge";
 import { FiCheck, FiAlertCircle, FiLoader } from "react-icons/fi";
-import { getAccountSettings, getPreferredSender, savePreferredSender } from "../utils/settingsStorage";
+import { getPreferredSender, savePreferredSender } from "../utils/settingsStorage";
 import { fetchAccountSenderConfig } from "../api/senderRequests";
 import { buildDirectConversationId } from "../utils/conversationId";
 import { estimateSmsSegments } from "../utils/smsSegments";
@@ -85,6 +86,7 @@ export const Composer: React.FC<ComposerProps> = ({
 }) => {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const { locationId } = useLocationId();
   const [senderName, setSenderName] = useState<SenderId>("NOLASMSPro");
   const [approvedSenderId, setApprovedSenderId] = useState<string | undefined>(undefined);
   const [toggleEnabled, setToggleEnabled] = useState(true);
@@ -151,17 +153,16 @@ export const Composer: React.FC<ComposerProps> = ({
    *  - New bulk in progress:    undefined (messages will appear after navigation to activeBulkMessage)
    */
   const conversationId = useMemo(() => {
-    const { ghlLocationId } = getAccountSettings();
     if (activePhoneNumber) {
-      return buildDirectConversationId(activePhoneNumber, ghlLocationId) || undefined;
+      return buildDirectConversationId(activePhoneNumber, locationId) || undefined;
     }
     if (activeBulkMessage) {
       // Backend expects scoped IDs: {locationId}_group_{batchId}
-      const prefix = activeBulkMessage.locationId || ghlLocationId;
+      const prefix = activeBulkMessage.locationId || locationId;
       return prefix ? `${prefix}_group_${activeBulkMessage.batchId}` : `group_${activeBulkMessage.batchId}`;
     }
     return undefined;
-  }, [activePhoneNumber, activeBulkMessage]);
+  }, [activePhoneNumber, activeBulkMessage, locationId]);
 
   const {
     messages: conversationMessages,

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchMessagesByConversationId, ConversationMessagesError } from "../api/sms";
 import type { Message } from "../types/Sms";
+import { useLocationId } from "../context/LocationContext";
 
 const POLL_INTERVAL = 3000;
 
@@ -22,6 +23,7 @@ const parseFirestoreDate = (raw: unknown): Date => {
  * Bulk chat:    conversationId = "group_batch_xxx"
  */
 export const useConversationMessages = (conversationId: string | undefined, recipientKey?: string) => {
+    const { locationId } = useLocationId();
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         setErrorStatus(undefined);
 
         try {
-            const rows = await fetchMessagesByConversationId(conversationId, 100, recipientKey);
+            const rows = await fetchMessagesByConversationId(conversationId, 100, recipientKey, locationId || undefined);
 
             // Sort oldest → newest for chronological display
             const sorted = [...rows].sort(
@@ -139,7 +141,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             setLoading(false);
             isInitialLoad.current = false;
         }
-    }, [conversationId, recipientKey]);
+    }, [conversationId, recipientKey, locationId]);
 
     // Initial fetch — reset state when conversation changes
     useEffect(() => {

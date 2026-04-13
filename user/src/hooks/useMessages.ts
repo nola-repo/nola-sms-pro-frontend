@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchSmsLogs } from "../api/sms";
 import type { Message, SmsLog } from "../types/Sms";
+import { useLocationId } from "../context/LocationContext";
 
 const POLL_INTERVAL = 5000; // 5 seconds
 
 export const useMessages = (phoneNumber: string | undefined) => {
+    const { locationId } = useLocationId();
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export const useMessages = (phoneNumber: string | undefined) => {
         setError(null);
 
         try {
-            const logs = await fetchSmsLogs(phoneNumber);
+            const logs = await fetchSmsLogs(phoneNumber, locationId || undefined);
             const formattedMessages = logs.map(formatLogToMessage);
             formattedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
@@ -71,7 +73,7 @@ export const useMessages = (phoneNumber: string | undefined) => {
             setLoading(false);
             isInitialLoad.current = false;
         }
-    }, [phoneNumber]);
+    }, [phoneNumber, locationId]);
 
     // Initial fetch — clear messages when phone number changes
     useEffect(() => {
