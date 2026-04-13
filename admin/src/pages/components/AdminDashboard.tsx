@@ -209,9 +209,9 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             </div>
                         ) : recentRequests.slice(0, 3).map(req => (
                             <button key={req.id} onClick={() => onNavigate('requests')}
-                                className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-md transition-all text-left flex items-center justify-between group">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white text-[13px] font-bold shadow-sm ${
+                                className="w-full p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-md transition-all text-left flex items-center justify-between group min-h-[74px]">
+                                <div className="flex items-center gap-4 overflow-hidden">
+                                    <div className={`w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-[13px] font-bold shadow-sm ${
                                         req.status === 'pending' ? 'bg-gradient-to-br from-amber-400 to-orange-500' : req.status === 'approved' ? 'bg-gradient-to-br from-emerald-400 to-teal-500' : 'bg-gradient-to-br from-red-400 to-rose-600'
                                     }`}>
                                         {req.requested_id?.charAt(0).toUpperCase() || '?'}
@@ -237,18 +237,20 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                 </AnimatedContent>
             </div>
 
-            {/* Platform Activity Logs (Full Width Bottom) */}
+            {/* Recent Activity Logs */}
             <div className="mt-10">
                 <AnimatedContent delay={0.6} distance={50} direction="vertical">
-                    <div className="flex items-center justify-between mb-5 h-8">
-                        <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
-                            <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Recent Activity
-                        </h3>
-                        <button onClick={() => onNavigate('activity')} className="group text-[11px] font-black text-[#2b83fa] hover:underline transition-all duration-300 flex items-center gap-1 active:scale-95 uppercase tracking-wider">
-                            See All <FiChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                        </button>
-                    </div>
                     <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col">
+                        {/* Header Inside Container */}
+                        <div className="flex items-center justify-between mb-5 h-8">
+                            <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
+                                <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Recent Activity
+                            </h3>
+                            <button onClick={() => onNavigate('activity')} className="group text-[11px] font-black text-[#2b83fa] hover:underline transition-all duration-300 flex items-center gap-1 active:scale-95 uppercase tracking-wider">
+                                See All <FiChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                            </button>
+                        </div>
+
                         <div className="flex flex-col gap-3">
                         {loading ? (
                             [...Array(5)].map((_, i) => (
