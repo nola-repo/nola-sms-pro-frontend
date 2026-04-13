@@ -7,20 +7,13 @@ const CONTACTS_API_URL = API_CONFIG.ghl_contacts;
 
 export const fetchContacts = async (): Promise<Contact[]> => {
   try {
-    // 1. Detect locationId from URL params (GHL may send either key)
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlLocationId =
-      urlParams.get('locationId') ||
-      urlParams.get('location_id');
-
-    // 2. Fall back to saved settings if URL doesn't have it
     const accountSettings = getAccountSettings();
-    const locationId = urlLocationId || accountSettings.ghlLocationId || null;
+    const locationId = accountSettings.ghlLocationId || null;
 
     console.log('NOLA SMS: Detected GHL Location:', locationId);
 
     if (!locationId) {
-      console.warn('NOLA SMS: No locationId detected in URL.');
+      console.warn('NOLA SMS: No locationId available for contacts fetch.');
       return [];
     }
 
