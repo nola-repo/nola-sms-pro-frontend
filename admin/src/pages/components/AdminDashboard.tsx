@@ -17,7 +17,9 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
     const [requests, setRequests] = useState<SenderRequest[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+    const ITEMS_PER_PAGE = 5;
 
     const fetchData = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
@@ -205,7 +207,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                 <FiSend className="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-gray-500" />
                                 <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No requests yet.</p>
                             </div>
-                        ) : recentRequests.slice(0, 5).map(req => (
+                        ) : recentRequests.slice(0, 3).map(req => (
                             <button key={req.id} onClick={() => onNavigate('requests')}
                                 className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-md transition-all text-left flex items-center justify-between group">
                                 <div className="flex items-center gap-3 overflow-hidden">
@@ -238,16 +240,16 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
             {/* Platform Activity Logs (Full Width Bottom) */}
             <div className="mt-10">
                 <AnimatedContent delay={0.6} distance={50} direction="vertical">
-                    <div className="flex items-center justify-between mb-5">
-                        <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                            Platform Activity
+                    <div className="flex items-center justify-between mb-5 h-8">
+                        <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
+                            <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Recent Activity
                         </h3>
-                        <button onClick={() => onNavigate('activity')} className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                            See All
+                        <button onClick={() => onNavigate('activity')} className="group text-[11px] font-black text-[#2b83fa] hover:underline transition-all duration-300 flex items-center gap-1 active:scale-95 uppercase tracking-wider">
+                            See All <FiChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                         </button>
                     </div>
-                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] dark:shadow-[0_2px_15px_rgba(0,0,0,0.2)] p-4">
-                        <div className="space-y-2">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col">
+                        <div className="flex flex-col gap-3">
                         {loading ? (
                             [...Array(5)].map((_, i) => (
                                 <div key={i} className="h-[72px] rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />
@@ -257,57 +259,85 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                 <FiActivity className="w-8 h-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
                                 <p className="text-[13px] text-gray-400 dark:text-gray-500 font-medium italic">No activity yet.</p>
                             </div>
-                        ) : logs.slice(0, 8).map((log: any) => {
-                            const isNeg = typeof log.amount === 'number' && log.amount < 0;
-                            const isFreeTrial = log.amount === 0;
-                            const type = log.type === 'message' && log.amount === undefined ? 'message'
-                                : (isNeg || log.type === 'deduction' || log.type === 'credit_usage' || isFreeTrial) ? 'credit_usage'
-                                : log.amount !== undefined || log.type === 'top_up' || log.type === 'credit_purchase' ? 'credit_purchase'
-                                : 'message';
-                            const ts = log.timestamp || log.date_created || log.created_at;
-                            const time = ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                            const date = ts ? new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
-                            const locId = log.location_id || log.account_id;
-                            const account = accounts.find((a: any) => a.id === locId || a.location_id === locId);
-                            const isUsage = type === 'credit_usage';
-                            return (
-                                <button
-                                    key={log.id || Math.random()}
-                                    onClick={() => onNavigate('activity')}
-                                    className="w-full group flex items-center gap-4 p-3.5 rounded-xl border bg-[#f7f8fa] dark:bg-white/[0.02] border-[#f0f0f0] dark:border-white/5 hover:border-[#2b83fa]/40 dark:hover:border-[#2b83fa]/40 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all duration-200 cursor-pointer text-left"
-                                >
-                                    <div className={`w-11 h-11 rounded-[14px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 transition-transform duration-300 ${
-                                        type === 'message'         ? 'bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa]' :
-                                        type === 'credit_purchase' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' :
-                                                                     'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400'
-                                    }`}>
-                                        {type === 'message'         && <FiMessageSquare className="w-5 h-5" />}
-                                        {type === 'credit_purchase' && <FiCreditCard className="w-5 h-5" />}
-                                        {type === 'credit_usage'    && <FiActivity className="w-5 h-5" />}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-[13.5px] font-bold text-[#111111] dark:text-white truncate">
-                                            {type === 'message'         ? `SMS to ${log.number || log.to || 'Unknown'}` :
-                                             type === 'credit_purchase' ? `+${log.amount?.toLocaleString()} credits added` :
-                                             isFreeTrial                ? 'Free trial SMS sent' :
-                                                                          `${Math.abs(log.amount)} credits used`}
-                                        </p>
-                                        <p className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                                            {account?.location_name || (locId ? locId.substring(0, 12) + '…' : 'System')}
-                                            {log.sendername ? ` · via ${log.sendername}` : ''}
-                                        </p>
-                                    </div>
-                                    {time && (
-                                        <div className="text-right flex-shrink-0">
-                                            <span className="block text-[11px] font-bold text-[#111111] dark:text-white">{date}</span>
-                                            <span className="block text-[10px] uppercase text-[#9aa0a6]">{time}</span>
-                                        </div>
-                                    )}
                                 </button>
                             );
-                        })}
-                        </div>
+                        })
+                    ) : (() => {
+                        const totalPages = Math.ceil(logs.length / ITEMS_PER_PAGE);
+                        const currentLogs = logs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+                        
+                        return (
+                            <>
+                                {currentLogs.map((log: any) => {
+                                    const isNeg = typeof log.amount === 'number' && log.amount < 0;
+                                    const isFreeTrial = log.amount === 0;
+                                    const type = log.type === 'message' && log.amount === undefined ? 'message'
+                                        : (isNeg || log.type === 'deduction' || log.type === 'credit_usage' || isFreeTrial) ? 'credit_usage'
+                                        : log.amount !== undefined || log.type === 'top_up' || log.type === 'credit_purchase' ? 'credit_purchase'
+                                        : 'message';
+                                    const ts = log.timestamp || log.date_created || log.created_at;
+                                    const time = ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                                    const date = ts ? new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
+                                    const locId = log.location_id || log.account_id;
+                                    const account = accounts.find((a: any) => a.id === locId || a.location_id === locId);
+                                    
+                                    return (
+                                        <div
+                                            key={log.id || Math.random()}
+                                            onClick={() => onNavigate('activity')}
+                                            className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
+                                        >
+                                            <div className={`w-10 h-10 rounded-[16px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 transition-transform duration-300 ${
+                                                type === 'message'         ? 'bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa]' :
+                                                type === 'credit_purchase' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' :
+                                                                             'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400'
+                                            }`}>
+                                                {type === 'message'         && <FiMessageSquare className="w-5 h-5" />}
+                                                {type === 'credit_purchase' && <FiCreditCard className="w-5 h-5" />}
+                                                {type === 'credit_usage'    && <FiActivity className="w-5 h-5" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between mb-1 gap-2">
+                                                    <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
+                                                        {type === 'message'         ? `SMS to ${log.number || log.to || 'Unknown'}` :
+                                                         type === 'credit_purchase' ? `+${log.amount?.toLocaleString()} credits added` :
+                                                         isFreeTrial                ? 'Free trial SMS sent' :
+                                                                                      `${Math.abs(log.amount)} credits used`}
+                                                    </p>
+                                                    <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">{time}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="text-[13px] text-gray-500 dark:text-gray-400 truncate flex-1">
+                                                        {account?.location_name || (locId ? locId.substring(0, 12) + '…' : 'System')}
+                                                        {log.sendername ? ` · via ${log.sendername}` : ''}
+                                                    </p>
+                                                    <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
+                                                        <span className="text-[10px] font-bold text-[#111111] dark:text-white uppercase tracking-wider">{date}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {totalPages > 1 && (
+                                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#e5e5e5] dark:border-white/5">
+                                        <div className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] uppercase font-bold tracking-wider">
+                                            Showing <b className="text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</b> – <b className="text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, logs.length)}</b> of <b className="text-[#111111] dark:text-white">{logs.length}</b>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronLeft className="w-4 h-4" /></button>
+                                            {Array.from({ length: Math.min(5, totalPages - Math.floor((currentPage - 1) / 5) * 5) }, (_, i) => Math.floor((currentPage - 1) / 5) * 5 + 1 + i).map(page => (
+                                                <button key={page} onClick={() => setCurrentPage(page)} className={`w-6 h-6 rounded-md text-[11px] font-bold flex items-center justify-center transition-all ${currentPage === page ? 'bg-[#2b83fa] text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5'}`}>{page}</button>
+                                            ))}
+                                            <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronRight className="w-4 h-4" /></button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        );
+                    })())}
                     </div>
+                </div>
                 </AnimatedContent>
             </div>
         </div>
