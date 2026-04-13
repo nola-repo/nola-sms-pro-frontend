@@ -296,62 +296,62 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     {/* Quick Actions Column */}
                     <div>
                         <AnimatedContent delay={0.4} distance={50} direction="vertical">
-                            <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-5 flex items-center gap-2">
+                            <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-5 flex items-center gap-2 h-8">
                                 Quick Actions
                             </h3>
                         </AnimatedContent>
-                        <div className="space-y-3">
+                        <div className="flex flex-col gap-3">
                             <AnimatedContent delay={0.45} distance={30} direction="vertical">
                                 <button
                                     onClick={() => onTabChange('compose')}
-                                    className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-indigo-500/10 hover:border-[#2b83fa]/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
+                                    className="w-full min-h-[74px] p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-indigo-500/10 hover:border-[#2b83fa]/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-[#2b83fa] transition-transform duration-300 group-hover:scale-110">
+                                        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-[#2b83fa] transition-transform duration-300 group-hover:scale-110 flex-shrink-0">
                                             <FiPlus className="h-5 w-5" />
                                         </div>
-                                        <div>
+                                        <div className="min-w-0">
                                             <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px]">Start New Chat</h4>
-                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium">Create a single or bulk message</p>
+                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium truncate">Create a single or bulk message</p>
                                         </div>
                                     </div>
-                                    <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-[#2b83fa] group-hover:translate-x-1 transition-all" />
+                                    <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-[#2b83fa] group-hover:translate-x-1 transition-all flex-shrink-0" />
                                 </button>
                             </AnimatedContent>
 
                             <AnimatedContent delay={0.5} distance={30} direction="vertical">
                                 <button
                                     onClick={() => onTabChange('contacts')}
-                                    className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
+                                    className="w-full min-h-[74px] p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-500 transition-transform duration-300 group-hover:scale-110">
+                                        <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-500 transition-transform duration-300 group-hover:scale-110 flex-shrink-0">
                                             <FiUsers className="h-5 w-5" />
                                         </div>
-                                        <div>
+                                        <div className="min-w-0">
                                             <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px]">Manage Contacts</h4>
-                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium">Add, edit, or remove recipients</p>
+                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium truncate">Add, edit, or remove recipients</p>
                                         </div>
                                     </div>
-                                    <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
+                                    <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all flex-shrink-0" />
                                 </button>
                             </AnimatedContent>
 
                             <AnimatedContent delay={0.55} distance={30} direction="vertical">
                                 <button
                                     onClick={() => onTabChange('settings')}
-                                    className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-gray-500/10 hover:border-gray-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
+                                    className="w-full min-h-[74px] p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-gray-500/10 hover:border-gray-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 transition-transform duration-300 group-hover:scale-110">
+                                        <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 transition-transform duration-300 group-hover:scale-110 flex-shrink-0">
                                             <FiSettings className="h-5 w-5" />
                                         </div>
-                                        <div>
+                                        <div className="min-w-0">
                                             <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px]">Account Settings</h4>
-                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium">Profile, API keys, and more</p>
+                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium truncate">Profile, API keys, and more</p>
                                         </div>
                                     </div>
-                                    <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-gray-600 group-hover:translate-x-1 transition-all" />
+                                    <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-gray-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
                                 </button>
                             </AnimatedContent>
                         </div>
@@ -360,7 +360,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     {/* Recent Activity Column */}
                     <div>
                         <AnimatedContent delay={0.6} distance={50} direction="vertical">
-                            <div className="flex items-center justify-between mb-5">
+                            <div className="flex items-center justify-between mb-5 h-8">
                                 <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
                                     Recent Activity
                                 </h3>
@@ -375,11 +375,11 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                             </div>
                         </AnimatedContent>
                         
-                        <div className="space-y-2">
+                        <div className="flex flex-col gap-3">
                             {loading && conversations.length === 0 ? (
                                 [1, 2, 3].map((i, idx) => (
                                     <AnimatedContent key={`skel-${i}`} delay={0.6 + idx * 0.05} distance={15} direction="vertical">
-                                        <div className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center justify-between">
+                                        <div className="w-full h-[74px] p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center justify-between">
                                             <div className="flex items-center gap-3 w-full">
                                                 <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse flex-shrink-0" />
                                                 <div className="space-y-2 w-full max-w-[150px]">
@@ -396,7 +396,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                     <AnimatedContent key={conv.id} delay={0.6 + idx * 0.05} distance={15} direction="vertical">
                                         <button
                                             onClick={() => handleRecentClick(conv)}
-                                            className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:border-[#2b83fa]/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left flex items-center justify-between group"
+                                            className="w-full min-h-[74px] p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:border-[#2b83fa]/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left flex items-center justify-between group"
                                         >
                                             <div className="flex items-center gap-3 overflow-hidden">
                                                 <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold shadow-sm transition-transform duration-300 group-hover:rotate-12 ${conv.type === 'bulk' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa]'}`}>
@@ -456,7 +456,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                         {loading && transactions.length === 0 ? (
                             [1, 2, 3].map((i, idx) => (
                                 <AnimatedContent key={`tx-skel-${i}`} delay={0.7 + idx * 0.05} distance={15} direction="vertical">
-                                    <div className="h-14 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] animate-pulse" />
+                                    <div className="h-[74px] rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] animate-pulse" />
                                 </AnimatedContent>
                             ))
                         ) : transactions.length > 0 ? (
@@ -467,7 +467,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
 
                                 return (
                                     <AnimatedContent key={log.transaction_id} delay={0.7 + idx * 0.05} distance={15} direction="vertical">
-                                        <div className="group flex items-center gap-4 p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:border-[#2b83fa]/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                                        <div className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:border-[#2b83fa]/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                                             <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-500' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500'}`}>
                                                 {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
                                             </div>

@@ -134,15 +134,17 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Quick Actions */}
                 <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
-                    <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider mb-5">Quick Actions</h3>
-                    <div className="space-y-3">
+                    <div className="flex items-center justify-between mb-5 h-8">
+                        <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider">Quick Actions</h3>
+                    </div>
+                    <div className="flex flex-col gap-3">
                         {[
                             { tab: 'requests', label: 'Review Sender Requests', desc: `${pendingRequests} pending approval`, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20', icon: <FiSend className="w-5 h-5" />, badge: pendingRequests },
                             { tab: 'accounts', label: 'View All Accounts', desc: `${totalAccounts} total installed subaccounts`, color: 'text-[#2b83fa] bg-blue-50 dark:bg-blue-900/20', icon: <FiUsers className="w-5 h-5" />, badge: 0 },
                             { tab: 'settings', label: 'System Settings', desc: 'Global sender ID and free tier config', color: 'text-slate-500 bg-slate-50 dark:bg-slate-900/20', icon: <FiSettings className="w-5 h-5" />, badge: 0 },
                         ].map(item => (
                             <button key={item.tab} onClick={() => onNavigate(item.tab)}
-                                className="w-full flex items-center gap-4 p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left group">
+                                className="w-full min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left group">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.color} group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 ring-1 ring-inset ring-black/5 dark:ring-white/10`}>
                                     {item.icon}
                                 </div>
@@ -162,14 +164,14 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                 </div>
 
                 {/* Recent Sender Requests */}
-                <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col h-[400px] overflow-hidden">
-                    <div className="flex items-center justify-between mb-5 flex-shrink-0">
+                <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col overflow-hidden">
+                    <div className="flex items-center justify-between mb-5 h-8 flex-shrink-0">
                         <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider">Recent Requests</h3>
                         <button onClick={() => onNavigate('requests')} className="group text-[11px] font-black text-[#2b83fa] hover:underline transition-all duration-300 flex items-center gap-1 active:scale-95 uppercase tracking-wider">
                             See All <FiChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                         </button>
                     </div>
-                    <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1 pr-2 pb-2">
+                    <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar flex-1 pr-1 pb-1">
                         {loading ? (
                             [1,2,3].map(i => <div key={i} className="h-16 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)
                         ) : recentRequests.length === 0 ? (
@@ -179,7 +181,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             </div>
                         ) : recentRequests.slice(0, 3).map(req => (
                             <div key={req.id} onClick={() => onNavigate('requests')}
-                                className="group flex items-center gap-4 p-3.5 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
+                                className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-[13px] font-black flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 ${
                                     req.status === 'pending' ? 'bg-gradient-to-br from-amber-400 to-orange-500' : req.status === 'approved' ? 'bg-gradient-to-br from-emerald-400 to-teal-500' : 'bg-gradient-to-br from-red-400 to-rose-600'
                                 }`}>
@@ -202,17 +204,17 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
 
             {/* Platform Activity Logs (Full Width Bottom) */}
             <div className="flex flex-col mt-4">
-                <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center justify-between mb-5 h-8">
                     <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
-                        <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Platform Activity
+                        <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Recent Activity
                     </h3>
                     <button onClick={() => onNavigate('activity')} className="group text-[11px] font-black text-[#2b83fa] hover:underline transition-all duration-300 flex items-center gap-1 active:scale-95 uppercase tracking-wider">
                         See All <FiChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                     </button>
                 </div>
-                <div className="space-y-2">
+                <div className="flex flex-col gap-3">
                     {loading ? (
-                        [1,2,3,4,5,6].map(i => <div key={i} className="h-14 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)
+                        [1,2,3].map(i => <div key={i} className="h-[74px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)
                     ) : logs.length === 0 ? (
                         <div className="py-10 text-center">
                             <FiMessageSquare className="w-8 h-8 mx-auto mb-2 text-[#d0d0d0] dark:text-[#3a3b3f]" />
