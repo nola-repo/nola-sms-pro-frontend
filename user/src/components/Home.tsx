@@ -501,6 +501,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                                                     )}
                                                                 </p>
                                                             </div>
+                                                        </div>
                                                     </div>
                                                 );
                                             })}
