@@ -38,20 +38,19 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         const loadHomeData = async (isInitial = false) => {
             if (isInitial) {
                 setLoading(true);
-                setTransactions([]); // Clear previous transactions on location change
             }
 
-            // Fetch contacts independently in background
+            // Fetch contacts independently in the background
             fetchContacts(locationId || undefined).then((data) => {
                 setContacts(data);
                 setContactsCount(data.length);
             }).catch(() => []);
 
-            // Fetch critical dashboard data in parallel (credits, history, and transactions)
+            // Synchronize critical dashboard data (credits, conversations, and transactions)
             const [credStatus, convs, txRes] = await Promise.allSettled([
                 fetchCreditStatus(locationId || undefined),
                 fetchConversations(locationId || undefined).catch(() => []),
-                fetchCreditTransactions('default', 50, locationId || undefined).catch(() => [])
+                fetchCreditTransactions('default', 50, locationId || undefined)
             ]);
 
             if (credStatus.status === 'fulfilled') {
@@ -60,15 +59,17 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
 
             if (convs.status === 'fulfilled') {
                 const fetchedConvs = convs.value as Conversation[];
-                setConversations([...fetchedConvs].sort((a, b) => {
+                const sortedNew = [...fetchedConvs].sort((a, b) => {
                     const timeA = new Date(a.last_message_at || a.updated_at || 0).getTime();
                     const timeB = new Date(b.last_message_at || b.updated_at || 0).getTime();
                     return timeB - timeA;
-                }));
+                });
+                setConversations(sortedNew);
             }
 
             if (txRes.status === 'fulfilled') {
-                const sortedTxs = (txRes.value as CreditTransaction[]).sort((a, b) => {
+                const txs = txRes.value as CreditTransaction[];
+                const sortedTxs = (txs || []).sort((a, b) => {
                     const timeA = new Date(a.created_at || 0).getTime();
                     const timeB = new Date(b.created_at || 0).getTime();
                     return timeB - timeA;
@@ -460,7 +461,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     </AnimatedContent>
 
                         <div className="flex flex-col gap-3">
-                            {loading ? (
+                            {loading && transactions.length === 0 ? (
                                 [...Array(3)].map((_, idx) => (
                                     <AnimatedContent key={`tx-skel-${idx}`} delay={0.5 + idx * 0.1} distance={10} direction="vertical">
                                         <div className="h-[74px] rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent shadow-sm animate-pulse" />
