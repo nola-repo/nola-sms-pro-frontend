@@ -277,7 +277,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                         
                         return (
                             <>
-                                {currentLogs.map((log: any) => {
+                                {currentLogs.map((log: any, idx: number) => {
                                     const isNeg = typeof log.amount === 'number' && log.amount < 0;
                                     const isFreeTrial = log.amount === 0;
                                     const type = log.type === 'message' && log.amount === undefined ? 'message'
@@ -292,7 +292,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                     
                                     return (
                                         <div
-                                            key={log.id || log.transaction_id || `log-${idx}`}
+                                            key={`log-${idx}-${log.id || log.transaction_id || 'none'}`}
                                             onClick={() => onNavigate('activity')}
                                             className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer"
                                         >

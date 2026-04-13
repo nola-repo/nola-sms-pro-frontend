@@ -488,7 +488,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                                 const dateString = log.created_at ? new Date(log.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
 
                                                 return (
-                                                    <AnimatedContent key={log.transaction_id || log.id || `tx-${idx}`} delay={0.1 + idx * 0.05} distance={10} direction="vertical">
+                                                    <AnimatedContent key={`tx-${idx}-${log.transaction_id || log.id || 'none'}`} delay={0.1 + idx * 0.05} distance={10} direction="vertical">
                                                         <div className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-500' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500'}`}>
                                                             {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
