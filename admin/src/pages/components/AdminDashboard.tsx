@@ -199,14 +199,15 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                     <div className="space-y-2">
                         {loading ? (
                             [1,2,3].map(i => (
-                                <div key={i} className="w-full p-3.5 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center justify-between">
-                                    <div className="flex items-center gap-3 w-full">
-                                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse flex-shrink-0" />
+                                <div key={i} className="w-full p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center justify-between min-h-[74px]">
+                                    <div className="flex items-center gap-4 w-full">
+                                        <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse flex-shrink-0" />
                                         <div className="space-y-2 w-full max-w-[150px]">
-                                            <div className="h-3 w-3/4 bg-gray-100 dark:bg-gray-800 animate-pulse rounded" />
-                                            <div className="h-2 w-full bg-gray-50 dark:bg-gray-900 animate-pulse rounded opacity-60" />
+                                            <div className="h-3.5 w-3/4 bg-gray-100 dark:bg-gray-800 animate-pulse rounded" />
+                                            <div className="h-2.5 w-full bg-gray-50 dark:bg-gray-900 animate-pulse rounded opacity-60" />
                                         </div>
                                     </div>
+                                    <div className="w-16 h-5 bg-gray-50 dark:bg-gray-900 animate-pulse rounded-full opacity-60" />
                                 </div>
                             ))
                         ) : recentRequests.length === 0 ? (
