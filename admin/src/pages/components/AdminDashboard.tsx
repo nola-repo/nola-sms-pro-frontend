@@ -153,7 +153,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 {/* Quick Actions */}
                 <AnimatedContent delay={0.4} distance={50} direction="vertical">
-                    <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-5 flex items-center gap-2">
+                    <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-5 flex items-center gap-2 h-8">
                         Quick Actions
                     </h3>
                     <div className="space-y-3">
@@ -186,7 +186,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
 
                 {/* Recent Sender Requests */}
                 <AnimatedContent delay={0.5} distance={50} direction="vertical">
-                    <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center justify-between mb-5 h-8">
                         <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
                             Recent Requests
                         </h3>
@@ -196,7 +196,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             </button>
                         )}
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {loading ? (
                             [1,2,3].map(i => (
                                 <div key={i} className="w-full p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center justify-between min-h-[74px]">
