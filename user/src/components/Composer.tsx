@@ -14,7 +14,7 @@ import { useLocationId } from "../context/LocationContext";
 import { SenderSelector } from "./SenderSelector";
 import { CreditBadge } from "./CreditBadge";
 import { FiCheck, FiAlertCircle, FiLoader } from "react-icons/fi";
-import { getPreferredSender, savePreferredSender } from "../utils/settingsStorage";
+import { getAccountSettings, getPreferredSender, savePreferredSender } from "../utils/settingsStorage";
 import { fetchAccountSenderConfig } from "../api/senderRequests";
 import { buildDirectConversationId } from "../utils/conversationId";
 import { estimateSmsSegments } from "../utils/smsSegments";
@@ -151,14 +151,18 @@ export const Composer: React.FC<ComposerProps> = ({
    *  - Direct chat:             {locationId}_conv_{phone} (or legacy conv_{phone})
    *  - Existing bulk from sidebar: group_{batchId}  (batchId already contains "batch_" prefix from server)
    *  - New bulk in progress:    undefined (messages will appear after navigation to activeBulkMessage)
+   *
+   * Priority: live LocationContext value → last-known value from storage (handles the
+   * brief window before the iframe handshake completes, or standalone URL usage).
    */
   const conversationId = useMemo(() => {
+    const effectiveLocationId = locationId || getAccountSettings().ghlLocationId || null;
     if (activePhoneNumber) {
-      return buildDirectConversationId(activePhoneNumber, locationId) || undefined;
+      return buildDirectConversationId(activePhoneNumber, effectiveLocationId) || undefined;
     }
     if (activeBulkMessage) {
       // Backend expects scoped IDs: {locationId}_group_{batchId}
-      const prefix = activeBulkMessage.locationId || locationId;
+      const prefix = activeBulkMessage.locationId || effectiveLocationId;
       return prefix ? `${prefix}_group_${activeBulkMessage.batchId}` : `group_${activeBulkMessage.batchId}`;
     }
     return undefined;
