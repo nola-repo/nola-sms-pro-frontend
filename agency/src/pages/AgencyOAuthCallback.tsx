@@ -37,7 +37,11 @@ const AgencyOAuthCallback: React.FC = () => {
       .then((companyId) => {
         setCompanyName(companyId);
         setStatus('success');
-        setTimeout(() => navigate('/', { replace: true }), 1800);
+        // Redirect back into GHL so the agency panel opens inside the iframe.
+        // navigate('/') would land outside GHL on the standalone agency URL.
+        setTimeout(() => {
+          window.location.href = 'https://app.leadconnectorhq.com/custom-page-link/69d3212eb3071ba8a0cd0b51';
+        }, 1800);
       })
       .catch((err: Error) => {
         setErrorMsg(err.message || 'Something went wrong. Please try again.');
@@ -67,7 +71,7 @@ const AgencyOAuthCallback: React.FC = () => {
             </div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Connected!</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Your GHL agency has been linked. Redirecting to dashboard…
+              Your GHL agency has been linked. Returning you to GoHighLevel…
             </p>
           </>
         )}
