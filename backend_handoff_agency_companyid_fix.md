@@ -238,16 +238,11 @@ Current:
 https://agency.nolasmspro.com/?companyId={{company.id}}&company_id={{company.id}}&location_id={{location.id}}
 ```
 
-The `companyId` / `company_id` params are a fast-path hint. They work correctly
-as long as GHL's `{{company.id}}` resolves to the agency-level ID (which it does
-for agency-level custom menus). The SSO decrypt will always confirm or override
-this value anyway.
+**Keep this exactly as-is.** 
 
-The `location_id={{location.id}}` param is **not used** by the agency panel and
-can be safely removed to avoid confusion. However it does no harm — the frontend
-ignores it.
+Because this is the Agency Panel, GHL correctly resolves `{{company.id}}` to the top-level agency ID (e.g. `kzIDzbJPrxuBhOGmp32U`), which perfectly matches the `company_id` in your Firestore `ghl_tokens` collection (as shown in your screenshot). 
 
-**Safe to keep as-is.** No change required to the GHL custom menu link.
+The frontend `useGhlCompany` hook specifically looks for this `companyId` parameter on mount to instantly load the correct agency data, and safely ignores the `location_id` parameter to prevent subaccount contamination.
 
 ---
 
