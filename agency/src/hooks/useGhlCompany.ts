@@ -155,6 +155,13 @@ export function useGhlCompany(): GhlCompanyState {
       // Still fall through to fire the SSO handshake for authoritative confirmation
     }
 
+    // URL Dump for debugging exactly what GHL loaded the iframe with
+    console.log('[NOLA SMS] 🔍 Raw Iframe URL Debug:', {
+      href: window.location.href,
+      search: window.location.search,
+      hash: window.location.hash
+    });
+
     // Check query / hash params — agency/company keys only
     // (state.companyId is always null here since init runs once on mount;
     //  use a local flag instead of reading stale state)
