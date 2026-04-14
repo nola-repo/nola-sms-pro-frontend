@@ -128,9 +128,13 @@ export function useGhlCompany(): GhlCompanyState {
       const raw = event.data;
       if (!raw || typeof raw !== 'object') return;
 
-      // PATH A: Encrypted SSO handshake (USER_DATA_RESPONSE)
-      // This is the most authoritative source — server decrypts the GHL JWT.
-      if (raw.message === 'USER_DATA_RESPONSE' && raw.payload) {
+      // PATH A: Encrypted SSO handshake
+      // GHL responds with 'REQUEST_USER_DATA_RESPONSE' (note the prefix —
+      // older docs incorrectly listed this as 'USER_DATA_RESPONSE').
+      if (
+        (raw.message === 'REQUEST_USER_DATA_RESPONSE' || raw.message === 'USER_DATA_RESPONSE') &&
+        raw.payload
+      ) {
         console.log('[NOLA SMS] 🔒 SSO payload received — decrypting...');
         try {
           const res = await fetch('/api/agency/ghl_sso_decrypt.php', {
