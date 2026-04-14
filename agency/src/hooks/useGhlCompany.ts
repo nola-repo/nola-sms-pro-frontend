@@ -95,10 +95,11 @@ export function useGhlCompany(): GhlCompanyState {
           body: JSON.stringify({ encryptedPayload: raw.payload }),
         });
         const data = await res.json();
+        console.log('[NOLA SMS] 🔒 SSO Decrypt Response:', data);
+        
         if (data.companyId) {
           // SSO decrypt gives the TRUE agency-level companyId.
-          // Calling finalize here overrides any URL-param value that may have
-          // been a subaccount-level ID.
+          console.log(`[NOLA SMS] ✅ SSO auth successful! Company ID: ${data.companyId}`);
           finalize(data.companyId);
         } else {
           throw new Error('Decrypt succeeded but companyId is missing from payload');
@@ -149,6 +150,7 @@ export function useGhlCompany(): GhlCompanyState {
       /\/(?:location|agency)\/([a-zA-Z0-9_-]+)/i
     );
     if (pathMatch?.[1] && !pathMatch[1].includes('{{')) {
+      console.log(`[NOLA SMS] ⚡ Fast-path resolved via URL path: ${pathMatch[1]}`);
       finalize(pathMatch[1]);
       // Still fall through to fire the SSO handshake for authoritative confirmation
     }
@@ -170,6 +172,7 @@ export function useGhlCompany(): GhlCompanyState {
         ];
         for (const val of vals) {
           if (val && val.trim() !== '' && !val.includes('{{')) {
+            console.log(`[NOLA SMS] ⚡ Fast-path resolved via param (${key}): ${val}`);
             finalize(val);
             break outer;
           }
