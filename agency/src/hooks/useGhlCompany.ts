@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { safeStorage } from '../utils/safeStorage';
 
 export interface GhlCompanyState {
@@ -9,13 +9,19 @@ export interface GhlCompanyState {
 
 /**
  * useGhlCompany
- * 1. Checks if inside iframe.
- * 2. If yes, attempts to extract companyId from URLs.
- * 3. Then fires postMessage to grab the GHL encrypted payload.
- * 4. Decrypts via /api/agency/ghl_sso_decrypt to get companyId without requiring a JWT.
+ *
+ * Detects and tracks the GHL Agency Company ID across the entire session.
+ * Architecture mirrors LocationContext on the user side — the postMessage
+ * listener is persistent (not torn down after first success) so live
+ * mid-session agency switches are handled automatically.
+ *
+ * Detection priority:
+ *  1. URL path / query / hash params  (fast-path, sync)
+ *  2. GHL postMessage SSO handshake   (async, encrypted → server decrypt)
+ *  3. Plain companyId in postMessages (live agency switch events)
  */
 export function useGhlCompany(): GhlCompanyState {
-  const calledRef = useRef(false);
+  const initDoneRef = useRef(false);
 
   const [state, setState] = useState<GhlCompanyState>(() => {
     let isIframe = false;
@@ -31,96 +37,138 @@ export function useGhlCompany(): GhlCompanyState {
     };
   });
 
+  /**
+   * finalize — stable callback that stores and broadcasts a resolved companyId.
+   * No-ops if the same ID is already set (prevents unnecessary re-renders).
+   */
+  const finalize = useCallback((cid: string) => {
+    console.log(`NOLA SMS: Detected GHL Company: ${cid}`);
+    safeStorage.setItem('nola_agency_id', cid);
+    setState(prev =>
+      prev.companyId === cid ? prev : { ...prev, companyId: cid, status: 'success' }
+    );
+  }, []);
+
+  /**
+   * Effect 1 — Persistent GHL postMessage listener.
+   *
+   * Stays alive for the entire component lifetime (never torn down on success).
+   * Handles two message paths:
+   *   A) USER_DATA_RESPONSE with encrypted payload → server-side SSO decrypt
+   *   B) Plain companyId fields in any postMessage → live agency-switch events
+   *
+   * This mirrors how LocationContext handles subaccount switching on the user side.
+   */
   useEffect(() => {
-    if (!state.isGhlFrame || calledRef.current) return;
-    calledRef.current = true;
+    if (!state.isGhlFrame) return;
 
-    // Fast-path: Check URL params first
-    const companyKeys = ['companyId', 'company_id', 'agency_id', 'agencyId'];
-    const searchParams = new URLSearchParams(window.location.search);
-    const hashParams   = window.location.hash.includes('?') ? new URLSearchParams(window.location.hash.split('?')[1]) : null;
+    const handleGhlMessage = async (event: MessageEvent) => {
+      const raw = event.data;
+      if (!raw || typeof raw !== 'object') return;
 
-    let urlCompanyId: string | null = null;
-    
-    // Check path for /agency/{companyId} or /location/{locationId}
-    const pathMatch = window.location.pathname.match(/\/(?:location|agency)\/([a-zA-Z0-9_-]+)/i);
-    if (pathMatch && pathMatch[1] && !pathMatch[1].includes('{{')) {
-      urlCompanyId = pathMatch[1];
-    }
-
-    if (!urlCompanyId) {
-      for (const key of companyKeys) {
-        const vals = [...(searchParams.getAll(key) || []), ...(hashParams?.getAll(key) || [])];
-        for (const val of vals) {
-          if (val && val.trim() !== '' && !val.includes('{{')) {
-            urlCompanyId = val;
-            break;
-          }
-        }
-        if (urlCompanyId) break;
-      }
-    }
-
-    const finalize = (cid: string) => {
-      console.log(`NOLA SMS: Detected GHL Location: ${cid}`);
-      safeStorage.setItem('nola_agency_id', cid);
-      setState(s => ({ ...s, companyId: cid, status: 'success' }));
-    };
-
-    if (urlCompanyId) {
-      finalize(urlCompanyId);
-      return;
-    }
-
-    // Secondary path: postMessage SSO handshake
-    let messageReceived = false;
-    const handleGhlMessage = (event: MessageEvent) => {
-      if (event.data?.message === 'USER_DATA_RESPONSE' && event.data?.payload) {
-        messageReceived = true;
-        fetch('/api/agency/ghl_sso_decrypt.php', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ encryptedPayload: event.data.payload }),
-        })
-          .then(res => res.json())
-          .then(data => {
-            if (data.companyId) {
-              finalize(data.companyId);
-            } else {
-              throw new Error("Invalid decrypted payload");
-            }
-          })
-          .catch(err => {
-            console.error('SSO Decryption Error:', err);
-            // Fallback to safeStorage or error out
-            const stored = safeStorage.getItem('nola_agency_id');
-            if (stored) finalize(stored);
-            else setState(s => ({ ...s, status: 'error' }));
+      // Path A: Encrypted SSO payload — requires server-side decryption
+      if (raw.message === 'USER_DATA_RESPONSE' && raw.payload) {
+        try {
+          const res = await fetch('/api/agency/ghl_sso_decrypt.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ encryptedPayload: raw.payload }),
           });
+          const data = await res.json();
+          if (data.companyId) {
+            finalize(data.companyId);
+          } else {
+            throw new Error('Invalid decrypted payload');
+          }
+        } catch (err) {
+          console.error('SSO Decryption Error:', err);
+          // Do NOT fall back to stale localStorage — it may belong to a different agency.
+          setState(s => (s.status !== 'success' ? { ...s, status: 'error' } : s));
+        }
+        return; // handled — skip Path B for this message
+      }
+
+      // Path B: Plain companyId fields (live agency switch or other GHL events)
+      const candidates = [
+        raw.companyId,
+        raw.company_id,
+        raw.agencyId,
+        raw.agency_id,
+        raw.payload?.companyId,
+        raw.payload?.company_id,
+        raw.data?.companyId,
+        raw.data?.company_id,
+      ];
+      for (const c of candidates) {
+        if (typeof c === 'string' && c.length > 4 && !c.includes('{{')) {
+          finalize(c);
+          break;
+        }
       }
     };
 
     window.addEventListener('message', handleGhlMessage);
+    return () => window.removeEventListener('message', handleGhlMessage);
+  }, [state.isGhlFrame, finalize]);
+
+  /**
+   * Effect 2 — One-shot initialisation.
+   *
+   * Runs once when inside an iframe:
+   *  1. Checks URL path / query / hash params (synchronous fast-path)
+   *  2. Fires REQUEST_USER_DATA to the GHL parent frame
+   *  3. Sets a 2-second timeout — if the persistent listener above hasn't resolved
+   *     the companyId by then, surfaces an error (never reads stale localStorage).
+   */
+  useEffect(() => {
+    if (!state.isGhlFrame || initDoneRef.current) return;
+    initDoneRef.current = true;
+
+    // Fast-path: URL path segment
+    const pathMatch = window.location.pathname.match(/\/(?:location|agency)\/([a-zA-Z0-9_-]+)/i);
+    if (pathMatch?.[1] && !pathMatch[1].includes('{{')) {
+      finalize(pathMatch[1]);
+      return;
+    }
+
+    // Fast-path: query / hash params
+    const companyKeys = ['companyId', 'company_id', 'agency_id', 'agencyId'];
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = window.location.hash.includes('?')
+      ? new URLSearchParams(window.location.hash.split('?')[1])
+      : null;
+
+    for (const key of companyKeys) {
+      const vals = [
+        ...(searchParams.getAll(key) ?? []),
+        ...(hashParams?.getAll(key) ?? []),
+      ];
+      for (const val of vals) {
+        if (val && val.trim() !== '' && !val.includes('{{')) {
+          finalize(val);
+          return;
+        }
+      }
+    }
+
+    // No URL param found — fire the SSO handshake.
+    // The response will be caught by Effect 1's persistent listener.
     try {
       window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
     } catch {
-      // not in cross-origin iframe
+      // Not in a cross-origin iframe — postMessage unavailable
     }
 
-    // Timeout fallback (after 2 seconds)
+    // 2-second safety timeout.
+    // IMPORTANT: Do NOT read safeStorage.getItem('nola_agency_id') here.
+    // We are inside a GHL iframe and that value may belong to a different
+    // agency from a previous browser session. Surface an error instead.
     const fallbackTimer = setTimeout(() => {
-      if (!messageReceived) {
-        const stored = safeStorage.getItem('nola_agency_id');
-        if (stored) finalize(stored);
-        else setState(s => ({ ...s, status: 'error' }));
-      }
+      setState(s => (s.status !== 'success' ? { ...s, status: 'error' } : s));
     }, 2000);
 
-    return () => {
-      window.removeEventListener('message', handleGhlMessage);
-      clearTimeout(fallbackTimer);
-    };
-  }, [state.isGhlFrame]);
+    return () => clearTimeout(fallbackTimer);
+  }, [state.isGhlFrame, finalize]);
 
   return state;
 }

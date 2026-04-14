@@ -26,6 +26,14 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Priority: 1. GHL URL param  2. JWT  3. env  4. localStorage
   const [agencyId, setAgencyId] = useState<string | null>(() => {
+    // When running inside a GHL iframe, do NOT trust localStorage/session on mount.
+    // The correct companyId will arrive via the async SSO handshake (useGhlCompany).
+    // Reading stale values here causes the wrong agency's subaccounts to load.
+    let isIframe = false;
+    try { isIframe = window.self !== window.top; } catch { isIframe = true; }
+    if (isIframe) return null;
+
+    // Outside iframe: safe to use the full fallback chain
     if (ghlCompanyId) return ghlCompanyId;
     const session = getAgencySession();
     if (session?.companyId) return session.companyId;
@@ -38,11 +46,21 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
   });
 
   useEffect(() => {
-    if (ghlCompanyId && ghlCompanyId !== agencyId) {
-      setAgencyId(ghlCompanyId);
-      safeStorage.setItem('nola_agency_id', ghlCompanyId);
+    if (!ghlCompanyId || ghlCompanyId === agencyId) return;
+
+    // Company ID changed — update state and storage
+    setAgencyId(ghlCompanyId);
+    safeStorage.setItem('nola_agency_id', ghlCompanyId);
+
+    // If inside a GHL iframe and the agency actually switched (not just initial resolution),
+    // clear the stale JWT session so ghlAutoLogin re-runs for the new agency.
+    // Without this the old session stays in memory and blocks re-authentication.
+    if (isGhlFrame && agencySession && agencySession.companyId !== ghlCompanyId) {
+      clearAgencySession();
+      setAgencySession(null);
+      setAutoLoginError(null);
     }
-  }, [ghlCompanyId]);
+  }, [ghlCompanyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // If GHL postMessage detection failed and there's no stored agency ID,
   // surface this as an autoLoginError so the route guard exits the loading state.
