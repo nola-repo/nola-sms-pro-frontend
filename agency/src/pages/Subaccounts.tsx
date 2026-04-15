@@ -238,14 +238,15 @@ export const Subaccounts = () => {
     setSubaccounts(prev =>
       prev.map(s => s.location_id === locationId ? { ...s, toggle_enabled: enabled } : s)
     );
+    // Lock IMMEDIATELY so any background polls firing during the API call don't overwrite optimistic state
+    toggleLocksRef.current.set(locationId, { enabled, until: Date.now() + 5000 });
 
     try {
       await toggleSubaccount(agencyId, {
         subaccount_id: locationId,
         enabled,
       });
-      // Success — lock this location's toggle state for 5 seconds so background
-      // polls cannot overwrite it before Firestore propagation completes.
+      // Success — refresh the lock for 5 more seconds from completion time
       toggleLocksRef.current.set(locationId, { enabled, until: Date.now() + 5000 });
       // Update activation count in local state
       setSubaccounts(prev =>
