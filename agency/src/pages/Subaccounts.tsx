@@ -182,22 +182,30 @@ export const Subaccounts = () => {
   const [sortDirection, setSortDirection] = useState('asc');
 
   const pollRef = useRef(null);
-  const toggleInFlightRef = useRef(false); // true while any toggle API call is active
+  // Per-location toggle lock: after a successful write, ignore server toggle_enabled
+  // for 5 seconds so Firestore propagation doesn't snap the UI back.
+  const toggleLocksRef = useRef<Map<string, { enabled: boolean; until: number }>>(new Map());
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   // Phase 1: fetch subaccounts immediately so the table renders right away.
   // Phase 2: fetch install status in the background and update without blocking.
   const fetchSubaccounts = useCallback(async ({ silent = false } = {}) => {
     if (!agencyId) { setLoading(false); return; }
-    // Skip silent background polls while any toggle is in-flight — prevents
-    // a stale Firestore read from snapping the optimistic UI state back.
-    if (silent && toggleInFlightRef.current) return;
     if (!silent) setRefreshing(true);
 
     try {
-      // Show subaccounts as fast as possible
       const data = await getSubaccounts(agencyId);
-      setSubaccounts(data.subaccounts || []);
+      const now = Date.now();
+      // Merge server data but keep locally-locked toggle states so a slow
+      // Firestore propagation doesn't snap the UI back to the old value.
+      const merged = (data.subaccounts || []).map((s: any) => {
+        const lock = toggleLocksRef.current.get(s.location_id);
+        if (lock && lock.until > now) {
+          return { ...s, toggle_enabled: lock.enabled };
+        }
+        return s;
+      });
+      setSubaccounts(merged);
       setError(null);
       setLastPolled(new Date());
     } catch (e) {
@@ -224,8 +232,6 @@ export const Subaccounts = () => {
 
   // ── Toggle ─────────────────────────────────────────────────────────────────
   const handleToggle = async (locationId, enabled) => {
-    // Mark toggle in-flight so background polls are suppressed until Firestore settles
-    toggleInFlightRef.current = true;
     setToggleLoading(prev => ({ ...prev, [locationId]: true }));
 
     // Optimistic update — flip UI immediately so the user sees instant feedback
@@ -238,11 +244,15 @@ export const Subaccounts = () => {
         subaccount_id: locationId,
         enabled,
       });
-      // Confirmed success — update activation count in local state
+      // Success — lock this location's toggle state for 5 seconds so background
+      // polls cannot overwrite it before Firestore propagation completes.
+      toggleLocksRef.current.set(locationId, { enabled, until: Date.now() + 5000 });
+      // Update activation count in local state
       setSubaccounts(prev =>
         prev.map(s => s.location_id === locationId
           ? {
               ...s,
+              toggle_enabled: enabled,
               toggle_activation_count: enabled
                 ? (s.toggle_activation_count || 0) + 1
                 : s.toggle_activation_count
@@ -254,7 +264,9 @@ export const Subaccounts = () => {
         enabled ? 'success' : 'info'
       );
     } catch (e: any) {
-      // Rollback optimistic state on failure
+      // Remove lock on failure — let the server value restore correctly
+      toggleLocksRef.current.delete(locationId);
+      // Rollback optimistic state
       setSubaccounts(prev =>
         prev.map(s => s.location_id === locationId ? { ...s, toggle_enabled: !enabled } : s)
       );
@@ -265,9 +277,6 @@ export const Subaccounts = () => {
       }
     } finally {
       setToggleLoading(prev => ({ ...prev, [locationId]: false }));
-      // Allow polls again after 600 ms — gives Firestore time to propagate
-      // the write across replicas so the next silent poll reads the correct value.
-      setTimeout(() => { toggleInFlightRef.current = false; }, 600);
     }
   };
 
