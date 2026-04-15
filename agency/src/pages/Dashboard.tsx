@@ -60,6 +60,10 @@ export const Dashboard = () => {
     return "Good evening";
   };
 
+  const agencyName = (subaccounts.length > 0 && (subaccounts[0].agency_name || subaccounts[0].company_name)) 
+    ? (subaccounts[0].agency_name || subaccounts[0].company_name) 
+    : 'Agency';
+
   return (
     <AgencyLayout title="Dashboard" subtitle="Agency overview and quick stats">
       {/* Header Section */}
@@ -70,7 +74,7 @@ export const Dashboard = () => {
               </div>
               <div>
                   <SplitText
-                      text={`${getGreeting()}, Agency`}
+                      text={`${getGreeting()}, ${agencyName}`}
                       className="text-3xl font-extrabold text-[#111111] dark:text-white tracking-tight"
                       delay={40}
                       duration={1.2}

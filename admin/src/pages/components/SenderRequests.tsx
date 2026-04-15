@@ -606,7 +606,7 @@ export const AdminSenderRequests: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={() => {
-                                        doAction('delete', deleteConfirmId);
+                                        doAction('deleted', deleteConfirmId);
                                         setDeleteConfirmId(null);
                                     }}
                                     className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white bg-red-500 hover:bg-red-600 transition-colors shadow-sm"
