@@ -182,12 +182,16 @@ export const Subaccounts = () => {
   const [sortDirection, setSortDirection] = useState('asc');
 
   const pollRef = useRef(null);
+  const toggleInFlightRef = useRef(false); // true while any toggle API call is active
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   // Phase 1: fetch subaccounts immediately so the table renders right away.
   // Phase 2: fetch install status in the background and update without blocking.
   const fetchSubaccounts = useCallback(async ({ silent = false } = {}) => {
     if (!agencyId) { setLoading(false); return; }
+    // Skip silent background polls while any toggle is in-flight — prevents
+    // a stale Firestore read from snapping the optimistic UI state back.
+    if (silent && toggleInFlightRef.current) return;
     if (!silent) setRefreshing(true);
 
     try {
@@ -220,29 +224,29 @@ export const Subaccounts = () => {
 
   // ── Toggle ─────────────────────────────────────────────────────────────────
   const handleToggle = async (locationId, enabled) => {
+    // Mark toggle in-flight so background polls are suppressed until Firestore settles
+    toggleInFlightRef.current = true;
     setToggleLoading(prev => ({ ...prev, [locationId]: true }));
 
-    // Optimistic update
+    // Optimistic update — flip UI immediately so the user sees instant feedback
     setSubaccounts(prev =>
       prev.map(s => s.location_id === locationId ? { ...s, toggle_enabled: enabled } : s)
     );
-
-    const targetSubaccount = subaccounts.find(s => s.location_id === locationId) || {};
 
     try {
       await toggleSubaccount(agencyId, {
         subaccount_id: locationId,
         enabled,
       });
-      // Once succeeded, update toggle_activation_count roughly in optimistic state
+      // Confirmed success — update activation count in local state
       setSubaccounts(prev =>
-        prev.map(s => s.location_id === locationId 
-          ? { 
-              ...s, 
-              toggle_activation_count: enabled 
-                ? (s.toggle_activation_count || 0) + 1 
-                : s.toggle_activation_count 
-            } 
+        prev.map(s => s.location_id === locationId
+          ? {
+              ...s,
+              toggle_activation_count: enabled
+                ? (s.toggle_activation_count || 0) + 1
+                : s.toggle_activation_count
+            }
           : s)
       );
       showToast(
@@ -250,7 +254,7 @@ export const Subaccounts = () => {
         enabled ? 'success' : 'info'
       );
     } catch (e: any) {
-      // Rollback
+      // Rollback optimistic state on failure
       setSubaccounts(prev =>
         prev.map(s => s.location_id === locationId ? { ...s, toggle_enabled: !enabled } : s)
       );
@@ -261,6 +265,9 @@ export const Subaccounts = () => {
       }
     } finally {
       setToggleLoading(prev => ({ ...prev, [locationId]: false }));
+      // Allow polls again after 600 ms — gives Firestore time to propagate
+      // the write across replicas so the next silent poll reads the correct value.
+      setTimeout(() => { toggleInFlightRef.current = false; }, 600);
     }
   };
 
