@@ -53,6 +53,19 @@ export const toggleSubaccount = async (agencyId: string, payload: {
       toggle_enabled: payload.enabled
     }),
   });
+
+  if (res.status === 403) {
+      const clonedRes = res.clone();
+      try {
+          const data = await clonedRes.json();
+          if (data.status === 'limit_reached') {
+              throw new Error('Activation limit reached (max 3). Please upgrade to re-enable this subaccount.');
+          }
+      } catch (e) {
+          // Fallback to default handler if JSON parsing fails
+      }
+  }
+
   return handleResponse(res);
 };
 
