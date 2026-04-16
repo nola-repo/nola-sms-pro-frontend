@@ -1,19 +1,21 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
-  FiRefreshCw, FiAlertTriangle, FiToggleLeft, FiUsers, FiX, FiRotateCcw, FiChevronLeft, FiChevronRight, FiSearch, FiPlus, FiMinus, FiArrowUp, FiArrowDown
+  FiAlertTriangle, FiUsers, FiRotateCcw, FiChevronLeft, FiChevronRight, FiSearch, FiPlus, FiMinus, FiArrowUp, FiArrowDown
 } from 'react-icons/fi';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
+import { db, auth } from '../services/firebaseConfig.ts';
 import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { ToastContainer } from '../components/ui/ToastContainer.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 import { useToast } from '../hooks/useToast.ts';
 import {
-  getSubaccounts,
   toggleSubaccount,
   updateSubaccountSettings,
   checkInstallStatus,
 } from '../services/api.ts';
 
-const POLL_MS = 10000;
+
 
 // ─── Toggle Switch ──────────────────────────────────────────────────────────────
 const ToggleSwitch = ({ id, checked, onChange, disabled }) => (
@@ -168,69 +170,97 @@ export const Subaccounts = () => {
 
   const [subaccounts, setSubaccounts]   = useState([]);
   const [loading, setLoading]           = useState(true);
-  const [refreshing, setRefreshing]     = useState(false);
   const [error, setError]               = useState(null);
   const [toggleLoading, setToggleLoading] = useState({}); // { [id]: bool }
   const [installedLocations, setInstalledLocations] = useState(new Set());
   const [resetModal, setResetModal]     = useState(null); // subaccount obj | null
   const [resetLoading, setResetLoading] = useState(false);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
-  const [lastPolled, setLastPolled]     = useState(null);
   const [currentPage, setCurrentPage]   = useState(1);
   const [searchTerm, setSearchTerm]     = useState('');
   const [sortField, setSortField]       = useState('location_name');
   const [sortDirection, setSortDirection] = useState('asc');
 
-  const pollRef = useRef(null);
-  // Per-location toggle lock: after a successful write, ignore server toggle_enabled
-  // for 5 seconds so Firestore propagation doesn't snap the UI back.
-  const toggleLocksRef = useRef<Map<string, { enabled: boolean; until: number }>>(new Map());
-
-  // ── Fetch ──────────────────────────────────────────────────────────────────
-  // Phase 1: fetch subaccounts immediately so the table renders right away.
-  // Phase 2: fetch install status in the background and update without blocking.
-  const fetchSubaccounts = useCallback(async ({ silent = false } = {}) => {
+  // ── Real-time Firestore listener ───────────────────────────────────────────
+  // Signs in anonymously (Option B — Firestore rule: allow read if request.auth != null)
+  // then attaches an onSnapshot listener on ghl_tokens WHERE companyId == agencyId.
+  // The listener fires immediately with current data, then streams every subsequent change
+  // within ~1 second — no polling needed.
+  useEffect(() => {
     if (!agencyId) { setLoading(false); return; }
-    if (!silent) setRefreshing(true);
 
-    try {
-      const data = await getSubaccounts(agencyId);
-      const now = Date.now();
-      // Merge server data but keep locally-locked toggle states so a slow
-      // Firestore propagation doesn't snap the UI back to the old value.
-      const merged = (data.subaccounts || []).map((s: any) => {
-        const lock = toggleLocksRef.current.get(s.location_id);
-        if (lock && lock.until > now) {
-          return { ...s, toggle_enabled: lock.enabled };
+    let unsubscribe: (() => void) | undefined;
+
+    const setup = async () => {
+      try {
+        // Ensure we have an anonymous Firebase identity (satisfies Firestore read rule)
+        if (!auth.currentUser) {
+          await signInAnonymously(auth);
         }
-        return s;
-      });
-      setSubaccounts(merged);
-      setError(null);
-      setLastPolled(new Date());
-    } catch (e) {
-      setError(e.message);
-      if (!silent) showToast(`Failed to load subaccounts: ${e.message}`, 'error');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
 
-    // Phase 2: install status loads in the background — doesn't block the table
+        const q = query(
+          collection(db, 'ghl_tokens'),
+          where('companyId', '==', agencyId)
+        );
+
+        unsubscribe = onSnapshot(
+          q,
+          (snapshot) => {
+            const docs = snapshot.docs
+              .filter(doc => {
+                const d = doc.data();
+                // Exclude the agency-level token itself; keep location tokens
+                return !d.appType || d.appType !== 'agency';
+              })
+              .map(doc => {
+                const d = doc.data();
+                return {
+                  location_id:             d.location_id ?? doc.id,
+                  location_name:           d.location_name ?? 'Unnamed Location',
+                  companyId:               d.companyId ?? '',
+                  agency_name:             d.agency_name ?? d.company_name ?? '',
+                  toggle_enabled:          typeof d.toggle_enabled === 'boolean' ? d.toggle_enabled : true,
+                  is_live:                 !!d.is_live,
+                  rate_limit:              Number(d.rate_limit ?? 5),
+                  attempt_count:           Number(d.attempt_count ?? 0),
+                  toggle_activation_count: Number(d.toggle_activation_count ?? 0),
+                  credit_balance:          Number(d.credit_balance ?? d.credits ?? 0),
+                };
+              });
+            setSubaccounts(docs);
+            setLoading(false);
+            setError(null);
+          },
+          (err) => {
+            console.error('[Subaccounts] onSnapshot error:', err);
+            setError(err.message);
+            showToast(`Realtime sync error: ${err.message}`, 'error');
+            setLoading(false);
+          }
+        );
+      } catch (err: any) {
+        console.error('[Subaccounts] Firebase setup error:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    };
+
+    setup();
+
+    // Fetch install status once in the background (unchanged — still from PHP)
     checkInstallStatus(agencyId)
       .then(installs => setInstalledLocations(new Set(installs)))
-      .catch(() => {}); // silently fail if check_installs.php is unavailable
-  }, [agencyId]);
+      .catch(() => {});
 
-  // Initial load + polling — only runs when agencyId is available
-  useEffect(() => {
-    if (!agencyId) return; // Don't poll until we have an agency ID (avoids 401s during auto-login)
-    fetchSubaccounts();
-    pollRef.current = setInterval(() => fetchSubaccounts({ silent: true }), POLL_MS);
-    return () => clearInterval(pollRef.current);
-  }, [fetchSubaccounts, agencyId]);
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [agencyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Toggle ─────────────────────────────────────────────────────────────────
+  // Optimistic update flips the UI instantly. The PHP endpoint writes to Firestore,
+  // which triggers the onSnapshot listener (~1 s) to confirm the canonical state.
+  // No lock mechanism needed — the listener naturally converges to the correct value.
   const handleToggle = async (locationId, enabled) => {
     setToggleLoading(prev => ({ ...prev, [locationId]: true }));
 
@@ -238,36 +268,19 @@ export const Subaccounts = () => {
     setSubaccounts(prev =>
       prev.map(s => s.location_id === locationId ? { ...s, toggle_enabled: enabled } : s)
     );
-    // Lock IMMEDIATELY so any background polls firing during the API call don't overwrite optimistic state
-    toggleLocksRef.current.set(locationId, { enabled, until: Date.now() + 5000 });
 
     try {
       await toggleSubaccount(agencyId, {
         subaccount_id: locationId,
         enabled,
       });
-      // Success — refresh the lock for 5 more seconds from completion time
-      toggleLocksRef.current.set(locationId, { enabled, until: Date.now() + 5000 });
-      // Update activation count in local state
-      setSubaccounts(prev =>
-        prev.map(s => s.location_id === locationId
-          ? {
-              ...s,
-              toggle_enabled: enabled,
-              toggle_activation_count: enabled
-                ? (s.toggle_activation_count || 0) + 1
-                : s.toggle_activation_count
-            }
-          : s)
-      );
+      // PHP write is done — onSnapshot will confirm within ~1 s automatically.
       showToast(
         `SMS ${enabled ? 'enabled' : 'disabled'} for subaccount.`,
         enabled ? 'success' : 'info'
       );
     } catch (e: any) {
-      // Remove lock on failure — let the server value restore correctly
-      toggleLocksRef.current.delete(locationId);
-      // Rollback optimistic state
+      // Rollback optimistic state on failure (onSnapshot will also restore the correct server value)
       setSubaccounts(prev =>
         prev.map(s => s.location_id === locationId ? { ...s, toggle_enabled: !enabled } : s)
       );
