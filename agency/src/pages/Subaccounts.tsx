@@ -229,13 +229,14 @@ export const Subaccounts = () => {
           q,
           (snapshot) => {
             // Build a map of live toggle states keyed by location_id
-            const liveStates = new Map<string, { toggle_enabled: boolean; attempt_count: number }>();
+            const liveStates = new Map<string, { toggle_enabled: boolean; attempt_count: number; toggle_activation_count: number }>();
             snapshot.docs.forEach(doc => {
               const d = doc.data();
               const id = d.location_id ?? doc.id;
               liveStates.set(id, {
                 toggle_enabled: typeof d.toggle_enabled === 'boolean' ? d.toggle_enabled : true,
                 attempt_count:  Number(d.attempt_count ?? 0),
+                toggle_activation_count: Number(d.toggle_activation_count ?? 0),
               });
             });
 
