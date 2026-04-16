@@ -568,18 +568,22 @@ export const Subaccounts = () => {
                         <td className="px-6 py-4 align-middle">
                           <div className="flex flex-col items-end gap-1">
                             {(installedLocations.size === 0 || installedLocations.has(sub.location_id) || sub.is_live) ? (
-                              <div className="flex items-center gap-2.5">
-                                <span className={`text-[11.5px] font-bold ${sub.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>
-                                  {sub.toggle_enabled ? 'ON' : 'OFF'}
-                                </span>
-                                <ToggleSwitch
-                                  id={sub.location_id}
-                                  checked={!!sub.toggle_enabled}
-                                  onChange={enabled => handleToggle(sub.location_id, enabled)}
-                                  disabled={isBusy}
-                                />
-                              </div>
-
+                              <>
+                                <div className="flex items-center gap-2.5">
+                                  <span className={`text-[11.5px] font-bold ${sub.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>
+                                    {sub.toggle_enabled ? 'ON' : 'OFF'}
+                                  </span>
+                                  <ToggleSwitch
+                                    id={sub.location_id}
+                                    checked={!!sub.toggle_enabled}
+                                    onChange={enabled => handleToggle(sub.location_id, enabled)}
+                                    disabled={isBusy}
+                                  />
+                                </div>
+                                <div className="text-[10.5px] font-medium text-[#9ca3af]">
+                                  {sub.toggle_activation_count ?? 0}/3 activations
+                                </div>
+                              </>
                             ) : (
                               <div className="flex flex-col items-end gap-1.5">
                                 <a
