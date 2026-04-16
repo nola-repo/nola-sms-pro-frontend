@@ -1,9 +1,16 @@
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
+import { getSession } from "../services/authService";
 import type { Contact } from "../types/Contact";
 
 // Use the GHL contacts proxy endpoint (calls GoHighLevel API directly)
 const CONTACTS_API_URL = API_CONFIG.ghl_contacts;
+
+const getAuthHeaders = (): Record<string, string> => {
+  const session = getSession();
+  if (!session?.token) return {};
+  return { Authorization: `Bearer ${session.token}` };
+};
 
 export const fetchContacts = async (explicitLocationId?: string): Promise<Contact[]> => {
   try {
@@ -20,6 +27,7 @@ export const fetchContacts = async (explicitLocationId?: string): Promise<Contac
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-GHL-Location-ID': locationId,
+      ...getAuthHeaders(),
     };
 
     // 3. Send locationId as query param (primary) AND location_id as fallback, plus header
@@ -27,7 +35,18 @@ export const fetchContacts = async (explicitLocationId?: string): Promise<Contac
     const res = await fetch(url, { headers });
 
     if (!res.ok) {
-      console.error('NOLA SMS: Contacts API error:', res.status, res.statusText);
+      // Read response body for better debugging (401 can be auth vs GHL token issues).
+      let errorBody: unknown = null;
+      try {
+        errorBody = await res.clone().json();
+      } catch {
+        try {
+          errorBody = await res.clone().text();
+        } catch {
+          errorBody = null;
+        }
+      }
+      console.error('NOLA SMS: Contacts API error:', res.status, res.statusText, errorBody);
       return [];
     }
 
@@ -108,6 +127,7 @@ export const addContact = async (params: AddContactParams): Promise<Contact | nu
     const accountSettings = getAccountSettings();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
     };
 
     if (accountSettings.ghlLocationId) {
@@ -157,6 +177,7 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
     const accountSettings = getAccountSettings();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
     };
 
     if (accountSettings.ghlLocationId) {
@@ -196,7 +217,7 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
 export const deleteContact = async (id: string): Promise<boolean> => {
   try {
     const accountSettings = getAccountSettings();
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...getAuthHeaders() };
 
     if (accountSettings.ghlLocationId) {
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
