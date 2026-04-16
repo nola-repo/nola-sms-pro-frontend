@@ -39,8 +39,7 @@ export const getSubaccounts = async (agencyId) => {
 };
 
 // ── POST toggle a single subaccount ON/OFF ────────────────────────────────────
-// Calls update_subaccount.php which enforces 3-activation limit and
-// correctly writes toggle_enabled to BOTH agency_subaccounts AND ghl_tokens.
+// Calls update_subaccount.php which writes toggle_enabled to ghl_tokens.
 export const toggleSubaccount = async (agencyId: string, payload: {
   subaccount_id: string;
   enabled: boolean;
@@ -54,16 +53,23 @@ export const toggleSubaccount = async (agencyId: string, payload: {
     }),
   });
 
+  // Check for a 403 limit_reached before the generic response handler.
+  // NOTE: res.json() consumes the body, so we clone first to leave res intact
+  // for handleResponse. The throw must be OUTSIDE the try/catch to avoid being
+  // swallowed by the catch that only intends to handle JSON parse failures.
   if (res.status === 403) {
-      const clonedRes = res.clone();
-      try {
-          const data = await clonedRes.json();
-          if (data.status === 'limit_reached') {
-              throw new Error('Activation limit reached (max 3). Please upgrade to re-enable this subaccount.');
-          }
-      } catch (e) {
-          // Fallback to default handler if JSON parsing fails
-      }
+    let limitReached = false;
+    try {
+      const data = await res.clone().json();
+      limitReached = data?.status === 'limit_reached';
+    } catch {
+      // JSON parse failed — fall through to generic handleResponse error
+    }
+    if (limitReached) {
+      const err = new APIError('Activation limit reached. Please contact support to re-enable this subaccount.');
+      err.status = 403;
+      throw err;
+    }
   }
 
   return handleResponse(res);

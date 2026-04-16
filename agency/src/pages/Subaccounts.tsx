@@ -127,8 +127,8 @@ const UpgradeModal = ({ onCancel }) => (
         <div className="text-[16px] font-bold text-[#111111] dark:text-white">Activation Limit Reached</div>
       </div>
       <div className="text-[13.5px] text-[#6b7280] dark:text-[#9aa0a9] mb-6 leading-relaxed">
-        This subaccount has reached the maximum of <strong>3 activations</strong> for the myCRMSIM routing feature to prevent abuse.
-        Please upgrade your agency plan to unlock unlimited activations.
+        This subaccount cannot be enabled at this time. Please contact support
+        or try again later. If this issue persists, reach out to your NOLA SMS Pro admin.
       </div>
       <div className="flex justify-end">
         <button
@@ -563,22 +563,18 @@ export const Subaccounts = () => {
                         <td className="px-6 py-4 align-middle">
                           <div className="flex flex-col items-end gap-1">
                             {(installedLocations.size === 0 || installedLocations.has(sub.location_id) || sub.is_live) ? (
-                              <>
-                                <div className="flex items-center gap-2.5">
-                                  <span className={`text-[11.5px] font-bold ${sub.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>
-                                    {sub.toggle_enabled ? 'ON' : 'OFF'}
-                                  </span>
-                                  <ToggleSwitch
-                                    id={sub.location_id}
-                                    checked={!!sub.toggle_enabled}
-                                    onChange={enabled => handleToggle(sub.location_id, enabled)}
-                                    disabled={isBusy}
-                                  />
-                                </div>
-                                <div className="text-[10.5px] font-medium text-[#9ca3af]">
-                                  {sub.toggle_activation_count ?? 0}/3 activations
-                                </div>
-                              </>
+                              <div className="flex items-center gap-2.5">
+                                <span className={`text-[11.5px] font-bold ${sub.toggle_enabled ? 'text-[#22c55e]' : 'text-[#9ca3af]'}`}>
+                                  {sub.toggle_enabled ? 'ON' : 'OFF'}
+                                </span>
+                                <ToggleSwitch
+                                  id={sub.location_id}
+                                  checked={!!sub.toggle_enabled}
+                                  onChange={enabled => handleToggle(sub.location_id, enabled)}
+                                  disabled={isBusy}
+                                />
+                              </div>
+
                             ) : (
                               <div className="flex flex-col items-end gap-1.5">
                                 <a
