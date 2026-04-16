@@ -208,10 +208,14 @@ export const Subaccounts = () => {
       .catch(() => { });
   }, [agencyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Real-time Firestore listener (toggle state only) ──────────────────────
-  // Patches ONLY toggle_enabled + attempt_count in real time from ghl_tokens.
-  // All other fields (name, rate limit, credits) come from the PHP initial load — 
-  // avoids "reset to defaults" when ghl_tokens docs lack supplemental fields.
+  // ── Real-time Firestore listener (live counters + toggle) ─────────────────
+  // Patches ONLY the fields that are canonically stored on `ghl_tokens`:
+  // - toggle_enabled
+  // - attempt_count (sends used)
+  // - rate_limit (credit limit)
+  // - toggle_activation_count
+  // Everything else (location_name, agency_name, credit_balance, etc.) remains
+  // sourced from the initial PHP load to avoid wiping richer fields.
   useEffect(() => {
     if (!agencyId) return;
     let unsubscribe: (() => void) | undefined;
@@ -228,14 +232,15 @@ export const Subaccounts = () => {
         unsubscribe = onSnapshot(
           q,
           (snapshot) => {
-            // Build a map of live toggle states keyed by location_id
-            const liveStates = new Map<string, { toggle_enabled: boolean; attempt_count: number; toggle_activation_count: number }>();
+            // Build a map of live states keyed by location_id
+            const liveStates = new Map<string, { toggle_enabled: boolean; attempt_count: number; rate_limit: number; toggle_activation_count: number }>();
             snapshot.docs.forEach(doc => {
               const d = doc.data();
               const id = d.location_id ?? doc.id;
               liveStates.set(id, {
                 toggle_enabled: typeof d.toggle_enabled === 'boolean' ? d.toggle_enabled : true,
                 attempt_count:  Number(d.attempt_count ?? 0),
+                rate_limit: Number(d.rate_limit ?? 5),
                 toggle_activation_count: Number(d.toggle_activation_count ?? 0),
               });
             });
@@ -272,7 +277,16 @@ export const Subaccounts = () => {
 
     // Optimistic update — flip UI immediately so the user sees instant feedback
     setSubaccounts(prev =>
-      prev.map(s => s.location_id === locationId ? { ...s, toggle_enabled: enabled } : s)
+      prev.map(s => {
+        if (s.location_id !== locationId) return s;
+        const wasEnabled = !!s.toggle_enabled;
+        const next: any = { ...s, toggle_enabled: enabled };
+        // Activation count increments only when going OFF -> ON (server-enforced max 3)
+        if (enabled && !wasEnabled) {
+          next.toggle_activation_count = Math.min(3, Number(s.toggle_activation_count ?? 0) + 1);
+        }
+        return next;
+      })
     );
 
     try {
@@ -288,7 +302,15 @@ export const Subaccounts = () => {
     } catch (e: any) {
       // Rollback optimistic state on failure (onSnapshot will also restore the correct server value)
       setSubaccounts(prev =>
-        prev.map(s => s.location_id === locationId ? { ...s, toggle_enabled: !enabled } : s)
+        prev.map(s => {
+          if (s.location_id !== locationId) return s;
+          const next: any = { ...s, toggle_enabled: !enabled };
+          // If the user attempted OFF -> ON and it failed, revert the optimistic activation bump.
+          if (enabled) {
+            next.toggle_activation_count = Math.max(0, Number(s.toggle_activation_count ?? 0) - 1);
+          }
+          return next;
+        })
       );
       if (e.status === 403) {
         setUpgradeModalOpen(true);
