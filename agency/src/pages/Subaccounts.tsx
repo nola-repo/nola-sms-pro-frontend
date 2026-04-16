@@ -235,7 +235,7 @@ export const Subaccounts = () => {
               const id = d.location_id ?? doc.id;
               liveStates.set(id, {
                 toggle_enabled: typeof d.toggle_enabled === 'boolean' ? d.toggle_enabled : true,
-                attempt_count:  Number(d.attempt_count ?? 0),
+                attempt_count:  Number(d.send_used ?? d.attempt_count ?? 0),
                 toggle_activation_count: Number(d.toggle_activation_count ?? 0),
               });
             });
@@ -473,7 +473,7 @@ export const Subaccounts = () => {
           <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-between flex-wrap gap-4">
             <div>
               <div className="text-[15px] font-bold text-[#111111] dark:text-white tracking-tight">All Subaccounts</div>
-              <div className="text-[13px] text-[#6e6e73] dark:text-[#94959b] mt-1">Changes take effect immediately. Rate limit auto-saves on blur.</div>
+              <div className="text-[13px] text-[#6e6e73] dark:text-[#94959b] mt-1">Changes take effect immediately. Credit limit auto-saves on blur.</div>
             </div>
             <div className="relative">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
@@ -527,7 +527,7 @@ export const Subaccounts = () => {
                           </span>
                         </td>
 
-                        {/* Rate Limit */}
+                        {/* Credit Limit Input */}
                         <td className="px-6 py-4 align-middle">
                           <RateLimitInput
                             locationId={sub.location_id}
@@ -543,9 +543,9 @@ export const Subaccounts = () => {
                             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12.5px] font-bold ${isAtLimit ? 'bg-red-50 dark:bg-red-500/10 text-red-500' : isNearLimit ? 'bg-[#f59e0b]/10 text-[#f59e0b]' : 'bg-[#f0f2f8] dark:bg-white/5 text-[#6b7280] dark:text-[#94959b]'}`}>
                               {sub.attempt_count ?? 0} / {sub.rate_limit ?? 5}
                             </span>
-                            {isAtLimit && (
+                            {(isAtLimit || (sub.attempt_count > 0)) && (
                               <button
-                                className="flex items-center justify-center p-1.5 bg-red-50 dark:bg-red-500/10 text-red-500 rounded border border-red-200 dark:border-red-500/20 hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                className={`flex items-center justify-center p-1.5 rounded border transition-all shadow-sm ${isAtLimit ? 'bg-red-50 dark:bg-red-500/10 text-red-500 border-red-200 dark:border-red-500/20 hover:bg-red-500 hover:text-white' : 'bg-gray-100 dark:bg-white/10 text-gray-500 hover:bg-gray-200 dark:hover:bg-white/20 border-gray-200 dark:border-white/10'}`}
                                 onClick={() => setResetModal(sub)}
                                 title="Reset Counter"
                               >
