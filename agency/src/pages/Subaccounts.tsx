@@ -10,6 +10,7 @@ import { ToastContainer } from '../components/ui/ToastContainer.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 import { useToast } from '../hooks/useToast.ts';
 import {
+  getSubaccounts,
   toggleSubaccount,
   updateSubaccountSettings,
   checkInstallStatus,
@@ -182,11 +183,37 @@ export const Subaccounts = () => {
   const [sortField, setSortField] = useState('location_name');
   const [sortDirection, setSortDirection] = useState('asc');
 
-  // ── Real-time Firestore listener ──────────────────────────────────────────
-  // Listens to ghl_tokens directly. This contains all rich data (credit_balance, agency_name).
+  // ── Initial load (PHP) ───────────────────────────────────────────────────────
+  // The PHP API aggregates richer data (location name, rate limit, credits, etc.)
+  // from Firestore server-side and returns a normalised shape. This runs once per
+  // agencyId to seed the table. Real-time toggle state is handled by the listener below.
   useEffect(() => {
     if (!agencyId) { setLoading(false); return; }
+    setLoading(true);
 
+    getSubaccounts(agencyId)
+      .then(data => {
+        setSubaccounts(data.subaccounts || []);
+        setError(null);
+      })
+      .catch(e => {
+        setError(e.message);
+        showToast(`Failed to load subaccounts: ${e.message}`, 'error');
+      })
+      .finally(() => setLoading(false));
+
+    // Install status: background, non-blocking
+    checkInstallStatus(agencyId)
+      .then(installs => setInstalledLocations(new Set(installs)))
+      .catch(() => { });
+  }, [agencyId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Real-time Firestore listener (toggle state only) ──────────────────────
+  // Patches ONLY toggle_enabled + attempt_count in real time from ghl_tokens.
+  // All other fields (name, rate limit, credits) come from the PHP initial load — 
+  // avoids "reset to defaults" when ghl_tokens docs lack supplemental fields.
+  useEffect(() => {
+    if (!agencyId) return;
     let unsubscribe: (() => void) | undefined;
 
     const setup = async () => {
@@ -201,51 +228,38 @@ export const Subaccounts = () => {
         unsubscribe = onSnapshot(
           q,
           (snapshot) => {
-            const docs = snapshot.docs
-              .filter(doc => {
-                const d = doc.data();
-                return !d.appType || d.appType !== 'agency';
-              })
-              .map(doc => {
-                const d = doc.data();
-                return {
-                  location_id: d.location_id ?? doc.id,
-                  location_name: d.location_name ?? 'Unnamed Location',
-                  companyId: d.companyId ?? '',
-                  agency_name: d.agency_name ?? d.company_name ?? '',
-                  toggle_enabled: typeof d.toggle_enabled === 'boolean' ? d.toggle_enabled : true,
-                  is_live: !!d.is_live,
-                  rate_limit: Number(d.rate_limit) || 5, // Fix 'comes back as 0' bug
-                  attempt_count:  Number(d.attempt_count ?? 0),
-                  toggle_activation_count: Number(d.toggle_activation_count ?? 0),
-                  credit_balance: Number(d.credit_balance ?? d.credits ?? 0),
-                };
+            // Build a map of live toggle states keyed by location_id
+            const liveStates = new Map<string, { toggle_enabled: boolean; attempt_count: number; toggle_activation_count: number }>();
+            snapshot.docs.forEach(doc => {
+              const d = doc.data();
+              const id = d.location_id ?? doc.id;
+              liveStates.set(id, {
+                toggle_enabled: typeof d.toggle_enabled === 'boolean' ? d.toggle_enabled : true,
+                attempt_count:  Number(d.attempt_count ?? 0),
+                toggle_activation_count: Number(d.toggle_activation_count ?? 0),
               });
-            setSubaccounts(docs);
-            setLoading(false);
-            setError(null);
+            });
+
+            // Patch only the live fields into the existing rows
+            // If initial load hasn't completed yet, prev is [] and this is a no-op
+            setSubaccounts(prev =>
+              prev.map(s => {
+                const live = liveStates.get(s.location_id);
+                return live ? { ...s, ...live } : s;
+              })
+            );
           },
           (err) => {
             console.error('[Subaccounts] onSnapshot error:', err);
-            setError(err.message);
-            showToast(`Realtime sync error: ${err.message}`, 'error');
-            setLoading(false);
+            // Don't surface as blocking error — data is still usable from PHP load
           }
         );
       } catch (err: any) {
         console.error('[Subaccounts] Firebase setup error:', err);
-        setError(err.message);
-        setLoading(false);
       }
     };
 
     setup();
-
-    // Install status: background, non-blocking
-    checkInstallStatus(agencyId)
-      .then(installs => setInstalledLocations(new Set(installs)))
-      .catch(() => { });
-
     return () => { if (unsubscribe) unsubscribe(); };
   }, [agencyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -286,7 +300,7 @@ export const Subaccounts = () => {
     }
   };
 
-  // ── Credit Limit Save ────────────────────────────────────────────────────────
+  // ── Rate Limit Save ────────────────────────────────────────────────────────
   const handleRateLimitSave = async (locationId, newLimit) => {
     const targetSubaccount = subaccounts.find(s => s.location_id === locationId) || {};
     try {
@@ -299,9 +313,9 @@ export const Subaccounts = () => {
       setSubaccounts(prev =>
         prev.map(s => s.location_id === locationId ? { ...s, rate_limit: newLimit } : s)
       );
-      showToast('Credit limit updated.', 'success');
+      showToast('Rate limit updated.', 'success');
     } catch (e) {
-      showToast(`Failed to update credit limit: ${e.message}`, 'error');
+      showToast(`Failed to update rate limit: ${e.message}`, 'error');
     }
   };
 
@@ -381,7 +395,7 @@ export const Subaccounts = () => {
   return (
     <AgencyLayout
       title="Subaccounts"
-      subtitle="Control SMS access, credit limits, and attempt counters for each subaccount"
+      subtitle="Control SMS access, rate limits, and attempt counters for each subaccount"
     >
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       {resetModal && (
@@ -459,7 +473,7 @@ export const Subaccounts = () => {
           <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-between flex-wrap gap-4">
             <div>
               <div className="text-[15px] font-bold text-[#111111] dark:text-white tracking-tight">All Subaccounts</div>
-              <div className="text-[13px] text-[#6e6e73] dark:text-[#94959b] mt-1">Changes take effect immediately. Credit limit auto-saves on blur.</div>
+              <div className="text-[13px] text-[#6e6e73] dark:text-[#94959b] mt-1">Changes take effect immediately. Rate limit auto-saves on blur.</div>
             </div>
             <div className="relative">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
@@ -513,11 +527,11 @@ export const Subaccounts = () => {
                           </span>
                         </td>
 
-                        {/* Credit Limit */}
+                        {/* Rate Limit */}
                         <td className="px-6 py-4 align-middle">
                           <RateLimitInput
                             locationId={sub.location_id}
-                            value={sub.rate_limit || 5}
+                            value={sub.rate_limit ?? 5}
                             onSave={handleRateLimitSave}
                             disabled={!agencyId}
                           />
