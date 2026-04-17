@@ -5,7 +5,7 @@ import {
     FiUser, FiSend, FiBell, FiCreditCard,
     FiSave, FiPlus, FiCheck,
     FiGlobe, FiMapPin, FiBriefcase, FiCheckCircle, FiAlertCircle, FiClock,
-    FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight,
+    FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown,
 } from "react-icons/fi";
 import {
     getAccountSettings, saveAccountSettings,
@@ -584,6 +584,9 @@ function formatTxDate(iso: string): string {
     }
 }
 
+const AR_AMOUNTS = [100, 250, 500, 1000, 2000];
+const AR_THRESHOLDS = [25, 50, 100, 200];
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
 
 const CreditsSection: React.FC = () => {
     const ghlLocationIdFromHook = useGhlLocation();
@@ -601,6 +604,20 @@ const CreditsSection: React.FC = () => {
     const popupRef = useRef<Window | null>(null);
     const popupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Auto-recharge state
+    const [arEnabled, setArEnabled] = useState(false);
+    const [arAmount, setArAmount] = useState(500);
+    const [arThreshold, setArThreshold] = useState(50);
+    const [arSaving, setArSaving] = useState(false);
+    const [arSaved, setArSaved] = useState(false);
+
+    // Request credits state
+    const [reqModalOpen, setReqModalOpen] = useState(false);
+    const [reqAmount, setReqAmount] = useState(100);
+    const [reqNote, setReqNote] = useState('');
+    const [reqLoading, setReqLoading] = useState(false);
+    const [reqSuccess, setReqSuccess] = useState(false);
 
     // Final derived location ID
     const locationId = ghlLocationIdFromHook || getAccountSettings().ghlLocationId;
@@ -673,6 +690,39 @@ const CreditsSection: React.FC = () => {
     const creditsUsedToday = creditStatus?.stats?.credits_used_today ?? 0;
     const creditsUsedMonth = creditStatus?.stats?.credits_used_month ?? 0;
 
+    // ── Auto-recharge save ────────────────────────────────────────────────────
+    const saveAutoRecharge = async () => {
+        setArSaving(true);
+        try {
+            await fetch(`${API_BASE_URL}/api/billing/subaccount_wallet.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ action: 'set_auto_recharge', location_id: locationId, enabled: arEnabled, amount: arAmount, threshold: arThreshold }),
+            });
+            setArSaved(true); setTimeout(() => setArSaved(false), 2000);
+        } catch { /* silently handled */ } finally { setArSaving(false); }
+    };
+
+    // ── Submit credit request ─────────────────────────────────────────────────
+    const submitCreditRequest = async () => {
+        if (reqAmount <= 0) return;
+        setReqLoading(true);
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/billing/subaccount_wallet.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ action: 'request_credits', location_id: locationId, amount: reqAmount, note: reqNote }),
+            });
+            const data = await res.json();
+            if (data.success || res.ok) {
+                setReqSuccess(true);
+                setTimeout(() => { setReqSuccess(false); setReqModalOpen(false); setReqNote(''); }, 2500);
+            }
+        } catch { /* silently handled */ } finally { setReqLoading(false); }
+    };
+
 
     const handleTopUp = (e: React.FormEvent) => {
         e.preventDefault();
@@ -726,7 +776,65 @@ const CreditsSection: React.FC = () => {
 
     return (
         <div className="space-y-5">
-            <SectionHeader title="Credits & Billing" subtitle="Monitor your SMS credit balance and request top-ups." />
+            <SectionHeader title="Credits & Billing" subtitle="Monitor your SMS credit balance, configure auto-recharge, and request credits from your agency." />
+
+            {/* ── Request Credits Modal ──────────────────────────────────────── */}
+            {reqModalOpen && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]" onClick={() => setReqModalOpen(false)}>
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-2xl p-6 w-full max-w-[400px] mx-4" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+                                <FiGift className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <div className="text-[15px] font-bold text-[#111111] dark:text-white">Request Credits from Agency</div>
+                                <div className="text-[12px] text-[#9aa0a6]">Your agency will review and approve your request</div>
+                            </div>
+                        </div>
+                        {reqSuccess ? (
+                            <div className="flex flex-col items-center py-6 gap-2">
+                                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500"><FiCheck className="w-6 h-6" /></div>
+                                <div className="text-[14px] font-bold text-[#111111] dark:text-white">Request Sent!</div>
+                                <div className="text-[12px] text-[#9aa0a6] text-center">Your agency will review and fulfill your request shortly.</div>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Credits Requested</label>
+                                    <div className="grid grid-cols-4 gap-2 mb-2">
+                                        {[50, 100, 250, 500].map(n => (
+                                            <button key={n} type="button" onClick={() => setReqAmount(n)}
+                                                className={`py-2 rounded-xl text-[12px] font-bold border-2 transition-all ${reqAmount === n ? 'border-purple-500 bg-purple-500/5 text-purple-600' : 'border-[#e0e0e0] dark:border-[#2a2b32] text-[#6e6e73] dark:text-[#9aa0a9] hover:border-purple-400'}`}>
+                                                {n}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <input type="number" min={1} value={reqAmount} onChange={e => setReqAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                                        className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                                        placeholder="Or type a custom amount…" />
+                                </div>
+                                <div>
+                                    <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Note (optional)</label>
+                                    <input type="text" value={reqNote} onChange={e => setReqNote(e.target.value)}
+                                        placeholder="E.g. Need credits for weekend campaign…"
+                                        className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-purple-500/30" />
+                                </div>
+                                <div className="flex gap-2.5 pt-1">
+                                    <button onClick={() => setReqModalOpen(false)} disabled={reqLoading}
+                                        className="flex-1 px-4 py-2.5 rounded-xl text-[13px] font-semibold bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6b7280] border border-[#e0e0e0] dark:border-[#ffffff0a] hover:bg-black/5 transition-colors">
+                                        Cancel
+                                    </button>
+                                    <button onClick={submitCreditRequest} disabled={reqLoading || reqAmount <= 0}
+                                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold bg-purple-600 text-white hover:bg-purple-700 transition-colors shadow-md shadow-purple-500/20 disabled:opacity-50">
+                                        {reqLoading ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiGift className="w-4 h-4" />}
+                                        {reqLoading ? 'Sending…' : 'Send Request'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
 
             {/* Balance Card */}
@@ -792,6 +900,45 @@ const CreditsSection: React.FC = () => {
                     </>
                 )}
             </div>
+
+            {/* Auto-recharge config row */}
+            <Card>
+                <div className="flex flex-wrap items-center gap-3">
+                    <button
+                        onClick={() => setArEnabled(v => !v)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 focus:outline-none ${arEnabled ? 'bg-[#2b83fa]' : 'bg-gray-200 dark:bg-[#3a3b3f]'}`}
+                    >
+                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${arEnabled ? 'translate-x-[18px]' : 'translate-x-1'}`} />
+                    </button>
+                    <span className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a9] font-medium">Auto recharge with</span>
+                    <div className="relative">
+                        <select value={arAmount} onChange={e => setArAmount(Number(e.target.value))} disabled={!arEnabled}
+                            className="pl-3 pr-7 py-1 rounded-lg bg-[#f0f2f8] dark:bg-[#1c1e21] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[12.5px] font-bold text-[#111111] dark:text-white appearance-none focus:outline-none disabled:opacity-50">
+                            {AR_AMOUNTS.map(v => <option key={v} value={v}>{v.toLocaleString()} credits</option>)}
+                        </select>
+                        <FiChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#9aa0a6] pointer-events-none" />
+                    </div>
+                    <span className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a9] font-medium">when below</span>
+                    <div className="relative">
+                        <select value={arThreshold} onChange={e => setArThreshold(Number(e.target.value))} disabled={!arEnabled}
+                            className="pl-3 pr-7 py-1 rounded-lg bg-[#f0f2f8] dark:bg-[#1c1e21] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[12.5px] font-bold text-[#111111] dark:text-white appearance-none focus:outline-none disabled:opacity-50">
+                            {AR_THRESHOLDS.map(v => <option key={v} value={v}>{v.toLocaleString()} credits</option>)}
+                        </select>
+                        <FiChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#9aa0a6] pointer-events-none" />
+                    </div>
+                    <button onClick={saveAutoRecharge} disabled={arSaving}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all disabled:opacity-50 ${
+                            arSaved ? 'bg-emerald-500/10 text-emerald-600' : 'bg-[#f0f2f8] dark:bg-[#1c1e21] text-[#6e6e73] dark:text-[#9aa0a9] hover:text-[#111111] dark:hover:text-white border border-[#e0e0e0] dark:border-[#ffffff0a]'
+                        }`}>
+                        {arSaving ? <FiRefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FiCheck className="w-3.5 h-3.5" />}
+                        {arSaved ? 'Saved!' : 'Save'}
+                    </button>
+                    <button onClick={() => setReqModalOpen(true)}
+                        className="ml-auto flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-[12.5px] font-bold text-purple-600 bg-purple-500/10 hover:bg-purple-500/20 transition-colors">
+                        <FiGift className="w-3.5 h-3.5" /> Request Credits from Agency
+                    </button>
+                </div>
+            </Card>
 
             {/* Stats Row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
