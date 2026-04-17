@@ -66,16 +66,7 @@ Add three new fields (alongside existing `credit_balance`):
 }
 ```
 
-**POST — `action=topup`**
-```json
-// Request
-{ "amount": 500 }
-// Response
-{ "success": true, "checkout_url": "https://stripe.com/..." }
-// OR if no payment provider yet:
-{ "success": true, "new_balance": 2000, "message": "Balance updated manually" }
-```
-If using Stripe: create a Checkout session and return the URL. The Stripe webhook (`stripe_webhook.php`) should credit the agency wallet on `checkout.session.completed`.
+> **Note on Top-ups:** The frontend does not call an API for top-ups. It opens external checkout URLs configured per package, passing `?agency_id={id}&scope=agency`. Your payment provider webhook should intercept the successful purchase and credit the `agency_wallet`.
 
 **POST — `action=set_auto_recharge`**
 ```json
@@ -109,8 +100,7 @@ If using Stripe: create a Checkout session and return the URL. The Stripe webhoo
 }
 ```
 
-**POST — `action=topup`**
-Same pattern as agency topup but credits `integrations/{location_id}.credit_balance`.
+> **Note on Top-ups:** Similarly handled via external URL passing `?location_id={id}`. The payment provider webhook applies credits directly to `integrations/{location_id}.credit_balance`.
 
 **POST — `action=set_auto_recharge`**
 ```json
@@ -240,7 +230,7 @@ The frontend will surface `insufficient_credits` with a message like:
 
 Create a Cloud Scheduler / cron job `api/billing/auto_recharge_cron.php`:
 1. Query all `integrations` docs where `auto_recharge_enabled = true AND credit_balance < auto_recharge_threshold`
-2. For each, trigger a Stripe payment charge (saved payment method) for `auto_recharge_amount`
+2. For each, trigger a payment charge against their saved card/method for `auto_recharge_amount`
 3. On success: add credits, log `type=auto_recharge`
 4. Repeat for `agency_wallet` docs
 
@@ -269,6 +259,6 @@ So agency-level credits are stored alongside subaccount credits but can be filte
 - [ ] Update `CreditManager.php` send guard to check agency + subaccount balance
 - [ ] Update `credit_transactions` logs with `wallet_scope` field + `balance_after`
 - [ ] Create auto-recharge cron script
-- [ ] (Optional) Stripe webhook for checkout.session.completed
+- [ ] (Optional) Payment provider webhook to handle top-up confirmations
 
 *Frontend: Fully designed and ready to wire up once endpoints are live.*
