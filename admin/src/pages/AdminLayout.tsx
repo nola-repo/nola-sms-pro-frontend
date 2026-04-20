@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX, FiBriefcase } from 'react-icons/fi';
 
 import { AdminLogin } from './components/AdminLogin';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -16,7 +16,7 @@ const NAV_ITEMS = [
     { path: '/requests',   label: 'Sender Requests',   icon: <FiSend /> },
     { path: '/activity',   label: 'Platform Activity', icon: <FiActivity /> },
     { path: '/accounts',   label: 'All Subaccounts',   icon: <FiUsers /> },
-    { path: '/agencies',   label: 'All Agencies',      icon: <FiUsers /> },
+    { path: '/agencies',   label: 'All Agencies',      icon: <FiBriefcase /> },
     { path: '/admins',     label: 'Admin Users',       icon: <FiShield /> },
     { path: '/settings',   label: 'System Settings',   icon: <FiSettings /> },
 ] as const;
