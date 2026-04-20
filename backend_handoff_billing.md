@@ -1,26 +1,39 @@
-# Backend Handoff — Credit & Billing System
+# Backend Handoff — Credit & Billing System (Single-Deduction Architecture)
 
-**Scope:** New agency-level wallet, dual-deduction on SMS send, top-up, auto-recharge, credit gifting, and credit requests.  
-**Stack:** PHP + Firestore (existing pattern — follow `CreditManager.php` style)  
-**Priority:** High — frontend is ready to wire up once these endpoints exist.
+**Scope:** Agency-level funding wallet, single-wallet SMS deduction, credit distribution, auto-recharge, gifting, and credit requests.  
+**Stack:** PHP + Firestore (follow `CreditManager.php` style)  
+**Priority:** High — frontend is fully built and wired.
+
+> [!IMPORTANT]
+> **Architecture Principle:** A single SMS send results in ONLY ONE wallet deduction — from the subaccount wallet. The agency wallet is a **funding source only**. It is never deducted during message dispatch unless the optional Master Balance Lock is enabled.
 
 ---
 
-## 1. Firestore Schema Changes
+## 1. Wallet Roles
 
-### 1a. New Collection — `agency_wallet`
+| Wallet | Purpose | Deducted on SMS? |
+|---|---|---|
+| **Agency Wallet** | Funding source. Top-up, credit distribution to subaccounts. | ❌ No (unless Master Lock enabled) |
+| **Subaccount Wallet** | Usage wallet. Credits are consumed here per SMS. | ✅ Yes — always |
+
+---
+
+## 2. Firestore Schema
+
+### 2a. New Collection — `agency_wallet`
 
 ```
 agency_wallet/
-  {agency_id}/           // use the GHL company_id or your existing agency identifier
-    balance: number                  // credit units (integer, same unit as subaccount credits)
+  {agency_id}/
+    balance: number                    // credit units
     auto_recharge_enabled: boolean
-    auto_recharge_amount: number     // credits to add when threshold hit
-    auto_recharge_threshold: number  // trigger recharge when balance drops below this
+    auto_recharge_amount: number       // credits to add on trigger
+    auto_recharge_threshold: number    // trigger when balance drops below this
+    enforce_master_balance_lock: boolean  // optional: block all sends if agency hits 0
     updated_at: timestamp
 ```
 
-### 1b. New Collection — `credit_requests`
+### 2b. New Collection — `credit_requests`
 
 ```
 credit_requests/
@@ -30,15 +43,15 @@ credit_requests/
     location_name: string
     amount: number
     status: "pending" | "approved" | "denied"
-    note: string           // optional message from subaccount
+    note: string
     created_at: timestamp
     resolved_at: timestamp | null
-    resolved_by: string    // agency user who acted
+    resolved_by: string
 ```
 
-### 1c. Update existing `integrations/{location_id}` docs
+### 2c. Update existing `integrations/{location_id}` docs
 
-Add three new fields (alongside existing `credit_balance`):
+Add alongside existing `credit_balance`:
 ```
   auto_recharge_enabled: boolean
   auto_recharge_amount: number
@@ -47,9 +60,9 @@ Add three new fields (alongside existing `credit_balance`):
 
 ---
 
-## 2. New API Files
+## 3. New API Files
 
-> All files go in `api/billing/`. Follow the existing CORS/auth header pattern from other `api/` files.
+> All files go in `api/billing/`. Follow the existing CORS/auth header pattern.
 
 ---
 
@@ -62,28 +75,37 @@ Add three new fields (alongside existing `credit_balance`):
   "auto_recharge_enabled": true,
   "auto_recharge_amount": 500,
   "auto_recharge_threshold": 100,
-  "updated_at": "2026-04-17T00:00:00Z"
+  "enforce_master_balance_lock": false,
+  "updated_at": "2026-04-20T00:00:00Z"
 }
 ```
 
-> **Note on Top-ups:** The frontend does not call an API for top-ups. It opens external checkout URLs configured per package, passing `?agency_id={id}&scope=agency`. Your payment provider webhook should intercept the successful purchase and credit the `agency_wallet`.
+> **Note on Top-ups:** The frontend never calls an API for top-ups. It opens external checkout URLs per package, passing `?agency_id={id}&scope=agency`. Your payment provider webhook should credit `agency_wallet.balance` on successful purchase.
 
 **POST — `action=set_auto_recharge`**
 ```json
 // Request
-{ "enabled": true, "amount": 500, "threshold": 100 }
+{ "agency_id": "X", "enabled": true, "amount": 500, "threshold": 100 }
 // Response
 { "success": true }
 ```
 
-**POST — `action=gift`** — Transfer credits from agency to a subaccount.
+**POST — `action=set_master_lock`**
 ```json
 // Request
-{ "location_id": "abc123", "amount": 100, "note": "Monthly allocation" }
+{ "agency_id": "X", "enabled": true }
+// Response
+{ "success": true }
+```
+
+**POST — `action=gift`** — Transfer credits from agency wallet to a subaccount.
+```json
+// Request
+{ "agency_id": "X", "location_id": "abc123", "amount": 100, "note": "Monthly allocation" }
 // Response
 { "success": true, "agency_balance": 1400, "subaccount_balance": 350 }
 ```
-> Use a Firestore **transaction** to atomically deduct from `agency_wallet` and add to `integrations/{location_id}.credit_balance`. Log both sides under `credit_transactions`.
+> Use a Firestore **transaction** to atomically deduct from `agency_wallet.balance` and add to `integrations/{location_id}.credit_balance`. Log under `credit_transactions` with `wallet_scope: "agency"` (debit) and `wallet_scope: "subaccount"` (credit).
 
 ---
 
@@ -96,11 +118,11 @@ Add three new fields (alongside existing `credit_balance`):
   "auto_recharge_enabled": false,
   "auto_recharge_amount": 250,
   "auto_recharge_threshold": 25,
-  "updated_at": "2026-04-17T00:00:00Z"
+  "updated_at": "2026-04-20T00:00:00Z"
 }
 ```
 
-> **Note on Top-ups:** Similarly handled via external URL passing `?location_id={id}`. The payment provider webhook applies credits directly to `integrations/{location_id}.credit_balance`.
+> **Note on Top-ups:** Same as agency — external checkout link with `?location_id={id}`. Payment webhook credits `integrations/{location_id}.credit_balance`.
 
 **POST — `action=set_auto_recharge`**
 ```json
@@ -137,7 +159,7 @@ Query params: `?agency_id=X&status=pending` (status optional, default = all)
       "amount": 200,
       "note": "Running low",
       "status": "pending",
-      "created_at": "2026-04-17T10:00:00Z"
+      "created_at": "2026-04-20T10:00:00Z"
     }
   ]
 }
@@ -146,41 +168,47 @@ Query params: `?agency_id=X&status=pending` (status optional, default = all)
 **POST — `action=approve`**
 ```json
 // Request
-{ "request_id": "req_xyz" }
+{ "request_id": "req_xyz", "agency_id": "X" }
 // Response
 { "success": true, "agency_balance": 1300, "subaccount_balance": 449 }
 ```
-> Firestore transaction: deduct from agency wallet, add to subaccount, update request doc `status → "approved"`, log both in `credit_transactions`.
+> Firestore transaction: deduct from agency wallet, add to subaccount, set `status → "approved"`, log both in `credit_transactions`.
 
 **POST — `action=deny`**
 ```json
 // Request
-{ "request_id": "req_xyz" }
+{ "request_id": "req_xyz", "agency_id": "X" }
 // Response
 { "success": true }
 ```
-> Updates request doc `status → "denied"`.
 
 ---
 
 ### `api/billing/transactions.php`
 
-**GET** — Paginated transaction log.
+**GET** — Paginated transaction log. Agency wallet only tracks funding events, not SMS usage.
 
 Query params:
-- `?scope=agency&agency_id=X&month=2026-04&page=1`
-- `?scope=subaccount&location_id=abc123&month=2026-04&page=1`
+- `?scope=agency&agency_id=X&month=2026-04`
+- `?scope=subaccount&location_id=abc123&month=2026-04`
 
 ```json
 {
   "transactions": [
     {
       "id": "txn_001",
-      "type": "deduction",           // "deduction" | "top_up" | "gift_sent" | "gift_received" | "auto_recharge"
+      "type": "sms_usage",
+      "deducted_from": "subaccount",
+      "subaccount_id": "abc123",
+      "agency_id": "X",
       "amount": -1,
-      "balance_after": 1499,
-      "description": "SMS to +639173456789",
-      "timestamp": "2026-04-17T10:00:00Z"
+      "balance_after": 248,
+      "provider_cost": 0.02,
+      "charged": 0.05,
+      "profit": 0.03,
+      "provider": "telnyx",
+      "description": "SMS to +639171234567",
+      "timestamp": "2026-04-20T10:00:00Z"
     }
   ],
   "total": 42,
@@ -188,77 +216,119 @@ Query params:
 }
 ```
 
-> **Transaction types to log:**
-> | Event | type | amount sign |
-> |---|---|---|
-> | SMS sent (subaccount deduct) | `deduction` | negative |
-> | SMS sent (agency co-deduct) | `deduction` | negative |
-> | Manual top-up | `top_up` | positive |
-> | Auto-recharge | `auto_recharge` | positive |
-> | Agency gifted to subaccount | `gift_sent` (agency) / `gift_received` (subaccount) | negative / positive |
-> | Credit request approved | `request_approved` | positive (subaccount) |
+> **Transaction types by wallet scope:**
+
+| Event | type | wallet_scope | amount sign |
+|---|---|---|---|
+| Top-up purchase | `top_up` | agency | positive |
+| Auto-recharge | `auto_recharge` | agency | positive |
+| Agency gifted to subaccount | `credit_distribution` | agency | negative |
+| Agency gifted to subaccount | `gift_received` | subaccount | positive |
+| Credit request approved | `request_approved` | subaccount | positive |
+| SMS sent | `sms_usage` | subaccount | negative |
 
 ---
 
-## 3. Modify Existing Send Handler
+## 4. Updated SMS Send Handler (`CreditManager.php`)
 
-> **In `CreditManager.php` (or wherever SMS sending is authorized):**
-
-Before allowing a send, check **both** balances:
 ```php
-// Pseudocode
-$subaccountBalance = getSubaccountBalance($location_id);
-$agencyBalance = getAgencyBalance($agency_id);
+function sendSms($location_id, $agency_id, $message): array {
+    $subBalance = getSubaccountBalance($location_id);
 
-if ($subaccountBalance <= 0 || $agencyBalance <= 0) {
-    return ['success' => false, 'error' => 'insufficient_credits', 
-            'agency_balance' => $agencyBalance, 
-            'subaccount_balance' => $subaccountBalance];
+    // Block if subaccount has no credits
+    if ($subBalance <= 0) {
+        return ['success' => false, 'error' => 'insufficient_credits',
+                'subaccount_balance' => $subBalance];
+    }
+
+    // Optional master balance lock check
+    $agencyLock = getAgencyMasterLock($agency_id); // reads enforce_master_balance_lock
+    if ($agencyLock) {
+        $agencyBalance = getAgencyBalance($agency_id);
+        if ($agencyBalance <= 0) {
+            return ['success' => false, 'error' => 'agency_master_lock',
+                    'agency_balance' => $agencyBalance];
+        }
+    }
+
+    // Deduct ONLY from subaccount wallet (atomic Firestore transaction)
+    $cost = 1; // credits per SMS
+    deductSubaccountBalance($location_id, $cost);
+
+    // Log with full pricing metadata for profit tracking
+    logTransaction([
+        'type'          => 'sms_usage',
+        'wallet_scope'  => 'subaccount',
+        'deducted_from' => 'subaccount',
+        'location_id'   => $location_id,
+        'agency_id'     => $agency_id,
+        'amount'        => -$cost,
+        'balance_after' => $subBalance - $cost,
+        'provider_cost' => 0.02,   // actual cost from provider
+        'charged'       => 0.05,   // what client is billed
+        'profit'        => 0.03,   // derived field
+        'provider'      => 'telnyx',
+        'timestamp'     => now(),
+    ]);
+
+    return ['success' => true];
 }
-
-// Atomic Firestore transaction: deduct 1 credit from both wallets simultaneously
-deductBothWallets($agency_id, $location_id, $creditsNeeded);
 ```
 
-The frontend will surface `insufficient_credits` with a message like:
-- "Your agency wallet has no credits. Contact your administrator."
-- "Your account has no credits. Please top up or request credits from your agency."
+**Error codes returned to frontend:**
+- `insufficient_credits` → "Your account has no credits. Please top up or request credits from your agency."
+- `agency_master_lock` → "Sending is temporarily paused by your agency. Please contact your administrator."
 
 ---
 
-## 4. Auto-Recharge Cron Job
+## 5. Auto-Recharge Cron (`api/billing/auto_recharge_cron.php`)
 
-Create a Cloud Scheduler / cron job `api/billing/auto_recharge_cron.php`:
-1. Query all `integrations` docs where `auto_recharge_enabled = true AND credit_balance < auto_recharge_threshold`
-2. For each, trigger a payment charge against their saved card/method for `auto_recharge_amount`
-3. On success: add credits, log `type=auto_recharge`
-4. Repeat for `agency_wallet` docs
+Runs every 15 minutes via Cloud Scheduler:
 
-**Suggested schedule:** Every 15 minutes.
+1. Query `integrations` docs where `auto_recharge_enabled = true AND credit_balance < auto_recharge_threshold`
+2. For each, trigger payment charge for `auto_recharge_amount` (via payment provider)
+3. On success: add credits to subaccount, log `type=auto_recharge`
+4. Separately: query `agency_wallet` docs where same condition, recharge agency wallet
+
+Both operate completely **independently** of each other.
 
 ---
 
-## 5. Transaction Log Convention (inherit from existing `credit_transactions`)
+## 6. Transaction Log Schema (`credit_transactions` collection)
 
-Reuse your existing `credit_transactions` Firestore collection. Add a new top-level field `wallet_scope`:
+Reuse the existing collection. Add/ensure these fields:
+
 ```
-wallet_scope: "agency" | "subaccount"
+wallet_scope: "agency" | "subaccount"   // who was deducted/credited
+type: string                             // see type table above
+deducted_from: "subaccount" | "agency"  // physical deduction location
+provider_cost: number                    // real cost to you (for sms_usage)
+charged: number                          // what you charge the client
+profit: number                           // charged - provider_cost
+provider: "telnyx" | "twilio" | null
+balance_after: number
 ```
-So agency-level credits are stored alongside subaccount credits but can be filtered distinctly.
 
 ---
 
 ## Summary Checklist for Backend Team
 
-- [ ] Create `agency_wallet` Firestore collection + seed docs
-- [ ] Add auto-recharge fields to `integrations` docs
-- [ ] Create `api/billing/agency_wallet.php` (GET + POST actions)
-- [ ] Create `api/billing/subaccount_wallet.php` (GET + POST actions)
-- [ ] Create `api/billing/credit_requests.php` (GET + POST actions)
-- [ ] Create `api/billing/transactions.php` (GET)
-- [ ] Update `CreditManager.php` send guard to check agency + subaccount balance
-- [ ] Update `credit_transactions` logs with `wallet_scope` field + `balance_after`
-- [ ] Create auto-recharge cron script
-- [ ] (Optional) Payment provider webhook to handle top-up confirmations
+### Firestore
+- [ ] Create `agency_wallet` collection (with `enforce_master_balance_lock` field)
+- [ ] Add `auto_recharge_*` fields to `integrations` docs
 
-*Frontend: Fully designed and ready to wire up once endpoints are live.*
+### API Files
+- [ ] `api/billing/agency_wallet.php` — GET, POST: `set_auto_recharge`, `set_master_lock`, `gift`
+- [ ] `api/billing/subaccount_wallet.php` — GET, POST: `set_auto_recharge`, `request_credits`
+- [ ] `api/billing/credit_requests.php` — GET, POST: `approve`, `deny`
+- [ ] `api/billing/transactions.php` — GET (by scope + month)
+
+### Core Logic
+- [ ] Update `CreditManager.php` — deduct **only subaccount** wallet on SMS send
+- [ ] Add optional `enforce_master_balance_lock` check in send handler
+- [ ] Add profit/cost metadata to every SMS transaction log
+- [ ] Update `credit_transactions` schema with `wallet_scope`, `provider_cost`, `charged`, `profit`
+- [ ] Create auto-recharge cron script (agency and subaccount run independently)
+- [ ] Payment provider webhook to apply credits on successful purchase
+
+*Frontend: Fully built and ready to connect once endpoints are live.*

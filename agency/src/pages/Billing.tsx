@@ -22,12 +22,13 @@ interface AgencyWallet {
   auto_recharge_enabled: boolean;
   auto_recharge_amount: number;
   auto_recharge_threshold: number;
+  enforce_master_balance_lock: boolean;
   updated_at?: string;
 }
 
 interface Transaction {
   id: string;
-  type: 'deduction' | 'top_up' | 'gift_sent' | 'gift_received' | 'auto_recharge' | 'request_approved';
+  type: 'top_up' | 'gift_sent' | 'gift_received' | 'auto_recharge' | 'request_approved' | 'credit_distribution';
   amount: number;
   balance_after: number;
   description: string;
@@ -73,10 +74,10 @@ function fmtDate(iso: string) {
 function txIcon(type: string) {
   switch (type) {
     case 'top_up': case 'auto_recharge': return { icon: <FiArrowDownLeft />, color: 'text-emerald-500', bg: 'bg-emerald-500/10' };
-    case 'gift_sent': return { icon: <FiGift />, color: 'text-purple-500', bg: 'bg-purple-500/10' };
+    case 'gift_sent': case 'credit_distribution': return { icon: <FiGift />, color: 'text-purple-500', bg: 'bg-purple-500/10' };
     case 'gift_received': return { icon: <FiGift />, color: 'text-emerald-500', bg: 'bg-emerald-500/10' };
     case 'request_approved': return { icon: <FiCheck />, color: 'text-blue-500', bg: 'bg-blue-500/10' };
-    default: return { icon: <FiArrowUpRight />, color: 'text-red-500', bg: 'bg-red-500/10' };
+    default: return { icon: <FiArrowUpRight />, color: 'text-amber-500', bg: 'bg-amber-500/10' };
   }
 }
 
@@ -361,6 +362,10 @@ export const Billing: React.FC = () => {
   const [arThreshold, setArThreshold] = useState(100);
   const [arSaving, setArSaving] = useState(false);
 
+  // Master balance lock (optional feature)
+  const [masterLock, setMasterLock] = useState(false);
+  const [masterLockSaving, setMasterLockSaving] = useState(false);
+
   // Transactions
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [txLoading, setTxLoading] = useState(true);
@@ -396,7 +401,7 @@ export const Billing: React.FC = () => {
     } catch {
       if (!mountedRef.current) return;
       // Use mock data when endpoint isn't live yet
-      setWallet({ balance: 0, auto_recharge_enabled: false, auto_recharge_amount: 500, auto_recharge_threshold: 100 });
+      setWallet({ balance: 0, auto_recharge_enabled: false, auto_recharge_amount: 500, auto_recharge_threshold: 100, enforce_master_balance_lock: false });
     } finally {
       if (mountedRef.current) setWalletLoading(false);
     }
@@ -478,6 +483,28 @@ export const Billing: React.FC = () => {
     }
   };
 
+  // ── Save master balance lock ────────────────────────────────────────────────
+  const saveMasterLock = async (val: boolean) => {
+    setMasterLock(val);
+    setMasterLockSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/billing/agency_wallet.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'set_master_lock', agency_id: effectiveAgencyId, enabled: val }),
+      });
+      const data = await res.json();
+      if (data.success) showToast(val ? 'Master balance lock enabled.' : 'Master balance lock disabled.', 'info');
+      else throw new Error(data.error);
+    } catch {
+      showToast('Failed to update master balance lock.', 'error');
+      setMasterLock(v => !v); // revert
+    } finally {
+      setMasterLockSaving(false);
+    }
+  };
+
   // ── Top up modal trigger ────────────────────────────────────────────────────
   const handleTopUp = () => {
     setTopUpModalOpen(true);
@@ -518,7 +545,7 @@ export const Billing: React.FC = () => {
   const isLow = balance < 100;
 
   return (
-    <AgencyLayout title="Credits & Billing" subtitle="Manage agency wallet, auto-recharge, gift credits, and subaccount requests">
+    <AgencyLayout title="Credits & Billing" subtitle="Agency funding wallet — distribute credits to subaccounts and manage top-ups">
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {topUpModalOpen && (
@@ -575,7 +602,7 @@ export const Billing: React.FC = () => {
           <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] rounded-2xl p-6 shadow-sm">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <div className="text-[12px] font-semibold text-[#6e6e73] dark:text-[#9aa0a9] uppercase tracking-wider mb-2">Your Wallet Balance</div>
+                <div className="text-[12px] font-semibold text-[#6e6e73] dark:text-[#9aa0a9] uppercase tracking-wider mb-2">Agency Funding Wallet</div>
                 {walletLoading ? (
                   <Skeleton className="h-10 w-36" />
                 ) : (
@@ -647,17 +674,46 @@ export const Billing: React.FC = () => {
             </div>
           </div>
 
-          {/* 0-balance warning */}
-          {!walletLoading && balance === 0 && (
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/5 border border-red-500/20 text-red-500">
+          {/* Low-balance informational nudge (non-blocking by default) */}
+          {!walletLoading && balance < 100 && !masterLock && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 text-amber-600 dark:text-amber-400">
               <FiAlertTriangle className="w-5 h-5 flex-shrink-0" />
               <div>
-                <div className="text-[13px] font-bold">Agency wallet is empty</div>
-                <div className="text-[12px] text-red-400 mt-0.5">SMS sending is disabled for all subaccounts until you add balance.</div>
+                <div className="text-[13px] font-bold">Agency wallet is running low</div>
+                <div className="text-[12px] opacity-80 mt-0.5">Subaccounts can still send SMS. Top up or distribute credits to stay ahead.</div>
               </div>
-              <button onClick={handleTopUp} className="ml-auto flex-shrink-0 px-4 py-2 rounded-lg bg-red-500 text-white text-[12.5px] font-bold hover:bg-red-600 transition-colors shadow-sm">
+              <button onClick={handleTopUp} className="ml-auto flex-shrink-0 px-4 py-2 rounded-lg bg-amber-500 text-white text-[12.5px] font-bold hover:bg-amber-600 transition-colors shadow-sm">
                 Add Balance
               </button>
+            </div>
+          )}
+
+          {/* Master balance lock (optional) */}
+          {!walletLoading && (
+            <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] rounded-2xl p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[13.5px] font-bold text-[#111111] dark:text-white">Master Balance Lock</div>
+                  <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a9] mt-1 max-w-sm">
+                    When enabled, sending is blocked for <strong>all subaccounts</strong> when this agency wallet reaches 0. Off by default — subaccounts use only their own balances.
+                  </div>
+                </div>
+                <button
+                  onClick={() => saveMasterLock(!masterLock)}
+                  disabled={masterLockSaving}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none mt-0.5 disabled:opacity-50 ${
+                    masterLock ? 'bg-red-500' : 'bg-gray-200 dark:bg-[#3a3b3f]'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${masterLock ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              {masterLock && balance === 0 && (
+                <div className="mt-3 flex items-center gap-2 text-[12px] text-red-500 font-semibold">
+                  <FiAlertTriangle className="w-3.5 h-3.5" />
+                  Master lock is ON and wallet is empty — all subaccounts are currently blocked from sending.
+                </div>
+              )}
             </div>
           )}
 
@@ -709,9 +765,9 @@ export const Billing: React.FC = () => {
                 /* Summary view */
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {[
-                    { label: 'Credits Added', value: transactions.filter(t => ['top_up', 'auto_recharge', 'gift_received'].includes(t.type)).reduce((s, t) => s + Math.abs(t.amount), 0), color: 'text-emerald-500', bg: 'bg-emerald-500/10', icon: <FiArrowDownLeft /> },
-                    { label: 'Credits Used', value: transactions.filter(t => t.type === 'deduction').reduce((s, t) => s + Math.abs(t.amount), 0), color: 'text-red-500', bg: 'bg-red-500/10', icon: <FiSend /> },
-                    { label: 'Gifted Out', value: transactions.filter(t => t.type === 'gift_sent').reduce((s, t) => s + Math.abs(t.amount), 0), color: 'text-purple-500', bg: 'bg-purple-500/10', icon: <FiGift /> },
+                    { label: 'Credits Added', value: transactions.filter(t => ['top_up', 'auto_recharge'].includes(t.type)).reduce((s, t) => s + Math.abs(t.amount), 0), color: 'text-emerald-500', bg: 'bg-emerald-500/10', icon: <FiArrowDownLeft /> },
+                    { label: 'Distributed Out', value: transactions.filter(t => ['gift_sent', 'credit_distribution', 'request_approved'].includes(t.type)).reduce((s, t) => s + Math.abs(t.amount), 0), color: 'text-purple-500', bg: 'bg-purple-500/10', icon: <FiGift /> },
+                    { label: 'Auto-Recharged', value: transactions.filter(t => t.type === 'auto_recharge').reduce((s, t) => s + Math.abs(t.amount), 0), color: 'text-blue-500', bg: 'bg-blue-500/10', icon: <FiRefreshCw /> },
                   ].map(s => (
                     <div key={s.label} className="bg-[#f7f7f7] dark:bg-white/[0.03] rounded-xl p-4">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2.5 ${s.bg} ${s.color}`}>{s.icon}</div>
