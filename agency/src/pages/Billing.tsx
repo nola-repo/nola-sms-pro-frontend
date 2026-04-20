@@ -12,6 +12,9 @@ import { ToastContainer } from '../components/ui/ToastContainer.tsx';
 // ─── Constants ────────────────────────────────────────────────────────────────
 const AGENCY_ID = '0OYXPGWM9ep2I37dgxAo';
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
+// Shared API secret — must match WEBHOOK_SECRET env var on the backend
+const WEBHOOK_SECRET = import.meta.env.VITE_WEBHOOK_SECRET || 'f7RkQ2pL9zV3tX8cB1nS4yW6';
+const AUTH_HEADERS = { 'Content-Type': 'application/json', 'X-Webhook-Secret': WEBHOOK_SECRET };
 
 const RECHARGE_AMOUNTS = [100, 250, 500, 1000, 2000, 5000];
 const RECHARGE_THRESHOLDS = [25, 50, 100, 200, 500];
@@ -109,7 +112,7 @@ const GiftCreditsModal: React.FC<{
     try {
       const res = await fetch(`${API_BASE}/api/billing/agency_wallet.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: AUTH_HEADERS,
         credentials: 'include',
         body: JSON.stringify({ action: 'gift', location_id: selectedId, amount, note, agency_id: AGENCY_ID }),
       });
@@ -391,7 +394,7 @@ export const Billing: React.FC = () => {
   const fetchWallet = useCallback(async () => {
     setWalletLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/billing/agency_wallet.php?agency_id=${effectiveAgencyId}`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/billing/agency_wallet.php?agency_id=${effectiveAgencyId}`, { credentials: 'include', headers: { 'X-Webhook-Secret': WEBHOOK_SECRET } });
       const data = await res.json();
       if (!mountedRef.current) return;
       setWallet(data);
@@ -411,7 +414,7 @@ export const Billing: React.FC = () => {
   const fetchTransactions = useCallback(async () => {
     setTxLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/billing/transactions.php?scope=agency&agency_id=${effectiveAgencyId}&month=${txMonth}`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/billing/transactions.php?scope=agency&agency_id=${effectiveAgencyId}&month=${txMonth}`, { credentials: 'include', headers: { 'X-Webhook-Secret': WEBHOOK_SECRET } });
       const data = await res.json();
       if (!mountedRef.current) return;
       setTransactions(data.transactions || []);
@@ -427,7 +430,7 @@ export const Billing: React.FC = () => {
   const fetchRequests = useCallback(async () => {
     setReqLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/billing/credit_requests.php?agency_id=${effectiveAgencyId}`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/billing/credit_requests.php?agency_id=${effectiveAgencyId}`, { credentials: 'include', headers: { 'X-Webhook-Secret': WEBHOOK_SECRET } });
       const data = await res.json();
       if (!mountedRef.current) return;
       const reqs: CreditRequest[] = data.requests || [];
@@ -444,7 +447,7 @@ export const Billing: React.FC = () => {
   // ── Fetch subaccounts for gift modal ────────────────────────────────────────
   const fetchSubaccounts = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/agency/get_subaccounts.php?agency_id=${effectiveAgencyId}`, { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/api/agency/get_subaccounts.php?agency_id=${effectiveAgencyId}`, { credentials: 'include', headers: { 'X-Webhook-Secret': WEBHOOK_SECRET, 'X-Agency-ID': effectiveAgencyId } });
       const data = await res.json();
       if (!mountedRef.current) return;
       setSubaccounts(data.subaccounts || []);
@@ -469,7 +472,7 @@ export const Billing: React.FC = () => {
     try {
       const res = await fetch(`${API_BASE}/api/billing/agency_wallet.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: AUTH_HEADERS,
         credentials: 'include',
         body: JSON.stringify({ action: 'set_auto_recharge', agency_id: effectiveAgencyId, enabled: arEnabled, amount: arAmount, threshold: arThreshold }),
       });
@@ -490,7 +493,7 @@ export const Billing: React.FC = () => {
     try {
       const res = await fetch(`${API_BASE}/api/billing/agency_wallet.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: AUTH_HEADERS,
         credentials: 'include',
         body: JSON.stringify({ action: 'set_master_lock', agency_id: effectiveAgencyId, enabled: val }),
       });
@@ -516,7 +519,7 @@ export const Billing: React.FC = () => {
     try {
       const res = await fetch(`${API_BASE}/api/billing/credit_requests.php`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: AUTH_HEADERS,
         credentials: 'include',
         body: JSON.stringify({ action, request_id: requestId, agency_id: effectiveAgencyId }),
       });
@@ -627,10 +630,6 @@ export const Billing: React.FC = () => {
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#2b83fa] hover:bg-[#1d6bd4] text-white text-[13px] font-bold shadow-md shadow-[#2b83fa]/25 transition-all hover:shadow-[#2b83fa]/40">
                   <FiPlus className="w-4 h-4" /> Add Balance
                 </button>
-                <button onClick={() => setGiftModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[13px] font-bold shadow-md shadow-purple-500/20 transition-all">
-                  <FiGift className="w-4 h-4" /> Gift Credits
-                </button>
               </div>
             </div>
 
@@ -670,6 +669,25 @@ export const Billing: React.FC = () => {
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#f0f2f8] dark:bg-[#1c1e21] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] text-[12.5px] font-semibold text-[#6e6e73] dark:text-[#9aa0a9] hover:text-[#111111] dark:hover:text-white transition-colors disabled:opacity-50">
                 {arSaving ? <FiRefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FiCheck className="w-3.5 h-3.5" />}
                 Save
+              </button>
+            </div>
+          </div>
+
+          {/* ── Gift Credits Card ──────────────────────────────────────────────── */}
+          <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 flex-shrink-0">
+                  <FiGift className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-[13.5px] font-bold text-[#111111] dark:text-white">Gift Credits to Subaccount</div>
+                  <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a9] mt-0.5">Transfer credits directly from your agency wallet to any subaccount.</div>
+                </div>
+              </div>
+              <button onClick={() => setGiftModalOpen(true)}
+                className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[13px] font-bold shadow-md shadow-purple-500/20 hover:shadow-purple-500/40 transition-all">
+                <FiGift className="w-4 h-4" /> Gift Credits
               </button>
             </div>
           </div>
