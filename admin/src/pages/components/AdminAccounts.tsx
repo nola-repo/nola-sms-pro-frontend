@@ -306,21 +306,10 @@ export const AdminAccounts: React.FC = () => {
                         </div>
 
                         <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-5">
-                            Update tracking tools and the permanent Sender ID configuration for <span className="font-semibold text-[#111111] dark:text-white">{managingAccount.location_name || managingAccount.location_id}</span>.
+                            Update the credit balance for <span className="font-semibold text-[#111111] dark:text-white">{managingAccount.location_name || managingAccount.location_id}</span>.
                         </p>
 
                         <form onSubmit={submitManageSender} className="space-y-4">
-                            <div>
-                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Approved Sender ID</label>
-                                <input
-                                    required
-                                    value={manageSenderId}
-                                    onChange={(e) => setManageSenderId(e.target.value)}
-                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
-                                />
-                            </div>
-
-
                             <div className="pt-1">
                                 <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Credit Balance</label>
                                 <div className="flex items-center gap-2">
