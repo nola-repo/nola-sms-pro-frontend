@@ -43,17 +43,12 @@ export const AdminAgencies: React.FC = () => {
         if (isInitial) setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${ADMIN_API}?action=accounts`);
+            const res = await fetch(`${ADMIN_API}?action=agencies`);
             const json = await res.json();
             if (json.status === 'success') {
-                const mappedAccounts = (json.data || []).map((item: any) => {
-                    if (item.data) return { id: item.id, ...item.data };
-                    return item;
-                }).filter((acc: any) => acc.id !== 'ghl' && acc.location_id);
-                
-                setAccounts(mappedAccounts);
+                setAccounts(json.data || []);
             } else {
-                setError(json.message || 'Failed to load accounts.');
+                setError(json.message || 'Failed to load agencies.');
             }
             setLastRefreshed(new Date());
         } catch {
@@ -113,27 +108,28 @@ export const AdminAgencies: React.FC = () => {
             ) : accounts.length === 0 ? (
                 <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
                     <FiUsers className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                    <p className="text-[14px] font-semibold">No accounts found.</p>
+                    <p className="text-[14px] font-semibold">No agencies found.</p>
                 </div>
             ) : (
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-[#e5e5e5] dark:border-white/5">
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Account / Location ID</th>
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Sender ID</th>
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">API Key</th>
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Credits</th>
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Free Used</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Agency Name</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Email</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Phone</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Company ID</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Status</th>
                                 <th className="pb-3 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
-                            {(() => {
+                             {(() => {
                                 const filteredAccounts = accounts.filter(acc => 
-                                    acc.location_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                    acc.location_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                    acc.approved_sender_id?.toLowerCase().includes(searchTerm.toLowerCase())
+                                    acc.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                    acc.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                    acc.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                    acc.company_id?.toLowerCase().includes(searchTerm.toLowerCase())
                                 );
                                 
                                 const currentAccounts = filteredAccounts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -143,77 +139,32 @@ export const AdminAgencies: React.FC = () => {
                                     <td className="py-4 pr-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 rounded-full bg-[#f0f0f0] dark:bg-white/5 flex items-center justify-center text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6]">
-                                                {acc.location_name ? acc.location_name.substring(0, 2).toUpperCase() : '?'}
+                                                {acc.firstName ? acc.firstName.substring(0, 1).toUpperCase() : '?'}
                                             </div>
                                             <div>
-                                                <p className="font-bold text-[13px] text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors">{acc.location_name || '—'}</p>
-                                                <p className="text-[10px] text-[#9aa0a6] font-mono mt-0.5">{acc.location_id}</p>
+                                                <p className="font-bold text-[13px] text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors">{acc.firstName} {acc.lastName}</p>
+                                                <p className="text-[10px] text-[#9aa0a6] font-mono mt-0.5">ID: {acc.id}</p>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="py-4 pr-4">
-                                        {acc.approved_sender_id
-                                            ? <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/10 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold border border-emerald-200 dark:border-emerald-800/30 uppercase tracking-wider">{acc.approved_sender_id}</span>
-                                            : <span className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest pl-2">System</span>}
+                                        <span className="text-[13px] text-[#111111] dark:text-white font-medium">{acc.email}</span>
                                     </td>
                                     <td className="py-4 pr-4">
-                                        {(() => {
-                                            const apiKey = acc.semaphore_api_key || acc.nola_pro_api_key || acc.api_key;
-                                            const isVisible = visibleApiKeyId === acc.id;
-                                            
-                                            return apiKey ? (
-                                                <div className="flex items-center gap-2 group/key">
-                                                    <div className={`px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-2 ${isVisible ? 'bg-blue-50/50 border-blue-200 dark:bg-blue-500/5 dark:border-blue-500/20' : 'bg-[#f7f7f7] border-[#e5e5e5] dark:bg-white/5 dark:border-white/10'}`}>
-                                                        <span className="text-[11px] font-mono text-[#444] dark:text-[#ccc] tabular-nums">
-                                                            {isVisible ? apiKey : '••••••••••••'}
-                                                        </span>
-                                                        <div className="flex items-center gap-1 border-l border-[#e5e5e5] dark:border-white/10 pl-1.5 ml-0.5">
-                                                            <button 
-                                                                onClick={() => setVisibleApiKeyId(isVisible ? null : acc.id)}
-                                                                className="p-0.5 text-[#9aa0a6] hover:text-[#2b83fa] transition-colors"
-                                                                title={isVisible ? 'Hide Key' : 'Show Key'}
-                                                            >
-                                                                {isVisible ? <FiEyeOff size={13} /> : <FiEye size={13} />}
-                                                            </button>
-                                                            <button 
-                                                                onClick={async (e) => {
-                                                                    e.stopPropagation();
-                                                                    await navigator.clipboard.writeText(apiKey || '');
-                                                                }}
-                                                                className="p-0.5 text-[#9aa0a6] hover:text-[#2b83fa] transition-colors"
-                                                                title="Copy API Key"
-                                                            >
-                                                                <FiCopy size={13} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <span className="text-[11px] font-medium text-[#9aa0a6] opacity-60 flex items-center gap-1 pl-2">
-                                                    {acc.approved_sender_id ? (
-                                                        <><FiX size={10} /> Missing</>
-                                                    ) : (
-                                                        <>—</>
-                                                    )}
-                                                </span>
-                                            );
-                                        })()}
+                                        <span className="text-[13px] text-[#111111] dark:text-white font-medium">{acc.phone || '—'}</span>
+                                    </td>
+                                    <td className="py-4 pr-4 text-center">
+                                        {acc.company_id ? (
+                                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-400 text-[11px] font-bold border border-blue-200 dark:border-blue-800/30 uppercase tracking-wider">{acc.company_id}</span>
+                                        ) : (
+                                            <span className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest pl-2 italic">Not Linked</span>
+                                        )}
                                     </td>
                                     <td className="py-4 pr-4">
-                                        <div className="flex flex-col">
-                                            <span className="text-[13px] font-bold text-[#111111] dark:text-white">{(acc.credit_balance ?? acc.credits ?? 0).toLocaleString()}</span>
-                                            <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">Balance</span>
-                                        </div>
-                                    </td>
-                                    <td className="py-4 pr-4">
-                                        <div className={`inline-flex flex-col p-1.5 rounded-xl border ${ (acc.free_usage_count ?? 0) >= (acc.free_credits_total ?? 10) ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/20' : 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20' }`}>
-                                            <span className={`text-[12px] font-black text-center ${ (acc.free_usage_count ?? 0) >= (acc.free_credits_total ?? 10) ? 'text-red-600 dark:text-red-400' : 'text-[#2b83fa]' }`}>
-                                                {acc.free_usage_count ?? 0} / {acc.free_credits_total ?? 10}
-                                            </span>
-                                            <div className="w-10 h-1 bg-gray-200 dark:bg-gray-800 rounded-full mt-1 overflow-hidden">
-                                                <div className={`h-full ${(acc.free_usage_count ?? 0) >= (acc.free_credits_total ?? 10) ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(((acc.free_usage_count ?? 0) / (acc.free_credits_total ?? 10)) * 100, 100)}%` }}></div>
-                                            </div>
-                                        </div>
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${acc.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30 shadow-sm' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900/10 dark:text-gray-400 dark:border-gray-800/30'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${acc.active !== false ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-400'}`} />
+                                            {acc.active !== false ? 'Active' : 'Inactive'}
+                                        </span>
                                     </td>
                                     <td className="py-4">
                                         <div className="flex items-center gap-2 transition-opacity">
@@ -226,7 +177,7 @@ export const AdminAgencies: React.FC = () => {
                                                     setManageFreeCreditsTotal(acc.free_credits_total ?? 10);
                                                 }}
                                                 className="p-2 rounded-xl text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
-                                                title="Manage Account"
+                                                title="Manage Agency"
                                             >
                                                 <FiSettings className="w-4 h-4" />
                                             </button>
@@ -241,9 +192,10 @@ export const AdminAgencies: React.FC = () => {
                     {/* Pagination Controls */}
                     {(() => {
                         const filteredAccounts = accounts.filter(acc => 
-                            acc.location_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            acc.location_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            acc.approved_sender_id?.toLowerCase().includes(searchTerm.toLowerCase())
+                            acc.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            acc.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            acc.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            acc.company_id?.toLowerCase().includes(searchTerm.toLowerCase())
                         );
                         const totalPages = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
                         if (totalPages <= 1) return null;
@@ -298,7 +250,7 @@ export const AdminAgencies: React.FC = () => {
                     <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between mb-5">
                             <h3 className="text-[18px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                                <FiSettings className="text-[#2b83fa]" /> Manage Account Config
+                                <FiSettings className="text-[#2b83fa]" /> Manage Agency Config
                             </h3>
                             <button onClick={() => setManagingAccount(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
                                 <FiX className="w-5 h-5" />
@@ -335,7 +287,7 @@ export const AdminAgencies: React.FC = () => {
                                         <FiPlus className="w-4 h-4" />
                                     </button>
                                 </div>
-                                <p className="text-[11px] text-[#9aa0a6] mt-2">Adjust the account's total SMS credits balance.</p>
+                                <p className="text-[11px] text-[#9aa0a6] mt-2">Adjust the agency's total SMS credits balance.</p>
                             </div>
 
                             <div className="pt-4 flex flex-col gap-3">
