@@ -159,7 +159,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                     <div className="space-y-3">
                         {[
                             { tab: 'requests', label: 'Review Sender Requests', desc: `${pendingRequests} pending approval`, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20', icon: <FiSend className="h-6 w-6" />, badge: pendingRequests, hoverBorder: 'hover:border-amber-500/30 hover:shadow-amber-500/10' },
-                            { tab: 'accounts', label: 'View All Accounts', desc: `${totalAccounts} total installed subaccounts`, color: 'text-[#2b83fa] bg-blue-50 dark:bg-blue-900/20', icon: <FiUsers className="h-6 w-6" />, badge: 0, hoverBorder: 'hover:border-[#2b83fa]/30 hover:shadow-blue-500/10' },
+                            { tab: 'accounts', label: 'View All Subaccounts', desc: `${totalAccounts} total installed subaccounts`, color: 'text-[#2b83fa] bg-blue-50 dark:bg-blue-900/20', icon: <FiUsers className="h-6 w-6" />, badge: 0, hoverBorder: 'hover:border-[#2b83fa]/30 hover:shadow-blue-500/10' },
                             { tab: 'settings', label: 'System Settings', desc: 'Global sender ID and free tier config', color: 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800', icon: <FiSettings className="h-6 w-6" />, badge: 0, hoverBorder: 'hover:border-gray-500/30 hover:shadow-gray-500/10' },
                         ].map(item => (
                             <button key={item.tab} onClick={() => onNavigate(item.tab)}

@@ -9,12 +9,14 @@ import { AdminSenderRequests } from './components/SenderRequests';
 import { AdminAccounts } from './components/AdminAccounts';
 import { AdminTeamManagement } from './components/AdminUsersManagement';
 import { AdminLogs, AdminSettings } from './components/SystemSettings';
+import { AdminAgencies } from './components/AdminAgencies';
 
 const NAV_ITEMS = [
     { path: '/dashboard',  label: 'Dashboard',        icon: <FiHome /> },
     { path: '/requests',   label: 'Sender Requests',   icon: <FiSend /> },
     { path: '/activity',   label: 'Platform Activity', icon: <FiActivity /> },
-    { path: '/accounts',   label: 'All Accounts',      icon: <FiUsers /> },
+    { path: '/accounts',   label: 'All Subaccounts',   icon: <FiUsers /> },
+    { path: '/agencies',   label: 'All Agencies',      icon: <FiUsers /> },
     { path: '/admins',     label: 'Admin Users',       icon: <FiShield /> },
     { path: '/settings',   label: 'System Settings',   icon: <FiSettings /> },
 ] as const;
@@ -23,8 +25,9 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
     '/dashboard': { title: 'Dashboard',         subtitle: 'Platform-wide overview of all accounts and activity.' },
     '/requests':  { title: 'Sender Requests',   subtitle: 'Management overview and administrative actions.' },
     '/activity':  { title: 'Platform Activity', subtitle: 'All SMS, credit, and billing events across accounts.' },
-    '/accounts':  { title: 'All Accounts',      subtitle: 'Overview of all mapped GHL subaccounts and credits.' },
-    '/admins':    { title: 'Admin Users',        subtitle: 'Manage admin access and team permissions.' },
+    '/accounts':  { title: 'All Subaccounts',   subtitle: 'Overview of all mapped GHL subaccounts and credits.' },
+    '/agencies':  { title: 'All Agencies',      subtitle: 'Overview of administrative agencies.' },
+    '/admins':    { title: 'Admin Users',       subtitle: 'Manage admin access and team permissions.' },
     '/settings':  { title: 'System Settings',   subtitle: 'Global configuration and platform settings.' },
 };
 
@@ -191,6 +194,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                             <Route path="/requests"   element={<AdminSenderRequests />} />
                             <Route path="/activity"   element={<AdminLogs />} />
                             <Route path="/accounts"   element={<AdminAccounts />} />
+                            <Route path="/agencies"   element={<AdminAgencies />} />
                             <Route path="/admins"     element={<AdminTeamManagement />} />
                             <Route path="/settings"   element={<AdminSettings />} />
                             <Route path="*"           element={<Navigate to="/dashboard" replace />} />
