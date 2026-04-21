@@ -114,10 +114,9 @@ export const AdminAgencies: React.FC = () => {
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-[#e5e5e5] dark:border-white/5">
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Agency Name</th>
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Email</th>
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Phone</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Company Name</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Company ID</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Created At</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Status</th>
                                 <th className="pb-3 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Actions</th>
                             </tr>
@@ -125,9 +124,7 @@ export const AdminAgencies: React.FC = () => {
                         <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
                              {(() => {
                                 const filteredAccounts = accounts.filter(acc => 
-                                    acc.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                    acc.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                    acc.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                    acc.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                                     acc.company_id?.toLowerCase().includes(searchTerm.toLowerCase())
                                 );
                                 
@@ -138,26 +135,23 @@ export const AdminAgencies: React.FC = () => {
                                     <td className="py-4 pr-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 rounded-full bg-[#f0f0f0] dark:bg-white/5 flex items-center justify-center text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6]">
-                                                {acc.firstName ? acc.firstName.substring(0, 1).toUpperCase() : '?'}
+                                                {acc.company_name ? acc.company_name.substring(0, 1).toUpperCase() : '?'}
                                             </div>
                                             <div>
-                                                <p className="font-bold text-[13px] text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors">{acc.firstName} {acc.lastName}</p>
+                                                <p className="font-bold text-[13px] text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors">{acc.company_name || 'Unknown Agency'}</p>
                                                 <p className="text-[10px] text-[#9aa0a6] font-mono mt-0.5">ID: {acc.id}</p>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="py-4 pr-4">
-                                        <span className="text-[13px] text-[#111111] dark:text-white font-medium">{acc.email}</span>
-                                    </td>
-                                    <td className="py-4 pr-4">
-                                        <span className="text-[13px] text-[#111111] dark:text-white font-medium">{acc.phone || '—'}</span>
-                                    </td>
-                                    <td className="py-4 pr-4 text-center">
                                         {acc.company_id ? (
                                             <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-400 text-[11px] font-bold border border-blue-200 dark:border-blue-800/30 uppercase tracking-wider">{acc.company_id}</span>
                                         ) : (
                                             <span className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest pl-2 italic">Not Linked</span>
                                         )}
+                                    </td>
+                                    <td className="py-4 pr-4">
+                                        <span className="text-[13px] text-[#111111] dark:text-white font-medium">{acc.createdAt ? new Date(acc.createdAt).toLocaleDateString() : '—'}</span>
                                     </td>
                                     <td className="py-4 pr-4">
                                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${acc.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30 shadow-sm' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900/10 dark:text-gray-400 dark:border-gray-800/30'}`}>
@@ -188,9 +182,7 @@ export const AdminAgencies: React.FC = () => {
                     {/* Pagination Controls */}
                     {(() => {
                         const filteredAccounts = accounts.filter(acc => 
-                            acc.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            acc.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            acc.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            acc.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             acc.company_id?.toLowerCase().includes(searchTerm.toLowerCase())
                         );
                         const totalPages = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
@@ -254,7 +246,7 @@ export const AdminAgencies: React.FC = () => {
                         </div>
 
                         <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-5">
-                             Update the credit balance for <span className="font-semibold text-[#111111] dark:text-white">{managingAccount.firstName} {managingAccount.lastName}</span>{managingAccount.company_id && <span className="text-[#9aa0a6]"> · {managingAccount.company_id}</span>}.
+                             Update the credit balance for <span className="font-semibold text-[#111111] dark:text-white">{managingAccount.company_name}</span>.
                          </p>
 
                         <form onSubmit={submitManageSender} className="space-y-4">
