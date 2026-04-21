@@ -16,6 +16,7 @@ export const AdminTeamManagement: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [error, setError] = useState<string | null>(null);
     const { toasts, showToast, dismissToast } = useToast();
 
     // Action menu – uses fixed positioning to avoid table clipping
@@ -66,6 +67,7 @@ export const AdminTeamManagement: React.FC = () => {
 
     const fetchAdmins = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
+        setError(null);
         try {
             const res = await fetch('/api/admin_users.php');
             if (res.ok) {
@@ -74,11 +76,21 @@ export const AdminTeamManagement: React.FC = () => {
                 else setError(json.message || 'Failed to fetch admin users.');
             } else {
                 // Graceful fallback before backend is deployed
-                setAdmins(prev => prev.length ? prev : [{ username: 'admin', role: 'super_admin', created_at: new Date().toISOString().split('T')[0], active: true, last_login: null }]);
+                const mockAdmins = [
+                    { username: 'admin', role: 'super_admin', created_at: '2026-03-01', active: true, last_login: '2026-04-15T10:00:00Z' },
+                    { username: 'admin_rae', role: 'super_admin', created_at: '2026-03-24', active: true, last_login: '2026-03-30T16:41:24Z' }
+                ];
+                setAdmins(prev => prev.length > 1 ? prev : mockAdmins);
+                if (isInitial) setError('Backend not reachable. Showing local data.');
             }
             setLastRefreshed(new Date());
         } catch {
-            setAdmins(prev => prev.length ? prev : [{ username: 'admin', role: 'super_admin', created_at: new Date().toISOString().split('T')[0], active: true, last_login: null }]);
+            const mockAdmins = [
+                { username: 'admin', role: 'super_admin', created_at: '2026-03-01', active: true, last_login: '2026-04-15T10:00:00Z' },
+                { username: 'admin_rae', role: 'super_admin', created_at: '2026-03-24', active: true, last_login: '2026-03-30T16:41:24Z' }
+            ];
+            setAdmins(prev => prev.length > 1 ? prev : mockAdmins);
+            if (isInitial) setError('Network error. Using mock data.');
         } finally { if (isInitial) setLoading(false); }
     }, []);
 
@@ -225,6 +237,12 @@ export const AdminTeamManagement: React.FC = () => {
                     <FiPlus className="w-4 h-4" /> Create Admin
                 </button>
             </div>
+
+            {error && (
+                <div className="flex items-center gap-2 px-4 py-3 mb-5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30 text-amber-700 dark:text-amber-400 text-[12px] font-medium animate-in fade-in slide-in-from-top-1">
+                    <FiAlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+                </div>
+            )}
 
             {/* Search */}
             <div className="relative mb-5">
