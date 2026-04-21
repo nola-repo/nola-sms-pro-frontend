@@ -97,9 +97,38 @@ export const AdminAgencies: React.FC = () => {
 
 
     return (
-        <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
+        <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] dark:shadow-[0_2px_15px_rgba(0,0,0,0.2)] overflow-hidden">
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
+            {/* Header */}
+            <div className="px-6 pt-6 pb-5 border-b border-[#e5e5e5] dark:border-white/5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 className="text-[16px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
+                            <FiBriefcase className="w-4 h-4 text-[#2b83fa]" /> All Agencies
+                        </h3>
+                        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Manage all partner agencies and their capabilities.</p>
+                    </div>
+                    <div className="flex items-center gap-2 mb-2 sm:mb-0">
+                        <div className="relative w-full sm:w-64 transform translate-y-1.5 sm:translate-y-0">
+                            <FiSearch className="absolute left-3 top-1/2 -translate-y-[60%] sm:-translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5" />
+                            <input
+                                type="text"
+                                placeholder="Search agencies..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all font-medium"
+                            />
+                            {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"><FiX className="w-3 h-3" /></button>}
+                        </div>
+                        <button onClick={() => fetchAccounts(true)} className="p-2 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl flex-shrink-0">
+                            <FiRefreshCw className={`w-3.5 h-3.5 ${loading && accounts.length === 0 ? 'animate-spin' : ''}`} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="p-6">
             {loading ? (
                 <div className="space-y-3">
                     {[1, 2, 3, 4].map(i => <div key={i} className="h-14 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)}
@@ -294,6 +323,7 @@ export const AdminAgencies: React.FC = () => {
                     </div>
                 </div>
             )}
+            </div>
         </div>
     );
 };
