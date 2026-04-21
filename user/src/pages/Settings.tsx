@@ -933,9 +933,24 @@ const CreditsSection: React.FC = () => {
                         {arSaving ? <FiRefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FiCheck className="w-3.5 h-3.5" />}
                         {arSaved ? 'Saved!' : 'Save'}
                     </button>
+                </div>
+            </Card>
+
+            {/* Request Credits from Agency */}
+            <Card>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 flex-shrink-0">
+                            <FiGift className="w-4.5 h-4.5" />
+                        </div>
+                        <div>
+                            <p className="text-[13.5px] font-bold text-[#111111] dark:text-[#ececf1]">Request Credits from Agency</p>
+                            <p className="text-[11.5px] text-[#9aa0a6]">Ask your agency to top up your credit balance.</p>
+                        </div>
+                    </div>
                     <button onClick={() => setReqModalOpen(true)}
-                        className="ml-auto flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-[12.5px] font-bold text-purple-600 bg-purple-500/10 hover:bg-purple-500/20 transition-colors">
-                        <FiGift className="w-3.5 h-3.5" /> Request Credits from Agency
+                        className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-[12.5px] font-bold text-purple-600 bg-purple-500/10 hover:bg-purple-500/20 hover:shadow-[0_4px_12px_rgba(168,85,247,0.2)] transition-all">
+                        <FiGift className="w-3.5 h-3.5" /> Request Credits
                     </button>
                 </div>
             </Card>

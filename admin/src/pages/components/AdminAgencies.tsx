@@ -73,20 +73,19 @@ export const AdminAgencies: React.FC = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    action: 'manage_sender',
-                    location_id: managingAccount.location_id,
-                    sender_id: manageSenderId,
+                    action: 'manage_agency',
+                    user_id: managingAccount.id,
+                    company_id: managingAccount.company_id,
                     credit_balance: manageCreditBalance,
-                    free_credits_total: manageFreeCreditsTotal
                 }),
             });
             const json = await res.json();
             if (json.status === 'success') {
-                showToast(json.message || 'Sender ID updated successfully.', 'success');
+                showToast(json.message || 'Agency config updated successfully.', 'success');
                 setManagingAccount(null);
                 fetchAccounts();
             } else {
-                showToast(json.message || 'Failed to update sender.', 'error');
+                showToast(json.message || 'Failed to update agency.', 'error');
             }
         } catch {
             showToast('Network error during update.', 'error');
@@ -171,10 +170,7 @@ export const AdminAgencies: React.FC = () => {
                                             <button
                                                 onClick={() => {
                                                     setManagingAccount(acc);
-                                                    setManageSenderId(acc.approved_sender_id || '');
-                                                    setManageApiKey(acc.nola_pro_api_key || acc.api_key || acc.semaphore_api_key || '');
-                                                    setManageCreditBalance(acc.credit_balance ?? acc.credits ?? 0);
-                                                    setManageFreeCreditsTotal(acc.free_credits_total ?? 10);
+                                                    setManageCreditBalance(acc.credit_balance ?? 0);
                                                 }}
                                                 className="p-2 rounded-xl text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
                                                 title="Manage Agency"
@@ -258,8 +254,8 @@ export const AdminAgencies: React.FC = () => {
                         </div>
 
                         <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-5">
-                            Update the credit balance for <span className="font-semibold text-[#111111] dark:text-white">{managingAccount.location_name || managingAccount.location_id}</span>.
-                        </p>
+                             Update the credit balance for <span className="font-semibold text-[#111111] dark:text-white">{managingAccount.firstName} {managingAccount.lastName}</span>{managingAccount.company_id && <span className="text-[#9aa0a6]"> · {managingAccount.company_id}</span>}.
+                         </p>
 
                         <form onSubmit={submitManageSender} className="space-y-4">
                             <div className="pt-1">
