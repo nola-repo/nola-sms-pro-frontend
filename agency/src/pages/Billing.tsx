@@ -401,6 +401,7 @@ export const Billing: React.FC = () => {
       setArEnabled(data.auto_recharge_enabled ?? false);
       setArAmount(data.auto_recharge_amount ?? 500);
       setArThreshold(data.auto_recharge_threshold ?? 100);
+      setMasterLock(data.enforce_master_balance_lock ?? false);
     } catch {
       if (!mountedRef.current) return;
       // Use mock data when endpoint isn't live yet

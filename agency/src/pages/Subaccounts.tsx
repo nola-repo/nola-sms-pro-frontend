@@ -99,7 +99,7 @@ const ResetModal = ({ subaccount, onConfirm, onCancel, loading }) => (
       <div className="text-[16px] font-bold text-[#111111] dark:text-white mb-2">Reset Attempt Counter?</div>
       <div className="text-[13.5px] text-[#6b7280] dark:text-[#9aa0a9] mb-6 leading-relaxed">
         This will reset the send counter for <strong className="text-[#111111] dark:text-white font-semibold">{subaccount?.location_name || subaccount?.location_id}</strong> back
-        to <strong className="text-[#111111] dark:text-white font-semibold">0</strong>. They will immediately be able to send up to their rate limit again.
+        to <strong className="text-[#111111] dark:text-white font-semibold">0</strong>. They will immediately be able to send up to their credit limit again.
       </div>
       <div className="flex gap-2.5 justify-end">
         <button
@@ -335,9 +335,9 @@ export const Subaccounts = () => {
       setSubaccounts(prev =>
         prev.map(s => s.location_id === locationId ? { ...s, rate_limit: newLimit } : s)
       );
-      showToast('Rate limit updated.', 'success');
+      showToast('Credit limit updated.', 'success');
     } catch (e) {
-      showToast(`Failed to update rate limit: ${e.message}`, 'error');
+      showToast(`Failed to update credit limit: ${e.message}`, 'error');
     }
   };
 
@@ -495,7 +495,7 @@ export const Subaccounts = () => {
           <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/5 flex items-center justify-between flex-wrap gap-4">
             <div>
               <div className="text-[15px] font-bold text-[#111111] dark:text-white tracking-tight">All Subaccounts</div>
-              <div className="text-[13px] text-[#6e6e73] dark:text-[#94959b] mt-1">Changes take effect immediately. Rate limit auto-saves on blur.</div>
+              <div className="text-[13px] text-[#6e6e73] dark:text-[#94959b] mt-1">Changes take effect immediately. Credit limit auto-saves on blur.</div>
             </div>
             <div className="relative">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />

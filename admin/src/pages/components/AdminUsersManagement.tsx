@@ -7,6 +7,9 @@ import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
+const USERS_API = '/api/admin_users.php';
+const WEBHOOK_SECRET = 'f7RkQ2pL9zV3tX8cB1nS4yW6';
+const AUTH_HEADERS = { 'Content-Type': 'application/json', 'X-Webhook-Secret': WEBHOOK_SECRET };
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
 
 
@@ -69,7 +72,7 @@ export const AdminTeamManagement: React.FC = () => {
         if (isInitial) setLoading(true);
         setError(null);
         try {
-            const res = await fetch('/api/admin_users.php');
+            const res = await fetch(USERS_API, { headers: AUTH_HEADERS });
             if (res.ok) {
                 const json = await res.json();
                 if (json.status === 'success') setAdmins(json.data || []);
@@ -108,9 +111,9 @@ export const AdminTeamManagement: React.FC = () => {
         e.preventDefault();
         setActionLoading(true);
         try {
-            const res = await fetch('/api/admin_users.php', {
+            const res = await fetch(USERS_API, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: AUTH_HEADERS,
                 body: JSON.stringify({ action: 'create', username: newUsername, password: newPassword, role: newRole })
             });
             if (res.ok) {
@@ -137,9 +140,9 @@ export const AdminTeamManagement: React.FC = () => {
         if (!resetTarget || !resetPassword.trim()) return;
         setActionLoading(true);
         try {
-            const res = await fetch('/api/admin_users.php', {
+            const res = await fetch(USERS_API, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: AUTH_HEADERS,
                 body: JSON.stringify({ action: 'reset_password', username: resetTarget, new_password: resetPassword })
             });
             if (res.ok) {
@@ -162,9 +165,9 @@ export const AdminTeamManagement: React.FC = () => {
         // Optimistic update
         setAdmins(prev => prev.map(a => a.username === admin.username ? { ...a, active: newActive } : a));
         try {
-            const res = await fetch('/api/admin_users.php', {
+            const res = await fetch(USERS_API, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: AUTH_HEADERS,
                 body: JSON.stringify({ action: 'toggle_status', username: admin.username, active: newActive })
             });
             if (res.ok) {
@@ -190,9 +193,9 @@ export const AdminTeamManagement: React.FC = () => {
         if (!confirm(`Are you sure you want to delete '${usernameToDelete}'? This cannot be undone.`)) return;
         setActionLoading(true); setActionMenuId(null);
         try {
-            const res = await fetch('/api/admin_users.php', {
+            const res = await fetch(USERS_API, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
+                headers: AUTH_HEADERS,
                 body: JSON.stringify({ username: usernameToDelete })
             });
             if (res.ok) {

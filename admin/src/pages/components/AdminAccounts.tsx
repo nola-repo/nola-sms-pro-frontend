@@ -150,6 +150,7 @@ export const AdminAccounts: React.FC = () => {
                         <thead>
                             <tr className="border-b border-[#e5e5e5] dark:border-white/5">
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Account / Location ID</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Agency</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Sender ID</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">API Key</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Credits</th>
@@ -162,7 +163,8 @@ export const AdminAccounts: React.FC = () => {
                                 const filteredAccounts = accounts.filter(acc => 
                                     acc.location_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                                     acc.location_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                    acc.approved_sender_id?.toLowerCase().includes(searchTerm.toLowerCase())
+                                    acc.approved_sender_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                    acc.agency_name?.toLowerCase().includes(searchTerm.toLowerCase())
                                 );
                                 
                                 const currentAccounts = filteredAccounts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -179,6 +181,9 @@ export const AdminAccounts: React.FC = () => {
                                                 <p className="text-[10px] text-[#9aa0a6] font-mono mt-0.5">{acc.location_id}</p>
                                             </div>
                                         </div>
+                                    </td>
+                                    <td className="py-4 pr-4">
+                                        <span className="text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">{acc.agency_name || '—'}</span>
                                     </td>
                                     <td className="py-4 pr-4">
                                         {acc.approved_sender_id
