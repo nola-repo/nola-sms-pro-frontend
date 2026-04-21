@@ -601,6 +601,19 @@ export const Billing: React.FC = () => {
       {/* ══════════════════════ WALLET TAB ══════════════════════════════════════ */}
       {tab === 'wallet' && (
         <div className="space-y-5">
+          {/* Low-balance informational nudge (non-blocking by default) */}
+          {!walletLoading && balance < 100 && !masterLock && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 text-amber-600 dark:text-amber-400 animate-in fade-in slide-in-from-top-2 duration-300">
+              <FiAlertTriangle className="w-5 h-5 flex-shrink-0" />
+              <div>
+                <div className="text-[13px] font-bold">Agency wallet is running low</div>
+                <div className="text-[12px] opacity-80 mt-0.5">Subaccounts can still send SMS. Top up or distribute credits to stay ahead.</div>
+              </div>
+              <button onClick={handleTopUp} className="ml-auto flex-shrink-0 px-4 py-2 rounded-lg bg-amber-500 text-white text-[12.5px] font-bold hover:bg-amber-600 transition-colors shadow-sm">
+                Add Balance
+              </button>
+            </div>
+          )}
           {/* Wallet Card */}
           <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] rounded-2xl p-6 shadow-sm">
             <div className="flex items-start justify-between mb-4">
@@ -691,20 +704,6 @@ export const Billing: React.FC = () => {
               </button>
             </div>
           </div>
-
-          {/* Low-balance informational nudge (non-blocking by default) */}
-          {!walletLoading && balance < 100 && !masterLock && (
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 text-amber-600 dark:text-amber-400">
-              <FiAlertTriangle className="w-5 h-5 flex-shrink-0" />
-              <div>
-                <div className="text-[13px] font-bold">Agency wallet is running low</div>
-                <div className="text-[12px] opacity-80 mt-0.5">Subaccounts can still send SMS. Top up or distribute credits to stay ahead.</div>
-              </div>
-              <button onClick={handleTopUp} className="ml-auto flex-shrink-0 px-4 py-2 rounded-lg bg-amber-500 text-white text-[12.5px] font-bold hover:bg-amber-600 transition-colors shadow-sm">
-                Add Balance
-              </button>
-            </div>
-          )}
 
           {/* Master balance lock (optional) */}
           {!walletLoading && (
