@@ -267,7 +267,9 @@ export const AdminTeamManagement: React.FC = () => {
                                         {admin.active !== false ? 'Active' : 'Inactive'}
                                     </span>
                                 </td>
-                                <td className="py-4 font-medium text-[#6e6e73] dark:text-[#9aa0a6]">{admin.created_at || '—'}</td>
+                                <td className="py-4 font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
+                                    {admin.created_at ? new Date(admin.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                </td>
                                 <td className="py-4 font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
                                     {formatLastLogin(admin.last_login)}
                                 </td>

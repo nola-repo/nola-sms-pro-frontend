@@ -145,7 +145,7 @@ export const AdminAgencies: React.FC = () => {
                             <tr className="border-b border-[#e5e5e5] dark:border-white/5">
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Company Name</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Company ID</th>
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Created At</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Created</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Status</th>
                                 <th className="pb-3 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Actions</th>
                             </tr>
@@ -180,7 +180,9 @@ export const AdminAgencies: React.FC = () => {
                                         )}
                                     </td>
                                     <td className="py-4 pr-4">
-                                        <span className="text-[13px] text-[#111111] dark:text-white font-medium">{acc.createdAt ? new Date(acc.createdAt).toLocaleDateString() : '—'}</span>
+                                        <span className="text-[13px] text-[#111111] dark:text-white font-medium">
+                                            {acc.createdAt ? new Date(acc.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                                        </span>
                                     </td>
                                     <td className="py-4 pr-4">
                                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${acc.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30 shadow-sm' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900/10 dark:text-gray-400 dark:border-gray-800/30'}`}>
