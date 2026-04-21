@@ -711,9 +711,8 @@ export const Billing: React.FC = () => {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-[13.5px] font-bold text-[#111111] dark:text-white">Master Balance Lock</div>
-                  <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a9] mt-1 max-w-sm">
-                    When enabled, sending is blocked for all subaccounts when this agency wallet reaches 0.<br />
-                    Off by default — subaccounts use only their own balances.
+                  <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a9] mt-1">
+                    When enabled, sending is blocked for all subaccounts when this agency wallet reaches 0. Off by default — subaccounts use only their own balances.
                   </div>
                 </div>
                 <button
