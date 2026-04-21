@@ -60,6 +60,32 @@ This is a critical handoff for the backend team to build the missing `agency_wal
 }
 ```
 
+#### POST Request - Action: `set_auto_recharge`
+**Purpose:** Updates the agency's auto-recharge preferences.
+**Payload:**
+```json
+{
+  "action": "set_auto_recharge",
+  "agency_id": "X",
+  "enabled": true,
+  "amount": 500,
+  "threshold": 100
+}
+```
+**Expected Response:** `{ "success": true }`
+
+#### POST Request - Action: `set_master_lock`
+**Purpose:** Toggles the platform-wide send block based on agency balance.
+**Payload:**
+```json
+{
+  "action": "set_master_lock",
+  "agency_id": "X",
+  "enabled": true
+}
+```
+**Expected Response:** `{ "success": true }`
+
 ---
 
 ## 2. Firestore Storage Structure
