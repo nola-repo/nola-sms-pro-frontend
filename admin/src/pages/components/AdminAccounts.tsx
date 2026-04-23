@@ -350,7 +350,7 @@ export const AdminAccounts: React.FC = () => {
                     <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between mb-5">
                             <h3 className="text-[18px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                                <FiSettings className="text-[#2b83fa]" /> Manage Account Config
+                                <FiSettings className="text-[#2b83fa]" /> Manage Account Settings & Reports
                             </h3>
                             <button onClick={() => setManagingAccount(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
                                 <FiX className="w-5 h-5" />
@@ -445,7 +445,7 @@ export const AdminAccounts: React.FC = () => {
                                     className="flex items-center justify-center gap-2 w-full px-5 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50"
                                 >
                                     {actionLoading === 'managing' ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiCheck className="w-4 h-4" />}
-                                    Save Config
+                                    Save Config & Reports
                                 </button>
                             </div>
                         </form>
