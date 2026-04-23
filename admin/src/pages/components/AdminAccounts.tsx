@@ -33,6 +33,7 @@ export const AdminAccounts: React.FC = () => {
     const [reportTransactions, setReportTransactions] = useState<any[]>([]);
     const [isLoadingReport, setIsLoadingReport] = useState(false);
     const [reportSelectedMonth, setReportSelectedMonth] = useState('All');
+    const [selectedReportAccount, setSelectedReportAccount] = useState<Account | null>(null);
 
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
@@ -72,6 +73,24 @@ export const AdminAccounts: React.FC = () => {
         const timer = setInterval(() => fetchAccounts(false), POLL_INTERVAL);
         return () => clearInterval(timer);
     }, [fetchAccounts]);
+
+    const fetchReportForAccount = async (acc: Account) => {
+        setSelectedReportAccount(acc);
+        setIsLoadingReport(true);
+        setReportSelectedMonth('All');
+        setReportTransactions([]);
+        try {
+            const res = await fetch(`/api/get_credit_transactions.php?location_id=${acc.location_id}`);
+            const json = await res.json();
+            if (json.status === 'success') {
+                setReportTransactions(json.data || []);
+            }
+        } catch {
+            showToast('Failed to load transaction history.', 'error');
+        } finally {
+            setIsLoadingReport(false);
+        }
+    };
 
     const submitManageSender = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -160,6 +179,7 @@ export const AdminAccounts: React.FC = () => {
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">API Key</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Credits</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Free Used</th>
+                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Report</th>
                                 <th className="pb-3 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -253,6 +273,15 @@ export const AdminAccounts: React.FC = () => {
                                                 <div className={`h-full ${(acc.free_usage_count ?? 0) >= (acc.free_credits_total ?? 10) ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(((acc.free_usage_count ?? 0) / (acc.free_credits_total ?? 10)) * 100, 100)}%` }}></div>
                                             </div>
                                         </div>
+                                    </td>
+                                    <td className="py-4 pr-4 text-center">
+                                        <button
+                                            onClick={() => fetchReportForAccount(acc)}
+                                            className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/10 text-[#2b83fa] hover:bg-[#2b83fa] hover:text-white transition-all border border-blue-100 dark:border-blue-800/30 shadow-sm flex items-center justify-center mx-auto"
+                                            title="Download Credit Report"
+                                        >
+                                            <FiDownload className="w-4 h-4" />
+                                        </button>
                                     </td>
                                     <td className="py-4">
                                         <div className="flex items-center gap-2 transition-opacity">
@@ -350,7 +379,7 @@ export const AdminAccounts: React.FC = () => {
                     <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between mb-5">
                             <h3 className="text-[18px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                                <FiSettings className="text-[#2b83fa]" /> Manage Account Settings & Reports
+                                <FiSettings className="text-[#2b83fa]" /> Manage Account Config
                             </h3>
                             <button onClick={() => setManagingAccount(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
                                 <FiX className="w-5 h-5" />
@@ -445,7 +474,7 @@ export const AdminAccounts: React.FC = () => {
                                     className="flex items-center justify-center gap-2 w-full px-5 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50"
                                 >
                                     {actionLoading === 'managing' ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiCheck className="w-4 h-4" />}
-                                    Save Config & Reports
+                                    Save Config
                                 </button>
                             </div>
                         </form>
@@ -455,6 +484,100 @@ export const AdminAccounts: React.FC = () => {
             </div>
         </div>
 
+            {/* Standalone Report Modal */}
+            {selectedReportAccount && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-3xl p-8 w-full max-w-[440px] shadow-2xl animate-in fade-in zoom-in-95 duration-300 relative overflow-hidden">
+                        {/* Decorative Background Element */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-[#2b83fa]/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none"></div>
+                        
+                        <div className="flex items-center justify-between mb-6 relative">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                                    <FiActivity className="w-5 h-5 text-[#2b83fa]" />
+                                </div>
+                                <div>
+                                    <h3 className="text-[18px] font-black text-[#111111] dark:text-white tracking-tight">Credit Usage Report</h3>
+                                    <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] font-medium leading-none mt-1">Download monthly activity records</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setSelectedReportAccount(null)} className="w-8 h-8 flex items-center justify-center text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-xl transition-all active:scale-90">
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="mb-8 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5">
+                            <p className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Target Account</p>
+                            <p className="text-[14px] font-black text-[#111111] dark:text-white truncate">{selectedReportAccount.location_name || 'System Account'}</p>
+                            <p className="text-[10px] text-[#9aa0a6] font-mono mt-0.5 truncate">{selectedReportAccount.location_id}</p>
+                        </div>
+
+                        <div className="space-y-6 relative">
+                            <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-3 ml-1">Select Reporting Period</label>
+                                
+                                {isLoadingReport ? (
+                                    <div className="py-8 flex flex-col items-center justify-center gap-4 bg-[#fcfcfc] dark:bg-[#0d0e10]/50 rounded-2xl border-2 border-dashed border-[#e5e5e5] dark:border-white/5">
+                                        <div className="relative">
+                                            <FiRefreshCw className="w-8 h-8 text-[#2b83fa] animate-spin opacity-20" />
+                                            <FiClock className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 text-[#2b83fa]" />
+                                        </div>
+                                        <p className="text-[13px] font-bold text-[#111111] dark:text-white">Analyzing transactions...</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="relative group">
+                                            <select
+                                                value={reportSelectedMonth}
+                                                onChange={(e) => setReportSelectedMonth(e.target.value)}
+                                                className="w-full appearance-none pl-12 pr-10 py-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border-2 border-transparent focus:border-[#2b83fa]/50 dark:focus:border-blue-500/30 text-[15px] font-black text-[#111111] dark:text-white focus:outline-none transition-all cursor-pointer shadow-inner"
+                                            >
+                                                <option value="All">Full History ({reportTransactions.length} events)</option>
+                                                {Array.from(new Set(reportTransactions.map(tx => {
+                                                    const ds = tx.timestamp || tx.created_at;
+                                                    return ds ? ds.substring(0, 7) : null;
+                                                }).filter(Boolean))).sort().reverse().map(m => {
+                                                    const [y, mm] = (m as string).split('-');
+                                                    const label = new Date(parseInt(y), parseInt(mm) - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+                                                    const count = reportTransactions.filter(tx => (tx.timestamp || tx.created_at || '').startsWith(m as string)).length;
+                                                    return <option key={m as string} value={m as string}>{label} ({count})</option>;
+                                                })}
+                                            </select>
+                                            <FiClock className="absolute left-4 top-1/2 -translate-y-1/2 text-[#2b83fa] group-hover:scale-110 transition-transform w-5 h-5" />
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#9aa0a6]">
+                                                <FiChevronRight className="w-4 h-4 rotate-90" />
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => generateMonthlyReport(reportSelectedMonth, reportTransactions, 'subaccount', selectedReportAccount.location_name, selectedReportAccount.agency_name)}
+                                            disabled={reportTransactions.length === 0}
+                                            className="group relative w-full overflow-hidden rounded-2xl bg-[#2b83fa] p-[2px] transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 shadow-xl shadow-blue-500/20"
+                                        >
+                                            <div className="flex items-center justify-center gap-3 w-full h-14 bg-[#2b83fa] rounded-[14px]">
+                                                <FiDownload className="w-5 h-5 text-white group-hover:translate-y-0.5 transition-transform" />
+                                                <span className="text-white font-black text-[15px] tracking-tight">Generate PDF Invoice</span>
+                                            </div>
+                                        </button>
+                                        
+                                        {reportTransactions.length === 0 && (
+                                            <div className="flex items-center gap-2 justify-center py-2">
+                                                <FiAlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                                                <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-tight">No data available for this account</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <p className="mt-8 text-[11px] text-center text-[#9aa0a6] font-medium px-4">
+                            PDF reports are securely generated client-side and includes all credit transactions, costs, and content previews.
+                        </p>
+                    </div>
+                </div>
+            )}
         </>
     );
 };
