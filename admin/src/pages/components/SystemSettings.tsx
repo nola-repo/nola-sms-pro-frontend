@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiDownload } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
-import { generateMonthlyReport } from '../utils/pdfGenerator';
+import { generateMonthlyReport } from '../../utils/pdfGenerator';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
