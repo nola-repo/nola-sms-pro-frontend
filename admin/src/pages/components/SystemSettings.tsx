@@ -1,8 +1,9 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiDownload } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
+import { generateMonthlyReport } from '../utils/pdfGenerator';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
@@ -276,13 +277,14 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
     const [copiedContent, setCopiedContent] = useState(false);
     const ITEMS_PER_PAGE = 10;
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+    const [selectedMonth, setSelectedMonth] = useState<string>('All');
 
     useEffect(() => {
         const t = setTimeout(() => setDebouncedSearch(searchTerm), 300);
         return () => clearTimeout(t);
     }, [searchTerm]);
 
-    useEffect(() => { setCurrentPage(1); }, [debouncedSearch, filterType]);
+    useEffect(() => { setCurrentPage(1); }, [debouncedSearch, filterType, selectedMonth]);
 
     const fetchLogs = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
@@ -328,6 +330,13 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
     const filtered = logs.filter(log => {
         const type = getType(log);
         if (filterType !== 'all' && type !== filterType) return false;
+        
+        // Month Filter
+        if (selectedMonth !== 'All') {
+            const rawDate = log.timestamp || log.date_created || log.created_at || '';
+            if (!rawDate.startsWith(selectedMonth)) return false;
+        }
+
         if (debouncedSearch) {
             const q = debouncedSearch.toLowerCase();
             const s = [log.number, log.to, log.message, log.requested_id, log.location_id, log.sendername, log.status].filter(Boolean).join(' ').toLowerCase();
@@ -338,6 +347,11 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
 
     const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
     const currentLogs = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+    const availableMonths = Array.from(new Set(logs.map(log => {
+        const dateStr = log.timestamp || log.date_created || log.created_at;
+        return dateStr ? dateStr.substring(0, 7) : null;
+    }).filter(Boolean))).sort().reverse() as string[];
 
     const pills = [
         { id: 'all', label: 'All', color: 'blue' },
@@ -479,21 +493,48 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                         </h3>
                         <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Platform-wide activity logs across all accounts.</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div className="relative w-full sm:w-64">
-                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5" />
-                            <input
-                                type="text"
-                                placeholder="Search logs..."
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all font-medium"
-                            />
-                            {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"><FiX className="w-3 h-3" /></button>}
+                    <div className="flex items-center gap-3">
+                        {/* Month Selector */}
+                        <div className="relative hover:scale-[1.02] transition-transform">
+                            <select
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(e.target.value)}
+                                className="appearance-none pl-3 pr-8 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer shadow-sm"
+                            >
+                                <option value="All">All Transactions</option>
+                                {availableMonths.map(m => {
+                                    const [y, mm] = m.split('-');
+                                    const label = new Date(parseInt(y), parseInt(mm) - 1).toLocaleString('default', { month: 'short', year: 'numeric' });
+                                    return <option key={m} value={m}>{label}</option>;
+                                })}
+                            </select>
+                            <FiClock className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9aa0a6] pointer-events-none w-3.5 h-3.5" />
                         </div>
-                        <button onClick={() => fetchLogs(true)} className="p-2 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl flex-shrink-0">
-                            <FiRefreshCw className={`w-3.5 h-3.5 ${loading && !logs.length ? 'animate-spin' : ''}`} />
+
+                        {/* Download Report */}
+                        <button
+                            onClick={() => generateMonthlyReport(selectedMonth, filtered, 'admin', 'Platform Activity')}
+                            className="flex items-center gap-2 px-4 py-2 bg-[#2b83fa] hover:bg-[#2b83fa]/90 text-white rounded-xl text-[12px] font-bold transition-all shadow-md shadow-blue-500/10 active:scale-95"
+                        >
+                            <FiDownload className="w-3.5 h-3.5" /> Download PDF
                         </button>
+
+                        <div className="flex items-center gap-2">
+                            <div className="relative w-full sm:w-64">
+                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5" />
+                                <input
+                                    type="text"
+                                    placeholder="Search logs..."
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all font-medium"
+                                />
+                                {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"><FiX className="w-3 h-3" /></button>}
+                            </div>
+                            <button onClick={() => fetchLogs(true)} className="p-2 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl flex-shrink-0">
+                                <FiRefreshCw className={`w-3.5 h-3.5 ${loading && !logs.length ? 'animate-spin' : ''}`} />
+                            </button>
+                        </div>
                     </div>
                 </div>
 

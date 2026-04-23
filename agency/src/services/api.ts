@@ -29,13 +29,30 @@ const handleResponse = async (res: Response) => {
   return json;
 };
 
-// ── GET all subaccounts for this agency ────────────────────────────────────────
+// ── GET all subaccounts for this agency (standardized endpoint) ───────────────
 export const getSubaccounts = async (agencyId) => {
-  const res = await fetch(`${BASE}/get_subaccounts.php`, {
+  // Use the standardized admin endpoint which now supports filtering by company_id
+  const res = await fetch(`/api/admin_sender_requests.php?action=accounts&company_id=${encodeURIComponent(agencyId)}`, {
     method: 'GET',
-    headers: defaultHeaders(agencyId),
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6', // Same secret as admin panel
+    },
   });
-  return handleResponse(res); // { status, subaccounts: [] }
+  const json = await handleResponse(res);
+  
+  // Transform the admin panel's data shape { id, data: { ... } } 
+  // into the flat array shape the agency frontend expects.
+  if (json.status === 'success' && Array.isArray(json.data)) {
+    return {
+      status: 'success',
+      subaccounts: json.data.map((item: any) => ({
+        ...item.data,
+        id: item.id
+      }))
+    };
+  }
+  return json;
 };
 
 // ── POST toggle a single subaccount ON/OFF ────────────────────────────────────

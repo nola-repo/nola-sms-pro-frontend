@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   FiCreditCard, FiRefreshCw, FiZap, FiPlus, FiGift,
   FiInbox, FiCheck, FiX, FiChevronDown, FiAlertTriangle,
-  FiArrowUpRight, FiArrowDownLeft, FiClock, FiSend,
+  FiArrowUpRight, FiArrowDownLeft, FiClock, FiSend, FiDownload,
 } from 'react-icons/fi';
+import { generateMonthlyReport } from '../utils/pdfGenerator';
 import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 import { useToast } from '../hooks/useToast.ts';
@@ -376,6 +377,7 @@ export const Billing: React.FC = () => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [availableMonths, setAvailableMonths] = useState<{ val: string, label: string }[]>([]);
 
   // Credit requests
   const [requests, setRequests] = useState<CreditRequest[]>([]);
@@ -415,7 +417,8 @@ export const Billing: React.FC = () => {
   const fetchTransactions = useCallback(async () => {
     setTxLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/billing/transactions.php?scope=agency&agency_id=${effectiveAgencyId}&month=${txMonth}`, { credentials: 'include', headers: { 'X-Webhook-Secret': WEBHOOK_SECRET } });
+      const monthParam = txMonth === 'All' ? '' : `&month=${txMonth}`;
+      const res = await fetch(`${API_BASE}/api/billing/transactions.php?scope=agency&agency_id=${effectiveAgencyId}${monthParam}`, { credentials: 'include', headers: { 'X-Webhook-Secret': WEBHOOK_SECRET } });
       const data = await res.json();
       if (!mountedRef.current) return;
       setTransactions(data.transactions || []);
@@ -456,6 +459,52 @@ export const Billing: React.FC = () => {
       if (!mountedRef.current) return;
     }
   }, [effectiveAgencyId]);
+
+  // ── Fetch all months that have records ──────────────────────────────────────
+  const fetchAvailableMonths = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/billing/transactions.php?scope=agency&agency_id=${effectiveAgencyId}&limit=2000`, { 
+        credentials: 'include', 
+        headers: { 'X-Webhook-Secret': WEBHOOK_SECRET } 
+      });
+      const data = await res.json();
+      const txs = data.transactions || [];
+      const months = new Set<string>();
+      // Use current month as a baseline
+      months.add(new Date().toISOString().slice(0, 7));
+      
+      txs.forEach((tx: any) => {
+        const dt = tx.timestamp || tx.created_at;
+        if (dt) months.add(dt.slice(0, 7));
+      });
+
+      const sorted = Array.from(months)
+        .sort((a, b) => b.localeCompare(a))
+        .map(m => {
+          const [y, mm] = m.split('-');
+          const d = new Date(parseInt(y), parseInt(mm) - 1);
+          return {
+            val: m,
+            label: d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
+          };
+        });
+            setAvailableMonths([{ val: 'All', label: 'All Transactions' }, ...sorted]);
+    } catch (e) {
+      console.error("Failed to fetch available months", e);
+      // Fallback
+      setAvailableMonths([
+        { val: 'All', label: 'All Transactions' },
+        { 
+          val: new Date().toISOString().slice(0, 7), 
+          label: new Date().toLocaleDateString('en-PH', { month: 'long', year: 'numeric' }) 
+        }
+      ]);
+    }
+  }, [effectiveAgencyId]);
+
+  useEffect(() => {
+    fetchAvailableMonths();
+  }, [fetchAvailableMonths]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -535,15 +584,6 @@ export const Billing: React.FC = () => {
       setActionLoading(prev => ({ ...prev, [requestId]: false }));
     }
   };
-
-  // ── Months for selector ─────────────────────────────────────────────────────
-  const monthOptions = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const label = d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
-    return { val, label };
-  });
 
   const balance = wallet?.balance ?? 0;
   const isLow = balance < 100;
@@ -744,12 +784,19 @@ export const Billing: React.FC = () => {
                 <div className="relative">
                   <select value={txMonth} onChange={e => setTxMonth(e.target.value)}
                     className="pl-3 pr-8 py-1.5 rounded-lg bg-[#f0f2f8] dark:bg-[#1c1e21] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] text-[12.5px] font-semibold text-[#111111] dark:text-white appearance-none focus:outline-none">
-                    {monthOptions.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+                    {availableMonths.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
                   </select>
                   <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#9aa0a6] pointer-events-none" />
                 </div>
                 <button onClick={fetchTransactions} className="p-1.5 rounded-lg text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-all">
                   <FiRefreshCw className={`w-4 h-4 ${txLoading ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  onClick={() => generateMonthlyReport(txMonth, transactions, 'agency', 'Agency Report')}
+                  disabled={txLoading || transactions.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ffffff] border border-transparent hover:bg-[#f3f4f6] dark:hover:bg-[#1f2023] disabled:opacity-50 transition-all ml-2"
+                >
+                  <FiDownload className="w-3.5 h-3.5" /> Download Report
                 </button>
               </div>
             </div>

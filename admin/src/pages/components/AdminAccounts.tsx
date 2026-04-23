@@ -1,10 +1,10 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft } from 'react-icons/fi';
-import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
+import { generateMonthlyReport } from '../../utils/pdfGenerator';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiDownload } from 'react-icons/fi';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
@@ -29,6 +29,12 @@ export const AdminAccounts: React.FC = () => {
     const [manageFreeCreditsTotal, setManageFreeCreditsTotal] = useState<number>(10);
     const [showApiKey, setShowApiKey] = useState(false);
     const [copiedKey, setCopiedKey] = useState(false);
+
+    // PDF Report States
+    const [reportingAccount, setReportingAccount] = useState<Account | null>(null);
+    const [reportTransactions, setReportTransactions] = useState<any[]>([]);
+    const [isLoadingReport, setIsLoadingReport] = useState(false);
+    const [reportSelectedMonth, setReportSelectedMonth] = useState('All');
 
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
@@ -100,9 +106,31 @@ export const AdminAccounts: React.FC = () => {
         }
     };
 
+    const handleOpenReport = async (acc: Account) => {
+        setReportingAccount(acc);
+        setIsLoadingReport(true);
+        setReportSelectedMonth('All');
+        try {
+            const res = await fetch(`/api/get_credit_transactions.php?location_id=${acc.location_id}`);
+            const json = await res.json();
+            if (json.status === 'success') {
+                setReportTransactions(json.data || []);
+            } else {
+                showToast(json.message || 'Failed to load transaction history.', 'error');
+                setReportingAccount(null);
+            }
+        } catch {
+            showToast('Network error loading history.', 'error');
+            setReportingAccount(null);
+        } finally {
+            setIsLoadingReport(false);
+        }
+    };
+
 
 
     return (
+        <>
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] dark:shadow-[0_2px_15px_rgba(0,0,0,0.2)] overflow-hidden">
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
@@ -264,6 +292,13 @@ export const AdminAccounts: React.FC = () => {
                                             >
                                                 <FiSettings className="w-4 h-4" />
                                             </button>
+                                            <button
+                                                onClick={() => handleOpenReport(acc)}
+                                                className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all border border-transparent hover:border-emerald-100 dark:hover:border-emerald-800/30"
+                                                title="Download Report"
+                                            >
+                                                <FiDownload className="w-4 h-4" />
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -390,6 +425,79 @@ export const AdminAccounts: React.FC = () => {
             )}
             </div>
         </div>
+
+        {/* Report Selector Modal */}
+        {reportingAccount && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-7 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between mb-5">
+                        <h3 className="text-[18px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
+                            <FiDownload className="text-[#2b83fa]" /> Download Credit Report
+                        </h3>
+                        <button onClick={() => setReportingAccount(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
+                            <FiX className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {isLoadingReport ? (
+                        <div className="py-12 flex flex-col items-center justify-center space-y-4">
+                            <FiRefreshCw className="w-8 h-8 text-[#2b83fa] animate-spin" />
+                            <p className="text-[14px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">Fetching transaction history...</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            <div>
+                                <p className="text-[14px] font-bold text-[#111111] dark:text-white">{reportingAccount.location_name || reportingAccount.location_id}</p>
+                                <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">Select the reporting period for this account.</p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Select Month</label>
+                                <div className="relative">
+                                    <select
+                                        value={reportSelectedMonth}
+                                        onChange={(e) => setReportSelectedMonth(e.target.value)}
+                                        className="w-full appearance-none pl-4 pr-10 py-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[14px] font-bold text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer"
+                                    >
+                                        <option value="All">All Transactions ({reportTransactions.length})</option>
+                                        {Array.from(new Set(reportTransactions.map(tx => {
+                                            const ds = tx.timestamp || tx.created_at;
+                                            return ds ? ds.substring(0, 7) : null;
+                                        }).filter(Boolean))).sort().reverse().map(m => {
+                                            const [y, mm] = (m as string).split('-');
+                                            const label = new Date(parseInt(y), parseInt(mm) - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+                                            const count = reportTransactions.filter(tx => (tx.timestamp || tx.created_at || '').startsWith(m as string)).length;
+                                            return <option key={m as string} value={m as string}>{label} ({count})</option>;
+                                        })}
+                                    </select>
+                                    <FiClock className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9aa0a6] pointer-events-none w-4 h-4" />
+                                </div>
+                            </div>
+
+                            <div className="pt-2">
+                                <button
+                                    onClick={() => {
+                                        generateMonthlyReport(reportSelectedMonth, reportTransactions, 'subaccount', reportingAccount.location_name, reportingAccount.agency_name);
+                                        setReportingAccount(null);
+                                    }}
+                                    disabled={reportTransactions.length === 0}
+                                    className="flex items-center justify-center gap-2 w-full px-5 py-3.5 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50 disabled:grayscale"
+                                >
+                                    <FiDownload className="w-4 h-4" />
+                                    Generate PDF Report
+                                </button>
+                                {reportTransactions.length === 0 && (
+                                    <p className="text-[11px] text-amber-600 dark:text-amber-500 text-center mt-3 flex items-center justify-center gap-1.5 font-medium">
+                                        <FiAlertCircle size={12} /> No transaction records found for this account.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        )}
+        </>
     );
 };
 

@@ -518,6 +518,7 @@ export const Subaccounts = () => {
                   <th onClick={() => handleSort('rate_limit')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Credit Limit <SortIcon field="rate_limit" /></th>
                   <th onClick={() => handleSort('attempt_count')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Sends Used <SortIcon field="attempt_count" /></th>
                   <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Credits</th>
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Free Used</th>
                   <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap text-right">SMS Active</th>
                 </tr>
               </thead>
@@ -584,6 +585,18 @@ export const Subaccounts = () => {
                               {(sub.credit_balance ?? sub.credits ?? 0).toLocaleString()}
                             </span>
                             <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">balance</span>
+                          </div>
+                        </td>
+
+                        {/* Free Used */}
+                        <td className="px-6 py-4 align-middle">
+                          <div className={`inline-flex flex-col p-1.5 rounded-xl border ${ (sub.free_usage_count ?? 0) >= (sub.free_credits_total ?? 10) ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/20' : 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/20' }`}>
+                              <span className={`text-[12px] font-black text-center ${ (sub.free_usage_count ?? 0) >= (sub.free_credits_total ?? 10) ? 'text-red-600 dark:text-red-400' : 'text-[#2b83fa]' }`}>
+                                  {sub.free_usage_count ?? 0} / {sub.free_credits_total ?? 10}
+                              </span>
+                              <div className="w-10 h-1 bg-gray-200 dark:bg-gray-800 rounded-full mt-1 overflow-hidden">
+                                  <div className={`h-full ${(sub.free_usage_count ?? 0) >= (sub.free_credits_total ?? 10) ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(((sub.free_usage_count ?? 0) / (sub.free_credits_total ?? 10)) * 100, 100)}%` }}></div>
+                              </div>
                           </div>
                         </td>
 
