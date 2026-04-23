@@ -5,8 +5,9 @@ import {
     FiUser, FiSend, FiBell, FiCreditCard,
     FiSave, FiPlus, FiCheck,
     FiGlobe, FiMapPin, FiBriefcase, FiCheckCircle, FiAlertCircle, FiClock,
-    FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown,
+    FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown, FiDownload,
 } from "react-icons/fi";
+import { generateMonthlyReport } from "../utils/pdfGenerator";
 import {
     getAccountSettings, saveAccountSettings,
     getNotificationSettings, saveNotificationSettings,
@@ -594,6 +595,11 @@ const CreditsSection: React.FC = () => {
     const [balanceLoading, setBalanceLoading] = useState(true);
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
     const [txLoading, setTxLoading] = useState(true);
+    const [txMonth, setTxMonth] = useState(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    });
+    const [availableMonths, setAvailableMonths] = useState<{ val: string, label: string }[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
 
@@ -627,7 +633,7 @@ const CreditsSection: React.FC = () => {
         setTxLoading(true);
         const [status, txs, pkgs] = await Promise.all([
             fetchCreditStatus(locationId || undefined),
-            fetchCreditTransactions('default', 50, locationId || undefined),
+            fetchCreditTransactions('default', 500, locationId || undefined, txMonth === 'All' ? undefined : txMonth),
             fetchCreditPackages(),
         ]);
         if (!mountedRef.current) return;
@@ -641,6 +647,33 @@ const CreditsSection: React.FC = () => {
         }
         setBalanceLoading(false);
         setTxLoading(false);
+    }, [locationId, txMonth]);
+
+    useEffect(() => {
+        const fetchAvailableMonths = async () => {
+            const txs = await fetchCreditTransactions('default', 1000, locationId || undefined);
+            const months = new Set<string>();
+            // Use current month as a baseline
+            months.add(new Date().toISOString().slice(0, 7));
+            
+            txs.forEach(tx => {
+                const dt = tx.created_at || (tx as any).timestamp;
+                if (dt) months.add(dt.slice(0, 7));
+            });
+
+            const sorted = Array.from(months)
+                .sort((a, b) => b.localeCompare(a))
+                .map(m => {
+                    const [y, mm] = m.split('-');
+                    const d = new Date(parseInt(y), parseInt(mm) - 1);
+                    return {
+                        val: m,
+                        label: d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
+                    };
+                });
+            setAvailableMonths([{ val: 'All', label: 'All Transactions' }, ...sorted]);
+        };
+        fetchAvailableMonths();
     }, [locationId]);
 
     useEffect(() => {
@@ -1021,9 +1054,29 @@ const CreditsSection: React.FC = () => {
             <Card>
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider">Recent Transactions</h3>
-                    {!txLoading && transactions.length > 0 && (
-                        <span className="text-[11px] text-[#9aa0a6]">{transactions.length} record{transactions.length !== 1 ? 's' : ''}</span>
-                    )}
+                    <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <select
+                                value={txMonth}
+                                onChange={(e) => setTxMonth(e.target.value)}
+                                className="pl-3 pr-8 py-1.5 rounded-lg bg-[#f0f2f8] dark:bg-[#1c1e21] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[12.5px] font-semibold text-[#111111] dark:text-white appearance-none focus:outline-none"
+                            >
+                                {availableMonths.map((m) => (
+                                    <option key={m.val} value={m.val}>
+                                        {m.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#9aa0a6] pointer-events-none" />
+                        </div>
+                        <button
+                            onClick={() => generateMonthlyReport(txMonth, transactions, 'subaccount', 'My Account')}
+                            disabled={txLoading || transactions.length === 0}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ffffff] border border-transparent hover:bg-[#f3f4f6] dark:hover:bg-[#1f2023] disabled:opacity-50 transition-all font-inter"
+                        >
+                            <FiDownload className="w-3.5 h-3.5" /> Download Report
+                        </button>
+                    </div>
                 </div>
 
                 {txLoading ? (

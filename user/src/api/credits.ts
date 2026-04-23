@@ -86,6 +86,7 @@ export async function fetchCreditTransactions(
     accountId = 'default',
     limit = 50,
     explicitLocationId?: string,
+    month?: string,
 ): Promise<CreditTransaction[]> {
     try {
         const accountSettings = getAccountSettings();
@@ -101,6 +102,9 @@ export async function fetchCreditTransactions(
         let url = `${API_CONFIG.base}/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`;
         if (locationId) {
             url += `&location_id=${encodeURIComponent(locationId)}`;
+        }
+        if (month) {
+            url += `&month=${encodeURIComponent(month)}`;
         }
 
         const res = await fetch(url, { headers });

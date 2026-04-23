@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { FiHome, FiPlus, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiChevronRight, FiChevronLeft } from "react-icons/fi";
+import { FiHome, FiPlus, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiChevronRight, FiChevronLeft, FiDownload } from "react-icons/fi";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
 import { fetchConversations, type SenderId } from "../api/sms";
 import { fetchContacts } from "../api/contacts";
 import { fetchCreditStatus, fetchCreditTransactions, type CreditStatus, type CreditTransaction } from "../api/credits";
+import { generateMonthlyReport } from "../utils/pdfGenerator";
 import SplitText from "./SplitText";
 import AnimatedContent from "./AnimatedContent";
 import FadeContent from "./FadeContent";
@@ -450,12 +451,24 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Recent Transactions
                             </h3>
                             {transactions.length > 0 && (
-                                <button
-                                    onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }))}
-                                    className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                                >
-                                    See All
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={async () => {
+                                            const currentMonth = new Date().toISOString().slice(0, 7);
+                                            const allTxs = await fetchCreditTransactions('default', 5000);
+                                            generateMonthlyReport(currentMonth, allTxs, 'subaccount', 'My Account');
+                                        }}
+                                        className="text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ffffff] py-1 px-3 border border-transparent rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition-colors flex items-center gap-1.5"
+                                    >
+                                        <FiDownload className="w-3.5 h-3.5" /> Download Report
+                                    </button>
+                                    <button
+                                        onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }))}
+                                        className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                    >
+                                        See All
+                                    </button>
+                                </div>
                             )}
                         </div>
 

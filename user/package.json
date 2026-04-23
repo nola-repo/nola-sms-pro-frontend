@@ -19,6 +19,8 @@
     "firebase-admin": "^12.0.0",
     "google-libphonenumber": "^3.2.44",
     "gsap": "^3.14.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "motion": "^11.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
