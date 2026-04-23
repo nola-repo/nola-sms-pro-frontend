@@ -190,12 +190,16 @@ export const generateMonthlyReport = (
     styles: { fontSize: 8, cellPadding: 5, overflow: 'linebreak', textColor: [51, 65, 85], lineColor: [226, 232, 240], lineWidth: 0.5 },
     columnStyles: isAgencyScope ? {
       0: { cellWidth: 20 },
-      5: { cellWidth: 140 }, // Message Content (Agency)
+      1: { cellWidth: 65 }, // Date/Time (Agency)
+      4: { cellWidth: 70 }, // Number (Agency)
+      5: { cellWidth: 100 }, // Message Content (Agency)
       6: { cellWidth: 45 }, // Amount (Agency)
       7: { cellWidth: 55 }, // Balance (Agency)
     } : {
       0: { cellWidth: 20 },
-      4: { cellWidth: 240 }, // Message Content (User)
+      1: { cellWidth: 65 }, // Date/Time (User)
+      3: { cellWidth: 70 }, // Number (User)
+      4: { cellWidth: 220 }, // Message Content (User)
       5: { cellWidth: 45 }, // Amount (User)
       6: { cellWidth: 55 }, // Balance (User)
     },
