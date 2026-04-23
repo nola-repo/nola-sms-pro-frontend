@@ -231,13 +231,16 @@ export const AdminSenderRequests: React.FC = () => {
                             );
                         });
                         const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
-                                    <>
-                                        {currentRequests.map(req => {
-                                            const associatedAccount = accounts.find(a => a.location_id === req.location_id);
-                                            const locName = associatedAccount?.location_name || req.location_name || 'Unknown Account';
-                                            const agencyName = req.agency_name || req.company_id;
-                                            
-                                            return (
+                        const currentRequests = filteredRequests.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+                        return (
+                            <>
+                                {currentRequests.map(req => {
+                                    const associatedAccount = accounts.find(a => a.location_id === req.location_id);
+                                    const locName = associatedAccount?.location_name || req.location_name || 'Unknown Account';
+                                    const agencyName = req.agency_name || req.company_id;
+                                    
+                                    return (
                                         <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all">
                                             {/* Row Header */}
                                             <div
