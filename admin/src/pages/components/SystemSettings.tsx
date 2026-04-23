@@ -20,6 +20,8 @@ export const AdminSettings: React.FC = () => {
     const [freeLimit, setFreeLimit] = useState(localStorage.getItem('admin_setting_free_limit') || '10');
     const [maintenanceMode, setMaintenanceMode] = useState(localStorage.getItem('admin_setting_maintenance') === 'true');
     const [pollInterval, setPollInterval] = useState(localStorage.getItem('admin_setting_poll_interval') || '15');
+    const [providerCost, setProviderCost] = useState(localStorage.getItem('admin_setting_provider_cost') || '0.02');
+    const [chargedRate, setChargedRate] = useState(localStorage.getItem('admin_setting_charged_rate') || '0.05');
 
     // Load settings from backend on mount
     useEffect(() => {
@@ -34,6 +36,8 @@ export const AdminSettings: React.FC = () => {
                         if (d.free_limit !== undefined) setFreeLimit(String(d.free_limit));
                         if (d.maintenance_mode !== undefined) setMaintenanceMode(Boolean(d.maintenance_mode));
                         if (d.poll_interval !== undefined) setPollInterval(String(d.poll_interval));
+                        if (d.provider_cost !== undefined) setProviderCost(String(d.provider_cost));
+                        if (d.charged_rate !== undefined) setChargedRate(String(d.charged_rate));
                     }
                 }
                 // If API not deployed yet, keep localStorage values (already seeded above)
@@ -54,6 +58,8 @@ export const AdminSettings: React.FC = () => {
             free_limit: parseInt(freeLimit, 10) || 0,
             maintenance_mode: maintenanceMode,
             poll_interval: parseInt(pollInterval, 10) || 15,
+            provider_cost: parseFloat(providerCost) || 0,
+            charged_rate: parseFloat(chargedRate) || 0,
         };
         try {
             const res = await fetch('/api/admin_settings.php', {
@@ -76,6 +82,8 @@ export const AdminSettings: React.FC = () => {
         localStorage.setItem('admin_setting_free_limit', freeLimit);
         localStorage.setItem('admin_setting_maintenance', String(maintenanceMode));
         localStorage.setItem('admin_setting_poll_interval', pollInterval);
+        localStorage.setItem('admin_setting_provider_cost', providerCost);
+        localStorage.setItem('admin_setting_charged_rate', chargedRate);
         setSaving(false);
         setSaved(true);
         setTimeout(() => setSaved(false), 3500);
@@ -183,6 +191,38 @@ export const AdminSettings: React.FC = () => {
                         suffix="s"
                     />
                 </Field>
+            </Section>
+
+            {/* Pricing Settings */}
+            <Section title="Dynamic Pricing" icon={<FiCreditCard className="w-4 h-4" />}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Provider Cost" help="The base cost you pay your upstream SMS provider per segment (e.g., $0.020).">
+                        <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa0a6] font-bold">$</span>
+                            <input
+                                type="number"
+                                step="0.001"
+                                min="0"
+                                value={providerCost}
+                                onChange={e => setProviderCost(e.target.value)}
+                                className="w-full pl-8 pr-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
+                            />
+                        </div>
+                    </Field>
+                    <Field label="Charged Rate" help="The rate you charge your end users per SMS segment (e.g., $0.050).">
+                        <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa0a6] font-bold">$</span>
+                            <input
+                                type="number"
+                                step="0.001"
+                                min="0"
+                                value={chargedRate}
+                                onChange={e => setChargedRate(e.target.value)}
+                                className="w-full pl-8 pr-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
+                            />
+                        </div>
+                    </Field>
+                </div>
             </Section>
 
             {/* Platform Settings */}

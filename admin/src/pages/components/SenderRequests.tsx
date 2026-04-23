@@ -221,23 +221,23 @@ export const AdminSenderRequests: React.FC = () => {
                             if (!lowSearch) return true;
                             const associatedAccount = accounts.find(a => a.location_id === req.location_id);
                             const locName = associatedAccount?.location_name || req.location_name || '';
+                            const agencyName = req.agency_name || req.company_id || '';
                             
                             return (
                                 req.requested_id.toLowerCase().includes(lowSearch) ||
                                 req.location_id.toLowerCase().includes(lowSearch) ||
-                                locName.toLowerCase().includes(lowSearch)
+                                locName.toLowerCase().includes(lowSearch) ||
+                                agencyName.toLowerCase().includes(lowSearch)
                             );
                         });
                         const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
-                        const currentRequests = filteredRequests.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-
-                        return (
-                            <>
-                                {currentRequests.map(req => {
-                                    const associatedAccount = accounts.find(a => a.location_id === req.location_id);
-                                    const locName = associatedAccount?.location_name || req.location_name || 'Unknown Account';
-                                    
-                                    return (
+                                    <>
+                                        {currentRequests.map(req => {
+                                            const associatedAccount = accounts.find(a => a.location_id === req.location_id);
+                                            const locName = associatedAccount?.location_name || req.location_name || 'Unknown Account';
+                                            const agencyName = req.agency_name || req.company_id;
+                                            
+                                            return (
                                         <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all">
                                             {/* Row Header */}
                                             <div
@@ -257,6 +257,15 @@ export const AdminSenderRequests: React.FC = () => {
                                                             <p className="text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] truncate uppercase tracking-tight max-w-[150px]">{locName}</p>
                                                             <span className="w-1 h-1 rounded-full bg-[#d1d5db]/50 dark:bg-gray-700/50"></span>
                                                             <p className="text-[10px] text-[#9aa0a6] font-mono truncate opacity-70">{req.location_id}</p>
+                                                            {agencyName && (
+                                                                <>
+                                                                    <span className="w-1 h-1 rounded-full bg-[#d1d5db]/50 dark:bg-gray-700/50"></span>
+                                                                    <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 dark:bg-purple-900/10 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800/20 truncate max-w-[100px]">
+                                                                        <FiUsers className="w-2.5 h-2.5" />
+                                                                        {agencyName}
+                                                                    </div>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -389,14 +398,27 @@ export const AdminSenderRequests: React.FC = () => {
 
                                         {/* Request Details Grid */}
                                         <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 gap-y-4 border border-[#e5e5e5] dark:border-white/5 flex flex-col">
-                                            <div>
-                                                <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Subaccount</p>
-                                                <div className="flex items-center gap-2 bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5">
-                                                    <div className="w-6 h-6 rounded-full bg-[#f0f0f0] dark:bg-white/5 flex items-center justify-center text-[10px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] flex-shrink-0">
-                                                        {(associatedAccount?.location_name || req.location_name || 'U').substring(0, 2).toUpperCase()}
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Subaccount</p>
+                                                    <div className="flex items-center gap-2 bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5">
+                                                        <div className="w-6 h-6 rounded-full bg-[#f0f0f0] dark:bg-white/5 flex items-center justify-center text-[10px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] flex-shrink-0">
+                                                            {(associatedAccount?.location_name || req.location_name || 'U').substring(0, 2).toUpperCase()}
+                                                        </div>
+                                                        <span className="text-[13px] font-bold text-[#111111] dark:text-white leading-none truncate">{associatedAccount?.location_name || req.location_name || 'Unknown Account'}</span>
                                                     </div>
-                                                    <span className="text-[13px] font-bold text-[#111111] dark:text-white leading-none">{associatedAccount?.location_name || req.location_name || 'Unknown Account'}</span>
                                                 </div>
+                                                {(req.agency_name || req.company_id) && (
+                                                    <div>
+                                                        <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Agency</p>
+                                                        <div className="flex items-center gap-2 bg-purple-50/50 dark:bg-purple-900/5 p-2.5 rounded-lg border border-purple-100 dark:border-purple-800/20">
+                                                            <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
+                                                                <FiUsers className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                                                            </div>
+                                                            <span className="text-[13px] font-bold text-[#111111] dark:text-white leading-none truncate">{req.agency_name || req.company_id}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                             
                                             <div className="grid grid-cols-2 gap-4 pt-3 border-t border-[#e5e5e5] dark:border-white/5">
