@@ -5,7 +5,7 @@ import {
     FiUser, FiSend, FiBell, FiCreditCard,
     FiSave, FiPlus, FiCheck,
     FiGlobe, FiMapPin, FiBriefcase, FiCheckCircle, FiAlertCircle, FiClock,
-    FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown, FiDownload,
+    FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown, FiDownload, FiMessageSquare
 } from "react-icons/fi";
 import { generateMonthlyReport } from "../utils/pdfGenerator";
 import {
@@ -20,8 +20,11 @@ import { useGhlLocation } from "../hooks/useGhlLocation";
 import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
 import { fetchAccountProfile } from "../api/account";
 
+
+
+
 // ─── Types ──────────────────────────────────────────────────────────────────
-type SettingsTab = "account" | "senderIds" | "notifications" | "credits";
+type SettingsTab = "account" | "senderIds" | "notifications" | "credits" | "tickets";
 
 interface SettingsProps {
     darkMode: boolean;
@@ -36,6 +39,7 @@ const TABS: { id: SettingsTab; label: string; icon: React.ReactNode; description
     { id: "senderIds", label: "Sender IDs", icon: <FiSend />, description: "Manage approved sender IDs" },
     { id: "notifications", label: "Notifications", icon: <FiBell />, description: "Alert & report preferences" },
     { id: "credits", label: "Credits", icon: <FiCreditCard />, description: "Balance & billing" },
+    { id: "tickets", label: "Tickets", icon: <FiMessageSquare />, description: "Support & help requests" },
 ];
 
 
@@ -1159,6 +1163,37 @@ const CreditsSection: React.FC = () => {
     );
 };
 
+// ─── Section: Tickets (Embedded Funnel) ───────────────────────────────────
+const TicketsSection: React.FC = () => {
+    // DEVELOPER NOTE: Replace the URL below with your actual GHL Funnel URL
+    const SUPPORT_FUNNEL_URL = "https://example.com/support-funnel"; 
+
+    return (
+        <div className="flex flex-col h-[calc(100vh-180px)] min-h-[500px]">
+            <SectionHeader 
+                title="Support Tickets" 
+                subtitle="Submit and track your support requests through our dedicated portal." 
+            />
+            
+            <div className="flex-1 overflow-hidden rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] shadow-sm relative group">
+                <iframe
+                    src={SUPPORT_FUNNEL_URL}
+                    className="w-full h-full border-0"
+                    title="Support Ticket Funnel"
+                    allow="camera; microphone; clipboard-read; clipboard-write; display-capture"
+                />
+                
+                {/* Subtle overlay hint */}
+                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="px-2 py-1 bg-black/40 backdrop-blur-md rounded-lg text-[10px] text-white font-bold uppercase tracking-widest">
+                        External Portal
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ─── Main Export ─────────────────────────────────────────────────────────────
 export const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, initialTab, autoOpenAddModal }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || "account");
@@ -1169,6 +1204,7 @@ export const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, in
             case "senderIds": return <SenderIdsSection autoOpenAddModal={autoOpenAddModal && activeTab === "senderIds"} />;
             case "notifications": return <NotificationsSection />;
             case "credits": return <CreditsSection />;
+            case "tickets": return <TicketsSection />;
         }
     }, [activeTab, darkMode, toggleDarkMode, autoOpenAddModal]);
 
