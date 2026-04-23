@@ -30,8 +30,6 @@ export const AdminAccounts: React.FC = () => {
     const [showApiKey, setShowApiKey] = useState(false);
     const [copiedKey, setCopiedKey] = useState(false);
 
-    // PDF Report States
-    const [reportingAccount, setReportingAccount] = useState<Account | null>(null);
     const [reportTransactions, setReportTransactions] = useState<any[]>([]);
     const [isLoadingReport, setIsLoadingReport] = useState(false);
     const [reportSelectedMonth, setReportSelectedMonth] = useState('All');
@@ -103,27 +101,6 @@ export const AdminAccounts: React.FC = () => {
             showToast('Network error during update.', 'error');
         } finally {
             setActionLoading(null);
-        }
-    };
-
-    const handleOpenReport = async (acc: Account) => {
-        setReportingAccount(acc);
-        setIsLoadingReport(true);
-        setReportSelectedMonth('All');
-        try {
-            const res = await fetch(`/api/get_credit_transactions.php?location_id=${acc.location_id}`);
-            const json = await res.json();
-            if (json.status === 'success') {
-                setReportTransactions(json.data || []);
-            } else {
-                showToast(json.message || 'Failed to load transaction history.', 'error');
-                setReportingAccount(null);
-            }
-        } catch {
-            showToast('Network error loading history.', 'error');
-            setReportingAccount(null);
-        } finally {
-            setIsLoadingReport(false);
         }
     };
 
@@ -286,18 +263,24 @@ export const AdminAccounts: React.FC = () => {
                                                     setManageApiKey(acc.nola_pro_api_key || acc.api_key || acc.semaphore_api_key || '');
                                                     setManageCreditBalance(acc.credit_balance ?? acc.credits ?? 0);
                                                     setManageFreeCreditsTotal(acc.free_credits_total ?? 10);
+                                                    
+                                                    // Automatically fetch reporting data
+                                                    setIsLoadingReport(true);
+                                                    setReportSelectedMonth('All');
+                                                    fetch(`/api/get_credit_transactions.php?location_id=${acc.location_id}`)
+                                                        .then(res => res.json())
+                                                        .then(json => {
+                                                            if (json.status === 'success') {
+                                                                setReportTransactions(json.data || []);
+                                                            }
+                                                        })
+                                                        .catch(() => {})
+                                                        .finally(() => setIsLoadingReport(false));
                                                 }}
                                                 className="p-2 rounded-xl text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
                                                 title="Manage Account"
                                             >
                                                 <FiSettings className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleOpenReport(acc)}
-                                                className="p-2 rounded-xl text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all border border-transparent hover:border-emerald-100 dark:hover:border-emerald-800/30"
-                                                title="Download Report"
-                                            >
-                                                <FiDownload className="w-4 h-4" />
                                             </button>
                                         </div>
                                     </td>
@@ -378,7 +361,7 @@ export const AdminAccounts: React.FC = () => {
                             Update the credit balance for <span className="font-semibold text-[#111111] dark:text-white">{managingAccount.location_name || managingAccount.location_id}</span>.
                         </p>
 
-                        <form onSubmit={submitManageSender} className="space-y-4">
+                        <form onSubmit={submitManageSender} className="space-y-6">
                             <div className="pt-1">
                                 <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Credit Balance</label>
                                 <div className="flex items-center gap-2">
@@ -407,6 +390,54 @@ export const AdminAccounts: React.FC = () => {
                                 <p className="text-[11px] text-[#9aa0a6] mt-2">Adjust the account's total SMS credits balance.</p>
                             </div>
 
+                            {/* Separator */}
+                            <div className="h-px bg-[#e5e5e5] dark:bg-white/5 my-2"></div>
+
+                            {/* Consolidated Reporting Section */}
+                            <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2 flex items-center gap-2">
+                                    <FiDownload className="w-3.5 h-3.5 text-[#2b83fa]" /> Transaction Report
+                                </label>
+                                
+                                {isLoadingReport ? (
+                                    <div className="py-4 flex items-center gap-3">
+                                        <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />
+                                        <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">History loading...</p>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col gap-2">
+                                        <div className="relative">
+                                            <select
+                                                value={reportSelectedMonth}
+                                                onChange={(e) => setReportSelectedMonth(e.target.value)}
+                                                className="w-full appearance-none pl-4 pr-10 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] font-bold text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer"
+                                            >
+                                                <option value="All">All Transactions ({reportTransactions.length})</option>
+                                                {Array.from(new Set(reportTransactions.map(tx => {
+                                                    const ds = tx.timestamp || tx.created_at;
+                                                    return ds ? ds.substring(0, 7) : null;
+                                                }).filter(Boolean))).sort().reverse().map(m => {
+                                                    const [y, mm] = (m as string).split('-');
+                                                    const label = new Date(parseInt(y), parseInt(mm) - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+                                                    const count = reportTransactions.filter(tx => (tx.timestamp || tx.created_at || '').startsWith(m as string)).length;
+                                                    return <option key={m as string} value={m as string}>{label} ({count})</option>;
+                                                })}
+                                            </select>
+                                            <FiClock className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9aa0a6] pointer-events-none w-3.5 h-3.5" />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => generateMonthlyReport(reportSelectedMonth, reportTransactions, 'subaccount', managingAccount.location_name, managingAccount.agency_name)}
+                                            disabled={reportTransactions.length === 0}
+                                            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-white dark:bg-[#0d0e10] border-2 border-[#2b83fa]/20 hover:border-[#2b83fa] text-[#2b83fa] rounded-xl font-bold text-[13px] transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+                                        >
+                                            <FiDownload className="w-3.5 h-3.5" />
+                                            Download {reportSelectedMonth === 'All' ? 'Full History' : 'Monthly Report'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="pt-4 flex flex-col gap-3">
                                 <button
                                     type="submit"
@@ -414,10 +445,8 @@ export const AdminAccounts: React.FC = () => {
                                     className="flex items-center justify-center gap-2 w-full px-5 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50"
                                 >
                                     {actionLoading === 'managing' ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiCheck className="w-4 h-4" />}
-                                    Save Changes
+                                    Save Config
                                 </button>
-                                
-
                             </div>
                         </form>
                     </div>
@@ -426,77 +455,6 @@ export const AdminAccounts: React.FC = () => {
             </div>
         </div>
 
-        {/* Report Selector Modal */}
-        {reportingAccount && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-7 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex items-center justify-between mb-5">
-                        <h3 className="text-[18px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                            <FiDownload className="text-[#2b83fa]" /> Download Credit Report
-                        </h3>
-                        <button onClick={() => setReportingAccount(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
-                            <FiX className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    {isLoadingReport ? (
-                        <div className="py-12 flex flex-col items-center justify-center space-y-4">
-                            <FiRefreshCw className="w-8 h-8 text-[#2b83fa] animate-spin" />
-                            <p className="text-[14px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">Fetching transaction history...</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-6">
-                            <div>
-                                <p className="text-[14px] font-bold text-[#111111] dark:text-white">{reportingAccount.location_name || reportingAccount.location_id}</p>
-                                <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">Select the reporting period for this account.</p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Select Month</label>
-                                <div className="relative">
-                                    <select
-                                        value={reportSelectedMonth}
-                                        onChange={(e) => setReportSelectedMonth(e.target.value)}
-                                        className="w-full appearance-none pl-4 pr-10 py-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[14px] font-bold text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer"
-                                    >
-                                        <option value="All">All Transactions ({reportTransactions.length})</option>
-                                        {Array.from(new Set(reportTransactions.map(tx => {
-                                            const ds = tx.timestamp || tx.created_at;
-                                            return ds ? ds.substring(0, 7) : null;
-                                        }).filter(Boolean))).sort().reverse().map(m => {
-                                            const [y, mm] = (m as string).split('-');
-                                            const label = new Date(parseInt(y), parseInt(mm) - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-                                            const count = reportTransactions.filter(tx => (tx.timestamp || tx.created_at || '').startsWith(m as string)).length;
-                                            return <option key={m as string} value={m as string}>{label} ({count})</option>;
-                                        })}
-                                    </select>
-                                    <FiClock className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9aa0a6] pointer-events-none w-4 h-4" />
-                                </div>
-                            </div>
-
-                            <div className="pt-2">
-                                <button
-                                    onClick={() => {
-                                        generateMonthlyReport(reportSelectedMonth, reportTransactions, 'subaccount', reportingAccount.location_name, reportingAccount.agency_name);
-                                        setReportingAccount(null);
-                                    }}
-                                    disabled={reportTransactions.length === 0}
-                                    className="flex items-center justify-center gap-2 w-full px-5 py-3.5 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50 disabled:grayscale"
-                                >
-                                    <FiDownload className="w-4 h-4" />
-                                    Generate PDF Report
-                                </button>
-                                {reportTransactions.length === 0 && (
-                                    <p className="text-[11px] text-amber-600 dark:text-amber-500 text-center mt-3 flex items-center justify-center gap-1.5 font-medium">
-                                        <FiAlertCircle size={12} /> No transaction records found for this account.
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-        )}
         </>
     );
 };
