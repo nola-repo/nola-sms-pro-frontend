@@ -5,7 +5,7 @@ import {
     FiUser, FiSend, FiBell, FiCreditCard,
     FiSave, FiPlus, FiCheck,
     FiGlobe, FiMapPin, FiBriefcase, FiCheckCircle, FiAlertCircle, FiClock,
-    FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown, FiDownload, FiMessageSquare
+    FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown, FiDownload
 } from "react-icons/fi";
 import { generateMonthlyReport } from "../utils/pdfGenerator";
 import {

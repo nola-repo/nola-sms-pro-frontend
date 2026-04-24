@@ -1,314 +1,364 @@
-# Backend Handoff: GHL Custom Fields + Checkout Form Pre-fill
+# Backend Handoff: Registration & Checkout Pre-fill — Final Verification & Testing
 
-**To:** Backend Team  
-**Topic:** Write user registration data to GHL as Custom Values on the location, so the checkout order form auto-fills name/email/phone  
-**New File:** `backend/api/auth/register_from_install.php` — add GHL Custom Values write step  
-**Trigger:** Called at the end of the install registration flow (after Firestore user doc is created)
+**Status:** Backend implementation confirmed complete ✅  
+**Remaining Action:** GHL Funnel Custom Code update (GHL-side only, no backend code changes)
 
 ---
 
-## The Problem
+## Alignment Verification
 
-The checkout page (`sms.nolawebsolutions.com/nola-sms-pro---XXX-credits-page-XXXX`) is a **GHL funnel order form**. It has three contact fields:
+| Plan Item | Backend Status | Notes |
+|-----------|---------------|-------|
+| `ghl_callback.php` — first-run form + re-install detection | ✅ Done | Queries `users` by `active_location_id` |
+| `register_from_install.php` — new endpoint | ✅ Done | Creates/links user, updates `integrations` |
+| `login.php` — `phone` in response | ✅ Done | `nola_user` localStorage populated on login |
+| `.htaccess` — rewrite rule | ✅ Done | `api/auth/register-from-install` route live |
+| `_ghl_get_or_create_custom_field()` | ✅ Done | Auto-creates `owner_name/email/phone` fields |
+| `_sync_owner_to_ghl()` | ✅ Done | Writes Custom Values after registration |
+| `Settings.tsx` — checkout URL params | ✅ Done | Appends `name`, `first_name`, `last_name`, `email`, `phone` |
 
-- **Full Name**
-- **Email Address**
-- **Phone Number**
-
-Currently these are always blank when the checkout popup opens. Users have to type their info every time they buy credits, even though we already captured it at install time.
-
----
-
-## The Two-Part Solution
-
-### Part 1 — Frontend (Already Done ✅)
-
-`Settings.tsx` → `handleTopUp()` now appends contact URL params to the checkout URL:
-
-```
-https://sms.nolawebsolutions.com/nola-sms-pro---500-credits-page-8465
-  ?location_id=MJoecBYPutNZwRw7N7Ud
-  &name=Maria+Santos
-  &first_name=Maria
-  &last_name=Santos
-  &email=maria%40example.com
-  &phone=09171234567
-```
-
-GHL funnel order forms natively read these URL query params and pre-fill the form fields — **no GHL configuration changes needed** for this part.
-
-The profile data comes from `localStorage.nola_user`, which is set during:
-- First-time install registration (`ghl_callback.php` → JS → `localStorage`)
-- External login (`SharedLogin.tsx` → `localStorage`)
+**Everything is implemented. No backend code changes needed.**
 
 ---
 
-### Part 2 — Backend: Write GHL Custom Values (Option C)
+## The One Remaining Action: Update GHL Funnel Custom Code
 
-After the user registers via `register_from_install.php`, use the OAuth `access_token` (already stored in `integrations/<locationId>`) to write the owner's contact info as **GHL Location Custom Values**.
+### What the funnel currently does
 
-This means:
-- The data is stored inside GHL (visible in the location's custom fields)
-- GHL automations and workflows can reference them via merge tags like `{{location.custom_values.nola_owner_name}}`
-- The checkout funnel builder can optionally use these as default field values
+The checkout funnel has a Custom Code block that reads `location_id` from the URL and fills the hidden `companyname` field:
 
----
+```javascript
+// CURRENT (partial — only handles location_id)
+function setCompanyNameFromLocationId() {
+  const params = new URLSearchParams(window.location.search);
+  const locationId = params.get("location_id");
+  if (!locationId) return;
 
-## What Backend Must Implement
+  const input = document.querySelector('input[name="companyname"]');
+  if (!input) return;
 
-### Step 1: Create the Custom Field Definitions (one-time setup per location)
-
-After installing, call the GHL API to ensure these custom fields exist on the location:
-
-```
-POST https://services.leadconnectorhq.com/locations/{locationId}/customFields
-Authorization: Bearer {access_token}
-Version: 2021-07-28
-Content-Type: application/json
-
-{
-  "name": "Owner Name",
-  "fieldKey": "owner_name",
-  "dataType": "TEXT",
-  "placeholder": ""
+  input.value = locationId;
+  input.setAttribute("value", locationId);
 }
 ```
 
-Repeat for:
-- `owner_email` → `"Owner Email"` → `TEXT`
-- `owner_phone` → `"Owner Phone"` → `TEXT`
+### What it needs to also do
+
+`Settings.tsx` now sends these URL params when opening checkout:
+```
+?location_id=MJoecBYPutNZwRw7N7Ud
+&name=Maria+Santos
+&first_name=Maria
+&last_name=Santos
+&email=maria%40example.com
+&phone=09171234567
+```
+
+The funnel custom code needs to also read `name`, `first_name`, `last_name`, `email`, `phone` and fill the order form fields.
+
+### ✅ Updated GHL Funnel Custom Code (replace the existing script)
+
+```javascript
+(function () {
+  "use strict";
+
+  /* ── URL param reader ───────────────────────────────────────────── */
+  const params = new URLSearchParams(window.location.search);
+
+  /* ── Field fill helper ──────────────────────────────────────────── */
+  function fillField(selector, value) {
+    if (!value) return;
+    const el = document.querySelector(selector);
+    if (!el) return;
+    el.value = value;
+    el.setAttribute("value", value);
+    // Fire change/input events so GHL's form state picks up the value
+    ["input", "change"].forEach(function (evt) {
+      el.dispatchEvent(new Event(evt, { bubbles: true }));
+    });
+  }
+
+  function prefillForm() {
+    /* ── location_id → companyname (existing behaviour, preserved) ── */
+    const locationId = params.get("location_id");
+    fillField('input[name="companyname"]', locationId);
+
+    /* ── Contact info → order form fields ──────────────────────────  */
+    // Full Name: GHL order forms typically use input[name="name"]
+    // Try both combined and split name fields
+    const fullName =
+      params.get("name") ||
+      [params.get("first_name"), params.get("last_name")]
+        .filter(Boolean)
+        .join(" ");
+    fillField('input[name="name"]',       fullName);
+    fillField('input[name="full_name"]',  fullName);
+    fillField('input[name="first_name"]', params.get("first_name") || "");
+    fillField('input[name="last_name"]',  params.get("last_name")  || "");
+
+    /* ── Email ───────────────────────────────────────────────────── */
+    fillField('input[name="email"]', params.get("email") || "");
+
+    /* ── Phone ───────────────────────────────────────────────────── */
+    fillField('input[name="phone"]',       params.get("phone") || "");
+    fillField('input[name="phone_number"]',params.get("phone") || "");
+  }
+
+  /* ── Run on DOM ready + retry loop (GHL renders forms async) ───── */
+  document.addEventListener("DOMContentLoaded", function () {
+    prefillForm();
+
+    var tries = 0;
+    var timer = setInterval(function () {
+      prefillForm();
+      tries++;
+      if (tries > 30) clearInterval(timer); // retry for ~9 seconds
+    }, 300);
+  });
+})();
+```
+
+### Where to paste this in GHL
+
+1. Open `sms.nolawebsolutions.com` in GHL → Sites/Funnels
+2. Open the funnel page (e.g. `nola-sms-pro---500-credits-page-8465`)
+3. Click the **Custom Code** element (visible in the screenshot)
+4. Click **Open Code Editor**
+5. **Replace** the existing script entirely with the updated code above
+6. Repeat for **all 5 credit package pages**:
+   - `nola-sms-pro---500-credits-page-8465-657955` (10 credits)
+   - `nola-sms-pro---500-credits-page-8465` (500 credits)
+   - `nola-sms-pro---1000-credits` (1100 credits)
+   - `nola-sms-pro-2750-credits` (2750 credits)
+   - `nola-sms-pro-6000-credits` (6000 credits)
+7. **Publish** each page
 
 > [!NOTE]
-> These only need to be created once per location. If the field already exists, GHL returns the existing field's `id` — just use it for the value update below.
+> The funnel also needs the GHL Custom Values fallback:
+> In the funnel form field settings, set each field's **Default Value**:
+> - Full Name → `{{location.custom_values.owner_name}}`
+> - Email → `{{location.custom_values.owner_email}}`
+> - Phone → `{{location.custom_values.owner_phone}}`
+>
+> This fills the form even when the user opens checkout directly (without URL params).
 
 ---
 
-### Step 2: Set the Custom Values
-
-After getting the field IDs (from Step 1 response or a `GET /customFields`), update the values:
+## How the Full Flow Works Now
 
 ```
-PUT https://services.leadconnectorhq.com/locations/{locationId}/customValues/{customFieldId}
-Authorization: Bearer {access_token}
-Version: 2021-07-28
-Content-Type: application/json
+① User installs from GHL Marketplace
+   └─ ghl_callback.php:
+       • Exchanges OAuth code → access_token saved
+       • Provisions 10 free credits
+       • Checks if location already in users collection
+         ├─ Re-install → "Welcome Back" screen ✅
+         └─ New install → "Complete Your Account" form
 
-{
-  "value": "Maria Santos"
-}
-```
+② User fills registration form (name, phone, email, password)
+   └─ POST /api/auth/register-from-install:
+       • Creates users doc (role: "user", active_location_id: ...)
+       • Updates integrations doc (owner_name, owner_email, owner_phone)
+       • Calls _sync_owner_to_ghl():
+           GET /locations/{id}/customFields → find or create owner_name/email/phone
+           PUT /locations/{id}/customValues/{id} → write the values
+       • Returns JWT → saved to localStorage as nola_token + nola_user
 
-Repeat for email and phone.
+③ User clicks "Buy Credits" in NOLA SMS Pro
+   └─ Settings.tsx handleTopUp():
+       • Reads nola_user from localStorage
+       • Builds checkout URL:
+           ?location_id=XXX
+           &name=Maria+Santos&first_name=Maria&last_name=Santos
+           &email=maria%40example.com&phone=09171234567
+       • Opens popup
 
----
+④ GHL Funnel Checkout loads
+   └─ Custom Code script runs:
+       • Reads URL params → fills Full Name, Email, Phone instantly
+       • Retries every 300ms for 9s (handles GHL async rendering)
+   └─ GHL Custom Values fallback:
+       • {{location.custom_values.owner_name}} fills if URL params missing
 
-### Step 3: Add to `register_from_install.php`
-
-Add this PHP function call at the end of `register_from_install.php` (after creating the Firestore user doc, before returning the response):
-
-```php
-// ── Write owner info to GHL Custom Values ─────────────────────────────────
-_sync_owner_to_ghl($db, $locationId, $fullName, $email, $phone);
-```
-
-And add the function:
-
-```php
-function _sync_owner_to_ghl($db, string $locationId, string $fullName, string $email, string $phone): void
-{
-    if (!$locationId) return;
-
-    // 1. Retrieve the access token from Firestore integrations
-    $intDocId = 'ghl_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $locationId);
-    try {
-        $intSnap = $db->collection('integrations')->document($intDocId)->snapshot();
-        if (!$intSnap->exists()) return;
-        $accessToken = $intSnap->data()['access_token'] ?? null;
-        if (!$accessToken) return;
-    } catch (Exception $e) {
-        error_log("_sync_owner_to_ghl: failed to fetch integration for $locationId: " . $e->getMessage());
-        return;
-    }
-
-    // 2. Fields to upsert: [GHL fieldKey => value]
-    $fields = [
-        'owner_name'  => $fullName,
-        'owner_email' => $email,
-        'owner_phone' => $phone,
-    ];
-
-    $headers = [
-        'Authorization: Bearer ' . $accessToken,
-        'Content-Type: application/json',
-        'Accept: application/json',
-        'Version: 2021-07-28',
-    ];
-
-    foreach ($fields as $fieldKey => $value) {
-        try {
-            // 3a. Get or create the custom field
-            $fieldId = _ghl_get_or_create_custom_field($locationId, $fieldKey, $headers);
-            if (!$fieldId) continue;
-
-            // 3b. Set the custom value
-            $ch = curl_init("https://services.leadconnectorhq.com/locations/{$locationId}/customValues/{$fieldId}");
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_CUSTOMREQUEST  => 'PUT',
-                CURLOPT_HTTPHEADER     => $headers,
-                CURLOPT_POSTFIELDS     => json_encode(['value' => $value]),
-            ]);
-            curl_exec($ch);
-            curl_close($ch);
-        } catch (Exception $e) {
-            error_log("_sync_owner_to_ghl: failed to set $fieldKey for $locationId: " . $e->getMessage());
-        }
-    }
-}
-
-function _ghl_get_or_create_custom_field(string $locationId, string $fieldKey, array $headers): ?string
-{
-    // GET existing fields
-    $ch = curl_init("https://services.leadconnectorhq.com/locations/{$locationId}/customFields");
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER     => $headers,
-    ]);
-    $resp = curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($code === 200) {
-        $data = json_decode($resp, true);
-        foreach (($data['customFields'] ?? []) as $f) {
-            if (($f['fieldKey'] ?? '') === $fieldKey) {
-                return $f['id'];
-            }
-        }
-    }
-
-    // Field doesn't exist — create it
-    $nameMap = [
-        'owner_name'  => 'Owner Name',
-        'owner_email' => 'Owner Email',
-        'owner_phone' => 'Owner Phone',
-    ];
-    $ch = curl_init("https://services.leadconnectorhq.com/locations/{$locationId}/customFields");
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_HTTPHEADER     => $headers,
-        CURLOPT_POSTFIELDS     => json_encode([
-            'name'      => $nameMap[$fieldKey] ?? $fieldKey,
-            'fieldKey'  => $fieldKey,
-            'dataType'  => 'TEXT',
-        ]),
-    ]);
-    $resp = curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($code === 200 || $code === 201) {
-        $data = json_decode($resp, true);
-        return $data['customField']['id'] ?? $data['id'] ?? null;
-    }
-
-    return null;
-}
+⑤ User clicks "Complete Order"
+   └─ GHL Workflow fires:
+       POST /api/credits
+       X-GHL-Location: {{businessName}}
+       { action: "add", amount: 500 }
+       → Credits added to NOLA account ✅
 ```
 
 ---
 
-## GHL OAuth Scope Required
+## Testing Guide
 
-The existing OAuth scope **`locations.readonly`** does NOT allow writing custom fields.
+### Test 1: First-Time Install Registration
 
-You must add:
+**What to do:**
+1. Use a test GHL subaccount that has NOT installed NOLA SMS Pro before
+2. Go to GHL Marketplace → install NOLA SMS Pro
+3. You will be redirected to `smspro-api.nolacrm.io/oauth/callback`
+
+**Expected result:**
+- ✅ Green "Connected to NOLA SMS Pro" badge with the location name
+- ✅ "Complete Your Account" form with Location ID and Subaccount Name pre-filled (read-only)
+- ✅ Empty Full Name, Phone, Email, Password fields
+
+**Fill and submit:**
+1. Enter: Name = `Test User`, Phone = `09170000001`, Email = `test@example.com`, Password = `Test1234!`
+2. Click "Complete Setup →"
+
+**Expected result:**
+- ✅ Form hides, success card appears: "Welcome, Test! Your account has been created."
+- ✅ `localStorage.nola_token` is set (JWT)
+- ✅ `localStorage.nola_user` is set: `{ firstName, lastName, email, phone, location_id }`
+
+**Verify in Firestore:**
 ```
-locations.write
+Collection: users
+→ Find doc where email = "test@example.com"
+→ Should have: role: "user", active_location_id: <locationId>, source: "marketplace_install"
+
+Collection: integrations
+→ Find doc "ghl_<locationId>"
+→ Should have: owner_email, owner_name, owner_phone
 ```
 
-to the GHL Marketplace app OAuth scopes. After adding, existing installs will need to re-authorize to grant the new scope. New installs will get it automatically.
-
-> [!WARNING]
-> Adding a new OAuth scope requires existing users to re-authorize. Plan for a migration prompt in the app or a one-time re-install campaign.
-
-**Where to add:** GHL Developer Portal → Your App → OAuth tab → Scopes → add `locations.write`
-
----
-
-## GHL Funnel Form Configuration (Option C Full Setup)
-
-Once the Custom Values are being written via the API, you can optionally configure the GHL funnel form to **display the stored custom values as default field text**.
-
-In the GHL Funnel Builder for each checkout page:
-
-1. Open the order form field for **Full Name**
-2. Set **Default Value** to: `{{location.custom_values.owner_name}}`
-3. Repeat for **Email**: `{{location.custom_values.owner_email}}`
-4. Repeat for **Phone**: `{{location.custom_values.owner_phone}}`
-
-This means even if the URL params are missing (e.g., user opened checkout directly), the form still pre-fills from the stored GHL custom values.
-
----
-
-## Summary: How Both Parts Work Together
-
+**Verify in GHL:**
 ```
-Install → register_from_install.php
-  ├── Writes to Firestore users (already done)
-  ├── Writes to Firestore integrations (already done)
-  └── [NEW] Writes to GHL Custom Values via API
-        → location.custom_values.owner_name  = "Maria Santos"
-        → location.custom_values.owner_email = "maria@example.com"
-        → location.custom_values.owner_phone = "09171234567"
-
-User clicks "Buy Credits" in NOLA SMS Pro (Settings.tsx)
-  └── handleTopUp() builds checkout URL:
-        https://sms.nolawebsolutions.com/nola-sms-pro---500-credits-page-8465
-          ?location_id=MJoecBYPutNZwRw7N7Ud
-          &name=Maria+Santos
-          &first_name=Maria&last_name=Santos
-          &email=maria%40example.com
-          &phone=09171234567
-
-GHL Funnel Order Form loads:
-  ├── URL params pre-fill the form fields instantly (Part 1 ✅ done)
-  └── GHL custom values are fallback defaults (Part 2 ← backend needed)
-
-User just clicks "Complete Order" — no manual typing needed.
-
-After payment → GHL Workflow fires:
-  → POST https://smspro-api.nolacrm.io/api/credits
-  → X-GHL-Location: {{businessName}}
-  → { action: "add", amount: 500 }
-  → Credits added to NOLA account ✅
+GHL → Location Settings → Custom Fields
+→ Should see: Owner Name = "Test User", Owner Email = "test@...", Owner Phone = "09170000001"
 ```
 
 ---
 
-## API Reference
+### Test 2: Re-Install (Same Location)
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/locations/{id}/customFields` | `GET` | List existing custom field definitions |
-| `/locations/{id}/customFields` | `POST` | Create new custom field definition |
-| `/locations/{id}/customValues/{fieldId}` | `PUT` | Set the value for a custom field |
+**What to do:**
+1. Use the SAME location from Test 1
+2. Re-run the install flow (go to Marketplace → Install again)
 
-All use:
-- `Authorization: Bearer {access_token}` (from `integrations` Firestore doc)
-- `Version: 2021-07-28`
-
----
-
-## New OAuth Scope Required
-
-| Scope | Why |
-|-------|-----|
-| `locations.write` | Required to create custom fields and write custom values |
-
-Add to GHL Marketplace App → OAuth Scopes alongside existing scopes.
+**Expected result:**
+- ✅ "Welcome Back!" screen with the location name and owner name
+- ✅ No registration form
+- ✅ "Open Dashboard" button works
 
 ---
 
-*Frontend change (URL param pre-fill) is already deployed. Backend only needs to implement the `_sync_owner_to_ghl()` function in `register_from_install.php` and add the `locations.write` scope.*
+### Test 3: External Login + localStorage
+
+**What to do:**
+1. Go to `app.nolacrm.io/login`
+2. Log in with `test@example.com` / `Test1234!`
+
+**Expected result:**
+- ✅ Logged in successfully
+- ✅ Check `localStorage.nola_user` in browser devtools:
+  ```json
+  {
+    "firstName": "Test",
+    "lastName": "User",
+    "email": "test@example.com",
+    "phone": "09170000001",
+    "location_id": "...",
+    "company_id": null
+  }
+  ```
+
+---
+
+### Test 4: Checkout Pre-fill (URL Params)
+
+**What to do:**
+1. Log in as the test user (so `nola_user` is in localStorage)
+2. Go to Settings → Credits
+3. Select any credit package and click "Buy Credits"
+4. The checkout popup opens
+
+**Expected result:**
+- ✅ Checkout URL contains: `?location_id=...&name=Test+User&first_name=Test&last_name=User&email=test%40example.com&phone=09170000001`
+- ✅ Full Name field = "Test User"
+- ✅ Email field = "test@example.com"
+- ✅ Phone field = "09170000001"
+- ✅ `companyname` hidden field = location ID (existing behaviour)
+
+**To check URL:** In browser devtools → Network tab → watch for the popup URL when you click "Buy Credits"
+
+---
+
+### Test 5: GHL Custom Values Fallback
+
+**What to do:**
+1. Open the checkout URL directly WITHOUT the contact params:
+   ```
+   https://sms.nolawebsolutions.com/nola-sms-pro---500-credits-page-8465?location_id=<locationId>
+   ```
+2. The URL params for name/email/phone are missing
+
+**Expected result (after GHL Funnel Builder config):**
+- ✅ Fields pre-filled from `{{location.custom_values.owner_name}}` etc.
+- ✅ This confirms the GHL Custom Values write was successful
+
+---
+
+### Test 6: Checkout → Payment → Credits Added
+
+**What to do:**
+1. Complete an actual test purchase (use the ₱10 test package)
+2. Fill the pre-filled form → click "Complete Order"
+
+**Expected result:**
+- ✅ GHL Workflow triggers
+- ✅ Webhook fires to `POST /api/credits` with `action: "add"`, `amount: 10`
+- ✅ Credit balance increases in NOLA SMS Pro
+- ✅ Transaction appears in the ledger
+
+---
+
+## Quick Verification Curl Commands
+
+```bash
+# Test register-from-install endpoint
+curl -X POST https://smspro-api.nolacrm.io/api/auth/register-from-install \
+  -H "Content-Type: application/json" \
+  -d '{
+    "full_name": "Test User",
+    "phone": "09170000001",
+    "email": "test-verify@example.com",
+    "password": "Test1234!",
+    "location_id": "YOUR_TEST_LOCATION_ID",
+    "company_id": ""
+  }'
+# Expected: 201 { "status": "success", "token": "eyJ...", "role": "user" }
+
+# Test login returns phone
+curl -X POST https://smspro-api.nolacrm.io/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test-verify@example.com", "password": "Test1234!"}'
+# Expected: 200 { "token": "...", "user": { "phone": "09170000001", ... } }
+
+# Test re-install (same location — should return 200 "linked")
+curl -X POST https://smspro-api.nolacrm.io/api/auth/register-from-install \
+  -H "Content-Type: application/json" \
+  -d '{
+    "full_name": "Test User",
+    "phone": "09170000001",
+    "email": "test-verify@example.com",
+    "password": "Test1234!",
+    "location_id": "YOUR_TEST_LOCATION_ID",
+    "company_id": ""
+  }'
+# Expected: 200 { "status": "linked" }
+```
+
+---
+
+## Summary: What Still Needs to be Done (GHL-side only)
+
+| Action | Where | Who |
+|--------|-------|-----|
+| Replace Custom Code script in each funnel page | GHL Funnel Builder | You / GHL Admin |
+| Set Default Values in form fields to `{{location.custom_values.owner_name}}` etc. | GHL Funnel Builder | You / GHL Admin |
+| Publish all 5 funnel pages after changes | GHL Funnel Builder | You / GHL Admin |
+
+**No backend or frontend code changes are needed.** Everything is deployed.
