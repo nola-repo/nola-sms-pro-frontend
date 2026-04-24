@@ -59,9 +59,13 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
       const data = await authLogin(email, password);
 
       if (data.role === 'agency') {
-        // Clear the token since it shouldn't be here
+        // Agency accounts belong at the agency portal — redirect automatically.
+        // Clear any stale token from the user app first.
         localStorage.clear();
-        setError('Please login at agency.nolasmspro.com');
+        setError('Agency account detected. Redirecting to your portal…');
+        setTimeout(() => {
+          window.location.href = 'https://agency.nolasmspro.com';
+        }, 800);
         return;
       } else {
         // Persist full user profile for checkout pre-fill and dashboard display
