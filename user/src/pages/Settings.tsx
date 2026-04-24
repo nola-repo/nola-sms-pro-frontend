@@ -24,7 +24,7 @@ import { fetchAccountProfile } from "../api/account";
 
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-type SettingsTab = "account" | "senderIds" | "notifications" | "credits" | "tickets";
+type SettingsTab = "account" | "senderIds" | "notifications" | "credits";
 
 interface SettingsProps {
     darkMode: boolean;
@@ -35,11 +35,10 @@ interface SettingsProps {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const TABS: { id: SettingsTab; label: string; icon: React.ReactNode; description: string }[] = [
-    { id: "account", label: "Account", icon: <FiUser />, description: "Profile & organization info" },
-    { id: "senderIds", label: "Sender IDs", icon: <FiSend />, description: "Manage approved sender IDs" },
-    { id: "notifications", label: "Notifications", icon: <FiBell />, description: "Alert & report preferences" },
-    { id: "credits", label: "Credits", icon: <FiCreditCard />, description: "Balance & billing" },
-    { id: "tickets", label: "Tickets", icon: <FiMessageSquare />, description: "Support & help requests" },
+    { id: "account",       label: "Account",       icon: <FiUser />,         description: "Profile & organization info" },
+    { id: "senderIds",    label: "Sender IDs",    icon: <FiSend />,         description: "Manage approved sender IDs" },
+    { id: "notifications",label: "Notifications", icon: <FiBell />,         description: "Alert & report preferences" },
+    { id: "credits",      label: "Credits",       icon: <FiCreditCard />,   description: "Balance & billing" },
 ];
 
 
@@ -1188,37 +1187,6 @@ const CreditsSection: React.FC = () => {
     );
 };
 
-// ─── Section: Tickets (Embedded Funnel) ───────────────────────────────────
-const TicketsSection: React.FC = () => {
-    // DEVELOPER NOTE: Replace the URL below with your actual GHL Funnel URL
-    const SUPPORT_FUNNEL_URL = "https://example.com/support-funnel"; 
-
-    return (
-        <div className="flex flex-col h-[calc(100vh-180px)] min-h-[500px]">
-            <SectionHeader 
-                title="Support Tickets" 
-                subtitle="Submit and track your support requests through our dedicated portal." 
-            />
-            
-            <div className="flex-1 overflow-hidden rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] shadow-sm relative group">
-                <iframe
-                    src={SUPPORT_FUNNEL_URL}
-                    className="w-full h-full border-0"
-                    title="Support Ticket Funnel"
-                    allow="camera; microphone; clipboard-read; clipboard-write; display-capture"
-                />
-                
-                {/* Subtle overlay hint */}
-                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="px-2 py-1 bg-black/40 backdrop-blur-md rounded-lg text-[10px] text-white font-bold uppercase tracking-widest">
-                        External Portal
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
 // ─── Main Export ─────────────────────────────────────────────────────────────
 export const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, initialTab, autoOpenAddModal }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || "account");
@@ -1229,7 +1197,6 @@ export const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, in
             case "senderIds": return <SenderIdsSection autoOpenAddModal={autoOpenAddModal && activeTab === "senderIds"} />;
             case "notifications": return <NotificationsSection />;
             case "credits": return <CreditsSection />;
-            case "tickets": return <TicketsSection />;
         }
     }, [activeTab, darkMode, toggleDarkMode, autoOpenAddModal]);
 
@@ -1262,25 +1229,26 @@ export const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, in
                         {TABS.map(tab => {
                             const isActive = activeTab === tab.id;
                             return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left whitespace-nowrap md:whitespace-normal flex-shrink-0 md:flex-shrink md:w-full group
+                                <div key={tab.id} className="flex flex-col md:w-full flex-shrink-0 md:flex-shrink">
+                                    <button
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left whitespace-nowrap md:whitespace-normal w-full group
                     ${isActive
-                                            ? "bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]"
-                                            : "text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]"}
+                                                ? "bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]"
+                                                : "text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]"}
                   `}
-                                >
-                                    {/* Left accent bar - desktop only */}
-                                    {isActive && (
-                                        <div className="hidden md:block absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#2b83fa] rounded-r-full shadow-[0_0_8px_rgba(43,131,250,0.5)]" />
-                                    )}
-                                    <span className={`text-[15px] flex-shrink-0 transition-all duration-300 ${isActive
-                                        ? "scale-110 text-[#2b83fa] drop-shadow-[0_0_8px_rgba(43,131,250,0.4)]"
-                                        : "group-hover:scale-105 group-hover:text-[#2b83fa]"
-                                        }`}>{tab.icon}</span>
-                                    <span className={`text-[13.5px] ${isActive ? "font-bold tracking-tight" : "font-medium"}`}>{tab.label}</span>
-                                </button>
+                                    >
+                                        {/* Left accent bar - desktop only */}
+                                        {isActive && (
+                                            <div className="hidden md:block absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#2b83fa] rounded-r-full shadow-[0_0_8px_rgba(43,131,250,0.5)]" />
+                                        )}
+                                        <span className={`text-[15px] flex-shrink-0 transition-all duration-300 ${isActive
+                                            ? "scale-110 text-[#2b83fa] drop-shadow-[0_0_8px_rgba(43,131,250,0.4)]"
+                                            : "group-hover:scale-105 group-hover:text-[#2b83fa]"
+                                            }`}>{tab.icon}</span>
+                                        <span className={`text-[13.5px] ${isActive ? "font-bold tracking-tight" : "font-medium"}`}>{tab.label}</span>
+                                    </button>
+                                </div>
                             );
                         })}
                     </div>

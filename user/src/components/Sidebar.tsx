@@ -7,14 +7,14 @@ import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
 import { renameBulkMessage, deleteBulkMessage, deleteContact as deleteContactLocal, getDeletedContactIds } from "../utils/storage";
 import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarRightCollapse } from "react-icons/tb";
-import { FiUsers, FiChevronDown, FiEdit2, FiTrash2, FiMoreVertical, FiHome, FiPlus, FiX, FiLogOut } from "react-icons/fi";
+import { FiUsers, FiChevronDown, FiEdit2, FiTrash2, FiMoreVertical, FiHome, FiPlus, FiX, FiLogOut, FiMessageSquare } from "react-icons/fi";
 import { logout } from "../services/authService";
 import GlareHover from "./GlareHover";
 import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
 import { getAccountSettings } from "../utils/settingsStorage";
 import { useLocationId } from "../context/LocationContext";
 
-export type ViewTab = 'home' | 'compose' | 'contacts' | 'templates' | 'settings';
+export type ViewTab = 'home' | 'compose' | 'contacts' | 'templates' | 'settings' | 'tickets';
 
 interface SidebarProps {
   activeTab: ViewTab;
@@ -864,6 +864,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
           )}
+        </button>
+
+        {/* Tickets */}
+        <button
+          onClick={() => onTabChange('tickets')}
+          className={`
+            flex items-center rounded-xl transition-all duration-200 group
+            ${isCollapsed ? 'w-10 h-10 justify-center' : 'w-full gap-3 px-3 py-2'}
+            ${activeTab === 'tickets'
+              ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
+              : 'text-[#9aa0a6] dark:text-[#5f6368] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] hover:text-[#5f6368] dark:hover:text-[#9aa0a6]'}
+          `}
+        >
+          <div className={`transition-all duration-300 ${activeTab === 'tickets' ? 'scale-110 text-[#2b83fa]' : 'group-hover:scale-110'}`}>
+            <FiMessageSquare className="h-5 w-5" />
+          </div>
+          {!isCollapsed && <span className="font-medium text-[13px]">Tickets</span>}
         </button>
 
         {/* Settings */}

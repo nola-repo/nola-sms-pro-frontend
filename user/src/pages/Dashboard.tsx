@@ -11,6 +11,7 @@ import { TemplatesTab } from "../components/TemplatesTab";
 import { Settings } from "./Settings";
 import { FiMenu, FiSettings } from "react-icons/fi";
 import { Home } from "../components/Home";
+import { TicketsTab } from "../components/TicketsTab";
 import { useOnboarding } from "../components/onboarding/useOnboarding";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
 import { useLocationId } from "../context/LocationContext";
@@ -112,6 +113,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       contacts: '/contacts',
       settings: '/settings',
       templates: '/templates',
+      tickets: '/tickets',
     };
     const search = window.location.search;
     navigate({ pathname: urlMap[tab] ?? '/', search }, { replace: false });
@@ -318,6 +320,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             />
           ) : currentView === 'templates' ? (
             <TemplatesTab />
+          ) : currentView === 'tickets' ? (
+            <TicketsTab />
           ) : null}
         </div>
       </div>

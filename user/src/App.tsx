@@ -130,6 +130,18 @@ const AppLayout: React.FC = () => {
               />
             }
           />
+          <Route
+            path="/tickets"
+            element={
+              <Dashboard
+                isMobileMenuOpen={isMobileMenuOpen}
+                onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                darkMode={darkMode}
+                toggleDarkMode={toggleDarkMode}
+                initialView="tickets"
+              />
+            }
+          />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
