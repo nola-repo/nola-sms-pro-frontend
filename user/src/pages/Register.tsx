@@ -201,6 +201,16 @@ const Register: React.FC<RegisterProps> = ({ darkMode, toggleDarkMode }) => {
     try {
       await linkCompany(trimmed);
       await new Promise(r => setTimeout(r, 400));
+
+      // Persist agency profile for portal pre-fill and checkout
+      localStorage.setItem('nola_agency', JSON.stringify({
+        firstName:  form.firstName.trim(),
+        lastName:   form.lastName.trim(),
+        email:      form.email.trim().toLowerCase(),
+        phone:      form.phone.trim(),
+        company_id: trimmed,
+      }));
+
       goTo(4);
     } catch (err: any) {
       setApiError(err.message || 'Failed to save Company ID. Please try again.');

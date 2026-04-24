@@ -64,6 +64,17 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
         setError('Please login at agency.nolasmspro.com');
         return;
       } else {
+        // Persist full user profile for checkout pre-fill and dashboard display
+        if (data.user) {
+          localStorage.setItem('nola_user', JSON.stringify({
+            firstName:   data.user.firstName  ?? '',
+            lastName:    data.user.lastName   ?? '',
+            email:       data.user.email      ?? email,
+            phone:       data.user.phone      ?? '',
+            location_id: data.location_id     ?? null,
+            company_id:  data.company_id      ?? null,
+          }));
+        }
         navigate('/');
       }
     } catch (err: any) {

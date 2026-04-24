@@ -769,9 +769,34 @@ const CreditsSection: React.FC = () => {
 
         const baseUrl = selectedPackage.link;
         const separator = baseUrl.includes('?') ? '&' : '?';
-        const checkoutUrl = locationId
+
+        // Build base URL with location_id
+        let checkoutUrl = locationId
             ? `${baseUrl}${separator}location_id=${encodeURIComponent(locationId)}`
             : baseUrl;
+
+        // Append contact info from localStorage so the GHL funnel form pre-fills
+        // Full Name, Email, and Phone automatically (GHL order forms read these URL params)
+        try {
+            const stored = localStorage.getItem('nola_user');
+            if (stored) {
+                const profile = JSON.parse(stored) as {
+                    firstName?: string; lastName?: string;
+                    email?: string; phone?: string;
+                };
+                const p = new URLSearchParams();
+                const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(' ');
+                if (fullName)         p.set('name',       fullName);
+                if (profile.firstName) p.set('first_name', profile.firstName);
+                if (profile.lastName)  p.set('last_name',  profile.lastName);
+                if (profile.email)     p.set('email',      profile.email);
+                if (profile.phone)     p.set('phone',      profile.phone);
+                const qs = p.toString();
+                if (qs) checkoutUrl += (checkoutUrl.includes('?') ? '&' : '?') + qs;
+            }
+        } catch {
+            // Non-fatal: if localStorage parse fails, checkout still opens without pre-fill
+        }
 
         const width = 600;
         const height = 850;
