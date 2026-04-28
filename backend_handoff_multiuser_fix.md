@@ -46,7 +46,7 @@ For a **company install** (role: agency):
   "token": "eyJ...",
   "role": "agency",
   "location_id": null,
-  "company_id": "CO_456",
+  "company_id": "CO_456", 
   "user": { "firstName": "John", "lastName": "Cruz", "email": "...", "phone": "..." }
 }
 ```
