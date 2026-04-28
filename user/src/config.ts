@@ -6,8 +6,8 @@
  * This eliminates CORS entirely — the browser never makes a cross-origin request.
  */
 
-// Always use relative paths so nginx/Vite can proxy server-side
-const API_BASE = "";
+// Always use absolute path for GHL iframe compatibility
+const API_BASE = "https://sms-api-116662437564.asia-southeast1.run.app";
 
 export const API_CONFIG = {
     // Primary API Base
