@@ -485,7 +485,8 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                     return (
                                         <>
                                             {currentTxs.map((log: any, idx) => {
-                                                const isUsage = log.type === 'deduction';
+                                                const isCredit = log.type === 'top_up' || log.type === 'refund' || log.type === 'manual_adjustment' || log.type === 'credit_purchase';
+                                                const isUsage = !isCredit;
                                                 const timeString = log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                                                 const dateString = log.created_at ? new Date(log.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
 
@@ -509,7 +510,11 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                                                         <span className="font-bold text-purple-500">-1 free trial</span>
                                                                     ) : (
                                                                         <>
-                                                                            {isUsage ? 'Deducted' : 'Added'} <span className={`font-bold ${isUsage ? 'text-purple-500' : 'text-emerald-500'}`}>{!isUsage && '+'}{Math.abs(log.amount || 0).toLocaleString()}</span> credits
+                                                                            {isUsage ? (
+                                                                                <span className="font-bold text-purple-500">{Math.abs(log.amount || 0).toLocaleString()} credits used</span>
+                                                                            ) : (
+                                                                                <>Added <span className="font-bold text-emerald-500">+{Math.abs(log.amount || 0).toLocaleString()}</span> credits</>
+                                                                            )}
                                                                         </>
                                                                     )}
                                                                 </p>
