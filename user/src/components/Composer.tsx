@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 
 import { fetchContacts } from "../api/contacts";
-import { sendSms, sendBulkSms, type SenderId } from "../api/sms";
+import { sendSms, sendBulkSms, interpolateMessage, type SenderId } from "../api/sms";
 import { getRecipientKey } from "../utils/storage";
 import type { BulkMessageHistoryItem, Message } from "../types/Sms";
 import type { Contact } from "../types/Contact";
@@ -190,15 +190,16 @@ export const Composer: React.FC<ComposerProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const customValuesRef = useRef<HTMLDivElement>(null);
+  const tagsRef = useRef<HTMLDivElement>(null);
   const msgAreaRef = useRef<HTMLDivElement>(null);
   const touchStartYMsg = useRef<number>(0);
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
 
   // Interactive features state
-  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [isCustomValuesOpen, setIsCustomValuesOpen] = useState(false);
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
+  const [selectedTagsToApply, setSelectedTagsToApply] = useState<string[]>([]);
 
   // ─── Toast (custom, no-blink) ───────────────────────────────────────────────
   // We keep toast state in a ref *and* in state so the equality check is never
@@ -312,10 +313,8 @@ export const Composer: React.FC<ComposerProps> = ({
   }, [composeMode, conversationId]);
 
   useEffect(() => {
-    if (isNewMessage) {
-      fetchContacts(locationId || undefined).then(setAllContacts).catch(console.error);
-    }
-  }, [isNewMessage, locationId]);
+    fetchContacts(locationId || undefined).then(setAllContacts).catch(console.error);
+  }, [locationId]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -323,8 +322,11 @@ export const Composer: React.FC<ComposerProps> = ({
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsPickerOpen(false);
       }
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
-        setIsEmojiPickerOpen(false);
+      if (customValuesRef.current && !customValuesRef.current.contains(event.target as Node)) {
+        setIsCustomValuesOpen(false);
+      }
+      if (tagsRef.current && !tagsRef.current.contains(event.target as Node)) {
+        setIsTagsOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -380,22 +382,33 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   // Interactive Features Handlers
-  const commonEmojis = ["😊", "👍", "👋", "🙌", "🔥", "✨", "📱", "💬", "✅", "⚠️", "⏳", "📅"];
+  const customValuesList = [
+    { label: "Contact First Name", value: "{{contact.first_name}}" },
+    { label: "Contact Last Name", value: "{{contact.last_name}}" },
+    { label: "Contact Full Name", value: "{{contact.name}}" },
+    { label: "Contact Phone", value: "{{contact.phone}}" },
+    { label: "Contact Email", value: "{{contact.email}}" },
+  ];
 
-  const handleEmojiSelect = (emoji: string) => {
-    setMessage(prev => prev + emoji);
-    setIsEmojiPickerOpen(false);
+  const handleCustomValueSelect = (val: string) => {
+    setMessage(prev => prev + val);
+    setIsCustomValuesOpen(false);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      setAttachedFiles(prev => [...prev, ...newFiles]);
-    }
-  };
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    allContacts.forEach(c => {
+      if (c.tags) {
+        c.tags.forEach(t => tagSet.add(t));
+      }
+    });
+    return Array.from(tagSet).sort();
+  }, [allContacts]);
 
-  const handleRemoveFile = (index: number) => {
-    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  const handleTagToggle = (tag: string) => {
+    setSelectedTagsToApply(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
   };
 
   // SMS length calculation
@@ -450,8 +463,9 @@ export const Composer: React.FC<ComposerProps> = ({
 
     setLoading(true);
     const messageText = message;
+    const currentTags = [...selectedTagsToApply];
     setMessage("");
-    setAttachedFiles([]);
+    setSelectedTagsToApply([]);
 
     try {
       // Check if we're viewing an existing bulk message conversation
@@ -461,8 +475,9 @@ export const Composer: React.FC<ComposerProps> = ({
         // Single message or appending to existing bulk conversation
         if (recipients.length === 1) {
           // Optimistic update for single message
-          const tempId = addOptimisticMessage(messageText, senderName);
-          const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, recipients[0].name, undefined, recipients[0].ghl_contact_id);
+          const optimisticText = interpolateMessage(messageText, { name: recipients[0].name, phone: recipients[0].phone });
+          const tempId = addOptimisticMessage(optimisticText, senderName);
+          const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, recipients[0].name, undefined, recipients[0].ghl_contact_id, currentTags);
 
           if (smsResult.success) {
             updateMessageStatus(tempId, 'sent');
@@ -491,7 +506,7 @@ export const Composer: React.FC<ComposerProps> = ({
           const batchId = activeBulkMessage?.batchId; // Use existing batchId to keep in same conversation
 
           // Send bulk SMS - if we have an existing batchId, it will add to that conversation
-          const { results } = await sendBulkSms(phones, messageText, senderName, recipients, recipientKey, batchId);
+          const { results } = await sendBulkSms(phones, messageText, senderName, recipients, recipientKey, batchId, currentTags);
           const successCount = results.filter(r => r.success).length;
 
           if (successCount > 0) {
@@ -1432,76 +1447,83 @@ export const Composer: React.FC<ComposerProps> = ({
                 style={{ height: 'auto', minHeight: '56px' }}
               />
 
-              {attachedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2 px-4 pb-2">
-                  {attachedFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-lg border border-gray-200 dark:border-white/10"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.414a4 4 0 00-5.656-5.656l-6.415 6.414a6 6 0 108.486 8.486L20.5 13" />
-                      </svg>
-                      <span className="text-[11px] font-medium text-gray-600 dark:text-gray-400 truncate max-w-[120px]">
-                        {file.name}
-                      </span>
-                      <button
-                        onClick={() => handleRemoveFile(index)}
-                        className="p-0.5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-md transition-colors"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
               <div className="flex items-center justify-between px-3 pt-2 pb-1 border-t border-gray-50 dark:border-white/5">
                 <div className="flex items-center gap-1">
-                  {/* Emoji Button */}
-                  <div className="relative" ref={emojiPickerRef}>
+                  {/* Custom Values Button */}
+                  <div className="relative" ref={customValuesRef}>
                     <button
-                      onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
-                      className={`p-2 rounded-full transition-all ${isEmojiPickerOpen ? "bg-blue-50 text-[#2b83fa] dark:bg-white/10" : "text-gray-400 hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-white/5"}`}
+                      onClick={() => setIsCustomValuesOpen(!isCustomValuesOpen)}
+                      title="Custom Values"
+                      className={`px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-[12px] font-bold ${isCustomValuesOpen ? "bg-blue-50 text-[#2b83fa] dark:bg-white/10" : "text-gray-400 hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-white/5"}`}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                       </svg>
+                      <span className="hidden sm:inline">Custom Values</span>
                     </button>
 
-                    {isEmojiPickerOpen && (
-                      <div className="absolute bottom-full left-0 mb-2 p-2 bg-white dark:bg-[#1a1b1e] rounded-2xl border border-gray-200 dark:border-white/10 shadow-xl grid grid-cols-4 gap-1 z-50 animate-scale-up w-[184px]">
-                        {commonEmojis.map(emoji => (
+                    {isCustomValuesOpen && (
+                      <div className="absolute bottom-full left-0 mb-2 p-2 bg-white dark:bg-[#1a1b1e] rounded-2xl border border-gray-200 dark:border-white/10 shadow-xl flex flex-col gap-1 z-50 animate-scale-up w-48">
+                        {customValuesList.map(item => (
                           <button
-                            key={emoji}
-                            onClick={() => handleEmojiSelect(emoji)}
-                            className="w-10 h-10 flex items-center justify-center text-xl hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors"
+                            key={item.value}
+                            onClick={() => handleCustomValueSelect(item.value)}
+                            className="w-full px-3 py-2 text-left text-[13px] font-medium text-[#111111] dark:text-[#ececf1] hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors"
                           >
-                            {emoji}
+                            {item.label}
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
 
-                  {/* Attachment Button */}
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`p-2 rounded-full transition-all ${attachedFiles.length > 0 ? "bg-blue-50 text-[#2b83fa] dark:bg-white/10" : "text-gray-400 hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-white/5"}`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.414a4 4 0 00-5.656-5.656l-6.415 6.414a6 6 0 108.486 8.486L20.5 13" />
-                    </svg>
-                  </button>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    className="hidden"
-                    multiple
-                  />
+                  {/* Tags Button */}
+                  <div className="relative" ref={tagsRef}>
+                    <button
+                      onClick={() => setIsTagsOpen(!isTagsOpen)}
+                      title="Apply Tags to Recipients"
+                      className={`px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-[12px] font-bold ${selectedTagsToApply.length > 0 || isTagsOpen ? "bg-blue-50 text-[#2b83fa] dark:bg-white/10" : "text-gray-400 hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-white/5"}`}
+                    >
+                      <div className="relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                        {selectedTagsToApply.length > 0 && (
+                          <span className="absolute -top-1.5 -right-1.5 flex h-3 w-3 items-center justify-center rounded-full bg-[#2b83fa] text-[8px] font-bold text-white border border-white dark:border-[#1a1b1e]">
+                            {selectedTagsToApply.length}
+                          </span>
+                        )}
+                      </div>
+                      <span className="hidden sm:inline">Apply Tags</span>
+                    </button>
+                    
+                    {isTagsOpen && (
+                      <div className="absolute bottom-full left-0 mb-2 p-2 bg-white dark:bg-[#1a1b1e] rounded-2xl border border-gray-200 dark:border-white/10 shadow-xl flex flex-col gap-1 z-50 animate-scale-up w-56 max-h-60 overflow-y-auto custom-scrollbar">
+                        {allTags.length === 0 ? (
+                          <div className="px-3 py-4 text-center text-[12px] text-gray-500 font-medium">No tags available in your contacts</div>
+                        ) : (
+                          allTags.map(tag => {
+                            const isSelected = selectedTagsToApply.includes(tag);
+                            return (
+                              <button
+                                key={tag}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleTagToggle(tag);
+                                }}
+                                className={`w-full px-3 py-2 text-left text-[13px] font-medium rounded-xl transition-colors flex items-center justify-between ${isSelected ? 'bg-[#2b83fa]/10 text-[#2b83fa]' : 'text-[#111111] dark:text-[#ececf1] hover:bg-gray-100 dark:hover:bg-white/5'}`}
+                              >
+                                <span className="truncate mr-2">{tag}</span>
+                                <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${isSelected ? 'border-[#2b83fa] bg-[#2b83fa]' : 'border-gray-300 dark:border-gray-600'}`}>
+                                  {isSelected && <FiCheck className="h-3 w-3 text-white" />}
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {isNewMessage && composeMode === "bulk" && message.length > 0 && bulkSelectedContacts.length > 0 && (
                     <div className="ml-2 flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800/30">

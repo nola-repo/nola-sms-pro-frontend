@@ -127,6 +127,22 @@ export const fetchSmsLogs = async (phoneNumber?: string, explicitLocationId?: st
   }
 };
 
+export const interpolateMessage = (text: string, contact: { name?: string, phone?: string, email?: string }) => {
+  if (!text) return text;
+  let result = text;
+  const name = contact.name || "";
+  const first_name = name.split(" ")[0] || "";
+  const last_name = name.split(" ").slice(1).join(" ") || "";
+  
+  result = result.replace(/\{\{contact\.name\}\}/gi, name);
+  result = result.replace(/\{\{contact\.first_name\}\}/gi, first_name);
+  result = result.replace(/\{\{contact\.last_name\}\}/gi, last_name);
+  result = result.replace(/\{\{contact\.phone\}\}/gi, contact.phone || "");
+  result = result.replace(/\{\{contact\.email\}\}/gi, contact.email || "");
+  
+  return result;
+};
+
 export const sendSms = async (
   phoneNumber: string,
   message: string,
@@ -134,7 +150,9 @@ export const sendSms = async (
   batchId?: string,
   contactName?: string,
   recipientKey?: string,
-  contactId?: string
+  contactId?: string,
+  tagsToApply?: string[]
+
 ): Promise<SendSmsResponse> => {
   if (!phoneNumber || !message) {
     return {
@@ -152,15 +170,18 @@ export const sendSms = async (
     };
   }
 
+  const personalizedMessage = interpolateMessage(message, { name: contactName, phone: formattedNumber });
+
   const payload = {
     customData: {
       number: formattedNumber,
-      message: message,
+      message: personalizedMessage,
       sendername: senderName,
       batch_id: batchId,
       name: contactName,
       recipient_key: recipientKey,
       contactId: contactId,
+      tagsToApply: tagsToApply,
     },
   };
 
@@ -220,7 +241,8 @@ export const sendBulkSms = async (
   senderName: string = "NOLASMSPro",
   _contacts: { phone: string, name: string, ghl_contact_id?: string }[] = [],
   recipientKey?: string,
-  existingBatchId?: string
+  existingBatchId?: string,
+  tagsToApply?: string[]
 ): Promise<{ results: SendSmsResponse[], batchId: string }> => {
   // Normalize and validate all phone numbers up front
   const normalizedNumbers: string[] = [];
@@ -255,7 +277,7 @@ export const sendBulkSms = async (
     // Find corresponding contact to extract ghl_contact_id
     const contact = _contacts.find(c => normalizePHNumber(c.phone) === phone) || { phone, name: undefined, ghl_contact_id: undefined };
     try {
-      const res = await sendSms(phone, message, senderName, batchId, contact.name, recipientKey, contact.ghl_contact_id);
+      const res = await sendSms(phone, message, senderName, batchId, contact.name, recipientKey, contact.ghl_contact_id, tagsToApply);
       results.push({ ...res, number: phone });
     } catch (error) {
       console.error(`[sendBulkSms] Error sending to ${phone}:`, error);
