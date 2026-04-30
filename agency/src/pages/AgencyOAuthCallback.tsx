@@ -16,6 +16,14 @@ const AgencyOAuthCallback: React.FC = () => {
     ranRef.current = true;
 
     const params = new URLSearchParams(window.location.search);
+
+    // ── NEW: install_token = PHP redirected here after first marketplace install ──
+    const installToken = params.get('install_token');
+    if (installToken) {
+      navigate(`/register-from-install?install_token=${encodeURIComponent(installToken)}`, { replace: true });
+      return;
+    }
+
     const code = params.get('code');
 
     if (!code) {

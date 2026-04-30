@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FiEye, FiEyeOff, FiAlertTriangle, FiLink, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
 import { login as authLogin, saveCompanyId, linkCompany, MissingCompanyIdError } from '../services/agencyAuthHelper';
 import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
@@ -28,6 +28,10 @@ const AgencyLogin: React.FC = () => {
 
   const navigate = useNavigate();
   const primaryColor = '#3b82f6';
+
+  // Welcome-back banner (from re-install redirect: /login?welcome_back=1)
+  const [searchParams] = useSearchParams();
+  const isWelcomeBack  = searchParams.get('welcome_back') === '1';
 
 
 
@@ -114,6 +118,20 @@ const AgencyLogin: React.FC = () => {
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight">Welcome back</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400">Sign in to your Agency account</p>
             </div>
+
+            {/* Welcome-back banner */}
+            {isWelcomeBack && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 p-4 rounded-xl bg-blue-50 dark:bg-[#2b83fa]/10 border border-blue-100 dark:border-[#2b83fa]/20 text-sm"
+              >
+                <p className="font-bold text-[#2b83fa] mb-0.5">Welcome back!</p>
+                <p className="text-blue-600/80 dark:text-blue-400/80">
+                  Your agency has been reinstalled. Please sign in to continue.
+                </p>
+              </motion.div>
+            )}
 
             {error && (
               <motion.div
