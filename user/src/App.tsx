@@ -36,7 +36,6 @@ const AppLayout: React.FC = () => {
     setDarkMode(!darkMode);
   };
 
-  const isLoginPage = location.pathname.toLowerCase() === '/login';
   const hideTogglePaths = ['/login', '/register', '/register-from-install'];
   const hideToggle = hideTogglePaths.includes(location.pathname.toLowerCase());
 
