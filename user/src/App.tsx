@@ -4,6 +4,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { GhlCallback } from "./pages/GhlCallback";
 import SharedLogin from "./pages/SharedLogin";
 import Register from "./pages/Register";
+import RegisterFromInstall from "./pages/RegisterFromInstall";
 import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -36,11 +37,13 @@ const AppLayout: React.FC = () => {
   };
 
   const isLoginPage = location.pathname.toLowerCase() === '/login';
+  const hideTogglePaths = ['/login', '/register', '/register-from-install'];
+  const hideToggle = hideTogglePaths.includes(location.pathname.toLowerCase());
 
   return (
     <div className="h-screen bg-[#ffffff] dark:bg-[#1a1b1e]">
       {/* Theme Toggle - Fixed top right (Desktop only) */}
-      {!isLoginPage && location.pathname.toLowerCase() !== '/register' && (
+      {!hideToggle && (
         <div className="hidden md:flex fixed top-3 right-3 gap-2 z-50">
           <button
             onClick={toggleDarkMode}
@@ -61,9 +64,10 @@ const AppLayout: React.FC = () => {
       )}
 
       <Routes>
-        <Route path="/login"            element={<SharedLogin darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-        <Route path="/register"         element={<Register darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-        <Route path="/oauth/callback"   element={<GhlCallback />} />
+        <Route path="/login"                  element={<SharedLogin darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+        <Route path="/register"               element={<Register darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+        <Route path="/register-from-install"  element={<RegisterFromInstall />} />
+        <Route path="/oauth/callback"         element={<GhlCallback />} />
         {/* Protected routes — requires a valid auth token */}
         <Route element={<ProtectedRoute />}>
           <Route

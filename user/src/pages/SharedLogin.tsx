@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { login as authLogin } from '../services/authService';
 import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
@@ -26,6 +26,11 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
   const [isBrandingLoading, setIsBrandingLoading] = useState(true);
 
   const navigate = useNavigate();
+
+  // Welcome-back banner (triggered by ?welcome_back=1 from re-install redirect)
+  const [searchParams] = useSearchParams();
+  const isWelcomeBack   = searchParams.get('welcome_back') === '1';
+  const locationName    = searchParams.get('name') ?? null;
 
   useEffect(() => {
     // Fetch custom domain branding
@@ -135,6 +140,22 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
             Sign in to your {companyName} account
           </p>
         </div>
+
+        {/* Welcome-back banner (shown after re-install redirect) */}
+        {isWelcomeBack && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-xl bg-blue-50 dark:bg-[#2b83fa]/10 border border-blue-100 dark:border-[#2b83fa]/20 text-sm"
+          >
+            <p className="font-bold text-[#2b83fa] mb-0.5">
+              {locationName ? `Welcome back! ${locationName} has been reinstalled.` : 'Welcome back!'}
+            </p>
+            <p className="text-blue-600/80 dark:text-blue-400/80">
+              Please sign in to continue to your dashboard.
+            </p>
+          </motion.div>
+        )}
 
         {error && (
           <motion.div 
