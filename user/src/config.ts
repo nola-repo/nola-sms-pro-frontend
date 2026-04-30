@@ -27,6 +27,7 @@ export const API_CONFIG = {
     account_sender: `${API_BASE}/api/account-sender`,
     account: `${API_BASE}/api/account`,
     templates: `${API_BASE}/api/templates`,
+    check_message_status: `${API_BASE}/api/check_message_status`,
 };
 
 export default API_CONFIG;

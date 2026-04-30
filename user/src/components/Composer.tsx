@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 
 import { fetchContacts } from "../api/contacts";
-import { sendSms, sendBulkSms, interpolateMessage, type SenderId } from "../api/sms";
+import { sendSms, sendBulkSms, interpolateMessage, checkMessageStatus, type SenderId } from "../api/sms";
 import { getRecipientKey } from "../utils/storage";
 import type { BulkMessageHistoryItem, Message } from "../types/Sms";
 import type { Contact } from "../types/Contact";
@@ -488,6 +488,30 @@ export const Composer: React.FC<ComposerProps> = ({
 
             // Re-fetch from database after a short delay to get the stored message
             setTimeout(() => refresh(), 2000);
+
+            // Real-time status polling: check Semaphore for actual delivery status
+            // within seconds rather than waiting for the 5-min cron.
+            const messageIds = smsResult.messageIds || [];
+            if (messageIds.length > 0) {
+              let attempts = 0;
+              const maxAttempts = 7; // ~10.5s total
+              const pollStatus = async () => {
+                attempts++;
+                const statusMap = await checkMessageStatus(messageIds);
+                const allResolved = messageIds.every(id => {
+                  const s = (statusMap[id] || '').toLowerCase();
+                  return s === 'sent' || s === 'failed';
+                });
+
+                // Refresh messages to show DB-persisted status
+                if (allResolved || attempts >= maxAttempts) {
+                  refresh();
+                } else {
+                  setTimeout(pollStatus, 1500);
+                }
+              };
+              setTimeout(pollStatus, 1500);
+            }
 
             // Navigate to contact view if not already there
             if (activeContact) {
@@ -1300,7 +1324,7 @@ export const Composer: React.FC<ComposerProps> = ({
                             </div>
                           </div>
 
-                          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-20 opacity-100 mt-1 mb-1 px-1' : 'max-h-0 opacity-0'}`}>
+                          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-40 opacity-100 mt-1 mb-1 px-1' : 'max-h-0 opacity-0'}`}>
                             <div className="flex flex-col items-end gap-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
@@ -1364,20 +1388,7 @@ export const Composer: React.FC<ComposerProps> = ({
                           <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                         </div>
 
-                        {msg.status === 'failed' && (
-                          <div className="mt-1 flex flex-col items-end gap-0.5 text-[10px]">
-                            <div className="flex items-center gap-1 text-red-500 font-bold">
-                              <FiAlertCircle size={10} className="animate-pulse" /> Failed to send
-                            </div>
-                            {msg.errorReason && (
-                              <div className="text-red-400 font-medium max-w-[260px] text-right">
-                                {msg.errorReason}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-20 opacity-100 mt-1 mb-1 px-1' : 'max-h-0 opacity-0'}`}>
+                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-40 opacity-100 mt-1 mb-1 px-1' : 'max-h-0 opacity-0'}`}>
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
                               {msg.senderName}
@@ -1388,8 +1399,13 @@ export const Composer: React.FC<ComposerProps> = ({
                             </span>
                             <span className="text-[10px] text-gray-400">•</span>
                             <span className={`text-[10px] font-bold capitalize tracking-wider ${msg.status === 'sent' ? 'text-green-500' : msg.status === 'failed' ? 'text-red-500' : 'text-gray-400'}`}>
-                              {msg.status === 'sending' ? <FiLoader className="animate-spin inline mb-0.5" size={10} /> : msg.status === 'sent' ? <FiCheck className="inline mb-0.5" size={10} /> : <FiAlertCircle size={10} className="inline mb-0.5" />} {msg.status}
+                              {msg.status === 'sending' ? <FiLoader className="animate-spin inline mb-0.5" size={10} /> : msg.status === 'sent' ? <FiCheck className="inline mb-0.5" size={10} /> : <FiAlertCircle size={10} className="inline mb-0.5 animate-pulse" />} {msg.status}
                             </span>
+                            {msg.status === 'failed' && msg.errorReason && (
+                              <span className="text-[10px] text-red-400 font-medium truncate max-w-[160px]" title={msg.errorReason}>
+                                — {msg.errorReason}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

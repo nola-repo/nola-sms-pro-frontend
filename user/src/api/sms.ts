@@ -25,6 +25,8 @@ interface SendSmsResponse {
   error?: string;
   status?: string;
   number?: string;
+  /** Message IDs returned by the backend for status polling */
+  messageIds?: string[];
 }
 
 /**
@@ -225,6 +227,7 @@ export const sendSms = async (
     return {
       success: true,
       message: data.message || "Message sent successfully",
+      messageIds: data.output?.message_ids || [],
     };
   } catch (error) {
     console.error("SMS Error:", error);
@@ -232,6 +235,40 @@ export const sendSms = async (
       success: false,
       message: error instanceof Error ? error.message : "SMS failed",
     };
+  }
+};
+
+/**
+ * Poll the backend for real-time status of specific message IDs.
+ * Used immediately after send to get live Semaphore delivery status.
+ * Returns a map of { messageId -> 'Sent' | 'Sending' | 'Failed' }
+ */
+export const checkMessageStatus = async (
+  messageIds: string[],
+  explicitLocationId?: string
+): Promise<Record<string, string>> => {
+  if (!messageIds.length) return {};
+
+  try {
+    const accountSettings = getAccountSettings();
+    const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
+    const headers: Record<string, string> = {};
+    if (locationId) headers['X-GHL-Location-ID'] = locationId;
+
+    let url = `${API_CONFIG.check_message_status}?message_ids=${encodeURIComponent(messageIds.join(','))}`;
+    if (locationId) url += `&location_id=${encodeURIComponent(locationId)}`;
+
+    const res = await fetch(url, { headers });
+    if (!res.ok) return {};
+    const data = await res.json();
+
+    const result: Record<string, string> = {};
+    for (const item of (data.results || [])) {
+      if (item.message_id) result[item.message_id] = item.status;
+    }
+    return result;
+  } catch {
+    return {};
   }
 };
 
