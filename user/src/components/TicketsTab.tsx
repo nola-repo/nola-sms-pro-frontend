@@ -54,17 +54,24 @@ export const TicketsTab: React.FC = () => {
                     <div className="flex-1 overflow-hidden rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] shadow-sm relative group">
                         <iframe
                             src={SUPPORT_FUNNEL_URL}
-                            className="w-full h-full border-0 min-h-[750px]"
-                            title="Support Ticket Funnel"
+                            style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px' }}
+                            id="inline-Nt1MWKmO93qOlvJWzZzk" 
+                            data-layout="{'id':'INLINE'}"
+                            data-trigger-type="alwaysShow"
+                            data-trigger-value=""
+                            data-activation-type="alwaysActivated"
+                            data-activation-value=""
+                            data-deactivation-type="neverDeactivate"
+                            data-deactivation-value=""
+                            data-form-name="Ticket Form"
+                            data-height="1057"
+                            data-layout-iframe-id="inline-Nt1MWKmO93qOlvJWzZzk"
+                            data-form-id="Nt1MWKmO93qOlvJWzZzk"
+                            className="w-full h-full min-h-[1057px]"
+                            title="Ticket Form"
                             allow="camera; microphone; clipboard-read; clipboard-write; display-capture"
                         />
                         
-                        {/* Subtle overlay hint */}
-                        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="px-2 py-1 bg-black/40 backdrop-blur-md rounded-lg text-[10px] text-white font-bold uppercase tracking-widest">
-                                Support Portal
-                            </div>
-                        </div>
                     </div>
                 </div>
             </main>
