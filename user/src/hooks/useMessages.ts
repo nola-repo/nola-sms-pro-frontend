@@ -33,7 +33,7 @@ export const useMessages = (phoneNumber: string | undefined) => {
                 let mappedStatus = (log.status || 'sent').toLowerCase();
                 // Optimistically show 'sent' (green) for messages that have reached Semaphore (pending delivery)
                 // This stops the UI from flickering back to gray 'pending' while the backend syncs
-                if (mappedStatus === 'pending' || mappedStatus === 'queued') {
+                if (mappedStatus === 'pending' || mappedStatus === 'queued' || mappedStatus === 'success') {
                     mappedStatus = 'sent';
                 }
                 return mappedStatus as Message['status'];

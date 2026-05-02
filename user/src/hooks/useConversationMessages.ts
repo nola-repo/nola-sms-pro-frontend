@@ -57,7 +57,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 // Strictly unify statuses for UI
                 if (['queued', 'pending'].includes(status)) {
                     status = 'sending';
-                } else if (['delivered'].includes(status)) {
+                } else if (['delivered', 'success'].includes(status)) {
                     status = 'sent';
                 } else if (['rejected', 'undelivered', 'expired'].includes(status)) {
                     status = 'failed';
