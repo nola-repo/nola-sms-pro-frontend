@@ -105,7 +105,7 @@ export const useMessages = (phoneNumber: string | undefined) => {
     const updateMessageStatus = (tempId: string, status: 'sent' | 'failed', realId?: string, errorReason?: string) => {
         setMessages(prev =>
             prev.map(msg =>
-                msg.id === tempId
+                msg.id === tempId || (realId && msg.id === realId)
                     ? { ...msg, status, id: realId || msg.id, errorReason }
                     : msg
             )

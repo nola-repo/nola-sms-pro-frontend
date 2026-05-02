@@ -504,7 +504,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 const statusMap = await checkMessageStatus(messageIds);
                 const allResolved = messageIds.every(id => {
                   const s = (statusMap[id] || '').toLowerCase();
-                  return s === 'sent' || s === 'failed';
+                  return s === 'sent' || s === 'failed' || s === 'success';
                 });
 
                 // Refresh messages to show DB-persisted status

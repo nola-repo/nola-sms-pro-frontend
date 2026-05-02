@@ -199,7 +199,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
     ) => {
         setMessages((prev) =>
             prev.map((m) =>
-                m.id === tempId
+                m.id === tempId || (realId && m.id === realId)
                     ? { ...m, status, id: realId || m.id, errorReason }
                     : m
             )
