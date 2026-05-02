@@ -480,6 +480,12 @@ export const Composer: React.FC<ComposerProps> = ({
           const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, recipients[0].name, undefined, recipients[0].ghl_contact_id, currentTags);
 
           if (smsResult.success) {
+            const messageIds = smsResult.messageIds || [];
+            if (messageIds.length > 0) {
+              updateMessageStatus(tempId, 'sent', messageIds[0]);
+            } else {
+              updateMessageStatus(tempId, 'sent');
+            }
             guardedToast("success", smsResult.message || "Message sent successfully!");
 
             // Dispatch event to refresh credit balance
