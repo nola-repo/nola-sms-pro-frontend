@@ -224,10 +224,22 @@ export const sendSms = async (
       };
     }
 
+    // Extract message IDs from various possible response formats
+    let extractedMessageIds: string[] = [];
+    if (data.output?.message_ids) {
+      extractedMessageIds = data.output.message_ids;
+    } else if (Array.isArray(data.response)) {
+      extractedMessageIds = data.response
+        .map((r: any) => r.message_id ? String(r.message_id) : null)
+        .filter(Boolean);
+    } else if (data.message_id) {
+      extractedMessageIds = [String(data.message_id)];
+    }
+
     return {
       success: true,
       message: data.message || "Message sent successfully",
-      messageIds: data.output?.message_ids || [],
+      messageIds: extractedMessageIds,
     };
   } catch (error) {
     console.error("SMS Error:", error);
