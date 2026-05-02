@@ -496,7 +496,6 @@ export const Composer: React.FC<ComposerProps> = ({
 
             // Real-time status polling: check Semaphore for actual delivery status
             // within seconds rather than waiting for the 5-min cron.
-            const messageIds = smsResult.messageIds || [];
             if (messageIds.length > 0) {
               let attempts = 0;
               const maxAttempts = 30; // ~60s total
