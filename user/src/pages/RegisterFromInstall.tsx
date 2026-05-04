@@ -368,10 +368,11 @@ const RegisterFromInstall: React.FC = () => {
 
                   <div className="bg-[#f7f7f7] dark:bg-[#111317] border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] rounded-2xl p-5 space-y-4">
                     {[
-                      { label: 'Name',       value: `${form.firstName} ${form.lastName}` },
+                      { label: 'Name',       value: form.fullName },
                       { label: 'Email',      value: form.email },
                       { label: 'Phone',      value: form.phone },
                       { label: 'Subaccount', value: locationDisplay, highlight: true },
+                      { label: 'Location ID', value: installData?.location_id ?? '—', highlight: true },
                     ].map(({ label, value, highlight }) => (
                       <div key={label} className="flex justify-between items-center text-[13px]">
                         <span className="text-[#6e6e73] dark:text-[#9aa0a6] font-semibold">{label}</span>
