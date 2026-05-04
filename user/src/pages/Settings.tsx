@@ -769,20 +769,29 @@ const CreditsSection: React.FC = () => {
         const baseUrl = selectedPackage.link;
         const separator = baseUrl.includes('?') ? '&' : '?';
 
-        // Build base URL with location_id
-        let checkoutUrl = locationId
-            ? `${baseUrl}${separator}location_id=${encodeURIComponent(locationId)}`
+        // Resolve location_id: prefer GHL hook/settings, fall back to nola_user localStorage
+        let resolvedLocationId = locationId;
+        try {
+            const storedUser = JSON.parse(localStorage.getItem('nola_user') || 'null');
+            if (!resolvedLocationId && storedUser?.location_id) {
+                resolvedLocationId = storedUser.location_id;
+            }
+        } catch { /* ignore */ }
+
+        // Build base URL — location_id goes into ?location_id= so the GHL funnel
+        // script can read it and fill input[name="companyname"] (its tracking field)
+        let checkoutUrl = resolvedLocationId
+            ? `${baseUrl}${separator}location_id=${encodeURIComponent(resolvedLocationId)}`
             : baseUrl;
 
-        // Append contact info from localStorage so the GHL funnel form pre-fills
-        // Full Name, Email, and Phone automatically (GHL order forms read these URL params)
+        // Append contact pre-fill params read by the GHL funnel's custom script
         try {
             const stored = localStorage.getItem('nola_user');
             if (stored) {
                 const profile = JSON.parse(stored) as {
                     firstName?: string; lastName?: string;
                     email?: string; phone?: string;
-                    company_name?: string; location_name?: string;
+                    location_name?: string;
                 };
                 const p = new URLSearchParams();
                 const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(' ');
@@ -790,29 +799,17 @@ const CreditsSection: React.FC = () => {
                     p.set('name', fullName);
                     p.set('full_name', fullName);
                 }
-
-                // Use stored company_name (agency name from ghl_tokens) for the Company Name field
-                const cName = profile.company_name || '';
-                if (cName) {
-                    p.set('company_name', cName);
-                    p.set('company', cName);
-                }
-
                 if (profile.firstName) p.set('first_name', profile.firstName);
                 if (profile.lastName)  p.set('last_name',  profile.lastName);
                 if (profile.email)     p.set('email',      profile.email);
-
                 // Phone is already stored clean (spaces stripped at login/register)
                 if (profile.phone) p.set('phone', profile.phone);
-
-                // Pass location name so the order form can display it
-                if (profile.location_name) p.set('location_name', profile.location_name);
 
                 const qs = p.toString();
                 if (qs) checkoutUrl += (checkoutUrl.includes('?') ? '&' : '?') + qs;
             }
         } catch {
-            // Non-fatal: if localStorage parse fails, checkout still opens without pre-fill
+            // Non-fatal: checkout still opens without pre-fill
         }
 
         const width = 600;

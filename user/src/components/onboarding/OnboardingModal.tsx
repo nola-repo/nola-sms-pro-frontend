@@ -356,8 +356,18 @@ const Step6 = () => {
       const locationId = ghlLocationIdFromHook || getAccountSettings().ghlLocationId;
       const baseUrl = selectedPackage.link;
       const separator = baseUrl.includes('?') ? '&' : '?';
-      let checkoutUrl = locationId
-          ? `${baseUrl}${separator}location_id=${encodeURIComponent(locationId)}`
+
+      // Resolve location_id: prefer GHL hook/settings, fall back to nola_user localStorage
+      let resolvedLocationId = locationId;
+      try {
+          const storedUser = JSON.parse(localStorage.getItem('nola_user') || 'null');
+          if (!resolvedLocationId && storedUser?.location_id) {
+              resolvedLocationId = storedUser.location_id;
+          }
+      } catch { /* ignore */ }
+
+      let checkoutUrl = resolvedLocationId
+          ? `${baseUrl}${separator}location_id=${encodeURIComponent(resolvedLocationId)}`
           : baseUrl;
 
       try {
@@ -370,24 +380,11 @@ const Step6 = () => {
                   p.set('name', fullName);
                   p.set('full_name', fullName);
               }
-
-              // Use stored company_name (agency name from ghl_tokens)
-              const cName = profile.company_name || '';
-              if (cName) {
-                  p.set('company_name', cName);
-                  p.set('company', cName);
-              }
-
               if (profile.firstName) p.set('first_name', profile.firstName);
               if (profile.lastName)  p.set('last_name',  profile.lastName);
               if (profile.email)     p.set('email',      profile.email);
-
               // Phone is already stored clean (spaces stripped at login/register)
               if (profile.phone) p.set('phone', profile.phone);
-
-              // Pass location name so the order form can display it
-              if (profile.location_name) p.set('location_name', profile.location_name);
-
               const qs = p.toString();
               if (qs) checkoutUrl += (checkoutUrl.includes('?') ? '&' : '?') + qs;
           }
