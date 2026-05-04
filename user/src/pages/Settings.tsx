@@ -782,14 +782,32 @@ const CreditsSection: React.FC = () => {
                 const profile = JSON.parse(stored) as {
                     firstName?: string; lastName?: string;
                     email?: string; phone?: string;
+                    company_name?: string; location_name?: string;
                 };
                 const p = new URLSearchParams();
                 const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(' ');
-                if (fullName)         p.set('name',       fullName);
+                if (fullName) {
+                    p.set('name', fullName);
+                    p.set('full_name', fullName);
+                }
+
+                // Use stored company_name (agency name from ghl_tokens) for the Company Name field
+                const cName = profile.company_name || '';
+                if (cName) {
+                    p.set('company_name', cName);
+                    p.set('company', cName);
+                }
+
                 if (profile.firstName) p.set('first_name', profile.firstName);
                 if (profile.lastName)  p.set('last_name',  profile.lastName);
                 if (profile.email)     p.set('email',      profile.email);
-                if (profile.phone)     p.set('phone',      profile.phone);
+
+                // Phone is already stored clean (spaces stripped at login/register)
+                if (profile.phone) p.set('phone', profile.phone);
+
+                // Pass location name so the order form can display it
+                if (profile.location_name) p.set('location_name', profile.location_name);
+
                 const qs = p.toString();
                 if (qs) checkoutUrl += (checkoutUrl.includes('?') ? '&' : '?') + qs;
             }

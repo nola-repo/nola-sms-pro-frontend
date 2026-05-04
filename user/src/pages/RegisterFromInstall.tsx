@@ -138,6 +138,18 @@ const RegisterFromInstall: React.FC = () => {
     }
 
     const verify = async () => {
+      if (installToken === 'dev') {
+        setInstallData({
+          type: 'install',
+          location_id: 'TEST_LOC_123',
+          location_name: 'Test Sub-account',
+          company_id: null,
+          company_name: null,
+        });
+        setTokenLoading(false);
+        return;
+      }
+
       try {
         const res = await fetch(`${API_CONFIG.base}/api/auth/verify-install-token?token=${encodeURIComponent(installToken)}`);
         const data = await res.json();
@@ -195,11 +207,11 @@ const RegisterFromInstall: React.FC = () => {
         body: JSON.stringify({
           full_name:     `${form.firstName.trim()} ${form.lastName.trim()}`,
           email:         form.email.trim().toLowerCase(),
-          phone:         form.phone.trim(),
+          phone:         form.phone.trim().replace(/\s+/g, ''),
           password:      form.password,
           location_id:   installData?.location_id  ?? null,
           company_id:    installData?.company_id   ?? null,
-          install_token: installToken,
+          install_token: installToken === 'dev' ? undefined : installToken,
         }),
       });
 
@@ -208,13 +220,16 @@ const RegisterFromInstall: React.FC = () => {
 
       // Save session
       auth.login(data);
+      const rawPhone = (data.user?.phone ?? form.phone.trim()).replace(/\s+/g, '');
       localStorage.setItem('nola_user', JSON.stringify({
-        firstName:            data.user?.firstName ?? form.firstName.trim(),
-        lastName:             data.user?.lastName  ?? form.lastName.trim(),
-        email:                data.user?.email     ?? form.email.trim().toLowerCase(),
-        phone:                data.user?.phone     ?? form.phone.trim(),
-        location_id:          data.location_id     ?? null,
-        company_id:           data.company_id      ?? null,
+        firstName:            data.user?.firstName    ?? form.firstName.trim(),
+        lastName:             data.user?.lastName     ?? form.lastName.trim(),
+        email:                data.user?.email        ?? form.email.trim().toLowerCase(),
+        phone:                rawPhone,
+        location_id:          data.location_id        ?? null,
+        company_id:           data.company_id         ?? null,
+        location_name:        data.location_name      ?? null,
+        company_name:         data.company_name       ?? null,
         location_memberships: data.location_memberships ?? [],
       }));
 

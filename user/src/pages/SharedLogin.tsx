@@ -76,12 +76,14 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
         // Persist full user profile for checkout pre-fill and dashboard display
         if (data.user) {
           localStorage.setItem('nola_user', JSON.stringify({
-            firstName:   data.user.firstName  ?? '',
-            lastName:    data.user.lastName   ?? '',
-            email:       data.user.email      ?? email,
-            phone:       data.user.phone      ?? '',
-            location_id: data.location_id     ?? null,
-            company_id:  data.company_id      ?? null,
+            firstName:    data.user.firstName  ?? '',
+            lastName:     data.user.lastName   ?? '',
+            email:        data.user.email      ?? email,
+            phone:        (data.user.phone     ?? '').replace(/\s+/g, ''),
+            location_id:  data.location_id     ?? null,
+            company_id:   data.company_id      ?? null,
+            location_name: data.user.location_name ?? null,
+            company_name:  data.user.company_name  ?? null,
           }));
         }
         navigate('/');
