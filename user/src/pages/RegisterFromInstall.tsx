@@ -224,10 +224,10 @@ const RegisterFromInstall: React.FC = () => {
         lastName:             data.user?.lastName     ?? form.fullName.trim().split(' ').slice(1).join(' '),
         email:                data.user?.email        ?? form.email.trim().toLowerCase(),
         phone:                rawPhone,
-        location_id:          data.location_id        ?? null,
-        company_id:           data.company_id         ?? null,
-        location_name:        data.location_name      ?? null,
-        company_name:         data.company_name       ?? null,
+        location_id:          data.location_id        ?? installData?.location_id ?? null,
+        company_id:           data.company_id         ?? installData?.company_id ?? null,
+        location_name:        data.location_name      ?? data.user?.location_name ?? installData?.location_name ?? null,
+        company_name:         data.company_name       ?? data.user?.company_name  ?? installData?.company_name ?? null,
         location_memberships: data.location_memberships ?? [],
       }));
 
