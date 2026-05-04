@@ -209,6 +209,8 @@ const RegisterFromInstall: React.FC = () => {
           password:      form.password,
           location_id:   installData?.location_id  ?? null,
           company_id:    installData?.company_id   ?? null,
+          location_name: installData?.location_name ?? null,
+          company_name:  installData?.company_name ?? null,
           install_token: installToken === 'dev' ? undefined : installToken,
         }),
       });
