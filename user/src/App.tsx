@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { Dashboard } from "./pages/Dashboard";
 import { GhlCallback } from "./pages/GhlCallback";
 import SharedLogin from "./pages/SharedLogin";
-import Register from "./pages/Register";
 import RegisterFromInstall from "./pages/RegisterFromInstall";
 import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
