@@ -237,13 +237,7 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
 
         </form>
 
-        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 text-center space-y-3">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Don't have an account?{' '}
-            <a href="/register" className="font-semibold hover:underline text-[#2b83fa]">
-              Register now →
-            </a>
-          </p>
+        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 text-center">
           <p className="text-xs text-gray-400 dark:text-gray-500">
             By signing in, you agree to our Terms of Service and Privacy Policy.
           </p>

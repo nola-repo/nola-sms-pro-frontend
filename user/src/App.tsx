@@ -36,7 +36,7 @@ const AppLayout: React.FC = () => {
     setDarkMode(!darkMode);
   };
 
-  const hideTogglePaths = ['/login', '/register', '/register-from-install'];
+  const hideTogglePaths = ['/login', '/register-from-install'];
   const hideToggle = hideTogglePaths.includes(location.pathname.toLowerCase());
 
   return (
@@ -64,7 +64,7 @@ const AppLayout: React.FC = () => {
 
       <Routes>
         <Route path="/login"                  element={<SharedLogin darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-        <Route path="/register"               element={<Register darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+        <Route path="/register"               element={<Navigate to="/login" replace />} />
         <Route path="/register-from-install"  element={<RegisterFromInstall />} />
         <Route path="/oauth/callback"         element={<GhlCallback />} />
         {/* Protected routes — requires a valid auth token */}
