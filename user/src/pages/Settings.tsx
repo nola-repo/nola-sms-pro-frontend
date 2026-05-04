@@ -129,7 +129,7 @@ const AccountSection: React.FC = () => {
             const u = data.user;
             const patched = {
                 ...(JSON.parse(localStorage.getItem('nola_user') || '{}')),
-                name:          u.name          ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || undefined,
+                name:          (u.name ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()) || undefined,
                 location_name: u.location_name ?? null,
                 company_name:  u.company_name  ?? null,
                 location_id:   u.location_id   ?? null,
