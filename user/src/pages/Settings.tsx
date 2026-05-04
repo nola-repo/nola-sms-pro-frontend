@@ -115,9 +115,9 @@ const AccountSection: React.FC = () => {
         catch { return {}; }
     });
 
-    // Self-heal: if location_name is missing from cache, fetch from /api/auth/me
+    // Self-heal: if location_name or name is missing from cache, fetch from /api/auth/me
     useEffect(() => {
-        if (userProfile.location_name) return; // already have it
+        if (userProfile.location_name && userProfile.name) return; // already have both
         const token = localStorage.getItem('nola_auth_token');
         if (!token) return;
         fetch('/api/auth/me', {
@@ -240,8 +240,12 @@ const AccountSection: React.FC = () => {
         ? fetchedName
         : (userProfile.location_name || form.displayName || "Not Found");
     const statusCfg = STATUS_CONFIG[form.accountStatus];
-    // fullName comes from the `name` field stored at login/registration
-    const fullName = userProfile.name || 'N/A';
+    // fullName: use `name` field; fall back to legacy firstName+lastName for old sessions
+    const cachedRaw = (() => { try { return JSON.parse(localStorage.getItem('nola_user') || '{}'); } catch { return {}; } })();
+    const fullName = userProfile.name
+        || (cachedRaw.name)
+        || (`${cachedRaw.firstName ?? ''} ${cachedRaw.lastName ?? ''}`.trim())
+        || 'N/A';
     const resolvedLocationId = ghlLocationIdFromHook || inputLocationId || userProfile.location_id || '';
 
     return (
