@@ -113,8 +113,7 @@ const RegisterFromInstall: React.FC = () => {
 
   // Form state
   const [form, setForm] = useState({
-    firstName: '',
-    lastName:  '',
+    fullName:  '',
     email:     '',
     phone:     '',
     password:  '',
@@ -177,8 +176,7 @@ const RegisterFromInstall: React.FC = () => {
 
   const validateStep1 = () => {
     const e: Record<string, string> = {};
-    if (!form.firstName.trim())     e.firstName = 'Required';
-    if (!form.lastName.trim())      e.lastName  = 'Required';
+    if (!form.fullName.trim())      e.fullName = 'Required';
     if (!form.email.trim())         e.email     = 'Required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email';
     if (!form.phone.trim())         e.phone     = 'Required';
@@ -205,7 +203,7 @@ const RegisterFromInstall: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          full_name:     `${form.firstName.trim()} ${form.lastName.trim()}`,
+          full_name:     form.fullName.trim(),
           email:         form.email.trim().toLowerCase(),
           phone:         form.phone.trim().replace(/\s+/g, ''),
           password:      form.password,
@@ -222,8 +220,8 @@ const RegisterFromInstall: React.FC = () => {
       auth.login(data);
       const rawPhone = (data.user?.phone ?? form.phone.trim()).replace(/\s+/g, '');
       localStorage.setItem('nola_user', JSON.stringify({
-        firstName:            data.user?.firstName    ?? form.firstName.trim(),
-        lastName:             data.user?.lastName     ?? form.lastName.trim(),
+        firstName:            data.user?.firstName    ?? form.fullName.trim().split(' ')[0],
+        lastName:             data.user?.lastName     ?? form.fullName.trim().split(' ').slice(1).join(' '),
         email:                data.user?.email        ?? form.email.trim().toLowerCase(),
         phone:                rawPhone,
         location_id:          data.location_id        ?? null,
@@ -315,14 +313,9 @@ const RegisterFromInstall: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="First Name" icon={<FiUser className="w-4 h-4" />} error={errors.firstName}>
-                      <input type="text" value={form.firstName} onChange={set('firstName')} placeholder="John" className={inputCls} />
-                    </Field>
-                    <Field label="Last Name" icon={<FiUser className="w-4 h-4" />} error={errors.lastName}>
-                      <input type="text" value={form.lastName} onChange={set('lastName')} placeholder="Doe" className={inputCls} />
-                    </Field>
-                  </div>
+                  <Field label="Full Name" icon={<FiUser className="w-4 h-4" />} error={errors.fullName}>
+                    <input type="text" value={form.fullName} onChange={set('fullName')} placeholder="John Doe" className={inputCls} />
+                  </Field>
 
                   <Field label="Email Address" icon={<FiMail className="w-4 h-4" />} error={errors.email}>
                     <input type="email" value={form.email} onChange={set('email')} placeholder="you@company.com" className={inputCls} />
