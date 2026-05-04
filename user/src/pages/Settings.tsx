@@ -98,12 +98,16 @@ const AccountSection: React.FC = () => {
     const [form] = useState<AccountSettings>(getAccountSettings);
     const ghlLocationIdFromHook = useGhlLocation();
 
-    const [fetchedName, setFetchedName] = useState<string | null>(null);
+    // Initialize fetchedName from cached location_name — prevents GHL API failure from overriding known good value
+    const [fetchedName, setFetchedName] = useState<string | null>(() => {
+        try { return JSON.parse(localStorage.getItem('nola_user') || '{}').location_name || null; }
+        catch { return null; }
+    });
     const [isFetchingLocation, setIsFetchingLocation] = useState(false);
     
     // Read personal profile from nola_user (populated at login/registration)
     const [userProfile, setUserProfile] = useState<{
-        firstName?: string; lastName?: string;
+        name?: string;
         email?: string; phone?: string;
         location_name?: string; company_name?: string; location_id?: string;
     }>(() => {
@@ -125,6 +129,7 @@ const AccountSection: React.FC = () => {
             const u = data.user;
             const patched = {
                 ...(JSON.parse(localStorage.getItem('nola_user') || '{}')),
+                name:          u.name          ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || undefined,
                 location_name: u.location_name ?? null,
                 company_name:  u.company_name  ?? null,
                 location_id:   u.location_id   ?? null,
@@ -132,6 +137,7 @@ const AccountSection: React.FC = () => {
             };
             localStorage.setItem('nola_user', JSON.stringify(patched));
             setUserProfile(patched);
+            if (u.location_name) setFetchedName(u.location_name);
             // Also pre-fill the location input if it was empty
             if (u.location_id && !inputLocationId) {
                 setInputLocationId(u.location_id);
@@ -171,14 +177,20 @@ const AccountSection: React.FC = () => {
          setIsFetchingLocation(false);
          if (profile && profile.location_name && profile.location_name !== "Unknown") {
              setFetchedName(profile.location_name);
+             // Also patch the nola_user cache with the fresh location name
+             try {
+                 const cached = JSON.parse(localStorage.getItem('nola_user') || '{}');
+                 cached.location_name = profile.location_name;
+                 localStorage.setItem('nola_user', JSON.stringify(cached));
+             } catch {}
              const fresh = getAccountSettings();
              if (fresh.displayName !== profile.location_name) {
                  saveAccountSettings({ ...fresh, displayName: profile.location_name });
                  window.dispatchEvent(new Event("account-settings-updated"));
              }
-         } else {
-             setFetchedName("Location Not Found");
          }
+         // Note: do NOT set fetchedName to "Location Not Found" on failure —
+         // we already have the correct value from nola_user cache (set at login/register)
     };
 
     // Initial fetch on mount
@@ -223,11 +235,13 @@ const AccountSection: React.FC = () => {
     };
 
     // Derived values
-    const subaccountName = fetchedName && fetchedName !== "Location Not Found" 
-        ? fetchedName 
+    // subaccountName: use the fetchedName if it's a real value, otherwise fallback to profile cache
+    const subaccountName = (fetchedName && fetchedName !== "Location Not Found")
+        ? fetchedName
         : (userProfile.location_name || form.displayName || "Not Found");
     const statusCfg = STATUS_CONFIG[form.accountStatus];
-    const fullName = [userProfile.firstName, userProfile.lastName].filter(Boolean).join(' ') || 'N/A';
+    // fullName comes from the `name` field stored at login/registration
+    const fullName = userProfile.name || 'N/A';
     const resolvedLocationId = ghlLocationIdFromHook || inputLocationId || userProfile.location_id || '';
 
     return (

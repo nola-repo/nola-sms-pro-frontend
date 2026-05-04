@@ -18,10 +18,9 @@ export const SESSION_KEYS = {
 
 // ── Types ───────────────────────────────────────────────────────────────────
 export interface AuthUser {
-  firstName: string;
-  lastName:  string;
-  email:     string;
-  phone?:    string;
+  name:  string;
+  email: string;
+  phone?: string;
   location_name?: string;
   company_name?:  string;
 }

@@ -222,8 +222,7 @@ const RegisterFromInstall: React.FC = () => {
       auth.login(data);
       const rawPhone = (data.user?.phone ?? form.phone.trim()).replace(/\s+/g, '');
       localStorage.setItem('nola_user', JSON.stringify({
-        firstName:            data.user?.firstName    ?? form.fullName.trim().split(' ')[0],
-        lastName:             data.user?.lastName     ?? form.fullName.trim().split(' ').slice(1).join(' '),
+        name:                 data.user?.name ?? form.fullName.trim(),
         email:                data.user?.email        ?? form.email.trim().toLowerCase(),
         phone:                rawPhone,
         location_id:          data.location_id        ?? installData?.location_id ?? null,
