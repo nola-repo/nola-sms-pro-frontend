@@ -11,13 +11,9 @@ import { safeStorage } from "./utils/safeStorage";
 
 const AppLayout: React.FC = () => {
   const [darkMode, setDarkMode] = useState(() => {
-    try {
-      const saved = safeStorage.getItem('darkMode');
-      if (saved !== null && saved !== 'undefined') {
-        return JSON.parse(saved);
-      }
-    } catch (e) {
-      console.warn('Failed to parse darkMode from localStorage', e);
+    const saved = safeStorage.getItem('darkMode');
+    if (saved !== null) {
+      return JSON.parse(saved);
     }
     return false;
   });
