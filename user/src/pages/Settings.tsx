@@ -102,7 +102,7 @@ const AccountSection: React.FC = () => {
     const [isFetchingLocation, setIsFetchingLocation] = useState(false);
     
     // Read personal profile from nola_user (populated at login/registration)
-    const [userProfile] = useState<{
+    const [userProfile, setUserProfile] = useState<{
         firstName?: string; lastName?: string;
         email?: string; phone?: string;
         location_name?: string; company_name?: string; location_id?: string;
@@ -110,6 +110,36 @@ const AccountSection: React.FC = () => {
         try { return JSON.parse(localStorage.getItem('nola_user') || '{}'); }
         catch { return {}; }
     });
+
+    // Self-heal: if location_name is missing from cache, fetch from /api/auth/me
+    useEffect(() => {
+        if (userProfile.location_name) return; // already have it
+        const token = localStorage.getItem('nola_auth_token');
+        if (!token) return;
+        fetch('/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (!data?.user) return;
+            const u = data.user;
+            const patched = {
+                ...(JSON.parse(localStorage.getItem('nola_user') || '{}')),
+                location_name: u.location_name ?? null,
+                company_name:  u.company_name  ?? null,
+                location_id:   u.location_id   ?? null,
+                company_id:    u.company_id    ?? null,
+            };
+            localStorage.setItem('nola_user', JSON.stringify(patched));
+            setUserProfile(patched);
+            // Also pre-fill the location input if it was empty
+            if (u.location_id && !inputLocationId) {
+                setInputLocationId(u.location_id);
+            }
+        })
+        .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Manage input location ID state
     const [inputLocationId, setInputLocationId] = useState<string>(() => {
