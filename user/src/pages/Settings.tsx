@@ -106,6 +106,16 @@ const AccountSection: React.FC = () => {
         return ghlLocationIdFromHook || getAccountSettings().ghlLocationId || "";
     });
 
+    // Read personal profile from nola_user (populated at login/registration)
+    const [userProfile] = useState<{
+        firstName?: string; lastName?: string;
+        email?: string; phone?: string;
+        location_name?: string; company_name?: string; location_id?: string;
+    }>(() => {
+        try { return JSON.parse(localStorage.getItem('nola_user') || '{}'); }
+        catch { return {}; }
+    });
+
     // Update if hook updates (e.g. from URL or from postMessage)
     useEffect(() => {
         if (ghlLocationIdFromHook && ghlLocationIdFromHook !== inputLocationId) {
@@ -186,12 +196,13 @@ const AccountSection: React.FC = () => {
     const subaccountName = fetchedName && fetchedName !== "Location Not Found" 
         ? fetchedName 
         : (fetchedName === "Location Not Found" ? "Not Found" : (form.displayName || "N/A"));
-    const subaccountEmail = form.email || "N/A";
     const statusCfg = STATUS_CONFIG[form.accountStatus];
+    const fullName = [userProfile.firstName, userProfile.lastName].filter(Boolean).join(' ') || 'N/A';
+    const resolvedLocationId = ghlLocationIdFromHook || inputLocationId || userProfile.location_id || '';
 
     return (
         <div className="space-y-5">
-            <SectionHeader title="Account Details" subtitle="View your workspace and GoHighLevel connection information." />
+            <SectionHeader title="Account Details" subtitle="View your profile and GoHighLevel workspace information." />
 
             {/* Status Banner */}
             <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border ${statusCfg.bg} border-transparent`}>
@@ -201,16 +212,61 @@ const AccountSection: React.FC = () => {
                 </span>
             </div>
 
+            {/* Personal Details */}
             <Card>
-                <div className="flex items-center gap-4 mb-6">
+                <div className="flex items-center gap-4 mb-5">
                     <div className="w-12 h-12 rounded-2xl bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
                         <FiUser className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">{fullName}</h3>
+                        <p className="text-[12px] text-[#9aa0a6]">{userProfile.email || 'N/A'}</p>
+                    </div>
+                </div>
+
+                <div className="space-y-3.5 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">First Name</label>
+                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
+                                {userProfile.firstName || 'N/A'}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Last Name</label>
+                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
+                                {userProfile.lastName || 'N/A'}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Email Address</label>
+                        <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
+                            {userProfile.email || 'N/A'}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Phone Number</label>
+                        <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
+                            {userProfile.phone || 'N/A'}
+                        </div>
+                    </div>
+                </div>
+            </Card>
+
+            {/* Workspace / GHL Info */}
+            <Card>
+                <div className="flex items-center gap-4 mb-5">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                        <FiMapPin className="w-6 h-6" />
                     </div>
                     <div>
                         <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">
                             {fetchedName === 'Location Not Found' ? <span className="text-red-500">Not Found</span> : subaccountName}
                         </h3>
-                        <p className="text-[12px] text-[#9aa0a6]">{subaccountEmail}</p>
+                        <p className="text-[12px] text-[#9aa0a6]">
+                            {userProfile.company_name ? `Agency: ${userProfile.company_name}` : 'GHL Workspace'}
+                        </p>
                     </div>
                 </div>
 
@@ -224,6 +280,14 @@ const AccountSection: React.FC = () => {
                             {fetchedName === 'Location Not Found' ? <span className="text-red-500">Not Found</span> : subaccountName}
                         </div>
                     </div>
+                    {userProfile.company_name && (
+                        <div>
+                            <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Agency / Company</label>
+                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
+                                {userProfile.company_name}
+                            </div>
+                        </div>
+                    )}
                     <div>
                         <label className="flex text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5 items-center justify-between gap-2">
                             <span>GHL Location ID</span>
@@ -269,7 +333,7 @@ const AccountSection: React.FC = () => {
                             </div>
                         ) : (
                             <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono flex items-center justify-between">
-                                <span>{ghlLocationIdFromHook || "Not Found"}</span>
+                                <span>{resolvedLocationId || "Not Found"}</span>
                                 {isFetchingLocation && <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />}
                             </div>
                         )}
@@ -287,6 +351,8 @@ const AccountSection: React.FC = () => {
         </div>
     );
 };
+
+
 
 // ─── Section: Sender IDs ────────────────────────────────────────────────────
 const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAddModal }) => {
