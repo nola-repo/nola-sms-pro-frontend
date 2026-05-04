@@ -22,6 +22,8 @@ export interface AuthUser {
   lastName:  string;
   email:     string;
   phone?:    string;
+  location_name?: string;
+  company_name?:  string;
 }
 
 export interface AuthSession {
