@@ -101,11 +101,6 @@ const AccountSection: React.FC = () => {
     const [fetchedName, setFetchedName] = useState<string | null>(null);
     const [isFetchingLocation, setIsFetchingLocation] = useState(false);
     
-    // Manage input location ID state
-    const [inputLocationId, setInputLocationId] = useState<string>(() => {
-        return ghlLocationIdFromHook || getAccountSettings().ghlLocationId || "";
-    });
-
     // Read personal profile from nola_user (populated at login/registration)
     const [userProfile] = useState<{
         firstName?: string; lastName?: string;
@@ -114,6 +109,11 @@ const AccountSection: React.FC = () => {
     }>(() => {
         try { return JSON.parse(localStorage.getItem('nola_user') || '{}'); }
         catch { return {}; }
+    });
+
+    // Manage input location ID state
+    const [inputLocationId, setInputLocationId] = useState<string>(() => {
+        return ghlLocationIdFromHook || getAccountSettings().ghlLocationId || userProfile.location_id || "";
     });
 
     // Update if hook updates (e.g. from URL or from postMessage)
@@ -195,7 +195,7 @@ const AccountSection: React.FC = () => {
     // Derived values
     const subaccountName = fetchedName && fetchedName !== "Location Not Found" 
         ? fetchedName 
-        : (fetchedName === "Location Not Found" ? "Not Found" : (form.displayName || "N/A"));
+        : (fetchedName === "Location Not Found" ? "Not Found" : (form.displayName || userProfile.location_name || "N/A"));
     const statusCfg = STATUS_CONFIG[form.accountStatus];
     const fullName = [userProfile.firstName, userProfile.lastName].filter(Boolean).join(' ') || 'N/A';
     const resolvedLocationId = ghlLocationIdFromHook || inputLocationId || userProfile.location_id || '';
