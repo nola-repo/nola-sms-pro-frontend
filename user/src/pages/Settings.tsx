@@ -195,7 +195,7 @@ const AccountSection: React.FC = () => {
     // Derived values
     const subaccountName = fetchedName && fetchedName !== "Location Not Found" 
         ? fetchedName 
-        : (fetchedName === "Location Not Found" ? "Not Found" : (form.displayName || userProfile.location_name || "N/A"));
+        : (userProfile.location_name || form.displayName || "Not Found");
     const statusCfg = STATUS_CONFIG[form.accountStatus];
     const fullName = [userProfile.firstName, userProfile.lastName].filter(Boolean).join(' ') || 'N/A';
     const resolvedLocationId = ghlLocationIdFromHook || inputLocationId || userProfile.location_id || '';
