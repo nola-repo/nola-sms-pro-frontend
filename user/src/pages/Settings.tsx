@@ -19,6 +19,8 @@ import { SenderRequestModal } from "../components/SenderRequestModal";
 import { useGhlLocation } from "../hooks/useGhlLocation";
 import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
 import { fetchAccountProfile } from "../api/account";
+import { safeStorage } from "../utils/safeStorage";
+import { SESSION_KEYS } from "../services/authService";
 
 
 
@@ -118,7 +120,7 @@ const AccountSection: React.FC = () => {
     // Self-heal: if location_name or name is missing from cache, fetch from /api/auth/me
     useEffect(() => {
         if (userProfile.location_name && userProfile.name) return; // already have both
-        const token = localStorage.getItem('nola_auth_token');
+        const token = safeStorage.getItem(SESSION_KEYS.token) || localStorage.getItem('nola_auth_token');
         if (!token) return;
         fetch('/api/auth/me', {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -130,6 +132,8 @@ const AccountSection: React.FC = () => {
             const patched = {
                 ...(JSON.parse(localStorage.getItem('nola_user') || '{}')),
                 name:          (u.name ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()) || undefined,
+                firstName:     u.firstName ?? undefined,
+                lastName:      u.lastName ?? undefined,
                 location_name: u.location_name ?? null,
                 company_name:  u.company_name  ?? null,
                 location_id:   u.location_id   ?? null,

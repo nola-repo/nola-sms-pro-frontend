@@ -141,7 +141,14 @@ const AgencyRegisterFromInstall: React.FC = () => {
     const verify = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/auth/verify-install-token?token=${encodeURIComponent(installToken)}`);
-        const data = await res.json();
+        
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          throw new Error('Invalid API response. The server may be misconfigured.');
+        }
+
         if (!res.ok) throw new Error(data.error || 'Invalid or expired installation link.');
         setInstallData(data as InstallData);
       } catch (err: any) {

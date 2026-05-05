@@ -151,7 +151,14 @@ const RegisterFromInstall: React.FC = () => {
 
       try {
         const res = await fetch(`${API_CONFIG.base}/api/auth/verify-install-token?token=${encodeURIComponent(installToken)}`);
-        const data = await res.json();
+        
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          throw new Error('Invalid API response. The server may be misconfigured.');
+        }
+
         if (!res.ok) throw new Error(data.error || 'Invalid or expired installation link.');
         setInstallData(data as InstallData);
       } catch (err: any) {
@@ -211,7 +218,7 @@ const RegisterFromInstall: React.FC = () => {
           company_id:    installData?.company_id   ?? null,
           location_name: installData?.location_name ?? null,
           company_name:  installData?.company_name ?? null,
-          install_token: installToken === 'dev' ? undefined : installToken,
+          install_token: installToken,
         }),
       });
 
