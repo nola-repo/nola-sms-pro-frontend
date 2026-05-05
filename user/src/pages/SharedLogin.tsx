@@ -27,32 +27,42 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
 
   const navigate = useNavigate();
 
-  // Welcome-back banner (triggered by ?welcome_back=1 from re-install redirect)
+  // Welcome-back / bulk-install banners (triggered by query params from callback redirects)
   const [searchParams] = useSearchParams();
-  const isWelcomeBack   = searchParams.get('welcome_back') === '1';
-  const locationName    = searchParams.get('name') ?? null;
+  const isWelcomeBack  = searchParams.get('welcome_back') === '1';
+  const locationName   = searchParams.get('name') ?? null;
+  const isBulkInstall  = searchParams.get('bulk_install') === '1';
+  const bulkCount      = searchParams.get('count') ?? '';
 
   useEffect(() => {
-    // Fetch custom domain branding
-    const fetchBranding = async () => {
-      try {
-        const domain = window.location.hostname;
-        // In local development, you might want to hardcode a domain to test:
-        // const testDomain = 'app.nolasms.com';
-        
-        const res = await fetch(`/api/public/whitelabel?domain=${encodeURIComponent(domain)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setWhitelabel(data);
-        }
-      } catch (err) {
-        console.error('Failed to load branding', err);
-      } finally {
-        setIsBrandingLoading(false);
-      }
-    };
+    // Fetch custom domain branding with a 5-second hard timeout.
+    // The `finally` block ALWAYS clears the loading state so the page
+    // never appears blank when the whitelabel API is slow or unreachable.
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), 5000);
 
-    fetchBranding();
+    fetch(`/api/public/whitelabel?domain=${encodeURIComponent(window.location.hostname)}`, {
+      signal: controller.signal,
+    })
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error('Non-OK response');
+      })
+      .then(data => {
+        setWhitelabel(data);
+      })
+      .catch(() => {
+        // Timeout or network error — fall back to default NOLA branding silently
+      })
+      .finally(() => {
+        clearTimeout(timeoutId);
+        setIsBrandingLoading(false); // ALWAYS unblock rendering
+      });
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -119,6 +129,42 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
             </svg>
           )}
       </button>
+
+      {/* ── Bulk-install banner (shown above the card when ?bulk_install=1) ── */}
+      {isBulkInstall && (
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+          className="w-full max-w-md mb-4 z-10"
+        >
+          <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40">
+            <svg
+              width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              className="flex-shrink-0 mt-0.5"
+            >
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <div>
+              <p className="text-[13.5px] font-bold text-amber-800 dark:text-amber-300 mb-1">
+                Agency Bulk Installation{bulkCount ? ` — ${bulkCount} sub-accounts` : ''}
+              </p>
+              <p className="text-[12.5px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                Your agency installation is complete! Each sub-account admin must
+                <strong className="font-semibold"> open NOLA SMS Pro from within their own GHL sub-account</strong> to
+                complete their individual registration and activate settings.
+              </p>
+              <p className="text-[11.5px] text-amber-600 dark:text-amber-500 mt-1.5 leading-relaxed">
+                If you are a sub-account admin, ask your agency owner to resend access
+                or open the app directly from your GHL sidebar.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
