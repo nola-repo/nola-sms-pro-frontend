@@ -49,7 +49,8 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
         throw new Error('Non-OK response');
       })
       .then(data => {
-        setWhitelabel(data);
+        // API returns { status, branding: { ... } } — unwrap the nested object
+        setWhitelabel(data.branding ?? data);
       })
       .catch(() => {
         // Timeout or network error — fall back to default NOLA branding silently
@@ -150,7 +151,10 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
             </svg>
             <div>
               <p className="text-[13.5px] font-bold text-amber-800 dark:text-amber-300 mb-1">
-                Agency Bulk Installation{bulkCount ? ` — ${bulkCount} sub-accounts` : ''}
+                Agency Bulk Installation
+                {bulkCount
+                  ? ` — ${bulkCount} sub-account${Number(bulkCount) !== 1 ? 's' : ''} provisioned`
+                  : ''}
               </p>
               <p className="text-[12.5px] text-amber-700 dark:text-amber-400 leading-relaxed">
                 Your agency installation is complete! Each sub-account admin must
@@ -173,13 +177,11 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
         className="w-full max-w-md p-8 md:p-10 rounded-3xl bg-white/70 dark:bg-[#1a1b1e]/70 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] z-10"
       >
         <div className="flex flex-col items-center mb-8">
-          {isBrandingLoading ? (
-            <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-800 animate-pulse mb-4" />
-          ) : whitelabel?.logo_url ? (
-            <img src={whitelabel.logo_url} alt={companyName} className="h-16 object-contain mb-4" />
-          ) : (
-            <img src={defaultLogo} alt="NOLA SMS Pro" className="h-[72px] object-contain mb-4" />
-          )}
+          <img
+            src={(whitelabel?.logo_url) ? whitelabel.logo_url : defaultLogo}
+            alt={whitelabel?.company_name || 'NOLA SMS Pro'}
+            className="h-[72px] object-contain mb-4"
+          />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight">
             Welcome back
           </h1>
