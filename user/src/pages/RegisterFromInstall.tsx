@@ -107,6 +107,11 @@ const RegisterFromInstall: React.FC = () => {
   const [tokenLoading,   setTokenLoading]   = useState(true);
   const [tokenError,     setTokenError]     = useState<string | null>(null);
 
+  // Debug: log the full URL so QA can verify install_token survives the redirect
+  useEffect(() => {
+    console.log('[RegisterFromInstall] mount URL:', window.location.href);
+  }, []);
+
   // Step state
   const [step, setStep] = useState<Step>(1);
   const [dir,  setDir]  = useState(1);   // 1 = forward, -1 = backward
@@ -130,6 +135,10 @@ const RegisterFromInstall: React.FC = () => {
 
   // ── 1. Verify the install token on mount ──────────────────────────────────
   useEffect(() => {
+    // Debug: surface current URL so QA can confirm install_token survived the redirect
+    console.debug('[RegisterFromInstall] mount — href:', window.location.href);
+    console.debug('[RegisterFromInstall] install_token:', installToken || '(none)');
+
     if (!installToken) {
       setTokenError('No installation token found. Please reinstall the app from the GHL Marketplace.');
       setTokenLoading(false);
@@ -230,6 +239,8 @@ const RegisterFromInstall: React.FC = () => {
       const rawPhone = (data.user?.phone ?? form.phone.trim()).replace(/\s+/g, '');
       localStorage.setItem('nola_user', JSON.stringify({
         name:                 data.user?.name ?? form.fullName.trim(),
+        firstName:            data.user?.firstName ?? form.fullName.trim().split(' ')[0] ?? '',
+        lastName:             data.user?.lastName  ?? form.fullName.trim().split(' ').slice(1).join(' ') ?? '',
         email:                data.user?.email        ?? form.email.trim().toLowerCase(),
         phone:                rawPhone,
         location_id:          data.location_id        ?? installData?.location_id ?? null,
