@@ -23,7 +23,6 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [whitelabel, setWhitelabel] = useState<WebLabelData | null>(null);
-  const [isBrandingLoading, setIsBrandingLoading] = useState(true);
 
   const navigate = useNavigate();
 
@@ -57,7 +56,6 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
       })
       .finally(() => {
         clearTimeout(timeoutId);
-        setIsBrandingLoading(false); // ALWAYS unblock rendering
       });
 
     return () => {
