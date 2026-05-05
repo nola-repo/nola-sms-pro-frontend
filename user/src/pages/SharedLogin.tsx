@@ -41,7 +41,7 @@ const SharedLogin: React.FC<SharedLoginProps> = ({ darkMode, toggleDarkMode }) =
     const controller = new AbortController();
     const timeoutId  = setTimeout(() => controller.abort(), 5000);
 
-    fetch(`/api/public/whitelabel?domain=${encodeURIComponent(window.location.hostname)}`, {
+    fetch(`https://smspro-api.nolacrm.io/api/public/whitelabel?domain=${encodeURIComponent(window.location.hostname)}`, {
       signal: controller.signal,
     })
       .then(res => {
