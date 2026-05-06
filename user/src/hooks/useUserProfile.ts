@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
-import { authService } from '../services/authService';
+import { getSession } from '../services/authService';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 export interface UserProfile {
   name: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
-  phone: string;
+  phone?: string;
   location_id?: string;
   company_id?: string;
   location_name?: string;
@@ -16,7 +16,7 @@ export interface UserProfile {
 }
 
 export const useUserProfile = () => {
-  const session = authService.getSession();
+  const session = getSession();
   const [user, setUser] = useState<UserProfile | null>(session?.user || null);
 
   useEffect(() => {

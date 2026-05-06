@@ -19,8 +19,6 @@ import { SenderRequestModal } from "../components/SenderRequestModal";
 import { useGhlLocation } from "../hooks/useGhlLocation";
 import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
 import { fetchAccountProfile } from "../api/account";
-import { safeStorage } from "../utils/safeStorage";
-import { SESSION_KEYS } from "../services/authService";
 import { useUserProfile } from "../hooks/useUserProfile";
 
 
