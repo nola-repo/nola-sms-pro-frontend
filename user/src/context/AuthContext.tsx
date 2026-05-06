@@ -28,7 +28,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const params = new URLSearchParams(window.location.search);
       const urlToken = params.get('token');
       
+      console.log("[AuthContext] URL Token Check. Has Token:", !!urlToken, "Raw URL:", window.location.href);
+
       if (urlToken) {
+        console.log("[AuthContext] Token found in URL, storing in safeStorage.");
         // Store it in memory-backed storage
         safeStorage.setItem(SESSION_KEYS.token, urlToken);
         
@@ -36,10 +39,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     } catch (e) {
-      // Ignore parsing errors
+      console.error("[AuthContext] Error parsing URL token:", e);
     }
     
-    return getSession();
+    const initialSession = getSession();
+    console.log("[AuthContext] Initial session loaded:", !!initialSession?.token);
+    return initialSession;
   });
 
   const login = useCallback((data: LoginResponse) => {
