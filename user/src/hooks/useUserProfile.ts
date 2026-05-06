@@ -25,7 +25,7 @@ export const useUserProfile = () => {
         const token = session?.token;
         if (!token) return;
 
-        const res = await fetch(`${API_BASE}/api/auth/me`, {
+        const res = await fetch(`${API_BASE}/api/auth/me.php`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
