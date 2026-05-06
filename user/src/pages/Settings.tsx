@@ -21,7 +21,7 @@ import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type
 import { fetchAccountProfile } from "../api/account";
 import { safeStorage } from "../utils/safeStorage";
 import { SESSION_KEYS } from "../services/authService";
-
+import { useUserProfile } from "../hooks/useUserProfile";
 
 
 
@@ -107,54 +107,37 @@ const AccountSection: React.FC = () => {
     });
     const [isFetchingLocation, setIsFetchingLocation] = useState(false);
     
-    // Read personal profile from nola_user (populated at login/registration)
-    const [userProfile, setUserProfile] = useState<{
-        name?: string;
-        email?: string; phone?: string;
-        location_name?: string; company_name?: string; location_id?: string;
-    }>(() => {
-        try { return JSON.parse(localStorage.getItem('nola_user') || '{}'); }
+    // Call the hook to get fresh user profile
+    const hookUserProfile = useUserProfile();
+    
+    // Read personal profile from nola_auth_user / nola_user (populated at login/registration)
+    // Fallback to nola_user to gracefully handle legacy cache if hookUserProfile hasn't loaded yet.
+    const userProfile = hookUserProfile || (() => {
+        try { 
+            const authUser = JSON.parse(localStorage.getItem('nola_auth_user') || '{}');
+            if (Object.keys(authUser).length > 0) return authUser;
+            return JSON.parse(localStorage.getItem('nola_user') || '{}'); 
+        }
         catch { return {}; }
-    });
+    })();
 
-    // Self-heal: if location_name or name is missing from cache, fetch from /api/auth/me
+    // Synchronize hook state with local variables if needed
     useEffect(() => {
-        if (userProfile.location_name && userProfile.name) return; // already have both
-        const token = safeStorage.getItem(SESSION_KEYS.token) || localStorage.getItem('nola_auth_token');
-        if (!token) return;
-        fetch('/api/auth/me', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-            if (!data?.user) return;
-            const u = data.user;
-            const patched = {
-                ...(JSON.parse(localStorage.getItem('nola_user') || '{}')),
-                name:          (u.name ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()) || undefined,
-                firstName:     u.firstName ?? undefined,
-                lastName:      u.lastName ?? undefined,
-                location_name: u.location_name ?? null,
-                company_name:  u.company_name  ?? null,
-                location_id:   u.location_id   ?? null,
-                company_id:    u.company_id    ?? null,
-            };
-            localStorage.setItem('nola_user', JSON.stringify(patched));
-            setUserProfile(patched);
-            if (u.location_name) setFetchedName(u.location_name);
-            // Also pre-fill the location input if it was empty
-            if (u.location_id && !inputLocationId) {
-                setInputLocationId(u.location_id);
-            }
-        })
-        .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (hookUserProfile) {
+            if (hookUserProfile.location_name) setFetchedName(hookUserProfile.location_name);
+        }
+    }, [hookUserProfile]);
 
     // Manage input location ID state
     const [inputLocationId, setInputLocationId] = useState<string>(() => {
         return ghlLocationIdFromHook || getAccountSettings().ghlLocationId || userProfile.location_id || "";
     });
+
+    useEffect(() => {
+        if (hookUserProfile?.location_id && !inputLocationId) {
+            setInputLocationId(hookUserProfile.location_id);
+        }
+    }, [hookUserProfile, inputLocationId]);
 
     // Update if hook updates (e.g. from URL or from postMessage)
     useEffect(() => {
