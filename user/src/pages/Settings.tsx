@@ -19,8 +19,7 @@ import { SenderRequestModal } from "../components/SenderRequestModal";
 import { useGhlLocation } from "../hooks/useGhlLocation";
 import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
 import { fetchAccountProfile } from "../api/account";
-import { useUserProfile } from "../hooks/useUserProfile";
-
+import { useUserProfileContext } from "../App";
 
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -98,44 +97,34 @@ const AccountSection: React.FC = () => {
     const [form] = useState<AccountSettings>(getAccountSettings);
     const ghlLocationIdFromHook = useGhlLocation();
 
-    // Initialize fetchedName from cached location_name — prevents GHL API failure from overriding known good value
+    // Consume live profile from context (populated by App.tsx -> useUserProfile)
+    const liveProfile = useUserProfileContext();
+
+    // Initialize fetchedName from context or cached location_name
     const [fetchedName, setFetchedName] = useState<string | null>(() => {
+        if (liveProfile?.location_name) return liveProfile.location_name;
         try { return JSON.parse(localStorage.getItem('nola_user') || '{}').location_name || null; }
         catch { return null; }
     });
     const [isFetchingLocation, setIsFetchingLocation] = useState(false);
-    
-    // Call the hook to get fresh user profile
-    const hookUserProfile = useUserProfile();
-    
-    // Read personal profile from nola_auth_user / nola_user (populated at login/registration)
-    // Fallback to nola_user to gracefully handle legacy cache if hookUserProfile hasn't loaded yet.
-    const userProfile = hookUserProfile || (() => {
-        try { 
-            const authUser = JSON.parse(localStorage.getItem('nola_auth_user') || '{}');
-            if (Object.keys(authUser).length > 0) return authUser;
-            return JSON.parse(localStorage.getItem('nola_user') || '{}'); 
-        }
-        catch { return {}; }
-    })();
 
-    // Synchronize hook state with local variables if needed
+    // Synchronize context state with local variables if needed
     useEffect(() => {
-        if (hookUserProfile) {
-            if (hookUserProfile.location_name) setFetchedName(hookUserProfile.location_name);
+        if (liveProfile?.location_name) {
+            setFetchedName(liveProfile.location_name);
         }
-    }, [hookUserProfile]);
+    }, [liveProfile]);
 
     // Manage input location ID state
     const [inputLocationId, setInputLocationId] = useState<string>(() => {
-        return ghlLocationIdFromHook || getAccountSettings().ghlLocationId || userProfile.location_id || "";
+        return ghlLocationIdFromHook || getAccountSettings().ghlLocationId || liveProfile?.location_id || "";
     });
 
     useEffect(() => {
-        if (hookUserProfile?.location_id && !inputLocationId) {
-            setInputLocationId(hookUserProfile.location_id);
+        if (liveProfile?.location_id && !inputLocationId) {
+            setInputLocationId(liveProfile.location_id);
         }
-    }, [hookUserProfile, inputLocationId]);
+    }, [liveProfile, inputLocationId]);
 
     // Update if hook updates (e.g. from URL or from postMessage)
     useEffect(() => {
@@ -223,15 +212,13 @@ const AccountSection: React.FC = () => {
     // subaccountName: use the fetchedName if it's a real value, otherwise fallback to profile cache
     const subaccountName = (fetchedName && fetchedName !== "Location Not Found")
         ? fetchedName
-        : (userProfile.location_name || form.displayName || "Not Found");
+        : (liveProfile?.location_name || form.displayName || "Not Found");
     const statusCfg = STATUS_CONFIG[form.accountStatus];
     // fullName: use `name` field; fall back to legacy firstName+lastName for old sessions
-    const cachedRaw = (() => { try { return JSON.parse(localStorage.getItem('nola_user') || '{}'); } catch { return {}; } })();
-    const fullName = userProfile.name
-        || (cachedRaw.name)
-        || (`${cachedRaw.firstName ?? ''} ${cachedRaw.lastName ?? ''}`.trim())
+    const fullName = liveProfile?.name
+        || (`${liveProfile?.firstName ?? ''} ${liveProfile?.lastName ?? ''}`.trim())
         || 'N/A';
-    const resolvedLocationId = ghlLocationIdFromHook || inputLocationId || userProfile.location_id || '';
+    const resolvedLocationId = ghlLocationIdFromHook || inputLocationId || liveProfile?.location_id || '';
 
     return (
         <div className="space-y-5">
@@ -253,7 +240,7 @@ const AccountSection: React.FC = () => {
                     </div>
                     <div>
                         <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">{fullName}</h3>
-                        <p className="text-[12px] text-[#9aa0a6]">{userProfile.email || 'N/A'}</p>
+                        <p className="text-[12px] text-[#9aa0a6]">{liveProfile?.email || 'N/A'}</p>
                     </div>
                 </div>
 
@@ -267,13 +254,13 @@ const AccountSection: React.FC = () => {
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Email Address</label>
                         <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                            {userProfile.email || 'N/A'}
+                            {liveProfile?.email || 'N/A'}
                         </div>
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Phone Number</label>
                         <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                            {userProfile.phone || 'N/A'}
+                            {liveProfile?.phone || 'N/A'}
                         </div>
                     </div>
                 </div>
@@ -290,7 +277,7 @@ const AccountSection: React.FC = () => {
                             {fetchedName === 'Location Not Found' ? <span className="text-red-500">Not Found</span> : subaccountName}
                         </h3>
                         <p className="text-[12px] text-[#9aa0a6]">
-                            {userProfile.company_name ? `Agency: ${userProfile.company_name}` : 'GHL Workspace'}
+                            {liveProfile?.company_name ? `Agency: ${liveProfile.company_name}` : 'GHL Workspace'}
                         </p>
                     </div>
                 </div>
@@ -305,11 +292,11 @@ const AccountSection: React.FC = () => {
                             {fetchedName === 'Location Not Found' ? <span className="text-red-500">Not Found</span> : subaccountName}
                         </div>
                     </div>
-                    {userProfile.company_name && (
+                    {liveProfile?.company_name && (
                         <div>
                             <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Agency / Company</label>
                             <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                                {userProfile.company_name}
+                                {liveProfile.company_name}
                             </div>
                         </div>
                     )}

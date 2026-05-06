@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, createContext, useContext } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
 import { GhlCallback } from "./pages/GhlCallback";
@@ -8,7 +8,11 @@ import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { safeStorage } from "./utils/safeStorage";
-import { useUserProfile } from "./hooks/useUserProfile";
+import { useUserProfile, type UserProfile } from "./hooks/useUserProfile";
+
+// Create a context so Settings and other pages can consume the live profile
+export const UserProfileContext = createContext<UserProfile | null>(null);
+export const useUserProfileContext = () => useContext(UserProfileContext);
 
 const AppLayout: React.FC = () => {
   const [darkMode, setDarkMode] = useState(() => {
@@ -23,7 +27,7 @@ const AppLayout: React.FC = () => {
   const location = useLocation();
 
   // Dynamically fetch and sync profile immediately on app boot
-  useUserProfile();
+  const userProfile = useUserProfile();
 
   useEffect(() => {
     const root = document.documentElement;
@@ -43,8 +47,9 @@ const AppLayout: React.FC = () => {
   const hideToggle = hideTogglePaths.includes(location.pathname.toLowerCase());
 
   return (
-    <div className="h-screen bg-[#ffffff] dark:bg-[#1a1b1e]">
-      {/* Theme Toggle - Fixed top right (Desktop only) */}
+    <UserProfileContext.Provider value={userProfile}>
+      <div className="h-screen bg-[#ffffff] dark:bg-[#1a1b1e]">
+        {/* Theme Toggle - Fixed top right (Desktop only) */}
       {!hideToggle && (
         <div className="hidden md:flex fixed top-3 right-3 gap-2 z-50">
           <button
@@ -152,6 +157,7 @@ const AppLayout: React.FC = () => {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
+    </UserProfileContext.Provider>
   );
 };
 

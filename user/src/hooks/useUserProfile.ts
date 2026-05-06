@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { getSession } from '../services/authService';
+import { getSession, SESSION_KEYS } from '../services/authService';
+import { safeStorage } from '../utils/safeStorage';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -52,10 +53,10 @@ function getToken(): string | null {
       console.log("[useUserProfile] Token retrieved via getSession()");
       return sessionToken;
     }
-    // Fallback: raw localStorage (handles GHL iframe / auth-handoff users)
-    const rawToken = localStorage.getItem('nola_auth_token');
+    // Fallback: safeStorage (works even when localStorage is blocked in GHL iframe)
+    const rawToken = safeStorage.getItem(SESSION_KEYS.token);
     if (rawToken) {
-      console.log("[useUserProfile] Token retrieved via raw localStorage fallback");
+      console.log("[useUserProfile] Token retrieved via safeStorage fallback");
       return rawToken;
     }
     console.log("[useUserProfile] No token found in any storage.");
