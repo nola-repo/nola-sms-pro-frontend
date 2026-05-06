@@ -2,8 +2,7 @@ import React, { useState, useEffect, createContext, useContext } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
 import { GhlCallback } from "./pages/GhlCallback";
-import SharedLogin from "./pages/SharedLogin";
-import RegisterFromInstall from "./pages/RegisterFromInstall";
+
 import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -13,6 +12,17 @@ import { useUserProfile, type UserProfile } from "./hooks/useUserProfile";
 // Create a context so Settings and other pages can consume the live profile
 export const UserProfileContext = createContext<UserProfile | null>(null);
 export const useUserProfileContext = () => useContext(UserProfileContext);
+
+const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
+  useEffect(() => {
+    window.location.href = `https://smspro-api.nolacrm.io${path}${window.location.search}`;
+  }, [path]);
+  return (
+    <div className="h-screen w-full flex items-center justify-center bg-[#f7f8fc] dark:bg-[#0a0a0b]">
+      <div className="w-10 h-10 rounded-full border-4 border-[#2b83fa]/20 border-t-[#2b83fa] animate-spin" />
+    </div>
+  );
+};
 
 const AppLayout: React.FC = () => {
   const [darkMode, setDarkMode] = useState(() => {
@@ -71,9 +81,8 @@ const AppLayout: React.FC = () => {
       )}
 
       <Routes>
-        <Route path="/login"                  element={<SharedLogin darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-        <Route path="/register"               element={<Navigate to="/login" replace />} />
-        <Route path="/register-from-install"  element={<RegisterFromInstall />} />
+        <Route path="/login"                  element={<RedirectToBackend path="/login" />} />
+        <Route path="/register"               element={<RedirectToBackend path="/register" />} />
         <Route path="/oauth/callback"         element={<GhlCallback />} />
         {/* Protected routes — requires a valid auth token */}
         <Route element={<ProtectedRoute />}>
