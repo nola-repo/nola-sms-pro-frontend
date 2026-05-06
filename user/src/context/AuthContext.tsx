@@ -3,9 +3,11 @@ import {
   getSession,
   saveSession,
   clearSession,
+  SESSION_KEYS,
   type AuthSession,
   type LoginResponse,
 } from '../services/authService';
+import { safeStorage } from '../utils/safeStorage';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface AuthContextValue extends Partial<AuthSession> {
@@ -20,7 +22,25 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 // ── Provider ─────────────────────────────────────────────────────────────────
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [session, setSession] = useState<AuthSession | null>(() => getSession());
+  const [session, setSession] = useState<AuthSession | null>(() => {
+    // Check URL for token first to bypass iframe localStorage restrictions
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get('token');
+      
+      if (urlToken) {
+        // Store it in memory-backed storage
+        safeStorage.setItem(SESSION_KEYS.token, urlToken);
+        
+        // Clean up the URL so the token doesn't linger in browser history
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch (e) {
+      // Ignore parsing errors
+    }
+    
+    return getSession();
+  });
 
   const login = useCallback((data: LoginResponse) => {
     saveSession(data);

@@ -8,6 +8,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { safeStorage } from "./utils/safeStorage";
+import { useUserProfile } from "./hooks/useUserProfile";
 
 const AppLayout: React.FC = () => {
   const [darkMode, setDarkMode] = useState(() => {
@@ -20,6 +21,9 @@ const AppLayout: React.FC = () => {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+
+  // Dynamically fetch and sync profile immediately on app boot
+  useUserProfile();
 
   useEffect(() => {
     const root = document.documentElement;
