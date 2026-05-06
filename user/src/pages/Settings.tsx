@@ -228,9 +228,8 @@ const AccountSection: React.FC = () => {
     // fullName: use `name` field; fall back to legacy firstName+lastName for old sessions
     const cachedRaw = (() => { try { return JSON.parse(localStorage.getItem('nola_user') || '{}'); } catch { return {}; } })();
     const fullName = userProfile.name
-        || (`${userProfile.firstName ?? ''} ${userProfile.lastName ?? ''}`.trim() || undefined)
         || (cachedRaw.name)
-        || (`${cachedRaw.firstName ?? ''} ${cachedRaw.lastName ?? ''}`.trim() || undefined)
+        || (`${cachedRaw.firstName ?? ''} ${cachedRaw.lastName ?? ''}`.trim())
         || 'N/A';
     const resolvedLocationId = ghlLocationIdFromHook || inputLocationId || userProfile.location_id || '';
 
