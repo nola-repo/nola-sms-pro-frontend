@@ -17,6 +17,10 @@ export interface UserProfile {
   email: string;
   phone?: string;
   role?: string;
+  active?: boolean;
+  source?: string;
+  created_at?: string;
+  updated_at?: string;
 
   // Workspace / GHL info
   location_id?: string;        // normalised from active_location_id OR location_id
@@ -44,6 +48,10 @@ function normalizeProfile(raw: Record<string, unknown>): UserProfile {
     email:              (raw.email               as string) || '',
     phone:              (raw.phone               as string) || undefined,
     role:               (raw.role                as string) || undefined,
+    active:             raw.active !== undefined ? Boolean(raw.active) : undefined,
+    source:             (raw.source              as string) || undefined,
+    created_at:         (raw.created_at          as string) || undefined,
+    updated_at:         (raw.updated_at          as string) || undefined,
     location_id:        locationId,
     active_location_id: (raw.active_location_id  as string) || undefined,
     company_id:         (raw.company_id          as string) || undefined,
