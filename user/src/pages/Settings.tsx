@@ -107,7 +107,11 @@ const AccountSection: React.FC = () => {
     // Initialize fetchedName from context or cached location_name
     const [fetchedName, setFetchedName] = useState<string | null>(() => {
         if (liveProfile?.location_name) return liveProfile.location_name;
-        try { return JSON.parse(localStorage.getItem('nola_user') || '{}').location_name || null; }
+        try {
+            const authUser = JSON.parse(localStorage.getItem('nola_auth_user') || '{}');
+            if (authUser?.location_name) return authUser.location_name;
+            return JSON.parse(localStorage.getItem('nola_user') || '{}').location_name || null;
+        }
         catch { return null; }
     });
     const [fetchedProfile, setFetchedProfile] = useState<any>(null);
@@ -122,7 +126,7 @@ const AccountSection: React.FC = () => {
 
     // Manage input location ID state
     const [inputLocationId, setInputLocationId] = useState<string>(() => {
-        return ghlLocationIdFromHook || getAccountSettings().ghlLocationId || liveProfile?.location_id || "";
+        return ghlLocationIdFromHook || liveProfile?.location_id || getAccountSettings().ghlLocationId || "";
     });
 
     useEffect(() => {
@@ -231,7 +235,7 @@ const AccountSection: React.FC = () => {
         
     const displayEmail = fetchedProfile?.email || liveProfile?.email || 'N/A';
     const displayPhone = fetchedProfile?.phone || liveProfile?.phone || 'N/A';
-    const resolvedLocationId = ghlLocationIdFromHook || inputLocationId || liveProfile?.location_id || '';
+    const resolvedLocationId = ghlLocationIdFromHook || liveProfile?.location_id || inputLocationId || '';
 
     return (
         <div className="space-y-5">

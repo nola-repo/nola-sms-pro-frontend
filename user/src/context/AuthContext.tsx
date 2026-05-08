@@ -32,6 +32,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (urlToken) {
         console.log("[AuthContext] Token found in URL, storing in safeStorage.");
+        Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
+        safeStorage.removeItem('nola_user');
+        safeStorage.removeItem('nola_settings_account');
         // Store it in memory-backed storage
         safeStorage.setItem(SESSION_KEYS.token, urlToken);
         

@@ -1,5 +1,7 @@
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
+import { safeStorage } from "../utils/safeStorage";
+import { SESSION_KEYS } from "../services/authService";
 
 export interface AccountProfile {
     location_id: string;
@@ -18,8 +20,12 @@ function getLocationHeaders(explicitLocationId?: string): { headers: Record<stri
     const { ghlLocationId } = getAccountSettings();
     const locationId = explicitLocationId || ghlLocationId;
     const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = safeStorage.getItem(SESSION_KEYS.token);
     if (locationId) {
         headers["X-GHL-Location-ID"] = locationId;
+    }
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
     }
     return { headers, locationId };
 }

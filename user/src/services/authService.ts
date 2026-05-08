@@ -65,11 +65,13 @@ export const isAuthenticated = (): boolean =>
   !!safeStorage.getItem(SESSION_KEYS.token);
 
 export const saveSession = (data: LoginResponse): void => {
+  Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
+  safeStorage.removeItem('nola_user');
+  safeStorage.removeItem('nola_settings_account');
+
   safeStorage.setItem(SESSION_KEYS.token, data.token);
   safeStorage.setItem(SESSION_KEYS.role, data.role);
 
-  // Always overwrite — never conditionally skip — so a new login never
-  // inherits a stale location/company from a previous session.
   if (data.company_id) {
     safeStorage.setItem(SESSION_KEYS.companyId, data.company_id);
   } else {
@@ -84,33 +86,28 @@ export const saveSession = (data: LoginResponse): void => {
 
   if (data.user) {
     safeStorage.setItem(SESSION_KEYS.user, JSON.stringify(data.user));
+    safeStorage.setItem('nola_user', JSON.stringify(data.user));
   } else {
     safeStorage.removeItem(SESSION_KEYS.user);
   }
 
-  // ── Sync ghlLocationId in nola_settings_account ──────────────────────────
-  // The Settings page reads location from getAccountSettings().ghlLocationId
-  // (key: nola_settings_account), which is a SEPARATE storage key from
-  // nola_location_id. Without this sync, the Settings page shows the previous
-  // user's location even after a new user logs in.
   const locationId = data.location_id ?? (data.user as any)?.location_id ?? null;
   if (locationId) {
     const current = getAccountSettings();
-    if (current.ghlLocationId !== locationId) {
-      saveAccountSettings({ ...current, ghlLocationId: locationId });
-    }
+    saveAccountSettings({
+      ...current,
+      ghlLocationId: locationId,
+      displayName: (data.user as any)?.location_name || current.displayName,
+    });
   }
 };
 
 export const clearSession = (): void => {
-  // Wipe primary auth keys
   Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
-  
-  // Also wipe the separate settings and legacy cache keys to prevent leakage
+  safeStorage.removeItem('nola_user');
   safeStorage.removeItem('nola_settings_account');
   safeStorage.removeItem('nola_settings_api');
   safeStorage.removeItem('nola_settings_preferred_sender');
-  safeStorage.removeItem('nola_user');
 };
 
 // ── API calls ───────────────────────────────────────────────────────────────
