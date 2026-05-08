@@ -4,25 +4,31 @@ import { getAccountSettings } from "../utils/settingsStorage";
 export interface AccountProfile {
     location_id: string;
     location_name: string | null;
+    full_name?: string | null;
     email?: string | null;
+    email_address?: string | null;
     phone?: string | null;
+    phone_number?: string | null;
     name?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
 }
 
-function getLocationHeaders(): { headers: Record<string, string>; locationId: string } {
+function getLocationHeaders(explicitLocationId?: string): { headers: Record<string, string>; locationId: string } {
     const { ghlLocationId } = getAccountSettings();
+    const locationId = explicitLocationId || ghlLocationId;
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (ghlLocationId) {
-        headers["X-GHL-Location-ID"] = ghlLocationId;
+    if (locationId) {
+        headers["X-GHL-Location-ID"] = locationId;
     }
-    return { headers, locationId: ghlLocationId };
+    return { headers, locationId };
 }
 
 /**
  * Fetch the basic account profile (including location_name).
  */
-export const fetchAccountProfile = async (): Promise<AccountProfile | null> => {
-    const { headers, locationId } = getLocationHeaders();
+export const fetchAccountProfile = async (explicitLocationId?: string): Promise<AccountProfile | null> => {
+    const { headers, locationId } = getLocationHeaders(explicitLocationId);
 
     if (!locationId) return null;
 
