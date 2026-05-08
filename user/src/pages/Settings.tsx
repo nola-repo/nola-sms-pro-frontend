@@ -909,47 +909,72 @@ const CreditsSection: React.FC = () => {
             ? `${baseUrl}${separator}location_id=${encodeURIComponent(resolvedLocationId)}`
             : baseUrl;
 
-        // Append contact pre-fill params
-        // Priority: liveProfile (API) > nola_user localStorage (stale cache)
+        // ── Append contact pre-fill params ───────────────────────────────────────
+        // Try every source in priority order until we have all fields.
         try {
             const p = new URLSearchParams();
 
-            // Resolve name: prefer liveProfile.name, then split firstName/lastName
-            const liveFullName = liveProfile?.name
-                || [liveProfile?.firstName, liveProfile?.lastName].filter(Boolean).join(' ')
-                || '';
+            // Helper: read any localStorage key safely
+            const readLS = (key: string): Record<string, string> => {
+                try { return JSON.parse(localStorage.getItem(key) || 'null') || {}; } catch { return {}; }
+            };
 
-            let finalName = liveFullName;
-            let finalEmail = liveProfile?.email || '';
-            let finalPhone = liveProfile?.phone || '';
-            let finalFirstName = liveProfile?.firstName || '';
-            let finalLastName  = liveProfile?.lastName  || '';
+            const cache1 = readLS('nola_user');       // normalised profile
+            const cache2 = readLS('nola_auth_user');  // raw auth payload fallback
 
-            // Fallback to localStorage if context fields are empty
-            if (!finalName || !finalEmail) {
-                const stored = localStorage.getItem('nola_user');
-                if (stored) {
-                    const cached = JSON.parse(stored) as {
-                        name?: string; firstName?: string; lastName?: string;
-                        email?: string; phone?: string;
-                    };
-                    if (!finalName) {
-                        finalName = cached.name
-                            || [cached.firstName, cached.lastName].filter(Boolean).join(' ')
-                            || '';
-                    }
-                    if (!finalEmail) finalEmail = cached.email || '';
-                    if (!finalPhone) finalPhone = cached.phone || '';
-                    if (!finalFirstName) finalFirstName = cached.firstName || '';
-                    if (!finalLastName)  finalLastName  = cached.lastName  || '';
-                }
-            }
+            // Resolve each field: context → nola_user → nola_auth_user
+            const pick = (...vals: (string | undefined | null)[]) =>
+                vals.find(v => v && v.trim() !== '') || '';
 
-            if (finalName)      { p.set('name',       finalName); p.set('full_name', finalName); }
+            const finalEmail = pick(
+                liveProfile?.email,
+                cache1.email, cache1.email_address,
+                cache2.email, cache2.email_address
+            );
+
+            // Name: try unified 'name' first, then join first+last
+            const joinName = (...parts: (string | undefined | null)[]) =>
+                parts.filter(Boolean).join(' ').trim();
+
+            const finalName = pick(
+                liveProfile?.name,
+                joinName(liveProfile?.firstName, liveProfile?.lastName),
+                cache1.name, cache1.full_name,
+                joinName(cache1.firstName, cache1.lastName),
+                joinName(cache1.first_name, cache1.last_name),
+                cache2.name, cache2.full_name,
+                joinName(cache2.firstName, cache2.lastName),
+                joinName(cache2.first_name, cache2.last_name)
+            );
+
+            const finalPhone = pick(
+                liveProfile?.phone,
+                cache1.phone, cache1.phone_number,
+                cache2.phone, cache2.phone_number
+            );
+
+            const finalFirstName = pick(
+                liveProfile?.firstName,
+                cache1.firstName, cache1.first_name,
+                cache2.firstName, cache2.first_name,
+                finalName.split(' ')[0]
+            );
+
+            const finalLastName = pick(
+                liveProfile?.lastName,
+                cache1.lastName, cache1.last_name,
+                cache2.lastName, cache2.last_name,
+                finalName.split(' ').slice(1).join(' ')
+            );
+
+            if (finalName)      { p.set('name', finalName); p.set('full_name', finalName); }
             if (finalFirstName) p.set('first_name', finalFirstName);
             if (finalLastName)  p.set('last_name',  finalLastName);
             if (finalEmail)     p.set('email',      finalEmail);
             if (finalPhone)     p.set('phone',      finalPhone);
+
+            // DEBUG — remove after confirming auto-fill works
+            console.log('[NOLA Checkout] Pre-fill data:', { finalName, finalEmail, finalPhone, finalFirstName, finalLastName, liveProfile, cache1, cache2 });
 
             const qs = p.toString();
             if (qs) checkoutUrl += (checkoutUrl.includes('?') ? '&' : '?') + qs;
