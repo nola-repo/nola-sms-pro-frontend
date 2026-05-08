@@ -90,6 +90,10 @@ const Toggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void; id: s
     </button>
 );
 
+const Skeleton: React.FC<{ className?: string }> = ({ className = "" }) => (
+    <div className={`animate-pulse bg-[#f0f0f0] dark:bg-white/5 rounded-lg ${className}`} />
+);
+
 
 
 // ─── Section: Account ───────────────────────────────────────────────────────
@@ -247,30 +251,51 @@ const AccountSection: React.FC = () => {
                     <div className="w-12 h-12 rounded-2xl bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
                         <FiUser className="w-6 h-6" />
                     </div>
-                    <div>
-                        <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">{fullName}</h3>
-                        <p className="text-[12px] text-[#9aa0a6]">{displayEmail}</p>
+                    <div className="flex-1">
+                        {isFetchingLocation ? (
+                            <div className="space-y-2">
+                                <Skeleton className="h-5 w-32" />
+                                <Skeleton className="h-3 w-48" />
+                            </div>
+                        ) : (
+                            <>
+                                <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">{fullName}</h3>
+                                <p className="text-[12px] text-[#9aa0a6]">{displayEmail}</p>
+                            </>
+                        )}
                     </div>
                 </div>
 
                 <div className="space-y-3.5 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Full Name</label>
-                        <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                            {fullName}
-                        </div>
+                        {isFetchingLocation ? (
+                            <Skeleton className="h-9 w-full rounded-xl" />
+                        ) : (
+                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
+                                {fullName}
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Email Address</label>
-                        <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                            {displayEmail}
-                        </div>
+                        {isFetchingLocation ? (
+                            <Skeleton className="h-9 w-full rounded-xl" />
+                        ) : (
+                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
+                                {displayEmail}
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Phone Number</label>
-                        <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                            {displayPhone}
-                        </div>
+                        {isFetchingLocation ? (
+                            <Skeleton className="h-9 w-full rounded-xl" />
+                        ) : (
+                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
+                                {displayPhone}
+                            </div>
+                        )}
                     </div>
                 </div>
             </Card>
@@ -281,25 +306,35 @@ const AccountSection: React.FC = () => {
                     <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                         <FiMapPin className="w-6 h-6" />
                     </div>
-                    <div>
-                        <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">
-                            {fetchedName === 'Location Not Found' ? <span className="text-red-500">Not Found</span> : subaccountName}
-                        </h3>
-                        <p className="text-[12px] text-[#9aa0a6]">
-                            {liveProfile?.company_name ? `Agency: ${liveProfile.company_name}` : 'GHL Workspace'}
-                        </p>
+                    <div className="flex-1">
+                        {isFetchingLocation ? (
+                            <div className="space-y-2">
+                                <Skeleton className="h-5 w-40" />
+                                <Skeleton className="h-3 w-32" />
+                            </div>
+                        ) : (
+                            <>
+                                <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">
+                                    {fetchedName === 'Location Not Found' ? <span className="text-red-500">Not Found</span> : subaccountName}
+                                </h3>
+                                <p className="text-[12px] text-[#9aa0a6]">
+                                    {liveProfile?.company_name ? `Agency: ${liveProfile.company_name}` : 'GHL Workspace'}
+                                </p>
+                            </>
+                        )}
                     </div>
                 </div>
 
                 <div className="space-y-4 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
                     <div>
-                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                            <span>Location Name</span>
-                            {isFetchingLocation && <span className="text-amber-500 normal-case tracking-normal">Fetching...</span>}
-                        </label>
-                        <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                            {fetchedName === 'Location Not Found' ? <span className="text-red-500">Not Found</span> : subaccountName}
-                        </div>
+                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Location Name</label>
+                        {isFetchingLocation ? (
+                            <Skeleton className="h-9 w-full rounded-xl" />
+                        ) : (
+                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
+                                {fetchedName === 'Location Not Found' ? <span className="text-red-500">Not Found</span> : subaccountName}
+                            </div>
+                        )}
                     </div>
                     {liveProfile?.company_name && (
                         <div>
@@ -503,11 +538,11 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                 {isLoading ? (
                     <div className="space-y-2">
                         {[1, 2].map(i => (
-                            <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse">
-                                <div className="w-9 h-9 rounded-xl bg-gray-200 dark:bg-[#2a2b32]" />
+                            <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10]">
+                                <Skeleton className="w-9 h-9 rounded-xl" />
                                 <div className="flex-1 space-y-1.5">
-                                    <div className="h-3.5 bg-gray-200 dark:bg-[#2a2b32] rounded w-24" />
-                                    <div className="h-2.5 bg-gray-100 dark:bg-[#1e1f22] rounded w-40" />
+                                    <Skeleton className="h-3.5 w-24" />
+                                    <Skeleton className="h-2.5 w-40" />
                                 </div>
                             </div>
                         ))}
