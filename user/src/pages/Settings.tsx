@@ -931,7 +931,7 @@ const CreditsSection: React.FC = () => {
         // Layer 3: live /api/auth/me call as guaranteed fallback
         if (!prefillEmail) {
             try {
-                const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+                const meRes = await fetch(`${API_BASE_URL}/api/auth/me`, { credentials: 'include' });
                 if (meRes.ok) {
                     const meData = await meRes.json();
                     const u = meData.user || meData;
