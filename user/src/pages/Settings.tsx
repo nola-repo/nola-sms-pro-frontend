@@ -716,6 +716,7 @@ const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE || 'https://smspro-
 
 const CreditsSection: React.FC = () => {
     const ghlLocationIdFromHook = useGhlLocation();
+    const liveProfile = useUserProfileContext();
     const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
     const [balanceLoading, setBalanceLoading] = useState(true);
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
@@ -891,45 +892,67 @@ const CreditsSection: React.FC = () => {
         const baseUrl = selectedPackage.link;
         const separator = baseUrl.includes('?') ? '&' : '?';
 
-        // Resolve location_id: prefer GHL hook/settings, fall back to nola_user localStorage
+        // Resolve location_id: prefer GHL hook, then context, then localStorage
         let resolvedLocationId = locationId;
         try {
             const storedUser = JSON.parse(localStorage.getItem('nola_user') || 'null');
+            if (!resolvedLocationId && liveProfile?.location_id) {
+                resolvedLocationId = liveProfile.location_id;
+            }
             if (!resolvedLocationId && storedUser?.location_id) {
                 resolvedLocationId = storedUser.location_id;
             }
         } catch { /* ignore */ }
 
-        // Build base URL — location_id goes into ?location_id= so the GHL funnel
-        // script can read it and fill input[name="companyname"] (its tracking field)
+        // Build base URL with location_id
         let checkoutUrl = resolvedLocationId
             ? `${baseUrl}${separator}location_id=${encodeURIComponent(resolvedLocationId)}`
             : baseUrl;
 
-        // Append contact pre-fill params read by the GHL funnel's custom script
+        // Append contact pre-fill params
+        // Priority: liveProfile (API) > nola_user localStorage (stale cache)
         try {
-            const stored = localStorage.getItem('nola_user');
-            if (stored) {
-                const profile = JSON.parse(stored) as {
-                    firstName?: string; lastName?: string;
-                    email?: string; phone?: string;
-                    location_name?: string;
-                };
-                const p = new URLSearchParams();
-                const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(' ');
-                if (fullName) {
-                    p.set('name', fullName);
-                    p.set('full_name', fullName);
-                }
-                if (profile.firstName) p.set('first_name', profile.firstName);
-                if (profile.lastName)  p.set('last_name',  profile.lastName);
-                if (profile.email)     p.set('email',      profile.email);
-                // Phone is already stored clean (spaces stripped at login/register)
-                if (profile.phone) p.set('phone', profile.phone);
+            const p = new URLSearchParams();
 
-                const qs = p.toString();
-                if (qs) checkoutUrl += (checkoutUrl.includes('?') ? '&' : '?') + qs;
+            // Resolve name: prefer liveProfile.name, then split firstName/lastName
+            const liveFullName = liveProfile?.name
+                || [liveProfile?.firstName, liveProfile?.lastName].filter(Boolean).join(' ')
+                || '';
+
+            let finalName = liveFullName;
+            let finalEmail = liveProfile?.email || '';
+            let finalPhone = liveProfile?.phone || '';
+            let finalFirstName = liveProfile?.firstName || '';
+            let finalLastName  = liveProfile?.lastName  || '';
+
+            // Fallback to localStorage if context fields are empty
+            if (!finalName || !finalEmail) {
+                const stored = localStorage.getItem('nola_user');
+                if (stored) {
+                    const cached = JSON.parse(stored) as {
+                        name?: string; firstName?: string; lastName?: string;
+                        email?: string; phone?: string;
+                    };
+                    if (!finalName) {
+                        finalName = cached.name
+                            || [cached.firstName, cached.lastName].filter(Boolean).join(' ')
+                            || '';
+                    }
+                    if (!finalEmail) finalEmail = cached.email || '';
+                    if (!finalPhone) finalPhone = cached.phone || '';
+                    if (!finalFirstName) finalFirstName = cached.firstName || '';
+                    if (!finalLastName)  finalLastName  = cached.lastName  || '';
+                }
             }
+
+            if (finalName)      { p.set('name',       finalName); p.set('full_name', finalName); }
+            if (finalFirstName) p.set('first_name', finalFirstName);
+            if (finalLastName)  p.set('last_name',  finalLastName);
+            if (finalEmail)     p.set('email',      finalEmail);
+            if (finalPhone)     p.set('phone',      finalPhone);
+
+            const qs = p.toString();
+            if (qs) checkoutUrl += (checkoutUrl.includes('?') ? '&' : '?') + qs;
         } catch {
             // Non-fatal: checkout still opens without pre-fill
         }
