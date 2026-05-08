@@ -4,6 +4,9 @@ import { getAccountSettings } from "../utils/settingsStorage";
 export interface AccountProfile {
     location_id: string;
     location_name: string | null;
+    email?: string | null;
+    phone?: string | null;
+    name?: string | null;
 }
 
 function getLocationHeaders(): { headers: Record<string, string>; locationId: string } {

@@ -106,6 +106,7 @@ const AccountSection: React.FC = () => {
         try { return JSON.parse(localStorage.getItem('nola_user') || '{}').location_name || null; }
         catch { return null; }
     });
+    const [fetchedProfile, setFetchedProfile] = useState<any>(null);
     const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
     // Synchronize context state with local variables if needed
@@ -149,18 +150,22 @@ const AccountSection: React.FC = () => {
 
          const profile = await fetchAccountProfile();
          setIsFetchingLocation(false);
-         if (profile && profile.location_name && profile.location_name !== "Unknown") {
-             setFetchedName(profile.location_name);
-             // Also patch the nola_user cache with the fresh location name
-             try {
-                 const cached = JSON.parse(localStorage.getItem('nola_user') || '{}');
-                 cached.location_name = profile.location_name;
-                 localStorage.setItem('nola_user', JSON.stringify(cached));
-             } catch {}
-             const fresh = getAccountSettings();
-             if (fresh.displayName !== profile.location_name) {
-                 saveAccountSettings({ ...fresh, displayName: profile.location_name });
-                 window.dispatchEvent(new Event("account-settings-updated"));
+         
+         if (profile) {
+             setFetchedProfile(profile);
+             if (profile.location_name && profile.location_name !== "Unknown") {
+                 setFetchedName(profile.location_name);
+                 // Also patch the nola_user cache with the fresh location name
+                 try {
+                     const cached = JSON.parse(localStorage.getItem('nola_user') || '{}');
+                     cached.location_name = profile.location_name;
+                     localStorage.setItem('nola_user', JSON.stringify(cached));
+                 } catch {}
+                 const fresh = getAccountSettings();
+                 if (fresh.displayName !== profile.location_name) {
+                     saveAccountSettings({ ...fresh, displayName: profile.location_name });
+                     window.dispatchEvent(new Event("account-settings-updated"));
+                 }
              }
          }
          // Note: do NOT set fetchedName to "Location Not Found" on failure —
@@ -214,10 +219,14 @@ const AccountSection: React.FC = () => {
         ? fetchedName
         : (liveProfile?.location_name || form.displayName || "Not Found");
     const statusCfg = STATUS_CONFIG[form.accountStatus];
-    // fullName: use `name` field; fall back to legacy firstName+lastName for old sessions
-    const fullName = liveProfile?.name
+    // fullName: use fetchedProfile, then `name` field; fall back to legacy firstName+lastName for old sessions
+    const fullName = fetchedProfile?.name 
+        || liveProfile?.name
         || (`${liveProfile?.firstName ?? ''} ${liveProfile?.lastName ?? ''}`.trim())
         || 'N/A';
+        
+    const displayEmail = fetchedProfile?.email || liveProfile?.email || 'N/A';
+    const displayPhone = fetchedProfile?.phone || liveProfile?.phone || 'N/A';
     const resolvedLocationId = ghlLocationIdFromHook || inputLocationId || liveProfile?.location_id || '';
 
     return (
@@ -240,7 +249,7 @@ const AccountSection: React.FC = () => {
                     </div>
                     <div>
                         <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">{fullName}</h3>
-                        <p className="text-[12px] text-[#9aa0a6]">{liveProfile?.email || 'N/A'}</p>
+                        <p className="text-[12px] text-[#9aa0a6]">{displayEmail}</p>
                     </div>
                 </div>
 
@@ -254,13 +263,13 @@ const AccountSection: React.FC = () => {
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Email Address</label>
                         <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                            {liveProfile?.email || 'N/A'}
+                            {displayEmail}
                         </div>
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Phone Number</label>
                         <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                            {liveProfile?.phone || 'N/A'}
+                            {displayPhone}
                         </div>
                     </div>
                 </div>
