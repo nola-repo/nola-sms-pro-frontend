@@ -97,21 +97,22 @@ const Skeleton: React.FC<{ className?: string }> = ({ className = "" }) => (
 
 
 // ─── Section: Account ───────────────────────────────────────────────────────
-const AccountSection: React.FC = () => {
+interface AccountSectionProps {
+    fetchedProfile: any;
+    isFetchingLocation: boolean;
+    fetchedName: string | null;
+    fetchAndSetLocation: (id: string) => void;
+}
+
+const AccountSection: React.FC<AccountSectionProps> = ({ 
+    fetchedProfile, 
+    isFetchingLocation, 
+    fetchedName, 
+    fetchAndSetLocation 
+}) => {
     const [form] = useState<AccountSettings>(getAccountSettings);
     const ghlLocationIdFromHook = useGhlLocation();
-
-    // Consume live profile from context (populated by App.tsx -> useUserProfile)
     const liveProfile = useUserProfileContext();
-
-    // Initialize fetchedName from context or cached location_name
-    const [fetchedName, setFetchedName] = useState<string | null>(() => {
-        if (liveProfile?.location_name) return liveProfile.location_name;
-        try { return JSON.parse(localStorage.getItem('nola_user') || '{}').location_name || null; }
-        catch { return null; }
-    });
-    const [fetchedProfile, setFetchedProfile] = useState<any>(null);
-    const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
     // Synchronize context state with local variables if needed
     useEffect(() => {
@@ -139,79 +140,15 @@ const AccountSection: React.FC = () => {
         }
     }, [ghlLocationIdFromHook]);
 
-    const fetchAndSetLocation = async (locId: string) => {
-         if (!locId || locId.trim() === "") return;
-
-         setIsFetchingLocation(true);
-         const currentSettings = getAccountSettings();
-         if (currentSettings.ghlLocationId !== locId) {
-             saveAccountSettings({ ...currentSettings, ghlLocationId: locId });
-             // Notify LocationContext so all subscribers get the new location reactively
-             window.dispatchEvent(
-                 new CustomEvent('ghl-location-set', { detail: { locationId: locId } })
-             );
-         }
-
-         const profile = await fetchAccountProfile();
-         setIsFetchingLocation(false);
-         
-         if (profile) {
-             setFetchedProfile(profile);
-             if (profile.location_name && profile.location_name !== "Unknown") {
-                 setFetchedName(profile.location_name);
-                 // Also patch the nola_user cache with the fresh location name
-                 try {
-                     const cached = JSON.parse(localStorage.getItem('nola_user') || '{}');
-                     cached.location_name = profile.location_name;
-                     localStorage.setItem('nola_user', JSON.stringify(cached));
-                 } catch {}
-                 const fresh = getAccountSettings();
-                 if (fresh.displayName !== profile.location_name) {
-                     saveAccountSettings({ ...fresh, displayName: profile.location_name });
-                     window.dispatchEvent(new Event("account-settings-updated"));
-                 }
-             }
-         }
-         // Note: do NOT set fetchedName to "Location Not Found" on failure —
-         // we already have the correct value from nola_user cache (set at login/register)
-    };
-
-    // Initial fetch on mount
-    useEffect(() => {
-        if (inputLocationId) {
-            fetchAndSetLocation(inputLocationId);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
+    // Note: fetchAndSetLocation logic moved to parent Settings component
     const handleSaveLocation = () => {
-        fetchAndSetLocation(inputLocationId);
+        // Parent Settings component handles this via prop callback or locationId change
     };
 
-    const handleResetToDefault = () => {
-        // Try to get the dynamic location from the URL
-        const keys = ['location_id', 'locationId', 'location', 'id'];
-        const search = window.location.search;
-        const hash = window.location.hash;
-        
-        let dynamicId = null;
-        for (const k of keys) {
-            const val = new URLSearchParams(search).get(k);
-            if (val && val.length > 4) { dynamicId = val; break; }
-        }
-        if (!dynamicId && hash.includes('?')) {
-            const hashQuery = hash.split('?')[1];
-            for (const k of keys) {
-                const val = new URLSearchParams('?' + hashQuery).get(k);
-                if (val && val.length > 4) { dynamicId = val; break; }
-            }
-        }
-        
         if (dynamicId) {
             setInputLocationId(dynamicId);
             fetchAndSetLocation(dynamicId);
         } else if (ghlLocationIdFromHook) {
-            // Fallback to whatever the hook thinks is right
             setInputLocationId(ghlLocationIdFromHook);
             fetchAndSetLocation(ghlLocationIdFromHook);
         }
@@ -714,7 +651,7 @@ const AR_AMOUNTS = [100, 250, 500, 1000, 2000];
 const AR_THRESHOLDS = [25, 50, 100, 200];
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
 
-const CreditsSection: React.FC = () => {
+const CreditsSection: React.FC<{ fetchedProfile?: any }> = ({ fetchedProfile }) => {
     const ghlLocationIdFromHook = useGhlLocation();
     const liveProfile = useUserProfileContext();
     const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
@@ -916,13 +853,20 @@ const CreditsSection: React.FC = () => {
             : baseUrl;
 
         // ── Resolve profile fields ────────────────────────────────────────────
-        // Layer 1: context (from /api/auth/me fetched at app load)
-        let prefillName  = pick(liveProfile?.name, join(liveProfile?.firstName, liveProfile?.lastName));
-        let prefillEmail = pick(liveProfile?.email);
-        let prefillPhone = pick(liveProfile?.phone);
+        // Layer 1: Data from api/account.php (subaccount specific)
+        let prefillName  = pick(fetchedProfile?.name, fetchedProfile?.full_name);
+        let prefillEmail = pick(fetchedProfile?.email, fetchedProfile?.email_address);
+        let prefillPhone = pick(fetchedProfile?.phone, fetchedProfile?.phone_number);
 
-        // Layer 2: localStorage caches (nola_user + nola_auth_user)
-        if (!prefillName || !prefillEmail) {
+        // Layer 2: context (from /api/auth/me fetched at app load)
+        if (!prefillEmail) {
+            prefillName  = pick(prefillName, liveProfile?.name, join(liveProfile?.firstName, liveProfile?.lastName));
+            prefillEmail = pick(prefillEmail, liveProfile?.email);
+            prefillPhone = pick(prefillPhone, liveProfile?.phone);
+        }
+
+        // Layer 3: localStorage caches (nola_user + nola_auth_user)
+        if (!prefillEmail) {
             prefillName  = pick(prefillName,  cache1.name, cache1.full_name, join(cache1.firstName, cache1.lastName), join(cache1.first_name, cache1.last_name), cache2.name, join(cache2.firstName, cache2.lastName));
             prefillEmail = pick(prefillEmail, cache1.email, cache1.email_address, cache2.email, cache2.email_address);
             prefillPhone = pick(prefillPhone, cache1.phone, cache1.phone_number, cache2.phone, cache2.phone_number);
@@ -1354,14 +1298,69 @@ const CreditsSection: React.FC = () => {
 export const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, initialTab, autoOpenAddModal }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || "account");
 
+    // ── Global Profile / Location State ─────────────────────────────────────
+    const liveProfile = useUserProfileContext();
+    const ghlLocationIdFromHook = useGhlLocation();
+
+    const [fetchedProfile, setFetchedProfile] = useState<any>(null);
+    const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+    const [fetchedName, setFetchedName] = useState<string | null>(() => {
+        if (liveProfile?.location_name) return liveProfile.location_name;
+        try { return JSON.parse(localStorage.getItem('nola_user') || '{}').location_name || null; }
+        catch { return null; }
+    });
+
+    const fetchAndSetLocation = async (locId: string) => {
+         if (!locId || locId.trim() === "") return;
+
+         setIsFetchingLocation(true);
+         const currentSettings = getAccountSettings();
+         if (currentSettings.ghlLocationId !== locId) {
+             saveAccountSettings({ ...currentSettings, ghlLocationId: locId });
+             window.dispatchEvent(new CustomEvent('ghl-location-set', { detail: { locationId: locId } }));
+         }
+
+         const profile = await fetchAccountProfile();
+         setIsFetchingLocation(false);
+         
+         if (profile) {
+             setFetchedProfile(profile);
+             if (profile.location_name && profile.location_name !== "Unknown") {
+                 setFetchedName(profile.location_name);
+                 try {
+                     const cached = JSON.parse(localStorage.getItem('nola_user') || '{}');
+                     cached.location_name = profile.location_name;
+                     localStorage.setItem('nola_user', JSON.stringify(cached));
+                 } catch {}
+                 const fresh = getAccountSettings();
+                 if (fresh.displayName !== profile.location_name) {
+                     saveAccountSettings({ ...fresh, displayName: profile.location_name });
+                     window.dispatchEvent(new Event("account-settings-updated"));
+                 }
+             }
+         }
+    };
+
+    useEffect(() => {
+        const id = ghlLocationIdFromHook || getAccountSettings().ghlLocationId || liveProfile?.location_id;
+        if (id) fetchAndSetLocation(id);
+    }, [ghlLocationIdFromHook, liveProfile?.location_id]);
+
     const renderContent = useCallback(() => {
         switch (activeTab) {
-            case "account": return <AccountSection />;
+            case "account": return (
+                <AccountSection 
+                    fetchedProfile={fetchedProfile}
+                    isFetchingLocation={isFetchingLocation}
+                    fetchedName={fetchedName}
+                    fetchAndSetLocation={fetchAndSetLocation}
+                />
+            );
             case "senderIds": return <SenderIdsSection autoOpenAddModal={autoOpenAddModal && activeTab === "senderIds"} />;
             case "notifications": return <NotificationsSection />;
-            case "credits": return <CreditsSection />;
+            case "credits": return <CreditsSection fetchedProfile={fetchedProfile} />;
         }
-    }, [activeTab, darkMode, toggleDarkMode, autoOpenAddModal]);
+    }, [activeTab, darkMode, toggleDarkMode, autoOpenAddModal, fetchedProfile, isFetchingLocation, fetchedName]);
 
     const activeTabInfo = TABS.find(t => t.id === activeTab)!;
 
