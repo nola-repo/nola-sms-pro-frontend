@@ -5,7 +5,8 @@ import {
     FiUser, FiSend, FiBell, FiCreditCard,
     FiSave, FiPlus, FiCheck,
     FiGlobe, FiMapPin, FiBriefcase, FiCheckCircle, FiAlertCircle, FiClock,
-    FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown, FiDownload
+    FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown, FiDownload,
+    FiCopy
 } from "react-icons/fi";
 import { generateMonthlyReport } from "../utils/pdfGenerator";
 import {
@@ -192,35 +193,6 @@ const AccountSection: React.FC = () => {
         fetchAndSetLocation(inputLocationId);
     };
 
-    const handleResetToDefault = () => {
-        // Try to get the dynamic location from the URL
-        const keys = ['location_id', 'locationId', 'location', 'id'];
-        const search = window.location.search;
-        const hash = window.location.hash;
-
-        let dynamicId = null;
-        for (const k of keys) {
-            const val = new URLSearchParams(search).get(k);
-            if (val && val.length > 4) { dynamicId = val; break; }
-        }
-        if (!dynamicId && hash.includes('?')) {
-            const hashQuery = hash.split('?')[1];
-            for (const k of keys) {
-                const val = new URLSearchParams('?' + hashQuery).get(k);
-                if (val && val.length > 4) { dynamicId = val; break; }
-            }
-        }
-
-        if (dynamicId) {
-            setInputLocationId(dynamicId);
-            fetchAndSetLocation(dynamicId);
-        } else if (ghlLocationIdFromHook) {
-            // Fallback to whatever the hook thinks is right
-            setInputLocationId(ghlLocationIdFromHook);
-            fetchAndSetLocation(ghlLocationIdFromHook);
-        }
-    };
-
     // Derived values
     // subaccountName: use the fetchedName if it's a real value, otherwise fallback to profile cache
     const subaccountName = (fetchedName && fetchedName !== "Location Not Found")
@@ -349,50 +321,45 @@ const AccountSection: React.FC = () => {
                         </div>
                     )}
                     <div>
-                        <label className="flex text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5 items-center justify-between gap-2">
-                            <span>GHL Location ID</span>
-                            {window.self === window.top && (
-                                <button
-                                    onClick={() => window.location.href = 'https://marketplace.gohighlevel.com/oauth/chooselocation?appId=65f8a0c2837bc281e59eef7b'}
-                                    className="text-[10px] font-bold bg-[#2b83fa]/10 text-[#2b83fa] hover:bg-[#2b83fa]/20 px-2 py-1 rounded-md transition-colors"
-                                >
-                                    Connect GHL
-                                </button>
-                            )}
+                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">
+                            GHL Location ID
                         </label>
                         {window.self === window.top ? (
-                            <div className="flex gap-2 relative">
-                                <div className="relative flex-1">
-                                    <input
-                                        type="text"
-                                        value={inputLocationId}
-                                        onChange={(e) => setInputLocationId(e.target.value)}
-                                        placeholder="Paste your Location ID..."
-                                        className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all pr-10"
-                                    />
-                                    {isFetchingLocation && (
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                            <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />
-                                        </div>
-                                    )}
-                                </div>
-                                <button
-                                    onClick={handleSaveLocation}
-                                    disabled={isFetchingLocation || inputLocationId === ghlLocationIdFromHook}
-                                    className="px-4 py-2.5 rounded-xl bg-[#2b83fa] text-white text-[13px] font-bold shadow-md hover:bg-[#1a65d1] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                >
-                                    Save
-                                </button>
-                                <button
-                                    onClick={handleResetToDefault}
-                                    disabled={isFetchingLocation || inputLocationId === ghlLocationIdFromHook}
-                                    className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-[13px] font-bold shadow-sm hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                >
-                                    Reset To Default
-                                </button>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={inputLocationId}
+                                    onChange={(e) => setInputLocationId(e.target.value)}
+                                    placeholder="Enter GHL Location ID"
+                                    className={`flex-1 px-4 py-2.5 rounded-xl border text-[13px] font-mono placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all ${
+                                        isFetchingLocation
+                                            ? 'border-transparent bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6]'
+                                            : 'border-[#e0e0e0] dark:border-[#ffffff0a] bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#111111] dark:text-[#ececf1] shadow-inner hover:border-[#2b83fa]/50'
+                                    }`}
+                                    disabled={isFetchingLocation}
+                                />
+                                {inputLocationId !== ghlLocationIdFromHook && (
+                                    <button
+                                        onClick={handleSaveLocation}
+                                        disabled={isFetchingLocation || !inputLocationId.trim()}
+                                        className="shrink-0 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] transition-all shadow-md flex items-center gap-2 font-semibold disabled:opacity-50 text-[13px]"
+                                        title="Save Location ID"
+                                    >
+                                        {isFetchingLocation ? 'Saving...' : <><FiSave className="w-4 h-4" /> Save</>}
+                                    </button>
+                                )}
+                                {resolvedLocationId && inputLocationId === ghlLocationIdFromHook && (
+                                    <button
+                                        onClick={() => navigator.clipboard.writeText(resolvedLocationId)}
+                                        className="shrink-0 p-3 rounded-xl border border-[#e0e0e0] dark:border-[#ffffff0a] bg-white dark:bg-[#25282c] text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#2b83fa] transition-all shadow-sm"
+                                        title="Copy Location ID"
+                                    >
+                                        <FiCopy className="w-4 h-4" />
+                                    </button>
+                                )}
                             </div>
                         ) : (
-                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-mono flex items-center justify-between">
+                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] font-mono flex items-center justify-between">
                                 <span>{resolvedLocationId || "Not Found"}</span>
                                 {isFetchingLocation && <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />}
                             </div>

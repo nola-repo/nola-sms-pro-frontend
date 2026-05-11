@@ -126,10 +126,6 @@ export const Settings = () => {
               </h3>
               <p className="text-[12px] text-[#9aa0a6] truncate">{email || 'agency@example.com'}</p>
             </div>
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#2b83fa]/10 text-[#2b83fa]">
-              <FiShield className="w-3 h-3" />
-              {role}
-            </span>
           </div>
 
           <div className="space-y-3.5 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
