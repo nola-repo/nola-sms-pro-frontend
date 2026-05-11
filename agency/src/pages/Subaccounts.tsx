@@ -1,7 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  FiAlertTriangle, FiUsers, FiRotateCcw, FiChevronLeft, FiChevronRight, FiSearch, FiPlus, FiMinus, FiArrowUp, FiArrowDown
+  FiAlertTriangle, FiUsers, FiRotateCcw, FiChevronLeft, FiChevronRight, FiSearch, FiPlus, FiMinus, FiArrowUp, FiArrowDown, FiExternalLink
 } from 'react-icons/fi';
+
+const ADD_SUBACCOUNT_URL =
+  'https://marketplace.leadconnectorhq.com/v2/oauth/chooselocation?response_type=code' +
+  '&redirect_uri=https%3A%2F%2Fsmspro-api.nolacrm.io%2Foauth%2Fcallback' +
+  '&client_id=6999da2b8f278296d95f7274-mmn30t4f' +
+  '&scope=workflows.readonly+conversations%2Fmessage.readonly+conversations.readonly+conversations.write+contacts.readonly+contacts.write+conversations%2Fmessage.write+saas%2Flocation.read+locations.readonly+locations%2Ftags.readonly+locations%2Ftags.write+oauth.write+oauth.readonly' +
+  '&version_id=6999da2b8f278296d95f7274';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from '../services/firebaseConfig.ts';
@@ -486,9 +493,19 @@ export const Subaccounts = () => {
         <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
           <FiUsers className="w-8 h-8 mx-auto mb-3 opacity-30" />
           <div className="text-[15px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">No subaccounts found for your agency.</div>
-          <div className="text-[13px] text-[#9ca3af] mt-1">
-            Subaccounts will appear here once they are registered in the <code className="bg-black/5 dark:bg-white/10 px-1 py-0.5 rounded font-mono text-[11px]">ghl_tokens</code> Firestore collection.
+          <div className="text-[13px] text-[#9ca3af] mt-1 mb-5">
+            Connect a GoHighLevel location to start managing it here.
           </div>
+          <a
+            href={ADD_SUBACCOUNT_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#2b83fa] hover:bg-[#1d6bd4] text-white text-[13px] font-bold rounded-xl transition-all shadow-md shadow-[#2b83fa]/25 hover:shadow-[#2b83fa]/40"
+          >
+            <FiPlus className="w-4 h-4" />
+            Add Subaccount
+            <FiExternalLink className="w-3.5 h-3.5 opacity-70" />
+          </a>
         </div>
       ) : (
         <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-sm overflow-hidden flex flex-col">
@@ -497,15 +514,30 @@ export const Subaccounts = () => {
               <div className="text-[15px] font-bold text-[#111111] dark:text-white tracking-tight">All Subaccounts</div>
               <div className="text-[13px] text-[#6e6e73] dark:text-[#94959b] mt-1">Changes take effect immediately. Credit limit auto-saves on blur.</div>
             </div>
-            <div className="relative">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-              <input
-                type="text"
-                placeholder="Search subaccounts..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-4 py-1.5 rounded-lg text-[12.5px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all w-48 sm:w-64"
-              />
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Search */}
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                <input
+                  type="text"
+                  placeholder="Search subaccounts..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 pr-4 py-1.5 rounded-lg text-[12.5px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all w-48 sm:w-64"
+                />
+              </div>
+              {/* Add Subaccount */}
+              <a
+                href={ADD_SUBACCOUNT_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#2b83fa] hover:bg-[#1d6bd4] text-white text-[12.5px] font-bold rounded-lg transition-all shadow-sm shadow-[#2b83fa]/20 hover:shadow-[#2b83fa]/40 whitespace-nowrap"
+                title="Connect a new GHL location as a subaccount"
+              >
+                <FiPlus className="w-3.5 h-3.5" />
+                Add Subaccount
+                <FiExternalLink className="w-3 h-3 opacity-70" />
+              </a>
             </div>
           </div>
 

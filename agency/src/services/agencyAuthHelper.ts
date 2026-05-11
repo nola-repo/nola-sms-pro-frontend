@@ -94,9 +94,14 @@ export const ghlAutoLogin = async (companyId: string): Promise<AgencySession> =>
 };
 
 export interface AgencyAuthUser {
-  firstName: string;
-  lastName:  string;
-  email:     string;
+  name?:         string;
+  firstName:     string;
+  lastName:      string;
+  email:         string;
+  phone?:        string;
+  company_name?: string;
+  company_id?:   string;
+  role?:         string;
 }
 
 export interface AgencySession {
