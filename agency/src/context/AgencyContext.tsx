@@ -1,6 +1,6 @@
 import { safeStorage } from '../utils/safeStorage';
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getAgencySession, clearAgencySession, type AgencySession, ghlAutoLogin } from '../services/agencyAuthHelper.ts';
+import { getAgencySession, clearAgencySession, type AgencySession, ghlAutoLogin, fetchAgencyProfile } from '../services/agencyAuthHelper.ts';
 import { useGhlCompany } from '../hooks/useGhlCompany.ts';
 
 interface AgencyContextValue {
@@ -92,6 +92,36 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => { isMounted = false; };
   }, [isGhlFrame, ghlCompanyId, agencySession]);
+
+  useEffect(() => {
+    if (!agencySession?.token) return;
+
+    let isMounted = true;
+
+    fetchAgencyProfile()
+      .then(profile => {
+        if (!isMounted || !profile) return;
+        setAgencySession(current => {
+          if (!current) return current;
+          return {
+            ...current,
+            companyId: profile.company_id ?? current.companyId,
+            user: {
+              ...(current.user ?? {}),
+              ...profile,
+            },
+          };
+        });
+        if (profile.company_id && profile.company_id !== agencyId) {
+          setAgencyId(profile.company_id);
+        }
+      })
+      .catch(() => {
+        // Keep the login/autologin payload if the profile endpoint is unavailable.
+      });
+
+    return () => { isMounted = false; };
+  }, [agencySession?.token]);
 
   const logout = () => {
     clearAgencySession();

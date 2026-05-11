@@ -64,7 +64,7 @@ export const Settings = () => {
       });
 
     return () => { isMounted = false; };
-  }, []);
+  }, [agencySession?.token, agencyId]);
 
   const user = {
     ...(agencySession?.user ?? {}),
