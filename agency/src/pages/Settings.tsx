@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
-  FiSettings, FiCopy, FiCheck, FiUser, FiInfo, FiSave,
-  FiMapPin, FiBriefcase, FiShield, FiPhone, FiMail
+  FiCopy, FiCheck, FiUser, FiSave,
+  FiBriefcase, FiShield
 } from 'react-icons/fi';
 import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
-import { linkCompany } from '../services/agencyAuthHelper';
+import { fetchAgencyProfile, linkCompany, type AgencyAuthUser } from '../services/agencyAuthHelper';
 import { useToast } from '../hooks/useToast';
 import { safeStorage } from '../utils/safeStorage';
 import { ToastContainer } from '../components/ui/ToastContainer.tsx';
-
-// ─── Reusable sub-components (mirrors user/src/pages/Settings.tsx) ──────────
 
 const SectionHeader: React.FC<{ title: string; subtitle?: string }> = ({ title, subtitle }) => (
   <div className="mb-6">
@@ -40,18 +38,47 @@ const FieldRow: React.FC<{ label: string; value: string | null | undefined; mono
   </div>
 );
 
-// ─── Main Settings Page ──────────────────────────────────────────────────────
-
 export const Settings = () => {
-  const { agencyId, agencySession, isGhlFrame, disconnectGhl } = useAgency();
+  const { agencyId, agencySession, isGhlFrame } = useAgency();
   const [copiedId, setCopiedId] = useState(false);
   const [localCompanyId, setLocalCompanyId] = useState(agencyId || '');
+  const [freshProfile, setFreshProfile] = useState<AgencyAuthUser | null>(null);
   const [saving, setSaving] = useState(false);
   const { toasts, showToast, dismissToast } = useToast();
 
   useEffect(() => {
     if (agencyId) setLocalCompanyId(agencyId);
   }, [agencyId]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetchAgencyProfile()
+      .then(profile => {
+        if (!isMounted || !profile) return;
+        setFreshProfile(profile);
+        if (profile.company_id) setLocalCompanyId(profile.company_id);
+      })
+      .catch(() => {
+        // Cached login/session data remains the fallback if the profile endpoint is unavailable.
+      });
+
+    return () => { isMounted = false; };
+  }, []);
+
+  const user = {
+    ...(agencySession?.user ?? {}),
+    ...(freshProfile ?? {}),
+  };
+
+  const firstName = user?.firstName ?? '';
+  const lastName = user?.lastName ?? '';
+  const fullName = (firstName + ' ' + lastName).trim() || user?.name || null;
+  const email = user?.email ?? null;
+  const phone = user?.phone ?? null;
+  const companyName = user?.company_name ?? null;
+  const savedCompanyId = user?.company_id ?? agencyId ?? '';
+  const role = user?.role ?? 'agency';
 
   const handleSaveCompanyId = async () => {
     if (!localCompanyId.trim()) return;
@@ -69,21 +96,11 @@ export const Settings = () => {
   };
 
   const handleCopyId = () => {
-    if (!agencyId) return;
-    navigator.clipboard.writeText(agencyId);
+    if (!savedCompanyId) return;
+    navigator.clipboard.writeText(savedCompanyId);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
   };
-
-  // Derived profile values from session
-  const user = agencySession?.user;
-  const firstName  = user?.firstName ?? '';
-  const lastName   = user?.lastName  ?? '';
-  const fullName   = (firstName + ' ' + lastName).trim() || user?.name || null;
-  const email      = user?.email       ?? null;
-  const phone      = user?.phone       ?? null;
-  const companyName= user?.company_name ?? null;
-  const role       = user?.role        ?? 'agency';
 
   return (
     <AgencyLayout
@@ -92,53 +109,43 @@ export const Settings = () => {
     >
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      <div className="space-y-5 max-w-3xl">
+      <div className="space-y-5 w-full max-w-[672px] mx-auto">
         <SectionHeader
           title="Account Details"
           subtitle="View your agency profile and GoHighLevel company information."
         />
 
-        {/* ── Profile Details Card ── */}
-        {!isGhlFrame && (
-          <Card>
-            {/* Card header */}
-            <div className="flex items-center gap-4 mb-5">
-              <div className="w-12 h-12 rounded-2xl bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
-                <FiUser className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">
-                  {fullName || 'Agency Owner'}
-                </h3>
-                <p className="text-[12px] text-[#9aa0a6]">{email || 'agency@example.com'}</p>
-              </div>
-              {/* Role badge */}
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#2b83fa]/10 text-[#2b83fa]">
-                <FiShield className="w-3 h-3" />
-                {role}
-              </span>
-            </div>
-
-            {/* Fields */}
-            <div className="space-y-3.5 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
-              <FieldRow label="Full Name"     value={fullName} />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <FieldRow label="Email Address" value={email} />
-                <FieldRow label="Phone Number"  value={phone} />
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* ── Company / GHL Card ── */}
         <Card>
-          {/* Card header */}
+          <div className="flex items-center gap-4 mb-5">
+            <div className="w-12 h-12 rounded-2xl bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
+              <FiUser className="w-6 h-6" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1] truncate">
+                {fullName || 'Agency Owner'}
+              </h3>
+              <p className="text-[12px] text-[#9aa0a6] truncate">{email || 'agency@example.com'}</p>
+            </div>
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#2b83fa]/10 text-[#2b83fa]">
+              <FiShield className="w-3 h-3" />
+              {role}
+            </span>
+          </div>
+
+          <div className="space-y-3.5 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
+            <FieldRow label="Full Name" value={fullName} />
+            <FieldRow label="Email Address" value={email} />
+            <FieldRow label="Phone Number" value={phone} />
+          </div>
+        </Card>
+
+        <Card>
           <div className="flex items-center gap-4 mb-5">
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
               <FiBriefcase className="w-6 h-6" />
             </div>
-            <div className="flex-1">
-              <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1] truncate">
                 {companyName || 'GoHighLevel Agency'}
               </h3>
               <p className="text-[12px] text-[#9aa0a6]">Company connection &amp; identifier</p>
@@ -146,12 +153,8 @@ export const Settings = () => {
           </div>
 
           <div className="space-y-3.5 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
-            {/* Company Name (read-only if resolved) */}
-            {companyName && (
-              <FieldRow label="Company Name" value={companyName} />
-            )}
+            <FieldRow label="Company Name" value={companyName} />
 
-            {/* Company ID – editable outside iframe */}
             <div>
               <label className="flex text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5 items-center justify-between gap-2">
                 <span>Agency / Company ID</span>
@@ -171,20 +174,18 @@ export const Settings = () => {
                   disabled={isGhlFrame}
                 />
 
-                {/* Save button – only when value changed */}
-                {!isGhlFrame && localCompanyId !== agencyId && (
+                {!isGhlFrame && localCompanyId !== savedCompanyId && (
                   <button
                     onClick={handleSaveCompanyId}
                     disabled={saving || !localCompanyId.trim()}
                     className="shrink-0 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] transition-all shadow-md flex items-center gap-2 font-semibold disabled:opacity-50 text-[13px]"
                     title="Save Company ID"
                   >
-                    {saving ? 'Saving…' : <><FiSave className="w-4 h-4" /> Save</>}
+                    {saving ? 'Saving...' : <><FiSave className="w-4 h-4" /> Save</>}
                   </button>
                 )}
 
-                {/* Copy button – when value matches saved */}
-                {agencyId && localCompanyId === agencyId && (
+                {savedCompanyId && localCompanyId === savedCompanyId && (
                   <button
                     onClick={handleCopyId}
                     className="shrink-0 p-3 rounded-xl border border-[#e0e0e0] dark:border-[#ffffff0a] bg-white dark:bg-[#25282c] text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#2b83fa] transition-all shadow-sm"
@@ -201,77 +202,6 @@ export const Settings = () => {
             </div>
           </div>
         </Card>
-
-        {/* ── Environment / Session Card ── */}
-        <Card>
-          <div className="flex items-center gap-4 mb-5">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
-              <FiSettings className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">Environment Status</h3>
-              <p className="text-[12px] text-[#9aa0a6]">Session and connection info</p>
-            </div>
-          </div>
-
-          <div className="space-y-3.5 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
-            <div className="flex items-start justify-between gap-4 p-4 bg-[#f7f7f7] dark:bg-white/[0.03] rounded-xl border border-[#e0e0e0] dark:border-[#ffffff0a] flex-wrap">
-              <div className="flex items-start gap-3">
-                <FiInfo className="w-5 h-5 text-[#2b83fa] shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-[13px] font-bold text-[#111111] dark:text-white">Login Method</h4>
-                  <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1 leading-relaxed">
-                    You are logged in via{' '}
-                    <strong>{isGhlFrame ? 'GoHighLevel iframe auto-login' : 'the standalone NOLA SMS Pro portal'}</strong>.
-                  </p>
-                </div>
-              </div>
-
-              {!isGhlFrame && (
-                <button
-                  onClick={() => {
-                    if (agencyId) disconnectGhl();
-                    else window.location.href = '/login';
-                  }}
-                  className={`shrink-0 px-4 py-2 rounded-xl text-[13px] font-bold transition-all shadow-sm ${
-                    agencyId
-                      ? 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-500 hover:text-white dark:bg-red-500/10 dark:border-red-500/20'
-                      : 'bg-[#2b83fa] text-white hover:bg-[#1d6bd4]'
-                  }`}
-                >
-                  {agencyId ? 'Disconnect GHL' : 'Connect GHL'}
-                </button>
-              )}
-            </div>
-
-            {/* Contact row (quick summary) */}
-            {!isGhlFrame && (email || phone) && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {email && (
-                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a]">
-                    <FiMail className="w-4 h-4 text-[#9aa0a6] shrink-0" />
-                    <span className="text-[12px] text-[#111111] dark:text-[#ececf1] font-medium truncate">{email}</span>
-                  </div>
-                )}
-                {phone && (
-                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a]">
-                    <FiPhone className="w-4 h-4 text-[#9aa0a6] shrink-0" />
-                    <span className="text-[12px] text-[#111111] dark:text-[#ececf1] font-medium">{phone}</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Info note */}
-        {!isGhlFrame && (
-          <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20">
-            <p className="text-[12px] text-blue-700 dark:text-blue-300 leading-relaxed">
-              <strong>Note:</strong> Profile information is sourced from your NOLA SMS Pro agency account. To update your name, email, or phone, contact the administrator.
-            </p>
-          </div>
-        )}
       </div>
     </AgencyLayout>
   );
