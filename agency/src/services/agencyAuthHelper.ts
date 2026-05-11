@@ -168,6 +168,17 @@ export const getAgencySession = (): AgencySession | null => {
 
 export const clearAgencySession = (): void => {
   Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
+  safeStorage.removeItem('nola_user');
+  safeStorage.removeItem('nola_settings_account');
+};
+
+export const clearAuthSession = clearAgencySession;
+
+export const redirectToLogin = (): void => {
+  clearAgencySession();
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
 };
 
 export class MissingCompanyIdError extends Error {
@@ -189,6 +200,11 @@ export const fetchAgencyProfile = async (): Promise<AgencyAuthUser | null> => {
     },
     credentials: 'include',
   });
+
+  if (res.status === 401) {
+    redirectToLogin();
+    return null;
+  }
 
   if (!res.ok) return null;
 

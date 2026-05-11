@@ -24,7 +24,11 @@ class SafeStorage {
   public getItem(key: string): string | null {
     if (this.hasStorage) {
       try {
-        return localStorage.getItem(key);
+        const val = localStorage.getItem(key);
+        if (val === null && this.memoryStore[key] !== undefined) {
+          return this.memoryStore[key];
+        }
+        return val;
       } catch {
         return this.memoryStore[key] || null;
       }
@@ -33,11 +37,12 @@ class SafeStorage {
   }
 
   public setItem(key: string, value: string): void {
+    this.memoryStore[key] = value;
     if (this.hasStorage) {
       try {
         localStorage.setItem(key, value);
       } catch {
-        this.memoryStore[key] = value;
+        // memoryStore is already set
       }
     } else {
       this.memoryStore[key] = value;
@@ -45,14 +50,13 @@ class SafeStorage {
   }
 
   public removeItem(key: string): void {
+    delete this.memoryStore[key];
     if (this.hasStorage) {
       try {
         localStorage.removeItem(key);
       } catch {
-        delete this.memoryStore[key];
+        // memoryStore is already cleared
       }
-    } else {
-      delete this.memoryStore[key];
     }
   }
 }

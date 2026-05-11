@@ -21,6 +21,7 @@ import { useGhlLocation } from "../hooks/useGhlLocation";
 import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
 import { fetchAccountProfile } from "../api/account";
 import { useUserProfileContext } from "../App";
+import { redirectToLogin, SESSION_KEYS } from "../services/authService";
 
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -917,7 +918,21 @@ const CreditsSection: React.FC = () => {
         // live /api/auth/me call as guaranteed fallback
         if (!prefillEmail) {
             try {
-                const meRes = await fetch(`${API_BASE_URL}/api/auth/me`, { credentials: 'include' });
+                const token = localStorage.getItem(SESSION_KEYS.token);
+                if (!token) return;
+
+                const meRes = await fetch(`${API_BASE_URL}/api/auth/me`, {
+                    method: 'GET',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                });
+                if (meRes.status === 401) {
+                    redirectToLogin();
+                    return;
+                }
                 if (meRes.ok) {
                     const meData = await meRes.json();
                     const u = meData.user || meData;

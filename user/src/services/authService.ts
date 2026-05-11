@@ -102,12 +102,21 @@ export const saveSession = (data: LoginResponse): void => {
   }
 };
 
-export const clearSession = (): void => {
+export const clearAuthSession = (): void => {
   Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
   safeStorage.removeItem('nola_user');
   safeStorage.removeItem('nola_settings_account');
   safeStorage.removeItem('nola_settings_api');
   safeStorage.removeItem('nola_settings_preferred_sender');
+};
+
+export const clearSession = clearAuthSession;
+
+export const redirectToLogin = (): void => {
+  clearAuthSession();
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
 };
 
 // ── API calls ───────────────────────────────────────────────────────────────

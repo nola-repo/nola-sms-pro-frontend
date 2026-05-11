@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSession, SESSION_KEYS } from '../services/authService';
+import { getSession, SESSION_KEYS, redirectToLogin } from '../services/authService';
 import { safeStorage } from '../utils/safeStorage';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
@@ -134,6 +134,12 @@ export const useUserProfile = () => {
         });
 
         console.log("[useUserProfile] Fetch response status:", res.status);
+        if (res.status === 401) {
+          console.warn("[useUserProfile] Auth token expired or invalid. Clearing session.");
+          redirectToLogin();
+          return;
+        }
+
         if (res.ok) {
           const data = await res.json();
           console.log("[useUserProfile] Raw API response:", data);
