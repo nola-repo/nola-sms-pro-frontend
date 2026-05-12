@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import { fetchContacts, addContact, updateContact, deleteContact } from "../api/contacts";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { fetchContactsMeta, addContact, updateContact, deleteContact, isGhlReconnectError } from "../api/contacts";
 import { deleteContact as deleteContactLocal } from "../utils/storage";
 import type { Contact } from "../types/Contact";
-import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader, FiTag } from "react-icons/fi";
+import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader, FiTag, FiAlertCircle } from "react-icons/fi";
 import { useLocationId } from "../context/LocationContext";
 
 // Normalize any PH phone to 09XXXXXXXXX (aligned with send_sms.php clean_numbers)
@@ -32,6 +32,11 @@ const formatPhoneInput = (raw: string): string => {
     return `${digits.slice(0, 4)} ${digits.slice(4)}`;
   }
   return digits;
+};
+
+type GhlContactsError = {
+  kind: 'reconnect' | 'generic';
+  message?: string;
 };
 
 interface ContactsTabProps {
@@ -69,6 +74,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const [ghlContactsError, setGhlContactsError] = useState<GhlContactsError | null>(null);
 
   const touchStartY = useRef<number>(0);
   const listRef = useRef<HTMLDivElement>(null);
@@ -81,20 +87,74 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  const applyContactsFetch = useCallback((result: Awaited<ReturnType<typeof fetchContactsMeta>>) => {
+    if (result.ok) {
+      setContacts(result.contacts);
+      setGhlContactsError(null);
+      return;
+    }
+
+    setContacts([]);
+    setSelectedContacts([]);
+    setGhlContactsError({
+      kind: result.kind === 'reconnect' ? 'reconnect' : 'generic',
+      message: result.message,
+    });
+  }, []);
+
+  const navigateToSettings = () => {
+    window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'account' } }));
+  };
+
+  const setReconnectError = (message?: string) => {
+    setGhlContactsError({
+      kind: 'reconnect',
+      message: message || 'GoHighLevel connection expired',
+    });
+    setSelectedContacts([]);
+  };
+
+  const handleMutationError = (err: unknown, fallback: string): string => {
+    if (isGhlReconnectError(err)) {
+      setReconnectError(err.message);
+      return 'Reconnect your CRM to manage contacts.';
+    }
+    return err instanceof Error ? err.message : fallback;
+  };
+
   useEffect(() => {
-    fetchContacts(locationId || undefined)
-      .then(setContacts)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [locationId]);
+    let cancelled = false;
+    setLoading(true);
+    setGhlContactsError(null);
+
+    fetchContactsMeta(locationId || undefined)
+      .then((result) => {
+        if (!cancelled) applyContactsFetch(result);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (!cancelled) {
+          setContacts([]);
+          setGhlContactsError({ kind: 'generic', message: 'Failed to load contacts' });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applyContactsFetch, locationId]);
 
   const refreshContacts = async () => {
     setIsPullRefreshing(true);
     try {
-      const data = await fetchContacts(locationId || undefined);
-      setContacts(data);
+      const result = await fetchContactsMeta(locationId || undefined);
+      applyContactsFetch(result);
     } catch (e) {
       console.error(e);
+      setGhlContactsError({ kind: 'generic', message: 'Failed to refresh contacts' });
     } finally {
       setIsPullRefreshing(false);
     }
@@ -218,10 +278,11 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
         newContact.phone = normalizePHPhone(newContact.phone);
         setContacts((prev) => [...prev, newContact]);
         setSearchQuery("");
+        setGhlContactsError(null);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error adding contact:", err);
-      setError(err.message || "Failed to add contact to GHL");
+      setError(handleMutationError(err, "Failed to add contact to GHL"));
     } finally {
       setIsSubmitting(false);
       setNewContactName("");
@@ -268,6 +329,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
           setSelectedContacts((prev) => prev.map((c) =>
             c.id === editingContact.id ? { ...c, name: updated.name, phone: updated.phone } : c
           ));
+          setGhlContactsError(null);
         }
       } else {
         // For manual contacts, just update locally
@@ -278,10 +340,11 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
         setSelectedContacts((prev) => prev.map((c) =>
           c.id === editingContact.id ? editingContact : c
         ));
+        setGhlContactsError(null);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating contact:", err);
-      setError(err.message || "Failed to update contact in GHL");
+      setError(handleMutationError(err, "Failed to update contact in GHL"));
     } finally {
       setIsSubmitting(false);
       // Close modal
@@ -308,9 +371,10 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
       setContacts((prev) => prev.filter((c) => c.id !== contactId));
       // Remove from selected if selected
       setSelectedContacts((prev) => prev.filter((c) => c.id !== contactId));
-    } catch (err: any) {
+      setGhlContactsError(null);
+    } catch (err: unknown) {
       console.error("Error deleting contact:", err);
-      setError(err.message || "Failed to delete contact from GHL");
+      setError(handleMutationError(err, "Failed to delete contact from GHL"));
     } finally {
       setIsSubmitting(false);
     }
@@ -482,13 +546,63 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
               </svg>
             </div>
           )}
+          {ghlContactsError && (
+            <div className={`mb-4 rounded-xl border p-4 shadow-sm ${
+              ghlContactsError.kind === 'reconnect'
+                ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20'
+                : 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20'
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className={`mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${
+                    ghlContactsError.kind === 'reconnect'
+                      ? 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                      : 'bg-red-100 dark:bg-red-500/15 text-red-600 dark:text-red-300'
+                  }`}>
+                    <FiAlertCircle className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className={`text-[14px] font-bold ${
+                      ghlContactsError.kind === 'reconnect'
+                        ? 'text-amber-900 dark:text-amber-200'
+                        : 'text-red-800 dark:text-red-200'
+                    }`}>
+                      {ghlContactsError.kind === 'reconnect'
+                        ? 'GoHighLevel connection expired'
+                        : 'Contacts could not be loaded'}
+                    </h3>
+                    <p className={`mt-1 text-[13px] leading-snug ${
+                      ghlContactsError.kind === 'reconnect'
+                        ? 'text-amber-800/90 dark:text-amber-200/80'
+                        : 'text-red-700/90 dark:text-red-200/80'
+                    }`}>
+                      {ghlContactsError.kind === 'reconnect'
+                        ? 'Reconnect your CRM to load contacts.'
+                        : (ghlContactsError.message || 'Try again in a moment.')}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={ghlContactsError.kind === 'reconnect' ? navigateToSettings : refreshContacts}
+                  disabled={ghlContactsError.kind === 'generic' && isPullRefreshing}
+                  className={`flex-shrink-0 rounded-xl px-4 py-2 text-[13px] font-bold transition-all active:scale-95 disabled:opacity-60 ${
+                    ghlContactsError.kind === 'reconnect'
+                      ? 'bg-amber-600 text-white hover:bg-amber-700'
+                      : 'bg-red-600 text-white hover:bg-red-700'
+                  }`}
+                >
+                  {ghlContactsError.kind === 'reconnect' ? 'Open Settings' : 'Try again'}
+                </button>
+              </div>
+            </div>
+          )}
           {loading ? (
             <div className="space-y-1">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <ContactSkeleton key={i} />
               ))}
             </div>
-          ) : groupedContacts.length === 0 ? (
+          ) : ghlContactsError ? null : groupedContacts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
               <div className="w-16 h-16 mb-4 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center">
                 <FiSearch className="h-8 w-8 text-gray-400" />
