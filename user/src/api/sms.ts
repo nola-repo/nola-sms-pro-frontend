@@ -92,11 +92,6 @@ export const fetchSmsLogs = async (phoneNumber?: string, explicitLocationId?: st
     // Filter messages client-side - only include messages where the phone number is in the numbers array
     const allMessages: SmsLog[] = data.data || [];
 
-    allMessages.forEach((log, i) => {
-      const rawNumbers = log.numbers || [];
-      const normalizedNumbers = rawNumbers.map(n => normalizePHNumber(n)).filter(Boolean);
-      const match = normalizedNumbers.includes(formattedNumber);
-    });
 
     const filteredMessages = allMessages.filter(log => {
       // Block messages from other sub-accounts (cross-account isolation)
