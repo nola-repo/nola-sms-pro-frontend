@@ -98,7 +98,6 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Persist and broadcast whenever locationId changes
   const setLocationId = useCallback((newId: string) => {
     if (!newId || newId === locationId) return;
-    console.log('[NOLA] Location changed:', newId);
 
     // Persist to localStorage
     const settings = getAccountSettings();

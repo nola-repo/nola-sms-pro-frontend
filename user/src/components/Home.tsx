@@ -102,9 +102,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         return name.replace(/\b\w/g, (char) => char.toUpperCase());
     };
 
-    const handleAnimationComplete = () => {
-        console.log('All letters have animated!');
-    };
+    const handleAnimationComplete = () => {};
 
     const isPhoneLike = (s: string): boolean => /^[\d+\-() ]+$/.test(s);
 

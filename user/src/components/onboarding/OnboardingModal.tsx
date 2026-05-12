@@ -221,7 +221,6 @@ const Step4 = () => {
       <Note variant="warn">
         Sender ID registration is <strong>required</strong> before going live. Submit below to begin approval.
       </Note>
-
       <form onSubmit={handleSubmit} className="space-y-3.5">
         {error && (
           <div className="p-3 rounded-xl bg-red-50 border border-red-100 dark:bg-red-900/10 dark:border-red-900/30">

@@ -959,8 +959,6 @@ const CreditsSection: React.FC = () => {
             if (qs) checkoutUrl += (checkoutUrl.includes('?') ? '&' : '?') + qs;
         }
 
-        console.log('[NOLA Checkout] URL:', checkoutUrl);
-
         const width = 600;
         const height = 850;
         const left = (window.screen.width / 2) - (width / 2);
@@ -1002,7 +1000,6 @@ const CreditsSection: React.FC = () => {
     return (
         <div className="space-y-5">
             <SectionHeader title="Credits & Billing" subtitle="Monitor your SMS credit balance, configure auto-recharge, and request credits from your agency." />
-
             {/* ── Request Credits Modal ──────────────────────────────────────── */}
             {reqModalOpen && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]" onClick={() => setReqModalOpen(false)}>
@@ -1060,8 +1057,6 @@ const CreditsSection: React.FC = () => {
                     </div>
                 </div>
             )}
-
-
             {/* Balance Card */}
             <div className="rounded-2xl p-5 text-white shadow-lg transition-colors duration-500 bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-blue-500/25">
                 <div className="flex items-start justify-between mb-4">
@@ -1125,7 +1120,6 @@ const CreditsSection: React.FC = () => {
                     </>
                 )}
             </div>
-
             {/* Auto-recharge config row */}
             <Card>
                 <div className="flex flex-wrap items-center gap-3">
@@ -1160,7 +1154,6 @@ const CreditsSection: React.FC = () => {
                     </button>
                 </div>
             </Card>
-
             {/* Request Credits from Agency */}
             <Card>
                 <div className="flex items-center justify-between gap-4">
@@ -1179,7 +1172,6 @@ const CreditsSection: React.FC = () => {
                     </button>
                 </div>
             </Card>
-
             {/* Stats Row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
@@ -1196,7 +1188,6 @@ const CreditsSection: React.FC = () => {
                     </Card>
                 ))}
             </div>
-
             {/* Top Up */}
             <Card>
                 <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider mb-4">Top Up Credits</h3>
@@ -1241,7 +1232,6 @@ const CreditsSection: React.FC = () => {
                     )}
                 </form>
             </Card>
-
             {/* Transaction Ledger */}
             <Card>
                 <div className="flex items-center justify-between mb-4">
@@ -1273,7 +1263,7 @@ const CreditsSection: React.FC = () => {
 
                 {txLoading ? (
                     /* Skeleton rows */
-                    <div className="space-y-3">
+                    (<div className="space-y-3">
                         {Array.from({ length: 4 }).map((_, i) => (
                             <div key={i} className="flex items-center gap-3 py-1 animate-pulse">
                                 <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-[#2a2b32] flex-shrink-0" />
@@ -1284,7 +1274,7 @@ const CreditsSection: React.FC = () => {
                                 <div className="h-3 bg-gray-200 dark:bg-[#2a2b32] rounded w-16 flex-shrink-0" />
                             </div>
                         ))}
-                    </div>
+                    </div>)
                 ) : transactions.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
                         <div className="w-12 h-12 rounded-xl bg-[#2b83fa]/10 flex items-center justify-center">

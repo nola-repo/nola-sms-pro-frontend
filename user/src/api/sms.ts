@@ -88,19 +88,14 @@ export const fetchSmsLogs = async (phoneNumber?: string, explicitLocationId?: st
     const res = await fetch(url, { headers });
     if (!res.ok) throw new Error("Failed to fetch message history");
     const data = await res.json();
-    console.log('SMS Logs Response:', data);
 
     // Filter messages client-side - only include messages where the phone number is in the numbers array
     const allMessages: SmsLog[] = data.data || [];
 
-    // Debug: show what we're comparing
-    console.log(`🔍 Looking for contact number: ${formattedNumber}`);
-    console.log(`📦 Total messages from API: ${allMessages.length}`);
     allMessages.forEach((log, i) => {
       const rawNumbers = log.numbers || [];
       const normalizedNumbers = rawNumbers.map(n => normalizePHNumber(n)).filter(Boolean);
       const match = normalizedNumbers.includes(formattedNumber);
-      console.log(`  Message ${i + 1}: "${log.message?.substring(0, 30)}..." | raw numbers: [${rawNumbers.join(', ')}] → normalized: [${normalizedNumbers.join(', ')}] | match: ${match ? '✅' : '❌'}`);
     });
 
     const filteredMessages = allMessages.filter(log => {
@@ -121,7 +116,6 @@ export const fetchSmsLogs = async (phoneNumber?: string, explicitLocationId?: st
       return true;
     });
 
-    console.log(`✅ Filtered messages for ${formattedNumber}: ${deduped.length} found (${filteredMessages.length} before dedup)`);
     return deduped;
   } catch (error) {
     console.error("Fetch Logs Error:", error);
@@ -200,9 +194,6 @@ export const sendSms = async (
       ? `${API_CONFIG.sms}?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`
       : API_CONFIG.sms;
 
-    console.log("Sending SMS payload via proxy:", payload);
-    console.log("Sending to:", SEND_SMS_URL);
-
     const res = await fetch(SEND_SMS_URL, {
       method: "POST",
       headers,
@@ -215,7 +206,6 @@ export const sendSms = async (
     }
 
     const data = await res.json();
-    console.log("SMS API Response:", data);
 
     if (data?.status === "error" || data?.status === "failed") {
       return {
@@ -602,14 +592,12 @@ export const fetchAllBulkMessages = async (explicitLocationId?: string): Promise
       BULK_CAMPAIGNS_URL += `?location_id=${encodeURIComponent(locationId)}`;
     }
     const res = await fetch(BULK_CAMPAIGNS_URL, { headers });
-    console.log('[fetchAllBulkMessages] Response status:', res.status);
     if (!res.ok) {
       const errorText = await res.text();
       console.error('[fetchAllBulkMessages] Error response:', errorText);
       throw new Error(`Failed to fetch bulk messages: ${res.status}`);
     }
     const resData = await res.json();
-    console.log('[fetchAllBulkMessages] Data received:', resData);
 
     // Handle both array and { data: [...] } format
     const messages = Array.isArray(resData) ? resData : (resData.data || []);

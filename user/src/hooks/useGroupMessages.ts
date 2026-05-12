@@ -66,27 +66,20 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
                     setMessages([]);
                     return;
                 }
-                
-                console.log('[useGroupMessages] Fetching by conversation key:', conversationKey);
-                
+
                 // Fetch messages by recipient_key (conversation key)
                 const messagesData = await fetchMessagesByRecipientKey(conversationKey);
-                console.log('[useGroupMessages] Messages received:', messagesData.length);
-                
+
                 // Debug: check what fields the messages have
-                if (messagesData.length > 0) {
-                    console.log('[useGroupMessages] Sample message fields:', Object.keys(messagesData[0]));
-                    console.log('[useGroupMessages] Sample message:', messagesData[0]);
-                }
-                
+                if (messagesData.length > 0) {}
+
                 // Filter by recipient numbers if provided (for specific group members)
                 let filtered = messagesData;
                 if (recipientNumbers && recipientNumbers.length > 0) {
                     const normalizedRecipients = recipientNumbers
                         .map(n => normalizePHNumber(n))
                         .filter((n): n is string => n !== null);
-                    console.log('[useGroupMessages] Normalized recipients:', normalizedRecipients);
-                    
+
                     // Filter messages: check if message's number matches any recipient
                     filtered = messagesData.filter((m) => {
                         const msgNumber = m.number || '';
@@ -94,16 +87,15 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
                         
                         return normalizedMsgNumber && normalizedRecipients.includes(normalizedMsgNumber);
                     });
-                    console.log('[useGroupMessages] After filtering:', filtered.length);
                 }
-                
+
                 // Sort by date (chronological - oldest first for chat)
                 filtered = [...filtered].sort((a, b) => {
                     const dateA = a?.date_created ? parseDate(a.date_created) : Date.now();
                     const dateB = b?.date_created ? parseDate(b.date_created) : Date.now();
                     return dateA - dateB;
                 });
-                
+
                 // Transform to UI format
                 let transformedMessages: Message[] = [];
                 try {
@@ -128,10 +120,9 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
                 } catch (err) {
                     console.error('[useGroupMessages] Transformation error:', err);
                 }
-                
+
                 setMessages(transformedMessages);
                 dataLoaded.current = true;
-                console.log('[useGroupMessages] Final messages set:', transformedMessages.length);
             } catch (error) {
                 console.error("Failed to fetch group messages:", error);
             } finally {

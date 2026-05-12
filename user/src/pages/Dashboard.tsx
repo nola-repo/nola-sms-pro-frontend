@@ -69,7 +69,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   };
 
   const handleSelectBulkMessage = (bulkMessage: BulkMessageHistoryItem) => {
-    console.log('Selected bulk message:', bulkMessage);
     setSelectedContacts([]);
     setActiveContact(null);
     setActiveBulkMessage(bulkMessage);

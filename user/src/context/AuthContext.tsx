@@ -27,26 +27,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const params = new URLSearchParams(window.location.search);
       const urlToken = params.get('token');
-      
-      console.log("[AuthContext] URL Token Check. Has Token:", !!urlToken, "Raw URL:", window.location.href);
 
       if (urlToken) {
-        console.log("[AuthContext] Token found in URL, storing in safeStorage.");
         Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
         safeStorage.removeItem('nola_user');
         safeStorage.removeItem('nola_settings_account');
         // Store it in memory-backed storage
         safeStorage.setItem(SESSION_KEYS.token, urlToken);
-        
+
         // Clean up the URL so the token doesn't linger in browser history
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     } catch (e) {
       console.error("[AuthContext] Error parsing URL token:", e);
     }
-    
+
     const initialSession = getSession();
-    console.log("[AuthContext] Initial session loaded:", !!initialSession?.token);
     return initialSession;
   });
 

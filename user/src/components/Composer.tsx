@@ -649,7 +649,7 @@ export const Composer: React.FC<ComposerProps> = ({
       <div className="flex-shrink-0 z-30 bg-white/80 dark:bg-[#1a1b1e]/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-white/5 shadow-sm">
         {activePhoneNumber ? (
           /* Chat Header for specific contact - Direct Messages */
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-row items-center justify-between gap-3">
+          (<div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <button
                 onClick={onToggleMobileMenu}
@@ -670,7 +670,6 @@ export const Composer: React.FC<ComposerProps> = ({
                 </span>
               </div>
             </div>
-
             {/* Sender + Credits */}
             <div className="flex items-center gap-2 group">
               <div className="flex-shrink-0 order-2 sm:order-1">
@@ -685,10 +684,10 @@ export const Composer: React.FC<ComposerProps> = ({
                 />
               </div>
             </div>
-          </div>
+          </div>)
         ) : activeBulkMessage ? (
           /* Bulk Message Conversation Header - Clean view like direct messages */
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-row items-center justify-between gap-3">
+          (<div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <button
                 onClick={onToggleMobileMenu}
@@ -725,7 +724,6 @@ export const Composer: React.FC<ComposerProps> = ({
                 </span>
               </div>
             </div>
-
             {/* Sender and Credits */}
             <div className="flex items-center gap-2 group">
               <div className="flex-shrink-0 order-2 sm:order-1">
@@ -740,10 +738,10 @@ export const Composer: React.FC<ComposerProps> = ({
                 />
               </div>
             </div>
-          </div>
+          </div>)
         ) : (
           /* New Message / Bulk Header - Styled like individual contact header */
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-3 pb-2">
+          (<div className="max-w-5xl mx-auto px-4 sm:px-6 pt-3 pb-2">
             <div className="flex flex-row items-center justify-between mb-3 gap-3">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                 <button
@@ -814,7 +812,6 @@ export const Composer: React.FC<ComposerProps> = ({
                 </div>
               </div>
             </div>
-
             {/* Sender Selector - Full Width Above To: on Mobile */}
             <div className="mb-3 w-full block sm:hidden">
               <div className="flex items-center justify-between gap-3">
@@ -835,7 +832,6 @@ export const Composer: React.FC<ComposerProps> = ({
                 </div>
               </div>
             </div>
-
             {/* Recipient Line */}
             <div className="flex items-start gap-3 pb-2 border-t border-gray-100 dark:border-white/5 pt-3">
               <span className="text-[14px] font-semibold text-gray-400 dark:text-gray-500 mt-2.5 whitespace-nowrap">To:</span>
@@ -990,10 +986,9 @@ export const Composer: React.FC<ComposerProps> = ({
                 />
               </div>
             </div>
-          </div>
+          </div>)
         )}
       </div>
-
       {/* 2. Message History Area */}
       <div
         ref={msgAreaRef}
@@ -1422,7 +1417,6 @@ export const Composer: React.FC<ComposerProps> = ({
         </div>
         <div ref={messagesEndRef} className="h-4 w-full flex-shrink-0" />
       </div>
-
       {/* 3. Floating Input Card Area */}
       <div className="px-6 pb-6 pt-2 z-20 relative">
         {/* Scroll to bottom floating button */}
@@ -1627,7 +1621,6 @@ export const Composer: React.FC<ComposerProps> = ({
           )}
         </div>
       </div>
-
       {/* 4. Toast Overlay — custom, no-blink */}
       <div
         aria-live="polite"

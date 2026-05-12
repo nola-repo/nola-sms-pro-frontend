@@ -524,7 +524,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
           </div>
         </div>
       </div>
-
       {/* Contacts List */}
       <div
         ref={listRef}
@@ -645,7 +644,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                           >
                             {isSelected && <FiCheck className="h-4 w-4 text-white" />}
                           </div>
-
                           {/* Avatar - show phone icon for phone-number contacts */}
                           <div
                             className={`
@@ -672,7 +670,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                               return (first + last).toUpperCase() || "?";
                             })()}
                           </div>
-
                           {/* Info */}
                           <div className="flex-1 min-w-0 flex flex-col justify-center">
                             <div className="flex items-center gap-2 w-full overflow-hidden">
@@ -698,7 +695,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                               {formatDisplayPhone(contact.phone)}
                             </p>
                           </div>
-
                           {/* Last message preview */}
                           {contact.lastMessage && (
                             <div className="hidden md:block flex-1 min-w-0">
@@ -707,7 +703,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
                               </p>
                             </div>
                           )}
-
                           {/* More button with dropdown */}
                           <div className="relative">
                             <button
@@ -773,7 +768,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
           )}
         </div>
       </div>
-
       {/* Floating Action Bar */}
       {selectedContacts.length > 0 && (
         <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300 px-3 sm:px-0">
@@ -799,7 +793,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
           </div>
         </div>
       )}
-
       {/* Delete Confirmation Modal */}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -850,7 +843,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
           </div>
         </div>
       )}
-
       {/* Add Contact Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -938,7 +930,6 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
           </div>
         </div>
       )}
-
       {/* Edit Contact Modal */}
       {editingContact && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

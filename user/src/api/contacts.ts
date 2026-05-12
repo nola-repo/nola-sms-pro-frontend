@@ -94,8 +94,6 @@ const normalizeContacts = (data: unknown): Contact[] => {
     contacts = contactsField || dataField || nestedContacts || [];
   }
 
-  console.log('Contacts fetched:', contacts.length);
-
   // Normalize GHL raw contact format -> our Contact shape
   // GHL returns: contactName, firstName, lastName, phone, email, id
   // We need:     name, phone, email, id
@@ -131,10 +129,7 @@ const normalizeContacts = (data: unknown): Contact[] => {
     };
   });
 
-  if (normalized.length > 0) {
-    console.log('NOLA SMS: First contact sample:', JSON.stringify(normalized[0]));
-    console.log('NOLA SMS: All contact names/phones:', normalized.map((c) => `${c.name} (${c.phone})`));
-  }
+  if (normalized.length > 0) {}
 
   return normalized;
 };
@@ -143,8 +138,6 @@ export const fetchContactsMeta = async (explicitLocationId?: string): Promise<Fe
   try {
     const accountSettings = getAccountSettings();
     const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
-
-    console.log('NOLA SMS: Detected GHL Location:', locationId);
 
     if (!locationId) {
       console.warn('NOLA SMS: No locationId available for contacts fetch.');
@@ -185,9 +178,7 @@ export const fetchContactsMeta = async (explicitLocationId?: string): Promise<Fe
     }
 
     const data = await res.json();
-    console.log('NOLA SMS: Contacts API response:', data);
     return { ok: true, contacts: normalizeContacts(data) };
-
   } catch (error) {
     console.error('Failed to fetch contacts:', error);
     return {
@@ -247,7 +238,6 @@ export const addContact = async (params: AddContactParams): Promise<Contact | nu
     }
 
     const contact = await res.json();
-    console.log('Contact added:', contact);
     return contact;
   } catch (error) {
     console.error('Failed to add contact:', error);
@@ -298,7 +288,6 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
     }
 
     const contact = await res.json();
-    console.log('Contact updated:', contact);
     return contact;
   } catch (error) {
     console.error('Failed to update contact:', error);
@@ -334,7 +323,6 @@ export const deleteContact = async (id: string): Promise<boolean> => {
       throw new Error(getErrorMessage(error, 'Failed to delete contact'));
     }
 
-    console.log('Contact deleted:', id);
     return true;
   } catch (error) {
     console.error('Failed to delete contact:', error);

@@ -23,15 +23,6 @@ function extractCompanyFromMessage(event: MessageEvent): string | null {
     const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
     if (!data || typeof data !== 'object') return null;
 
-    // Log every message for debugging (can be removed once stable)
-    console.log('[NOLA SMS] 📨 GHL postMessage received:', {
-      message: data.message,
-      type:    data.type,
-      action:  data.action,
-      keys:    Object.keys(data),
-      companyId: data.companyId ?? data.company_id ?? '(none)',
-    });
-
     // All known paths where GHL puts the agency-level company ID
     const candidates = [
       data.companyId,
@@ -111,7 +102,6 @@ export function useGhlCompany(): GhlCompanyState {
   });
 
   const finalize = useCallback((cid: string, source: string) => {
-    console.log(`[NOLA SMS] ✅ Agency Company ID resolved [${source}]: ${cid}`);
     safeStorage.setItem('nola_agency_id', cid);
     setState(prev =>
       prev.companyId === cid
@@ -135,7 +125,6 @@ export function useGhlCompany(): GhlCompanyState {
         (raw.message === 'REQUEST_USER_DATA_RESPONSE' || raw.message === 'USER_DATA_RESPONSE') &&
         raw.payload
       ) {
-        console.log('[NOLA SMS] 🔒 SSO payload received — decrypting...');
         try {
           const res = await fetch('/api/agency/ghl_sso_decrypt.php', {
             method: 'POST',
@@ -143,7 +132,6 @@ export function useGhlCompany(): GhlCompanyState {
             body: JSON.stringify({ encryptedPayload: raw.payload }),
           });
           const data = await res.json();
-          console.log('[NOLA SMS] 🔒 SSO Decrypt Response:', data);
 
           if (data.companyId) {
             finalize(data.companyId, 'SSO_DECRYPT');
@@ -203,16 +191,9 @@ export function useGhlCompany(): GhlCompanyState {
     if (!state.isGhlFrame || initDoneRef.current) return;
     initDoneRef.current = true;
 
-    console.log('[NOLA SMS] 🔍 Iframe URL at mount:', {
-      href:   window.location.href,
-      search: window.location.search,
-      hash:   window.location.hash,
-    });
-
     // Request GHL SSO data — response handled by persistent listener above
     try {
       window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
-      console.log('[NOLA SMS] 📤 Sent REQUEST_USER_DATA to GHL parent frame');
     } catch {
       console.warn('[NOLA SMS] Could not send REQUEST_USER_DATA — not in cross-origin iframe?');
     }

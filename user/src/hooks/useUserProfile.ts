@@ -70,18 +70,15 @@ function getCachedUser(): UserProfile | null {
   try {
     const fromAuthUser = JSON.parse(localStorage.getItem('nola_auth_user') || 'null');
     if (fromAuthUser?.email) {
-      console.log("[useUserProfile] Found cached user in nola_auth_user:", fromAuthUser.email);
       return normalizeProfile(fromAuthUser);
     }
     const fromNolaUser = JSON.parse(localStorage.getItem('nola_user') || 'null');
     if (fromNolaUser?.email) {
-      console.log("[useUserProfile] Found cached user in nola_user:", fromNolaUser.email);
       return normalizeProfile(fromNolaUser);
     }
   } catch (e) {
     console.error("[useUserProfile] Error parsing cached user:", e);
   }
-  console.log("[useUserProfile] No cached user found.");
   return null;
 }
 
@@ -94,16 +91,13 @@ function getToken(): string | null {
   try {
     const sessionToken = getSession()?.token;
     if (sessionToken) {
-      console.log("[useUserProfile] Token retrieved via getSession()");
       return sessionToken;
     }
     // Fallback: safeStorage (works even when localStorage is blocked in GHL iframe)
     const rawToken = safeStorage.getItem(SESSION_KEYS.token);
     if (rawToken) {
-      console.log("[useUserProfile] Token retrieved via safeStorage fallback");
       return rawToken;
     }
-    console.log("[useUserProfile] No token found in any storage.");
     return null;
   } catch (e) {
     console.error("[useUserProfile] Error getting token:", e);
@@ -117,14 +111,12 @@ export const useUserProfile = () => {
   useEffect(() => {
     const fetchFreshProfile = async () => {
       try {
-        console.log("[useUserProfile] Attempting to fetch fresh profile...");
         const token = getToken();
         if (!token) {
           console.warn("[useUserProfile] Cannot fetch profile, no token available.");
           return;
         }
 
-        console.log("[useUserProfile] Making fetch call to /api/auth/me...");
         const res = await fetch(`${API_BASE}/api/auth/me`, {
           method: 'GET',
           headers: {
@@ -133,7 +125,6 @@ export const useUserProfile = () => {
           }
         });
 
-        console.log("[useUserProfile] Fetch response status:", res.status);
         if (res.status === 401) {
           console.warn("[useUserProfile] Auth token expired or invalid. Clearing session.");
           redirectToLogin();
@@ -142,15 +133,12 @@ export const useUserProfile = () => {
 
         if (res.ok) {
           const data = await res.json();
-          console.log("[useUserProfile] Raw API response:", data);
           if (data.user) {
             const profile = normalizeProfile(data.user);
-            console.log("[useUserProfile] Normalized profile — email:", profile.email, "| location_id:", profile.location_id, "| name:", profile.name);
             setUser(profile);
             // Self-heal: write normalised profile to both keys
             localStorage.setItem('nola_auth_user', JSON.stringify(profile));
             localStorage.setItem('nola_user', JSON.stringify(profile));
-            console.log("[useUserProfile] Profile successfully synced to localStorage");
           }
         } else {
           console.error("[useUserProfile] Fetch failed. Status:", res.status, "Text:", await res.text().catch(() => ""));
