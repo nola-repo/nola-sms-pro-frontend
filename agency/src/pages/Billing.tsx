@@ -591,6 +591,7 @@ export const Billing: React.FC = () => {
   return (
     <AgencyLayout title="Credits & Billing" subtitle="Agency funding wallet — distribute credits to subaccounts and manage top-ups">
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
       {topUpModalOpen && (
         <TopUpModal 
           agencyId={effectiveAgencyId}
@@ -602,6 +603,7 @@ export const Billing: React.FC = () => {
           }}
         />
       )}
+
       {giftModalOpen && (
         <GiftCreditsModal
           subaccounts={subaccounts}
@@ -615,6 +617,7 @@ export const Billing: React.FC = () => {
           }}
         />
       )}
+
       {/* ── Page Tabs ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-1 mb-6 border-b border-[#e5e5e5] dark:border-white/5">
         {[
@@ -635,6 +638,7 @@ export const Billing: React.FC = () => {
           </button>
         ))}
       </div>
+
       {/* ══════════════════════ WALLET TAB ══════════════════════════════════════ */}
       {tab === 'wallet' && (
         <div className="space-y-5">
@@ -824,7 +828,7 @@ export const Billing: React.FC = () => {
                 </div>
               ) : txTab === 'summary' ? (
                 /* Summary view */
-                (<div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {[
                     { label: 'Credits Added', value: transactions.filter(t => ['top_up', 'auto_recharge'].includes(t.type)).reduce((s, t) => s + Math.abs(t.amount), 0), color: 'text-emerald-500', bg: 'bg-emerald-500/10', icon: <FiArrowDownLeft /> },
                     { label: 'Distributed Out', value: transactions.filter(t => ['gift_sent', 'credit_distribution', 'request_approved'].includes(t.type)).reduce((s, t) => s + Math.abs(t.amount), 0), color: 'text-purple-500', bg: 'bg-purple-500/10', icon: <FiGift /> },
@@ -836,10 +840,10 @@ export const Billing: React.FC = () => {
                       <div className="text-[11px] text-[#9aa0a6] mt-0.5">{s.label}</div>
                     </div>
                   ))}
-                </div>)
+                </div>
               ) : (
                 /* Detailed list */
-                (<div className="space-y-0">
+                <div className="space-y-0">
                   {transactions.map(tx => {
                     const { icon, color, bg } = txIcon(tx.type);
                     const isPos = ['top_up', 'auto_recharge', 'gift_received', 'request_approved'].includes(tx.type);
@@ -859,12 +863,13 @@ export const Billing: React.FC = () => {
                       </div>
                     );
                   })}
-                </div>)
+                </div>
               )}
             </div>
           </div>
         </div>
       )}
+
       {/* ══════════════════════ REQUESTS TAB ════════════════════════════════════ */}
       {tab === 'requests' && (
         <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] rounded-2xl shadow-sm overflow-hidden">
