@@ -4,7 +4,7 @@ import { FiEye, FiEyeOff, FiAlertTriangle, FiCheck } from 'react-icons/fi';
 import defaultLogo from '../../assets/NOLA SMS PRO Logo.png';
 
 interface AdminLoginProps {
-  onLogin: (username: string) => void;
+  onLogin: (username: string, token?: string) => void;
   darkMode?: boolean;
   toggleDarkMode?: () => void;
 }
@@ -38,7 +38,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
         const json = await res.json();
         
         if (res.ok && json.status === 'success') {
-            onLogin(username);
+            // Pass any token the backend returns so it can be stored securely
+            onLogin(username, json.token ?? undefined);
         } else {
             setError(json.message || 'Incorrect username or password.');
         }

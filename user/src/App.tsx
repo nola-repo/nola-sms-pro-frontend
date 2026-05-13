@@ -9,8 +9,6 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { safeStorage } from "./utils/safeStorage";
 import { useUserProfile, type UserProfile } from "./hooks/useUserProfile";
 
-import { useLocationId } from "./context/LocationContext";
-import { getAccountSettings, saveAccountSettings } from "./utils/settingsStorage";
 
 // Create a context so Settings and other pages can consume the live profile
 export const UserProfileContext = createContext<UserProfile | null>(null);
@@ -41,18 +39,6 @@ const AppLayout: React.FC = () => {
 
   // Dynamically fetch and sync profile immediately on app boot
   const userProfile = useUserProfile();
-  const { locationId, setLocationId } = useLocationId();
-
-  useEffect(() => {
-    if (userProfile?.location_id && !locationId) {
-      setLocationId(userProfile.location_id);
-      safeStorage.setItem('nola_location_id', userProfile.location_id);
-      saveAccountSettings({
-        ...getAccountSettings(),
-        ghlLocationId: userProfile.location_id,
-      });
-    }
-  }, [userProfile?.location_id, locationId, setLocationId]);
 
   useEffect(() => {
     const root = document.documentElement;

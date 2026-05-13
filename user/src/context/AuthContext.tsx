@@ -8,6 +8,7 @@ import {
   type LoginResponse,
 } from '../services/authService';
 import { safeStorage } from '../utils/safeStorage';
+import { sessionSafeStorage } from '../utils/sessionSafeStorage';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface AuthContextValue extends Partial<AuthSession> {
@@ -29,11 +30,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const urlToken = params.get('token');
 
       if (urlToken) {
-        Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
+        Object.values(SESSION_KEYS).forEach(k => {
+          safeStorage.removeItem(k);
+          sessionSafeStorage.removeItem(k);
+        });
         safeStorage.removeItem('nola_user');
         safeStorage.removeItem('nola_settings_account');
-        // Store it in memory-backed storage
-        safeStorage.setItem(SESSION_KEYS.token, urlToken);
+        // Store token in sessionStorage (tab-scoped) — not localStorage
+        sessionSafeStorage.setItem(SESSION_KEYS.token, urlToken);
 
         // Clean up the URL so the token doesn't linger in browser history
         window.history.replaceState({}, document.title, window.location.pathname);

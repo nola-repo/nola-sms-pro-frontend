@@ -26,6 +26,11 @@
   .settings-icon-rotate:hover svg {
     animation: gear-rotate 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
+
+  /* Used by OnboardingModal progress bar — extracted from dangerouslySetInnerHTML */
+  @keyframes shimmer {
+    100% { transform: translateX(100%); }
+  }
 }
 
 html {

@@ -5,6 +5,7 @@ import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { generateMonthlyReport } from '../../utils/pdfGenerator';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiDownload } from 'react-icons/fi';
+import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
@@ -21,13 +22,10 @@ export const AdminAccounts: React.FC = () => {
     
     // Manage Sender States
     const [searchTerm, setSearchTerm] = useState('');
-    const [visibleApiKeyId, setVisibleApiKeyId] = useState<string | null>(null);
     const [managingAccount, setManagingAccount] = useState<Account | null>(null);
     const [manageSenderId, setManageSenderId] = useState('');
-    const [manageApiKey, setManageApiKey] = useState('');
     const [manageCreditBalance, setManageCreditBalance] = useState<number>(0);
     const [manageFreeCreditsTotal, setManageFreeCreditsTotal] = useState<number>(10);
-    const [showApiKey, setShowApiKey] = useState(false);
     const [copiedKey, setCopiedKey] = useState(false);
 
     const [reportTransactions, setReportTransactions] = useState<any[]>([]);
@@ -48,7 +46,7 @@ export const AdminAccounts: React.FC = () => {
         if (isInitial) setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${ADMIN_API}?action=accounts`);
+            const res = await fetch(`${ADMIN_API}?action=accounts`, { headers: getAdminAuthHeaders() });
             const json = await res.json();
             if (json.status === 'success') {
                 const mappedAccounts = (json.data || []).map((item: any) => {
@@ -80,7 +78,7 @@ export const AdminAccounts: React.FC = () => {
         setReportSelectedMonth('All');
         setReportTransactions([]);
         try {
-            const res = await fetch(`/api/get_credit_transactions.php?location_id=${acc.location_id}`);
+            const res = await fetch(`/api/get_credit_transactions.php?location_id=${acc.location_id}`, { headers: getAdminAuthHeaders() });
             const json = await res.json();
             if (json.status === 'success') {
                 setReportTransactions(json.data || []);
@@ -99,7 +97,7 @@ export const AdminAccounts: React.FC = () => {
         try {
             const res = await fetch(ADMIN_API, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAdminAuthHeaders(),
                 body: JSON.stringify({
                     action: 'manage_sender',
                     location_id: managingAccount.location_id,
@@ -176,7 +174,6 @@ export const AdminAccounts: React.FC = () => {
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Account / Location ID</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Agency</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Sender ID</th>
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">API Key</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Credits</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Free Used</th>
                                 <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Report</th>
@@ -215,49 +212,7 @@ export const AdminAccounts: React.FC = () => {
                                             ? <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/10 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold border border-emerald-200 dark:border-emerald-800/30 uppercase tracking-wider">{acc.approved_sender_id}</span>
                                             : <span className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest pl-2">System</span>}
                                     </td>
-                                    <td className="py-4 pr-4">
-                                        {(() => {
-                                            const apiKey = acc.semaphore_api_key || acc.nola_pro_api_key || acc.api_key;
-                                            const isVisible = visibleApiKeyId === acc.id;
-                                            
-                                            return apiKey ? (
-                                                <div className="flex items-center gap-2 group/key">
-                                                    <div className={`px-2 py-1 rounded-lg border transition-all duration-200 flex items-center gap-2 ${isVisible ? 'bg-blue-50/50 border-blue-200 dark:bg-blue-500/5 dark:border-blue-500/20' : 'bg-[#f7f7f7] border-[#e5e5e5] dark:bg-white/5 dark:border-white/10'}`}>
-                                                        <span className="text-[11px] font-mono text-[#444] dark:text-[#ccc] tabular-nums">
-                                                            {isVisible ? apiKey : '••••••••••••'}
-                                                        </span>
-                                                        <div className="flex items-center gap-1 border-l border-[#e5e5e5] dark:border-white/10 pl-1.5 ml-0.5">
-                                                            <button 
-                                                                onClick={() => setVisibleApiKeyId(isVisible ? null : acc.id)}
-                                                                className="p-0.5 text-[#9aa0a6] hover:text-[#2b83fa] transition-colors"
-                                                                title={isVisible ? 'Hide Key' : 'Show Key'}
-                                                            >
-                                                                {isVisible ? <FiEyeOff size={13} /> : <FiEye size={13} />}
-                                                            </button>
-                                                            <button 
-                                                                onClick={async (e) => {
-                                                                    e.stopPropagation();
-                                                                    await navigator.clipboard.writeText(apiKey || '');
-                                                                }}
-                                                                className="p-0.5 text-[#9aa0a6] hover:text-[#2b83fa] transition-colors"
-                                                                title="Copy API Key"
-                                                            >
-                                                                <FiCopy size={13} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <span className="text-[11px] font-medium text-[#9aa0a6] opacity-60 flex items-center gap-1 pl-2">
-                                                    {acc.approved_sender_id ? (
-                                                        <><FiX size={10} /> Missing</>
-                                                    ) : (
-                                                        <>—</>
-                                                    )}
-                                                </span>
-                                            );
-                                        })()}
-                                    </td>
+
                                     <td className="py-4 pr-4">
                                         <div className="flex flex-col">
                                             <span className="text-[13px] font-bold text-[#111111] dark:text-white">{(acc.credit_balance ?? acc.credits ?? 0).toLocaleString()}</span>
@@ -289,7 +244,6 @@ export const AdminAccounts: React.FC = () => {
                                                 onClick={() => {
                                                     setManagingAccount(acc);
                                                     setManageSenderId(acc.approved_sender_id || '');
-                                                    setManageApiKey(acc.nola_pro_api_key || acc.api_key || acc.semaphore_api_key || '');
                                                     setManageCreditBalance(acc.credit_balance ?? acc.credits ?? 0);
                                                     setManageFreeCreditsTotal(acc.free_credits_total ?? 10);
                                                     

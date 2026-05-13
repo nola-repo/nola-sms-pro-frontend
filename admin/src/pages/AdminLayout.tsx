@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX, FiBriefcase } from 'react-icons/fi';
 
@@ -33,16 +33,43 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
 
 export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => void }> = ({ darkMode, toggleDarkMode }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(() =>
-        localStorage.getItem('nola_admin_auth') === 'true'
+        sessionStorage.getItem('nola_admin_auth') === 'true'
     );
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // ── #2 Idle timeout: auto-logout after 30 minutes of inactivity ──────────
+    const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+
+    const resetIdleTimer = useCallback(() => {
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+        idleTimerRef.current = setTimeout(() => {
+            sessionStorage.removeItem('nola_admin_auth');
+            sessionStorage.removeItem('nola_admin_user');
+            sessionStorage.removeItem('nola_admin_token');
+            setIsAuthenticated(false);
+        }, IDLE_TIMEOUT_MS);
+    }, [IDLE_TIMEOUT_MS]);
+
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+        events.forEach(e => window.addEventListener(e, resetIdleTimer, { passive: true }));
+        resetIdleTimer(); // start the first timer
+        return () => {
+            events.forEach(e => window.removeEventListener(e, resetIdleTimer));
+            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+        };
+    }, [isAuthenticated, resetIdleTimer]);
 
     const navigate   = useNavigate();
     const { pathname } = useLocation();
 
-    const handleLogin = (username: string) => {
-        localStorage.setItem('nola_admin_auth', 'true');
-        localStorage.setItem('nola_admin_user', username);
+    const handleLogin = (username: string, token?: string) => {
+        // Store session in sessionStorage (tab-scoped, dies on close) — not localStorage
+        sessionStorage.setItem('nola_admin_auth', 'true');
+        sessionStorage.setItem('nola_admin_user', username);
+        if (token) sessionStorage.setItem('nola_admin_token', token);
         setIsAuthenticated(true);
         fetch('/api/admin_users.php', {
             method: 'POST',
@@ -52,7 +79,9 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('nola_admin_auth');
+        sessionStorage.removeItem('nola_admin_auth');
+        sessionStorage.removeItem('nola_admin_user');
+        sessionStorage.removeItem('nola_admin_token');
         setIsAuthenticated(false);
         navigate('/dashboard');
     };

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getSession, SESSION_KEYS, redirectToLogin } from '../services/authService';
 import { safeStorage } from '../utils/safeStorage';
+import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -137,8 +138,26 @@ export const useUserProfile = () => {
             const profile = normalizeProfile(data.user);
             setUser(profile);
             // Self-heal: write normalised profile to both keys
-            localStorage.setItem('nola_auth_user', JSON.stringify(profile));
-            localStorage.setItem('nola_user', JSON.stringify(profile));
+            safeStorage.setItem('nola_auth_user', JSON.stringify(profile));
+            safeStorage.setItem('nola_user', JSON.stringify(profile));
+
+            // Sync profile-derived location as a first-class source
+            if (profile.location_id) {
+              safeStorage.setItem('nola_location_id', profile.location_id);
+              
+              const settings = getAccountSettings();
+              if (settings.ghlLocationId !== profile.location_id) {
+                saveAccountSettings({
+                  ...settings,
+                  ghlLocationId: profile.location_id
+                });
+              }
+
+              // Dispatch event to force LocationContext to re-sync
+              window.dispatchEvent(
+                new CustomEvent('ghl-location-set', { detail: { locationId: profile.location_id } })
+              );
+            }
           }
         } else {
           console.error("[useUserProfile] Fetch failed. Status:", res.status, "Text:", await res.text().catch(() => ""));

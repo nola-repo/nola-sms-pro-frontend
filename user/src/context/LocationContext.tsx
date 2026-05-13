@@ -13,6 +13,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
+import { safeStorage } from '../utils/safeStorage';
 
 interface LocationContextValue {
   locationId: string;
@@ -94,11 +95,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     // Priority 2: cached user profile (normal login)
     try {
-      const authUser = JSON.parse(localStorage.getItem('nola_auth_user') || 'null');
+      const authUser = JSON.parse(safeStorage.getItem('nola_auth_user') || 'null');
       if (authUser?.location_id) return authUser.location_id;
       if (authUser?.active_location_id) return authUser.active_location_id;
 
-      const nolaUser = JSON.parse(localStorage.getItem('nola_user') || 'null');
+      const nolaUser = JSON.parse(safeStorage.getItem('nola_user') || 'null');
       if (nolaUser?.location_id) return nolaUser.location_id;
       if (nolaUser?.active_location_id) return nolaUser.active_location_id;
     } catch (e) {

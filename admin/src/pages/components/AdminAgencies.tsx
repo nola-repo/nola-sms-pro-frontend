@@ -6,6 +6,7 @@ import Antigravity from '../../components/ui/Antigravity';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { generateMonthlyReport } from '../../utils/pdfGenerator';
+import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
@@ -22,13 +23,10 @@ export const AdminAgencies: React.FC = () => {
     
     // Manage Sender States
     const [searchTerm, setSearchTerm] = useState('');
-    const [visibleApiKeyId, setVisibleApiKeyId] = useState<string | null>(null);
     const [managingAccount, setManagingAccount] = useState<Account | null>(null);
     const [manageSenderId, setManageSenderId] = useState('');
-    const [manageApiKey, setManageApiKey] = useState('');
     const [manageCreditBalance, setManageCreditBalance] = useState<number>(0);
     const [manageFreeCreditsTotal, setManageFreeCreditsTotal] = useState<number>(10);
-    const [showApiKey, setShowApiKey] = useState(false);
     const [copiedKey, setCopiedKey] = useState(false);
 
     const [reportTransactions, setReportTransactions] = useState<any[]>([]);
@@ -49,7 +47,7 @@ export const AdminAgencies: React.FC = () => {
         if (isInitial) setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${ADMIN_API}?action=agencies`);
+            const res = await fetch(`${ADMIN_API}?action=agencies`, { headers: getAdminAuthHeaders() });
             const json = await res.json();
             if (json.status === 'success') {
                 setAccounts(json.data || []);
@@ -76,7 +74,7 @@ export const AdminAgencies: React.FC = () => {
         setReportSelectedMonth('All');
         setReportTransactions([]);
         try {
-            const res = await fetch(`/api/get_credit_transactions.php?location_id=${acc.id || acc.company_id}`);
+            const res = await fetch(`/api/get_credit_transactions.php?location_id=${acc.id || acc.company_id}`, { headers: getAdminAuthHeaders() });
             const json = await res.json();
             if (json.status === 'success') {
                 setReportTransactions(json.data || json.transactions || []);
@@ -95,7 +93,7 @@ export const AdminAgencies: React.FC = () => {
         try {
             const res = await fetch(ADMIN_API, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAdminAuthHeaders(),
                 body: JSON.stringify({
                     action: 'manage_agency',
                     user_id: managingAccount.id,

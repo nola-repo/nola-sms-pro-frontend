@@ -4,6 +4,7 @@ import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, Fi
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 import { generateMonthlyReport } from '../../utils/pdfGenerator';
+import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
@@ -28,7 +29,7 @@ export const AdminSettings: React.FC = () => {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const res = await fetch('/api/admin_settings.php');
+                const res = await fetch('/api/admin_settings.php', { headers: getAdminAuthHeaders() });
                 if (res.ok) {
                     const json = await res.json();
                     if (json.status === 'success' && json.data) {
@@ -65,7 +66,7 @@ export const AdminSettings: React.FC = () => {
         try {
             const res = await fetch('/api/admin_settings.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAdminAuthHeaders(),
                 body: JSON.stringify(payload),
             });
             if (res.ok) {
@@ -291,8 +292,8 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
         setError(null);
         try {
             const [logsRes, accsRes] = await Promise.all([
-                fetch(`${ADMIN_API}?action=logs`),
-                fetch(`${ADMIN_API}?action=accounts`)
+                fetch(`${ADMIN_API}?action=logs`, { headers: getAdminAuthHeaders() }),
+                fetch(`${ADMIN_API}?action=accounts`, { headers: getAdminAuthHeaders() })
             ]);
             const logsData = await logsRes.json();
             const accsData = await accsRes.json();

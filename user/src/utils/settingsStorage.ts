@@ -47,12 +47,16 @@ const DEFAULT_ACCOUNT: AccountSettings = {
     creditBalance: 500,
     ghlLocationId: "",
     ghlOAuthConnected: false,
-    ghlClientId: "69aa6cc3412b25467476d5de-mmehrtt9", // Default: Raely end
+    // Read from env so the client ID is not hardcoded in the bundle
+    ghlClientId: import.meta.env.VITE_GHL_CLIENT_ID ?? "",
 };
 
 const DEFAULT_API: APISettings = {
     webhookUrl: `${import.meta.env.VITE_API_BASE}/api/sms`,
-    apiKey: "nola_sk_••••••••••••••••••••",
+    // Never store a real key as a default — the UI should fetch & display a masked
+    // version from the backend. An empty string here prevents the key from leaking
+    // into localStorage when a user hasn't configured their API settings yet.
+    apiKey: "",
     webhookSecret: "",
 };
 

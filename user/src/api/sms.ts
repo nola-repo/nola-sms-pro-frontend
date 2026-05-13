@@ -2,6 +2,8 @@ import type { SmsLog, BulkMessageHistoryItem, FirestoreMessage, Conversation } f
 
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
+import { getAuthHeaders } from "../utils/authHeaders";
+import { devLog } from "../utils/devLog";
 
 const WEBHOOK_URL = API_CONFIG.messages;
 
@@ -74,7 +76,7 @@ export const fetchSmsLogs = async (phoneNumber?: string, explicitLocationId?: st
   try {
     const accountSettings = getAccountSettings();
     const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...getAuthHeaders() };
     if (locationId) {
       headers['X-GHL-Location-ID'] = locationId;
     }
@@ -113,7 +115,7 @@ export const fetchSmsLogs = async (phoneNumber?: string, explicitLocationId?: st
 
     return deduped;
   } catch (error) {
-    console.error("Fetch Logs Error:", error);
+    devLog.error("Fetch Logs Error:", error);
     return [];
   }
 };
@@ -180,6 +182,7 @@ export const sendSms = async (
     const accountSettings = getAccountSettings();
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),
     };
     if (accountSettings.ghlLocationId) {
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
@@ -227,7 +230,7 @@ export const sendSms = async (
       messageIds: extractedMessageIds,
     };
   } catch (error) {
-    console.error("SMS Error:", error);
+    devLog.error("SMS Error:", error);
     return {
       success: false,
       message: error instanceof Error ? error.message : "SMS failed",
@@ -249,7 +252,7 @@ export const checkMessageStatus = async (
   try {
     const accountSettings = getAccountSettings();
     const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...getAuthHeaders() };
     if (locationId) headers['X-GHL-Location-ID'] = locationId;
 
     let url = `${API_CONFIG.check_message_status}?message_ids=${encodeURIComponent(messageIds.join(','))}`;
@@ -314,7 +317,7 @@ export const sendBulkSms = async (
       const res = await sendSms(phone, message, senderName, batchId, contact.name, recipientKey, contact.ghl_contact_id, tagsToApply);
       results.push({ ...res, number: phone });
     } catch (error) {
-      console.error(`[sendBulkSms] Error sending to ${phone}:`, error);
+      devLog.error(`[sendBulkSms] Error sending to ${phone}:`, error);
       results.push({
         success: false,
         number: phone,
@@ -331,7 +334,7 @@ export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => 
 
   try {
     const accountSettings = getAccountSettings();
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...getAuthHeaders() };
     if (accountSettings.ghlLocationId) {
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
@@ -345,7 +348,7 @@ export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => 
     const data = await res.json();
     return data.data || [];
   } catch (error) {
-    console.error("Fetch Batch Error:", error);
+    devLog.error("Fetch Batch Error:", error);
     return [];
   }
 };
@@ -366,7 +369,7 @@ export const fetchMessagesByConversationId = async (
 
   const accountSettings = getAccountSettings();
   const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...getAuthHeaders() };
   if (locationId) {
     headers["X-GHL-Location-ID"] = locationId;
   }
@@ -387,7 +390,7 @@ export const fetchMessagesByConversationId = async (
   try {
     res = await fetch(url, { headers });
   } catch (err) {
-    console.error("[fetchMessagesByConversationId] Network error:", err);
+    devLog.error("[fetchMessagesByConversationId] Network error:", err);
     throw new ConversationMessagesError(
       "Network error while fetching conversation messages",
       undefined,
@@ -403,7 +406,7 @@ export const fetchMessagesByConversationId = async (
     parsedBody = rawBody ? JSON.parse(rawBody) : null;
   } catch (err) {
     // If JSON parsing fails we still want to surface some diagnostics
-    console.error("[fetchMessagesByConversationId] Failed to parse JSON:", err);
+    devLog.error("[fetchMessagesByConversationId] Failed to parse JSON:", err);
   }
 
   if (!res.ok) {
@@ -418,7 +421,7 @@ export const fetchMessagesByConversationId = async (
     const message = `Failed to fetch conversation messages: ${status}${
       backendMessage ? ` - ${backendMessage}` : ""
     }`;
-    console.error("[fetchMessagesByConversationId] Error response:", {
+    devLog.error("[fetchMessagesByConversationId] Error response:", {
       status,
       backendMessage,
     });
@@ -475,7 +478,7 @@ export const fetchConversations = async (explicitLocationId?: string): Promise<C
   try {
     const accountSettings = getAccountSettings();
     const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...getAuthHeaders() };
 
     if (locationId) headers['X-GHL-Location-ID'] = locationId;
 
@@ -539,7 +542,7 @@ export const fetchConversations = async (explicitLocationId?: string): Promise<C
 
     return [...scopedDirectConvs, ...others];
   } catch (error) {
-    console.error('[fetchConversations] Error:', error);
+    devLog.error('[fetchConversations] Error:', error);
     return [];
   }
 };
@@ -567,7 +570,7 @@ export const fetchMessagesByRecipientKey = async (recipientKey: string, explicit
     // Handle both array response and {data: [...]} response
     return Array.isArray(data) ? data : (data.data || []);
   } catch (error) {
-    console.error("Fetch by Recipient Key Error:", error);
+    devLog.error("Fetch by Recipient Key Error:", error);
     return [];
   }
 };
@@ -577,7 +580,7 @@ export const fetchAllBulkMessages = async (explicitLocationId?: string): Promise
   try {
     const accountSettings = getAccountSettings();
     const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...getAuthHeaders() };
     if (locationId) {
       headers['X-GHL-Location-ID'] = locationId;
     }
@@ -589,7 +592,7 @@ export const fetchAllBulkMessages = async (explicitLocationId?: string): Promise
     const res = await fetch(BULK_CAMPAIGNS_URL, { headers });
     if (!res.ok) {
       const errorText = await res.text();
-      console.error('[fetchAllBulkMessages] Error response:', errorText);
+      devLog.error('[fetchAllBulkMessages] Error response:', errorText);
       throw new Error(`Failed to fetch bulk messages: ${res.status}`);
     }
     const resData = await res.json();
@@ -611,7 +614,7 @@ export const fetchAllBulkMessages = async (explicitLocationId?: string): Promise
       locationId: item.location_id,
     }));
   } catch (error) {
-    console.error("[fetchAllBulkMessages] Error:", error);
+    devLog.error("[fetchAllBulkMessages] Error:", error);
     return [];
   }
 };
@@ -624,7 +627,7 @@ export const renameConversation = async (conversationId: string, newName: string
   try {
     const accountSettings = getAccountSettings();
     const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = { 'Content-Type': 'application/json', ...getAuthHeaders() };
     if (locationId) {
       headers['X-GHL-Location-ID'] = locationId;
     }
@@ -643,7 +646,7 @@ export const renameConversation = async (conversationId: string, newName: string
     if (!res.ok) throw new Error(`Failed to rename conversation: ${res.status}`);
     return true;
   } catch (error) {
-    console.error('[renameConversation] Error:', error);
+    devLog.error('[renameConversation] Error:', error);
     return false;
   }
 };
@@ -674,7 +677,7 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
     if (!res.ok) throw new Error(`Failed to delete conversation: ${res.status}`);
     return true;
   } catch (error) {
-    console.error('[deleteConversation] Error:', error);
+    devLog.error('[deleteConversation] Error:', error);
     return false;
   }
 };

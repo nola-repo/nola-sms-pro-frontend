@@ -1,4 +1,5 @@
 import { safeStorage } from '../utils/safeStorage';
+import { sessionSafeStorage } from '../utils/sessionSafeStorage';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 /**
  * authService.ts
@@ -50,7 +51,8 @@ export interface RegisterPayload {
 
 // ── Session helpers ─────────────────────────────────────────────────────────
 export const getSession = (): AuthSession | null => {
-  const token = safeStorage.getItem(SESSION_KEYS.token);
+  // Token is in sessionStorage; other fields in safeStorage (localStorage)
+  const token = sessionSafeStorage.getItem(SESSION_KEYS.token);
   if (!token) return null;
   return {
     token,
@@ -62,14 +64,19 @@ export const getSession = (): AuthSession | null => {
 };
 
 export const isAuthenticated = (): boolean =>
-  !!safeStorage.getItem(SESSION_KEYS.token);
+  !!sessionSafeStorage.getItem(SESSION_KEYS.token);
 
 export const saveSession = (data: LoginResponse): void => {
-  Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
+  // Remove all prior session keys
+  Object.values(SESSION_KEYS).forEach(k => {
+    safeStorage.removeItem(k);
+    sessionSafeStorage.removeItem(k);
+  });
   safeStorage.removeItem('nola_user');
   safeStorage.removeItem('nola_settings_account');
 
-  safeStorage.setItem(SESSION_KEYS.token, data.token);
+  // Token goes into sessionStorage (tab-scoped, cleared on close)
+  sessionSafeStorage.setItem(SESSION_KEYS.token, data.token);
   safeStorage.setItem(SESSION_KEYS.role, data.role);
 
   if (data.company_id) {
@@ -103,11 +110,18 @@ export const saveSession = (data: LoginResponse): void => {
 };
 
 export const clearAuthSession = (): void => {
-  Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
+  Object.values(SESSION_KEYS).forEach(k => {
+    safeStorage.removeItem(k);
+    sessionSafeStorage.removeItem(k);
+  });
   safeStorage.removeItem('nola_user');
   safeStorage.removeItem('nola_settings_account');
   safeStorage.removeItem('nola_settings_api');
   safeStorage.removeItem('nola_settings_preferred_sender');
+  // Clear GHL iframe flag so it doesn't bypass login on future visits (#11)
+  safeStorage.removeItem('nola_is_ghl_frame');
+  try { sessionStorage.removeItem('nola_is_ghl_frame'); } catch { /* ignore */ }
+  try { localStorage.removeItem('nola_is_ghl_frame'); } catch { /* ignore */ }
 };
 
 export const clearSession = clearAuthSession;

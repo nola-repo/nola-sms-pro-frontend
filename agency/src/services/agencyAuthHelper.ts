@@ -1,4 +1,5 @@
 import { safeStorage } from '../utils/safeStorage';
+import { sessionSafeStorage } from '../utils/sessionSafeStorage';
 /**
  * agencyAuthHelper.ts
  * Auth session helper for the Agency panel.
@@ -123,8 +124,8 @@ export const ghlAutoLogin = async (companyId: string): Promise<AgencySession> =>
     role: 'agency',
   });
 
-  // Persist session (same keys as normal login)
-  safeStorage.setItem(SESSION_KEYS.token,     data.token);
+  // Persist session — token in sessionStorage, other fields in safeStorage
+  sessionSafeStorage.setItem(SESSION_KEYS.token, data.token);
   safeStorage.setItem(SESSION_KEYS.role,      'agency');
   persistAgencyUser(user);
 
@@ -155,7 +156,8 @@ export interface AgencySession {
 }
 
 export const getAgencySession = (): AgencySession | null => {
-  const token = safeStorage.getItem(SESSION_KEYS.token);
+  // Token lives in sessionStorage (tab-scoped); other fields in safeStorage
+  const token = sessionSafeStorage.getItem(SESSION_KEYS.token);
   const role  = safeStorage.getItem(SESSION_KEYS.role);
   if (!token || role !== 'agency') return null;
   return {
@@ -167,9 +169,16 @@ export const getAgencySession = (): AgencySession | null => {
 };
 
 export const clearAgencySession = (): void => {
-  Object.values(SESSION_KEYS).forEach(k => safeStorage.removeItem(k));
+  Object.values(SESSION_KEYS).forEach(k => {
+    safeStorage.removeItem(k);
+    sessionSafeStorage.removeItem(k);
+  });
   safeStorage.removeItem('nola_user');
   safeStorage.removeItem('nola_settings_account');
+  // Clear GHL iframe flag so it doesn't bypass login on future non-iframe visits (#11)
+  safeStorage.removeItem('nola_is_ghl_frame');
+  try { sessionStorage.removeItem('nola_is_ghl_frame'); } catch { /* ignore */ }
+  try { localStorage.removeItem('nola_is_ghl_frame'); } catch { /* ignore */ }
 };
 
 export const clearAuthSession = clearAgencySession;
@@ -237,7 +246,7 @@ export const login = async (email: string, password: string): Promise<any> => {
     role: json.role,
   });
 
-  safeStorage.setItem(SESSION_KEYS.token, json.token);
+  sessionSafeStorage.setItem(SESSION_KEYS.token, json.token);
   safeStorage.setItem(SESSION_KEYS.role, json.role);
   persistAgencyUser(user);
 

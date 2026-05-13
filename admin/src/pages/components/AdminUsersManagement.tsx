@@ -5,11 +5,10 @@ import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
+import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const USERS_API = '/api/admin_users.php';
-const WEBHOOK_SECRET = 'f7RkQ2pL9zV3tX8cB1nS4yW6';
-const AUTH_HEADERS = { 'Content-Type': 'application/json', 'X-Webhook-Secret': WEBHOOK_SECRET };
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
 
 
@@ -72,7 +71,7 @@ export const AdminTeamManagement: React.FC = () => {
         if (isInitial) setLoading(true);
         setError(null);
         try {
-            const res = await fetch(USERS_API, { headers: AUTH_HEADERS });
+            const res = await fetch(USERS_API, { headers: getAdminAuthHeaders() });
             if (res.ok) {
                 const json = await res.json();
                 if (json.status === 'success') setAdmins(json.data || []);
@@ -113,7 +112,7 @@ export const AdminTeamManagement: React.FC = () => {
         try {
             const res = await fetch(USERS_API, {
                 method: 'POST',
-                headers: AUTH_HEADERS,
+                headers: getAdminAuthHeaders(),
                 body: JSON.stringify({ action: 'create', username: newUsername, password: newPassword, role: newRole })
             });
             if (res.ok) {
@@ -142,7 +141,7 @@ export const AdminTeamManagement: React.FC = () => {
         try {
             const res = await fetch(USERS_API, {
                 method: 'POST',
-                headers: AUTH_HEADERS,
+                headers: getAdminAuthHeaders(),
                 body: JSON.stringify({ action: 'reset_password', username: resetTarget, new_password: resetPassword })
             });
             if (res.ok) {
@@ -167,7 +166,7 @@ export const AdminTeamManagement: React.FC = () => {
         try {
             const res = await fetch(USERS_API, {
                 method: 'POST',
-                headers: AUTH_HEADERS,
+                headers: getAdminAuthHeaders(),
                 body: JSON.stringify({ action: 'toggle_status', username: admin.username, active: newActive })
             });
             if (res.ok) {
@@ -195,7 +194,7 @@ export const AdminTeamManagement: React.FC = () => {
         try {
             const res = await fetch(USERS_API, {
                 method: 'DELETE',
-                headers: AUTH_HEADERS,
+                headers: getAdminAuthHeaders(),
                 body: JSON.stringify({ username: usernameToDelete })
             });
             if (res.ok) {

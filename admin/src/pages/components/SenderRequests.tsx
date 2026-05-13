@@ -5,6 +5,7 @@ import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
+import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
@@ -33,7 +34,6 @@ export const AdminSenderRequests: React.FC = () => {
     const [rejectNote, setRejectNote] = useState('');
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [showApiKey, setShowApiKey] = useState(false);
     const [showInputKey, setShowInputKey] = useState(false);
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
     const [searchTerm, setSearchTerm] = useState('');
@@ -53,8 +53,8 @@ export const AdminSenderRequests: React.FC = () => {
         if (isInitial) setLoading(true);
         try {
             const [reqRes, accRes] = await Promise.all([
-                fetch(ADMIN_API),
-                fetch(`${ADMIN_API}?action=accounts`)
+                fetch(ADMIN_API, { headers: getAdminAuthHeaders() }),
+                fetch(`${ADMIN_API}?action=accounts`, { headers: getAdminAuthHeaders() })
             ]);
             
             const reqJson = await reqRes.json();
@@ -92,7 +92,7 @@ export const AdminSenderRequests: React.FC = () => {
         try {
             const res = await fetch(ADMIN_API, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAdminAuthHeaders(),
                 body: JSON.stringify({ request_id: requestId, status: action, ...extra }),
             });
             const json = await res.json();
@@ -102,7 +102,6 @@ export const AdminSenderRequests: React.FC = () => {
                 setExpandedId(null);
                 setRejectNote('');
                 setApiKeyInput('');
-                setShowApiKey(false);
                 setShowInputKey(false);
             } else {
                 showToast(json.message || 'Action failed.', 'error');
@@ -379,7 +378,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                 </p>
                                             </div>
                                         </div>
-                                        <button onClick={() => { setExpandedId(null); setShowApiKey(false); setShowInputKey(false); }} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
+                                        <button onClick={() => { setExpandedId(null); setShowInputKey(false); }} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
                                             <FiX className="w-5 h-5" />
                                         </button>
                                     </div>
@@ -439,26 +438,6 @@ export const AdminSenderRequests: React.FC = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Existing API Key from Associated Account */}
-                                            {(() => {
-                                                const apiKey = associatedAccount?.nola_pro_api_key || associatedAccount?.api_key || associatedAccount?.semaphore_api_key;
-                                                return associatedAccount && associatedAccount.approved_sender_id && apiKey && (
-                                                    <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Current API Key</p>
-                                                            <button 
-                                                                onClick={(e) => { e.preventDefault(); setShowApiKey(!showApiKey); }}
-                                                                className="text-[11px] text-[#2b83fa] font-semibold hover:underline"
-                                                            >
-                                                                {showApiKey ? "Hide" : "Show"}
-                                                            </button>
-                                                        </div>
-                                                        <p className="text-[13px] font-mono text-[#111111] dark:text-white bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5 break-all">
-                                                            {showApiKey ? apiKey : "••••••••••••••••••••••••••••••••••••••••••••••"}
-                                                        </p>
-                                                    </div>
-                                                );
-                                            })()}
 
                                             {req.purpose && (
                                                 <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
@@ -561,47 +540,6 @@ export const AdminSenderRequests: React.FC = () => {
                                             </div>
                                         )}
 
-                                        {/* ── Approved/Rejected: show account key toggle if available ── */}
-                                        {(() => {
-                                            const apiKey = associatedAccount?.nola_pro_api_key || associatedAccount?.api_key || associatedAccount?.semaphore_api_key;
-                                            return (req.status === 'approved' || req.status === 'rejected') && associatedAccount && apiKey && (
-                                                <div className="pt-4 border-t border-[#e5e5e5] dark:border-white/5 mt-4">
-                                                    <div className="flex items-center justify-between p-4 rounded-xl bg-[#f7f7f7] dark:bg-[#111214] border border-[#e5e5e5] dark:border-white/5">
-                                                        <span className="text-[13px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] whitespace-nowrap">Account API Key</span>
-                                                        
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-[14px] font-mono text-[#2b83fa] dark:text-[#4da3ff] truncate max-w-[200px] md:max-w-none">
-                                                                {showApiKey 
-                                                                    ? apiKey 
-                                                                    : apiKey.length > 12 
-                                                                        ? `${apiKey.substring(0, 6)}•••${apiKey.substring(apiKey.length - 6)}`
-                                                                        : '••••••••••••'}
-                                                            </span>
-                                                            
-                                                            <div className="flex items-center gap-1.5 pl-3 border-l border-[#e5e5e5] dark:border-white/10">
-                                                                <button 
-                                                                    onClick={(e) => { e.preventDefault(); setShowApiKey(!showApiKey); }}
-                                                                    className="text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"
-                                                                    title={showApiKey ? 'Hide Key' : 'Show Key'}
-                                                                >
-                                                                    {showApiKey ? <FiEyeOff size={15} /> : <FiEye size={15} />}
-                                                                </button>
-                                                                <button 
-                                                                    onClick={async (e) => {
-                                                                        e.preventDefault();
-                                                                        await navigator.clipboard.writeText(apiKey || '');
-                                                                    }}
-                                                                    className="text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"
-                                                                    title="Copy API Key"
-                                                                >
-                                                                    <FiCopy size={15} />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
                                     </div>
                                 </>
                             );
