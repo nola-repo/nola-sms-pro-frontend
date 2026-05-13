@@ -1,6 +1,6 @@
 import { safeStorage } from '../utils/safeStorage';
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { getAgencySession, clearAgencySession, type AgencySession, ghlAutoLogin, fetchAgencyProfile } from '../services/agencyAuthHelper.ts';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getAgencySession, clearAgencySession, type AgencySession, fetchAgencyProfile } from '../services/agencyAuthHelper.ts';
 import { useGhlCompany } from '../hooks/useGhlCompany.ts';
 
 interface AgencyContextValue {
@@ -23,7 +23,6 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
   const [agencySession, setAgencySession] = useState<AgencySession | null>(() => getAgencySession());
   const [autoLoginLoading, setAutoLoginLoading] = useState(false);
   const [autoLoginError, setAutoLoginError] = useState<string | null>(null);
-  const attemptedAutoLoginCompanyId = useRef<string | null>(null);
 
   // Priority: 1. GHL URL param  2. JWT  3. env  4. localStorage
   const [agencyId, setAgencyId] = useState<string | null>(() => {
@@ -73,36 +72,20 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
   }, [ghlStatus, agencyId, autoLoginError]);
 
   useEffect(() => {
-    if (!isGhlFrame || !ghlCompanyId || agencySession) return;
-    if (attemptedAutoLoginCompanyId.current === ghlCompanyId) return;
+    if (!isGhlFrame || !ghlCompanyId) return;
 
-    let isMounted = true;
-    attemptedAutoLoginCompanyId.current = ghlCompanyId;
-    setAutoLoginLoading(true);
-
-    ghlAutoLogin(ghlCompanyId)
-      .then(session => {
-        if (!isMounted) return;
-        setAgencyId(session.companyId);
-        setAgencySession(session);
-      })
-      .catch(err => {
-        if (!isMounted) return;
-        // Match the user-side GHL flow: a trusted iframe company ID is enough
-        // to load agency data even if the optional JWT auto-login is not linked yet.
-        console.warn('[NOLA SMS] Agency auto-login skipped; continuing with GHL company ID:', err);
-        setAgencyId(ghlCompanyId);
-        setAutoLoginError(null);
-      })
-      .finally(() => {
-        if (isMounted) setAutoLoginLoading(false);
-      });
-
-    return () => { isMounted = false; };
-  }, [isGhlFrame, ghlCompanyId, agencySession]);
+    // The agency panel runs like the user-side GHL app: the trusted GHL
+    // companyId is enough to enter the iframe experience. Do not call the
+    // optional JWT auto-login endpoint here because older deployments return
+    // 404 for unlinked agencies and surface a scary console error.
+    setAgencyId(ghlCompanyId);
+    safeStorage.setItem('nola_agency_id', ghlCompanyId);
+    setAutoLoginError(null);
+    setAutoLoginLoading(false);
+  }, [isGhlFrame, ghlCompanyId]);
 
   useEffect(() => {
-    if (!agencySession?.token) return;
+    if (!agencySession?.token || isGhlFrame) return;
 
     let isMounted = true;
 
@@ -129,7 +112,7 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
     return () => { isMounted = false; };
-  }, [agencySession?.token]);
+  }, [agencySession?.token, isGhlFrame]);
 
   const logout = () => {
     clearAgencySession();

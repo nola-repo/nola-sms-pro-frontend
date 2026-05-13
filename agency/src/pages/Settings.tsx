@@ -51,6 +51,8 @@ export const Settings = () => {
   }, [agencyId]);
 
   useEffect(() => {
+    if (!agencySession?.token || isGhlFrame) return;
+
     let isMounted = true;
 
     fetchAgencyProfile()
@@ -64,7 +66,7 @@ export const Settings = () => {
       });
 
     return () => { isMounted = false; };
-  }, [agencySession?.token, agencyId]);
+  }, [agencySession?.token, agencyId, isGhlFrame]);
 
   const user = {
     ...(agencySession?.user ?? {}),
