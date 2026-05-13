@@ -91,7 +91,21 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       return fromUrl;
     }
-    // Priority 2: persisted storage
+    
+    // Priority 2: cached user profile (normal login)
+    try {
+      const authUser = JSON.parse(localStorage.getItem('nola_auth_user') || 'null');
+      if (authUser?.location_id) return authUser.location_id;
+      if (authUser?.active_location_id) return authUser.active_location_id;
+
+      const nolaUser = JSON.parse(localStorage.getItem('nola_user') || 'null');
+      if (nolaUser?.location_id) return nolaUser.location_id;
+      if (nolaUser?.active_location_id) return nolaUser.active_location_id;
+    } catch (e) {
+      // ignore parsing errors
+    }
+
+    // Priority 3: persisted storage (fallback)
     return getAccountSettings().ghlLocationId || '';
   });
 

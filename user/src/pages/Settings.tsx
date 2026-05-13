@@ -6,7 +6,7 @@ import {
     FiSave, FiPlus, FiCheck,
     FiGlobe, FiMapPin, FiBriefcase, FiCheckCircle, FiAlertCircle, FiClock,
     FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown, FiDownload,
-    FiCopy
+    FiCopy, FiExternalLink
 } from "react-icons/fi";
 import { generateMonthlyReport } from "../utils/pdfGenerator";
 import {
@@ -22,6 +22,12 @@ import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type
 import { fetchAccountProfile } from "../api/account";
 import { useUserProfileContext } from "../App";
 import { redirectToLogin, SESSION_KEYS } from "../services/authService";
+import {
+    GHL_MARKETPLACE_CONNECT_URL,
+    GHL_OAUTH_RETURN_VIEW_STORAGE_KEY,
+    GHL_RECONNECT_REQUIRED_STORAGE_KEY
+} from "../config";
+import { safeStorage } from "../utils/safeStorage";
 
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -118,6 +124,9 @@ const AccountSection: React.FC = () => {
     });
     const [fetchedProfile, setFetchedProfile] = useState<any>(null);
     const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+    const [showReconnectNotice, setShowReconnectNotice] = useState(
+        () => safeStorage.getItem(GHL_RECONNECT_REQUIRED_STORAGE_KEY) === 'true'
+    );
 
     // Synchronize context state with local variables if needed
     useEffect(() => {
@@ -194,6 +203,11 @@ const AccountSection: React.FC = () => {
         fetchAndSetLocation(inputLocationId);
     };
 
+    const handleReconnectGhl = () => {
+        safeStorage.setItem(GHL_OAUTH_RETURN_VIEW_STORAGE_KEY, 'contacts');
+        window.location.href = GHL_MARKETPLACE_CONNECT_URL;
+    };
+
     // Derived values
     // subaccountName: use the fetchedName if it's a real value, otherwise fallback to profile cache
     const subaccountName = (fetchedName && fetchedName !== "Location Not Found")
@@ -213,6 +227,26 @@ const AccountSection: React.FC = () => {
     return (
         <div className="space-y-5">
             <SectionHeader title="Account Details" subtitle="View your profile and GoHighLevel workspace information." />
+
+            {showReconnectNotice && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10">
+                    <div className="flex items-start gap-2.5">
+                        <FiAlertCircle className="w-4 h-4 mt-0.5 text-amber-700 dark:text-amber-300 flex-shrink-0" />
+                        <p className="text-[12.5px] text-amber-800 dark:text-amber-200 leading-relaxed">
+                            Your CRM link expired. Use Reconnect GoHighLevel below to refresh the connection, then return to Contacts.
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => {
+                            safeStorage.removeItem(GHL_RECONNECT_REQUIRED_STORAGE_KEY);
+                            setShowReconnectNotice(false);
+                        }}
+                        className="shrink-0 text-[12px] font-bold text-amber-800 dark:text-amber-200 hover:text-amber-950 dark:hover:text-amber-100"
+                    >
+                        Dismiss
+                    </button>
+                </div>
+            )}
 
             {/* Status Banner */}
             <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border ${statusCfg.bg} border-transparent`}>
@@ -303,6 +337,22 @@ const AccountSection: React.FC = () => {
                 </div>
 
                 <div className="space-y-4 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
+                    <div className="p-4 rounded-xl bg-amber-50/70 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h4 className="text-[13px] font-bold text-amber-900 dark:text-amber-200">GoHighLevel connection</h4>
+                            <p className="text-[12px] text-amber-800/90 dark:text-amber-200/80 leading-relaxed mt-1">
+                                Reconnect your CRM if contacts stop loading or the connection expires.
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleReconnectGhl}
+                            className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white text-[13px] font-bold shadow-md hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] active:scale-95 transition-all"
+                        >
+                            <FiRefreshCw className="w-4 h-4" />
+                            Reconnect GoHighLevel
+                            <FiExternalLink className="w-3.5 h-3.5 opacity-80" />
+                        </button>
+                    </div>
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Location Name</label>
                         {isFetchingLocation ? (

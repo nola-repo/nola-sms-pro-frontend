@@ -10,6 +10,12 @@
 // Direct absolute URLs bypass nginx and will cause 401 Unauthorized on all endpoints.
 const API_BASE = "";
 
+export const GHL_MARKETPLACE_CONNECT_URL =
+    "https://marketplace.gohighlevel.com/oauth/chooselocation?appId=65f8a0c2837bc281e59eef7b";
+
+export const GHL_RECONNECT_REQUIRED_STORAGE_KEY = "nola_ghl_reconnect_required";
+export const GHL_OAUTH_RETURN_VIEW_STORAGE_KEY = "nola_ghl_oauth_return_view";
+
 export const API_CONFIG = {
     // Primary API Base
     base: API_BASE,

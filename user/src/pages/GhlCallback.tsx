@@ -1,10 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { FiLoader, FiCheckCircle, FiXCircle } from 'react-icons/fi';
-import { API_CONFIG } from '../config';
+import {
+    API_CONFIG,
+    GHL_OAUTH_RETURN_VIEW_STORAGE_KEY,
+    GHL_RECONNECT_REQUIRED_STORAGE_KEY
+} from '../config';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
+import { safeStorage } from '../utils/safeStorage';
 
 // Change this to match the Redirect URI you set in GHL Marketplace
 const REDIRECT_URI = window.location.origin + window.location.pathname; // If they go to /?code=...
+
+const getPostConnectPath = (): string => {
+    const returnView = safeStorage.getItem(GHL_OAUTH_RETURN_VIEW_STORAGE_KEY);
+    safeStorage.removeItem(GHL_OAUTH_RETURN_VIEW_STORAGE_KEY);
+
+    if (returnView === 'contacts') return '/contacts';
+    if (returnView === 'settings') return '/settings';
+    return '/settings';
+};
 
 export const GhlCallback: React.FC = () => {
     const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -55,22 +69,25 @@ export const GhlCallback: React.FC = () => {
                     displayName: locationName || accountSettings.displayName,
                     ghlLocationId: data.locationId || accountSettings.ghlLocationId
                 });
+                safeStorage.removeItem(GHL_RECONNECT_REQUIRED_STORAGE_KEY);
+                safeStorage.setItem('nola_active_tab', safeStorage.getItem(GHL_OAUTH_RETURN_VIEW_STORAGE_KEY) || 'settings');
 
                 setStatus('success');
                 setMessage(locationName 
                     ? `Successfully connected to ${locationName}!` 
                     : 'Successfully connected to GoHighLevel! You can safely close this page or return to the app.');
 
-                // Optionally redirect back to Settings after a few seconds
+                const postConnectPath = getPostConnectPath();
+
+                // Redirect back into the app instead of leaving the user on the callback route.
                 setTimeout(() => {
-                    // removing the "?code=" from URL
-                    window.location.href = window.location.pathname;
+                    window.location.href = postConnectPath;
                 }, 3000);
 
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error('OAuth Error:', err);
                 setStatus('error');
-                setMessage(`Failed to connect: ${err.message}`);
+                setMessage(`Failed to connect: ${err instanceof Error ? err.message : 'Unknown error'}`);
             }
         };
 
@@ -107,10 +124,10 @@ export const GhlCallback: React.FC = () => {
 
                 {status !== 'loading' && (
                     <button
-                        onClick={() => window.location.href = window.location.pathname}
+                        onClick={() => window.location.href = getPostConnectPath()}
                         className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-[#2a2b32] dark:hover:bg-[#3a3b3f] text-[#37352f] dark:text-[#ececf1] rounded-xl font-semibold text-[14px] transition-colors"
                     >
-                        Return to Dashboard
+                        Return to App
                     </button>
                 )}
             </div>

@@ -4,6 +4,8 @@ import { deleteContact as deleteContactLocal } from "../utils/storage";
 import type { Contact } from "../types/Contact";
 import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader, FiTag, FiAlertCircle } from "react-icons/fi";
 import { useLocationId } from "../context/LocationContext";
+import { safeStorage } from "../utils/safeStorage";
+import { GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
 
 // Normalize any PH phone to 09XXXXXXXXX (aligned with send_sms.php clean_numbers)
 const normalizePHPhone = (input: string): string => {
@@ -103,7 +105,8 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
   }, []);
 
   const navigateToSettings = () => {
-    window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'account' } }));
+    safeStorage.setItem(GHL_RECONNECT_REQUIRED_STORAGE_KEY, 'true');
+    window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'account', reconnect: true } }));
   };
 
   const setReconnectError = (message?: string) => {

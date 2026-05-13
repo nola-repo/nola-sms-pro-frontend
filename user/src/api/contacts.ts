@@ -129,8 +129,6 @@ const normalizeContacts = (data: unknown): Contact[] => {
     };
   });
 
-  if (normalized.length > 0) {}
-
   return normalized;
 };
 
@@ -141,7 +139,7 @@ export const fetchContactsMeta = async (explicitLocationId?: string): Promise<Fe
 
     if (!locationId) {
       console.warn('NOLA SMS: No locationId available for contacts fetch.');
-      return { ok: true, contacts: [] };
+      return { ok: false, contacts: [], kind: 'other', message: 'No linked GHL location', status: 400 };
     }
 
     const headers: Record<string, string> = {

@@ -15,6 +15,7 @@ import { TicketsTab } from "../components/TicketsTab";
 import { useOnboarding } from "../components/onboarding/useOnboarding";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
 import { useLocationId } from "../context/LocationContext";
+import { GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
 
 interface DashboardProps {
   isMobileMenuOpen?: boolean;
@@ -155,6 +156,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   useEffect(() => {
     const handleNavigateToSettings = (e: CustomEvent) => {
       const tab = e.detail?.tab;
+      if (e.detail?.reconnect) {
+        safeStorage.setItem(GHL_RECONNECT_REQUIRED_STORAGE_KEY, 'true');
+      }
       if (tab) {
         setSettingsTab(tab);
         setCurrentView('settings');
@@ -273,7 +277,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             </div>
             <div className="flex items-center gap-2">
               <button 
-                onClick={() => window.location.href = 'https://marketplace.gohighlevel.com/oauth/chooselocation?appId=65f8a0c2837bc281e59eef7b'} // Using generic/placeholder if they need one, but they can update the appId
+                onClick={() => window.location.href = GHL_MARKETPLACE_CONNECT_URL}
                 className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white text-[12px] font-bold shadow-md hover:shadow-lg transition-all"
               >
                 Connect GHL
