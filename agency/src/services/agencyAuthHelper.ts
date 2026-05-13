@@ -58,8 +58,11 @@ export const saveCompanyId = (companyId: string): void => {
   safeStorage.setItem('nola_agency_id', companyId);
 };
 
+const getAuthToken = (): string | null =>
+  sessionSafeStorage.getItem(SESSION_KEYS.token) || safeStorage.getItem(SESSION_KEYS.token);
+
 export const linkCompany = async (companyId: string): Promise<void> => {
-  const token = safeStorage.getItem(SESSION_KEYS.token);
+  const token = getAuthToken();
   if (!token) throw new Error('Not authenticated');
 
   const res = await fetch('/api/agency/link_company.php', {
@@ -113,9 +116,19 @@ export const ghlAutoLogin = async (companyId: string): Promise<AgencySession> =>
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ company_id: companyId }),
   });
-  const data = await res.json();
+  const text = await res.text();
+  let data: any = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { error: text };
+  }
+
   if (!res.ok || !data.token) {
-    throw new Error(data.error ?? 'GHL auto-login failed. Ensure your agency is linked to this GHL account.');
+    const message = data.error || data.message || 'GHL auto-login failed. Ensure your agency is linked to this GHL account.';
+    const error = new Error(message);
+    (error as any).status = res.status;
+    throw error;
   }
   const user = normalizeAgencyUser({
     ...(data.user ?? {}),
@@ -198,7 +211,7 @@ export class MissingCompanyIdError extends Error {
 }
 
 export const fetchAgencyProfile = async (): Promise<AgencyAuthUser | null> => {
-  const token = safeStorage.getItem(SESSION_KEYS.token);
+  const token = getAuthToken();
   if (!token) return null;
 
   const res = await fetch('/api/auth/me', {

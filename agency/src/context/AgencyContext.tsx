@@ -1,5 +1,5 @@
 import { safeStorage } from '../utils/safeStorage';
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { getAgencySession, clearAgencySession, type AgencySession, ghlAutoLogin, fetchAgencyProfile } from '../services/agencyAuthHelper.ts';
 import { useGhlCompany } from '../hooks/useGhlCompany.ts';
 
@@ -23,6 +23,7 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
   const [agencySession, setAgencySession] = useState<AgencySession | null>(() => getAgencySession());
   const [autoLoginLoading, setAutoLoginLoading] = useState(false);
   const [autoLoginError, setAutoLoginError] = useState<string | null>(null);
+  const attemptedAutoLoginCompanyId = useRef<string | null>(null);
 
   // Priority: 1. GHL URL param  2. JWT  3. env  4. localStorage
   const [agencyId, setAgencyId] = useState<string | null>(() => {
@@ -51,6 +52,7 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
     // Company ID changed — update state and storage
     setAgencyId(ghlCompanyId);
     safeStorage.setItem('nola_agency_id', ghlCompanyId);
+    setAutoLoginError(null);
 
     // If inside a GHL iframe and the agency actually switched (not just initial resolution),
     // clear the stale JWT session so ghlAutoLogin re-runs for the new agency.
@@ -72,8 +74,10 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (!isGhlFrame || !ghlCompanyId || agencySession) return;
+    if (attemptedAutoLoginCompanyId.current === ghlCompanyId) return;
 
     let isMounted = true;
+    attemptedAutoLoginCompanyId.current = ghlCompanyId;
     setAutoLoginLoading(true);
 
     ghlAutoLogin(ghlCompanyId)
@@ -84,7 +88,11 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
       })
       .catch(err => {
         if (!isMounted) return;
-        setAutoLoginError(err.message);
+        // Match the user-side GHL flow: a trusted iframe company ID is enough
+        // to load agency data even if the optional JWT auto-login is not linked yet.
+        console.warn('[NOLA SMS] Agency auto-login skipped; continuing with GHL company ID:', err);
+        setAgencyId(ghlCompanyId);
+        setAutoLoginError(null);
       })
       .finally(() => {
         if (isMounted) setAutoLoginLoading(false);

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { SESSION_KEYS } from '../../services/agencyAuthHelper.ts';
 import { useAgency } from '../../context/AgencyContext.tsx';
+import { sessionSafeStorage } from '../../utils/sessionSafeStorage.ts';
 
 /**
  * AgencyProtectedRoute
@@ -60,7 +61,7 @@ export const AgencyProtectedRoute: React.FC = () => {
   }
 
   // Standalone logic
-  const token = safeStorage.getItem(SESSION_KEYS.token);
+  const token = sessionSafeStorage.getItem(SESSION_KEYS.token) || safeStorage.getItem(SESSION_KEYS.token);
   const role  = safeStorage.getItem(SESSION_KEYS.role);
 
   if (!token || role !== 'agency') {

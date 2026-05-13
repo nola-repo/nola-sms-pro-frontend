@@ -5,6 +5,7 @@ import { FiCheck, FiEye, FiEyeOff, FiMail, FiPhone, FiLock, FiAlertCircle, FiUse
 import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
 import { SESSION_KEYS } from '../services/agencyAuthHelper';
 import { safeStorage } from '../utils/safeStorage';
+import { sessionSafeStorage } from '../utils/sessionSafeStorage';
 
 // Same-origin relative URLs — nginx proxy handles routing (matches agencyAuthHelper pattern)
 const API_BASE = '';
@@ -215,7 +216,7 @@ const AgencyRegisterFromInstall: React.FC = () => {
       if (!res.ok) throw new Error(data.error || 'Registration failed. Please try again.');
 
       // Save agency session using the same keys as agencyAuthHelper.login()
-      safeStorage.setItem(SESSION_KEYS.token,    data.token);
+      sessionSafeStorage.setItem(SESSION_KEYS.token, data.token);
       safeStorage.setItem(SESSION_KEYS.role,     'agency');
       if (data.user)       safeStorage.setItem(SESSION_KEYS.user,      JSON.stringify(data.user));
       if (data.company_id) {
@@ -241,9 +242,9 @@ const AgencyRegisterFromInstall: React.FC = () => {
   // ── 4. Auto-redirect from success ────────────────────────────────────────
   useEffect(() => {
     if (step !== 3) return;
-    const t = setTimeout(() => navigate('/'), 3500);
+    const t = setTimeout(() => { window.location.href = '/'; }, 3500);
     return () => clearTimeout(t);
-  }, [step, navigate]);
+  }, [step]);
 
   // ── Render helpers ────────────────────────────────────────────────────────
   const companyDisplay = installData?.company_name ?? 'Your Agency';
@@ -426,7 +427,7 @@ const AgencyRegisterFromInstall: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex flex-col items-center gap-3 w-full pt-2">
-                    <button onClick={() => navigate('/')} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all btn-new-message">
+                    <button onClick={() => { window.location.href = '/'; }} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-white font-bold text-[14px] shadow-md shadow-[#2b83fa]/30 hover:shadow-lg hover:shadow-[#2b83fa]/40 transition-all btn-new-message">
                       Go to Agency Dashboard <FiArrowRight />
                     </button>
                   </div>
