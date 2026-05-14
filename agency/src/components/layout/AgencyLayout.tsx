@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { FiGrid, FiToggleLeft, FiLogOut, FiZap, FiSun, FiMoon, FiUser, FiSettings, FiMenu, FiX, FiCreditCard } from 'react-icons/fi';
+import { FiGrid, FiToggleLeft, FiLogOut, FiZap, FiSun, FiMoon, FiUser, FiSettings, FiMenu, FiX, FiCreditCard, FiAward } from 'react-icons/fi';
 import { useAgency } from '../../context/AgencyContext.tsx';
 
 export const AgencyLayout = ({ children, title, subtitle }) => {
@@ -16,6 +16,7 @@ export const AgencyLayout = ({ children, title, subtitle }) => {
     { to: '/', label: 'Dashboard', icon: <FiGrid /> },
     { to: '/subaccounts', label: 'Subaccounts', icon: <FiToggleLeft /> },
     { to: '/billing', label: 'Credits & Billing', icon: <FiCreditCard /> },
+    { to: '/subscription', label: 'Subscription', icon: <FiAward /> },
     { to: '/settings', label: 'Settings', icon: <FiSettings /> },
   ];
 

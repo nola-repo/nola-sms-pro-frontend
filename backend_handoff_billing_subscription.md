@@ -309,63 +309,133 @@ RewriteRule ^api/billing/plan-webhook/?$    /api/billing/plan_webhook.php    [NC
 
 ---
 
-## 6. GHL Checkout Connection
+## 6. GHL Checkout Connection & Workflow Structure
 
-The subscription checkout mirrors the credit top-up flow, but uses a single unified checkout page.
+The subscription checkout exactly mirrors the credit top-up flow: it opens a GHL checkout page in a centered popup window and polls the window until it closes. 
 
-### GHL Setup (one-time)
+### Step 1: Create Products in GHL
+1. Navigate to **Payments -> Products**.
+2. Create three recurring subscription products:
+   - **Growth Plan** (₱1,499 / month)
+   - **Agency Plan** (₱3,499 / month)
+   - **Enterprise Plan** (₱7,999 / month)
 
-Create **1 GHL funnel page** for all subscriptions: `untitled-page`.
-URL: `https://sms.nolawebsolutions.com/untitled-page`
+### Step 2: Create the Checkout Funnel Page
+Create **1 GHL funnel page** that will handle all subscription checkouts: e.g., `agency-subscription-checkout`.
+URL: `https://sms.nolawebsolutions.com/agency-subscription-checkout`
 
 **On the funnel page:**
+1. Add a **2-Step Order Form** element.
+2. Ensure all three products (Growth, Agency, Enterprise) are attached to this page.
+3. Add the **Autofill Custom Code script** (same as the credit top-up pages).
+   - This script must map the `agency_id` URL parameter to a **hidden field** (e.g., mapping to `companyname`).
+   - It should map `name`, `email`, and `phone` URL parameters to the form's contact fields.
+   - *(Optional)* Map the `plan` URL parameter to automatically select the correct radio button on the order form using a custom Javascript snippet.
+4. Set the hidden field's default value in GHL to `{{contact.companyname}}` as a fallback.
 
-1. Add the same autofill Custom Code script used on credit pages.
-   - Map `agency_id` URL param → `companyname` hidden field.
-   - Map `name`, `email`, `phone` URL params → contact form fields.
-   - (Optional) Read `plan` URL param to pre-select the product via custom JS.
+### Step 3: GHL Workflow for Subscriptions
+Create a new GHL Workflow: **"App - Agency Subscription Upgrades & Renewals"**
 
-2. Set the `companyname` hidden field default value to `{{contact.companyname}}` as GHL Custom Values fallback.
+**Trigger 1: Initial Purchase**
+- **Trigger Type:** Order Submitted
+- **Filters:** 
+  - Funnel: `[Your Subscription Funnel]`
+  - Page: `agency-subscription-checkout`
+  - Submission Type: `Sale`
 
-**GHL Workflow:**
-- Trigger: **Order Submitted** (on `untitled-page` funnel)
-- Use an **If/Else condition** based on the product purchased (Growth, Agency, or Enterprise).
-- Action: **Webhook** (one per branch)
-  ```
-  POST https://smspro-api.nolacrm.io/api/billing/plan-webhook
-  X-Webhook-Secret: f7RkQ2pL9zV3tX8cB1nS4yW6
+**Trigger 2: Recurring Payments (Renewals)**
+- **Trigger Type:** Payment Received
+- **Filters:**
+  - Source: `[Your Payment Gateway / Stripe]`
+  - Product: `[Growth/Agency/Enterprise Products]`
 
-  Body:
-  {
-    "agency_id": "{{contact.companyname}}",
-    "plan": "growth", // Hardcode this per branch ("growth", "agency", or "enterprise")
-    "order_id": "{{order.id}}"
-  }
-  ```
+**Workflow Actions:**
 
-- **For monthly renewals:** Use GHL's recurring charge trigger (same workflow structure). The backend treats the same plan as `event_type: "renewed"` and extends `expires_at` by 30 days.
+1. **If/Else Condition (Check which plan was purchased):**
+   - **Branch 1 (Growth):** Condition checking if product is "Growth Plan".
+   - **Branch 2 (Agency):** Condition checking if product is "Agency Plan".
+   - **Branch 3 (Enterprise):** Condition checking if product is "Enterprise Plan".
 
-### How the frontend opens checkout
+2. **Branch 1: Growth Plan actions:**
+   - **Action: Webhook**
+     - Method: `POST`
+     - URL: `https://smspro-api.nolacrm.io/api/billing/plan-webhook`
+     - Header: `X-Webhook-Secret: f7RkQ2pL9zV3tX8cB1nS4yW6`
+     - Payload:
+       ```json
+       {
+         "agency_id": "{{contact.companyname}}",
+         "plan": "growth",
+         "order_id": "{{order.id}}"
+       }
+       ```
 
-The agency Subscription page opens the funnel in a popup, passing the agency's details and the desired plan as URL params:
+3. **Branch 2 & 3: Agency & Enterprise Actions:**
+   - Repeat the webhook action for each branch, changing only the `"plan"` value in the JSON payload to `"agency"` or `"enterprise"` respectively.
 
-```
-https://sms.nolawebsolutions.com/untitled-page
-  ?agency_id={company_id}
-  &name={fullName}
-  &email={email}
-  &phone={phone}
-  &plan={planId}
-```
+> **Note on Renewals:** When a recurring payment comes in, this workflow will fire. The backend sees the webhook, identifies that the new plan matches the existing plan, treats it as a `"renewed"` event, and securely pushes `subscription_expires_at` forward by 30 days.
 
 ---
 
-## 7. End-to-End Flow
+## 7. Frontend UI Implementation (Agency App)
+
+Align the Agency subscription checkout experience with the `Billing.tsx` credits flow.
+
+### 1. `Subscription.tsx` Page Layout
+Create a dedicated Subscription page (or a tab) that:
+1. Fetches the current plan using `GET /api/billing/subscription?agency_id=X`.
+2. Displays the **Current Plan** banner, showing the name, status, subaccount limit, and usage (e.g., `3 / 5 subaccounts used`).
+3. Renders a pricing table/grid mapping out the available plans (`Starter`, `Growth`, `Agency`, `Enterprise`).
+
+### 2. The Popup Checkout Flow
+When a user clicks "Upgrade" on a specific plan, execute the popup checkout logic:
+
+```typescript
+const handleUpgrade = (planId: string) => {
+  // Construct URL with params for the GHL Funnel
+  const checkoutUrl = `https://sms.nolawebsolutions.com/agency-subscription-checkout?agency_id=${encodeURIComponent(agencyId)}&plan=${planId}&name=${encodeURIComponent(userName)}&email=${encodeURIComponent(userEmail)}`;
+
+  // Center popup calculation
+  const width = 600, height = 850;
+  const left = (window.screen.width / 2) - (width / 2);
+  const top = (window.screen.height / 2) - (height / 2);
+
+  // Open the popup window
+  const popup = window.open(
+    checkoutUrl,
+    'SubscriptionCheckout',
+    `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+  );
+
+  if (!popup) {
+    alert("Popup blocked! Please allow popups for this site.");
+    return;
+  }
+
+  // Poll for closure to refresh data (identical to Billing.tsx)
+  const pollTimer = setInterval(() => {
+    if (popup.closed) {
+      clearInterval(pollTimer);
+      showToast('Checkout window closed. Refreshing subscription...', 'info');
+      fetchSubscription(); // Refresh the agency_users subscription data
+    }
+  }, 500);
+};
+```
+
+### 3. Usage Blocking
+In the "Add Subaccount" modal (where the agency generates an OAuth link), you must verify the `subaccounts_used` against the `subaccount_limit`.
+- If `subaccounts_used >= plan_subaccount_limit` (and limit is not `-1`), disable the "Add Subaccount" button.
+- Show an alert block: *"You have reached the limit of your current plan. Please upgrade to add more subaccounts."*
+
+---
+
+## 8. End-to-End Flow
 
 ```
 ① Agency on Starter clicks "Upgrade to Growth"
    └─ Frontend opens popup:
-      https://sms.nolawebsolutions.com/untitled-page?agency_id=X&name=...&plan=growth
+      https://sms.nolawebsolutions.com/agency-subscription-checkout?agency_id=X&name=...&plan=growth
 
 ② GHL funnel page loads → autofill script fills form from URL params
 
@@ -381,14 +451,14 @@ https://sms.nolawebsolutions.com/untitled-page
    5. Writes subscription_events audit record
    6. Returns { "success": true }
 
-⑤ Agency app refreshes → GET /api/billing/subscription
+⑤ Agency app detects popup close → refreshes GET /api/billing/subscription
    └─ Returns plan="growth", limit=5, used=1
    └─ Plan badge updates, subaccount limit bar updates
 ```
 
 ---
 
-## 8. Backend Checklist
+## 9. Backend Checklist
 
 ### Firestore
 - [ ] Add `subscription_plan`, `subscription_status`, `subscription_expires_at`, `plan_subaccount_limit` fields to `agency_users` docs (migration script)
@@ -404,11 +474,11 @@ https://sms.nolawebsolutions.com/untitled-page
 - [ ] `.htaccess` — Add 2 rewrite rules for `subscription` and `plan-webhook`
 
 ### GHL Setup
-- [ ] Ensure single funnel page `untitled-page` exists with autofill Custom Code
-- [ ] Create GHL Workflow triggered on order submit for this funnel
+- [ ] Create Subscription Products
+- [ ] Ensure single funnel page `agency-subscription-checkout` exists with autofill Custom Code
+- [ ] Create GHL Workflow triggered on order submit for this funnel AND payment received
 - [ ] Add conditional branches in workflow based on product purchased
 - [ ] Add Webhook action per branch firing to `plan-webhook` with hardcoded plan
-- [ ] Set monthly renewal trigger on the workflow
 
 ### Testing
 - [ ] POST `plan-webhook` with `plan=growth` → verify `agency_users` doc updates correctly

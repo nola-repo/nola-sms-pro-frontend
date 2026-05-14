@@ -4,6 +4,7 @@ import { Dashboard } from './pages/Dashboard.tsx';
 import { Subaccounts } from './pages/Subaccounts.tsx';
 import { Settings } from './pages/Settings.tsx';
 import { Billing } from './pages/Billing.tsx';
+import { Subscription } from './pages/Subscription.tsx';
 import { AgencyProtectedRoute } from './components/auth/AgencyProtectedRoute.tsx';
 import AgencyLogin from './pages/AgencyLogin.tsx';
 import AgencyOAuthCallback from './pages/AgencyOAuthCallback.tsx';
@@ -20,6 +21,7 @@ export const AppRoutes = () => (
       <Route path="/"             element={<Dashboard />} />
       <Route path="/subaccounts"  element={<Subaccounts />} />
       <Route path="/billing"      element={<Billing />} />
+      <Route path="/subscription" element={<Subscription />} />
       <Route path="/settings"     element={<Settings />} />
     </Route>
     {/* Catch-all → dashboard (the guard will redirect to /login if not authed) */}
