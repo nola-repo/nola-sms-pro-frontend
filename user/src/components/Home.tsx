@@ -33,9 +33,6 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
     const ITEMS_PER_PAGE = 5;
 
     useEffect(() => {
-        // Reset pagination when switching locations
-        setCurrentPage(1);
-        
         const loadHomeData = async (isInitial = false) => {
             if (isInitial) {
                 setLoading(true);

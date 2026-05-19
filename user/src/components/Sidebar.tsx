@@ -28,14 +28,47 @@ interface SidebarProps {
   onCloseMobile?: () => void;
 }
 
-const SidebarSkeleton = () => (
+const SidebarSkeletonRow: React.FC<{ index: number }> = ({ index }) => (
   <div className="flex items-center gap-3 px-3 py-2 rounded-xl animate-pulse">
-    <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-white/10 flex-shrink-0" />
+    <div className="w-9 h-9 rounded-full bg-[#edf0f3] dark:bg-white/10 flex-shrink-0" />
     <div className="flex-1 min-w-0 space-y-1.5">
-      <div className="h-3 w-2/3 bg-gray-200 dark:bg-white/10 rounded-full" />
-      <div className="h-2 w-full bg-gray-100 dark:bg-white/5 rounded-full" />
+      <div
+        className="h-3 bg-[#edf0f3] dark:bg-white/10 rounded-full"
+        style={{ width: `${index % 2 === 0 ? 68 : 54}%` }}
+      />
+      <div
+        className="h-2 bg-[#f4f6f8] dark:bg-white/5 rounded-full"
+        style={{ width: `${index % 3 === 0 ? 92 : 78}%` }}
+      />
     </div>
   </div>
+);
+
+const SidebarLoadingSection: React.FC<{ rowCount: number; labelWidth: string }> = ({ rowCount, labelWidth }) => (
+  <div className="mt-1">
+    <div className="flex items-center justify-between gap-2 px-3 py-1.5 mx-1 animate-pulse">
+      <div className="flex items-center gap-2 flex-1">
+        <div className="w-3.5 h-3.5 rounded-md bg-[#edf0f3] dark:bg-white/10" />
+        <div className={`h-3 rounded-full bg-[#edf0f3] dark:bg-white/10 ${labelWidth}`} />
+      </div>
+      <div className="h-4 w-6 rounded-full bg-[#edf0f3] dark:bg-white/10" />
+    </div>
+    <div className="flex flex-col gap-0.5 py-0.5">
+      {Array.from({ length: rowCount }, (_, index) => (
+        <SidebarSkeletonRow key={index} index={index} />
+      ))}
+    </div>
+  </div>
+);
+
+const SidebarMessagesSkeleton = () => (
+  <>
+    <div className="px-3 pt-2 pb-1">
+      <div className="h-2.5 w-16 rounded-full bg-[#edf0f3] dark:bg-white/10 animate-pulse" />
+    </div>
+    <SidebarLoadingSection rowCount={4} labelWidth="w-24" />
+    <SidebarLoadingSection rowCount={3} labelWidth="w-20" />
+  </>
 );
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -580,7 +613,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!isCollapsed && (
           <div className="flex-1 flex flex-col px-2 pb-3 overflow-hidden min-h-0">
             {/* Messages Content */}
-            {!loading && directHistory.length === 0 && bulkHistory.length === 0 ? (
+            {loading ? (
+              <SidebarMessagesSkeleton />
+            ) : directHistory.length === 0 && bulkHistory.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
                 <div className="w-16 h-16 rounded-[20px] bg-[#2b83fa]/10 flex items-center justify-center mb-4 relative group">
                   <div className="absolute inset-0 bg-[#2b83fa]/20 rounded-[20px] blur-xl opacity-50 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -626,10 +661,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                 >
                   <div className="flex flex-col gap-0.5 py-0.5">
-                    {loading ? (
-                      [1, 2, 3, 4].map(i => <SidebarSkeleton key={i} />)
-                    ) : (
-                      directHistory.map(contact => (
+                    {directHistory.map(contact => (
                         <div
                           key={contact.id}
                           className={`
@@ -702,8 +734,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             </div>
                           </div>
                         </div>
-                      ))
-                    )}
+                      ))}
                   </div>
                 </div>
 
@@ -724,9 +755,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Bulk Messages scrollable area */}
                 <div className={`overflow-y-auto overflow-x-hidden sidebar-scroll transition-all duration-300 pb-2 rounded-xl ${bulkMessagesExpanded ? 'max-h-[30vh] opacity-100' : 'max-h-0 opacity-0'}`}>
                   <div className="flex flex-col gap-0.5 py-0.5">
-                    {loading ? (
-                      [1, 2, 3].map(i => <SidebarSkeleton key={i} />)
-                    ) : bulkHistory.length > 0 ? (
+                    {bulkHistory.length > 0 ? (
                       bulkHistory.map(item => {
                         const isActive = activeBulkMessageId === item.id;
                         return (

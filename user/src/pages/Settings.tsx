@@ -20,7 +20,8 @@ import { SenderRequestModal } from "../components/SenderRequestModal";
 import { useGhlLocation } from "../hooks/useGhlLocation";
 import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
 import { fetchAccountProfile } from "../api/account";
-import { useUserProfileContext } from "../App";
+import type { AccountProfile } from "../api/account";
+import { useUserProfileContext } from "../context/UserProfileContext";
 import { redirectToLogin, SESSION_KEYS } from "../services/authService";
 import {
     GHL_MARKETPLACE_CONNECT_URL,
@@ -122,7 +123,7 @@ const AccountSection: React.FC = () => {
         }
         catch { return null; }
     });
-    const [fetchedProfile, setFetchedProfile] = useState<any>(null);
+    const [fetchedProfile, setFetchedProfile] = useState<AccountProfile | null>(null);
     const [isFetchingLocation, setIsFetchingLocation] = useState(false);
     const [showReconnectNotice, setShowReconnectNotice] = useState(
         () => safeStorage.getItem(GHL_RECONNECT_REQUIRED_STORAGE_KEY) === 'true'
@@ -152,7 +153,7 @@ const AccountSection: React.FC = () => {
             setInputLocationId(ghlLocationIdFromHook);
             fetchAndSetLocation(ghlLocationIdFromHook);
         }
-    }, [ghlLocationIdFromHook]);
+    }, [ghlLocationIdFromHook, inputLocationId]);
 
     const fetchAndSetLocation = async (locId: string) => {
          if (!locId || locId.trim() === "") return;
@@ -179,7 +180,9 @@ const AccountSection: React.FC = () => {
                      const cached = JSON.parse(localStorage.getItem('nola_user') || '{}');
                      cached.location_name = profile.location_name;
                      localStorage.setItem('nola_user', JSON.stringify(cached));
-                 } catch {}
+                 } catch {
+                     // Cache sync is best-effort only.
+                 }
                  const fresh = getAccountSettings();
                  if (fresh.displayName !== profile.location_name) {
                      saveAccountSettings({ ...fresh, displayName: profile.location_name });
@@ -438,21 +441,13 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
     const [senderRequests, setSenderRequests] = useState<SenderRequest[]>([]);
     const [config, setConfig] = useState<AccountSenderConfig | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isAdding, setIsAdding] = useState(false);
+    const [isAdding, setIsAdding] = useState(() => Boolean(autoOpenAddModal));
     const [preferredSender, setPreferredSender] = useState<string | null>(getPreferredSender());
-
-    // Auto-open modal when triggered from Composer
-    useEffect(() => {
-        if (autoOpenAddModal) {
-            setIsAdding(true);
-        }
-    }, [autoOpenAddModal]);
 
     // Fetch data from API simultaneously to avoid cascading load flashes
     useEffect(() => {
         let cancelled = false;
 
-        setIsLoading(true);
         Promise.all([
             fetchSenderRequests(locationId).catch(err => {
                 console.error("Failed to fetch sender requests:", err);
@@ -734,7 +729,8 @@ function formatTxDate(iso: string): string {
 
 const AR_AMOUNTS = [100, 250, 500, 1000, 2000];
 const AR_THRESHOLDS = [25, 50, 100, 200];
-const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
+const API_BASE_URL = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
+type CreditTransactionWithFallbacks = CreditTransaction & { timestamp?: string };
 
 const CreditsSection: React.FC = () => {
     const ghlLocationIdFromHook = useGhlLocation();
@@ -805,7 +801,7 @@ const CreditsSection: React.FC = () => {
             months.add(new Date().toISOString().slice(0, 7));
             
             txs.forEach(tx => {
-                const dt = tx.created_at || (tx as any).timestamp;
+                const dt = tx.created_at || (tx as CreditTransactionWithFallbacks).timestamp;
                 if (dt) months.add(dt.slice(0, 7));
             });
 
@@ -848,13 +844,17 @@ const CreditsSection: React.FC = () => {
         };
         window.addEventListener('message', handlePaymentMessage);
 
+        const clearTimers = () => {
+            if (popupPollRef.current) clearInterval(popupPollRef.current);
+            if (countdownRef.current) clearInterval(countdownRef.current);
+        };
+
         return () => {
             mountedRef.current = false;
             window.removeEventListener('sms-sent', load);
             window.removeEventListener('bulk-message-sent', load);
             window.removeEventListener('message', handlePaymentMessage);
-            if (popupPollRef.current) clearInterval(popupPollRef.current);
-            if (countdownRef.current) clearInterval(countdownRef.current);
+            clearTimers();
         };
     }, [load]);
 
@@ -1041,7 +1041,7 @@ const CreditsSection: React.FC = () => {
                     // Refresh balance in case they finished but message was missed
                     load();
                 }
-            } catch (e) {
+            } catch {
                 // Ignore cross-origin DOM exceptions
             }
         }, 500);
@@ -1392,7 +1392,7 @@ const CreditsSection: React.FC = () => {
 };
 
 // ─── Main Export ─────────────────────────────────────────────────────────────
-export const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, initialTab, autoOpenAddModal }) => {
+export const Settings: React.FC<SettingsProps> = ({ initialTab, autoOpenAddModal }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || "account");
 
     const renderContent = useCallback(() => {
@@ -1402,7 +1402,7 @@ export const Settings: React.FC<SettingsProps> = ({ darkMode, toggleDarkMode, in
             case "notifications": return <NotificationsSection />;
             case "credits": return <CreditsSection />;
         }
-    }, [activeTab, darkMode, toggleDarkMode, autoOpenAddModal]);
+    }, [activeTab, autoOpenAddModal]);
 
     const activeTabInfo = TABS.find(t => t.id === activeTab)!;
 

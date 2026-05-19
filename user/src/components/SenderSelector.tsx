@@ -42,25 +42,28 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
     onRequestSettings,
     approvedSenderId
 }) => {
+    const { locationId } = useLocationId();
+    const locationKey = locationId || "";
     const [isOpen, setIsOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
-    const [config, setConfig] = useState<AccountSenderConfig | null>(null);
-    const [configLoading, setConfigLoading] = useState(true);
+    const [configState, setConfigState] = useState<{
+        config: AccountSenderConfig | null;
+        loadedLocationKey: string | null;
+    }>({ config: null, loadedLocationKey: null });
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const { locationId } = useLocationId();
+    const { config, loadedLocationKey } = configState;
+    const configLoading = loadedLocationKey !== locationKey;
 
     // Fetch account sender config on mount and when location changes
     useEffect(() => {
         let cancelled = false;
-        setConfigLoading(true);
         fetchAccountSenderConfig(locationId || undefined).then(cfg => {
             if (!cancelled) {
-                setConfig(cfg);
-                setConfigLoading(false);
+                setConfigState({ config: cfg, loadedLocationKey: locationKey });
             }
         });
         return () => { cancelled = true; };
-    }, [locationId]);
+    }, [locationId, locationKey]);
 
     // Build options dynamically from API config
     const allOptions = useMemo<SenderOption[]>(() => {

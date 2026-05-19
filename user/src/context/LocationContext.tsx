@@ -141,10 +141,6 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     };
 
-    // Also do an immediate check on mount
-    const fromUrl = extractLocationFromUrl();
-    if (fromUrl) setLocationId(fromUrl);
-
     const timer = setInterval(checkUrl, 1000);
     return () => clearInterval(timer);
   }, [setLocationId]);

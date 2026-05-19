@@ -237,17 +237,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // When locationId changes (e.g., switching subaccounts in GHL), clear the active contact
-  // to avoid showing a "No history yet" screen for the previous subaccount's phone number
-  // in the new subaccount's context.
-  useEffect(() => {
-    setSelectedContacts([]);
-    setActiveContact(null);
-    setActiveBulkMessage(null);
-    safeStorage.removeItem('nola_active_contact');
-    safeStorage.removeItem('nola_active_bulk_message');
-  }, [locationId]);
-
   useEffect(() => {
     let cancelled = false;
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
 import { GhlCallback } from "./pages/GhlCallback";
@@ -7,12 +7,8 @@ import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { safeStorage } from "./utils/safeStorage";
-import { useUserProfile, type UserProfile } from "./hooks/useUserProfile";
-
-
-// Create a context so Settings and other pages can consume the live profile
-export const UserProfileContext = createContext<UserProfile | null>(null);
-export const useUserProfileContext = () => useContext(UserProfileContext);
+import { useUserProfile } from "./hooks/useUserProfile";
+import { UserProfileContext } from "./context/UserProfileContext";
 
 const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
   useEffect(() => {

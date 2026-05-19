@@ -589,14 +589,19 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
 
   useEffect(() => {
     if (currentStep === prevStepRef.current) return;
-    setAnimDir(currentStep > prevStepRef.current ? "forward" : "back");
-    setAnimating(true);
-    const t = setTimeout(() => {
+    const start = window.requestAnimationFrame(() => {
+      setAnimDir(currentStep > prevStepRef.current ? "forward" : "back");
+      setAnimating(true);
+    });
+    const finish = setTimeout(() => {
       setVisibleStep(currentStep);
       setAnimating(false);
       prevStepRef.current = currentStep;
     }, 280);
-    return () => clearTimeout(t);
+    return () => {
+      window.cancelAnimationFrame(start);
+      clearTimeout(finish);
+    };
   }, [currentStep]);
 
   const handleCta = (action: CtaAction) => {
