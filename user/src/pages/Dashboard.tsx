@@ -9,13 +9,14 @@ import { Composer } from "../components/Composer";
 import { ContactsTab } from "../components/ContactsTab";
 import { TemplatesTab } from "../components/TemplatesTab";
 import { Settings } from "./Settings";
-import { FiMenu, FiSettings } from "react-icons/fi";
+import { FiAlertCircle, FiArrowRight, FiCheckCircle, FiLoader, FiMenu, FiRefreshCw, FiSettings } from "react-icons/fi";
 import { Home } from "../components/Home";
 import { TicketsTab } from "../components/TicketsTab";
 import { useOnboarding } from "../components/onboarding/useOnboarding";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
 import { useLocationId } from "../context/LocationContext";
-import { GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
+import { GHL_BACKEND_ONBOARDING_URL, GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
+import { fetchAccountProfile, type AccountProfile } from "../api/account";
 
 interface DashboardProps {
   isMobileMenuOpen?: boolean;
@@ -25,11 +26,80 @@ interface DashboardProps {
   initialView?: ViewTab;
 }
 
+type RegistrationCheckState =
+  | { status: 'idle' | 'checking' | 'registered' }
+  | { status: 'required'; profile: AccountProfile }
+  | { status: 'error'; message: string };
+
+const buildBackendOnboardingUrl = (locationId: string): string => {
+  const state = encodeURIComponent(JSON.stringify({ selected_location_id: locationId }));
+  return `${GHL_BACKEND_ONBOARDING_URL}&state=${state}`;
+};
+
+const RegistrationRequiredState: React.FC<{
+  locationId: string;
+  profile: AccountProfile;
+  onRetry: () => void;
+}> = ({ locationId, profile, onRetry }) => {
+  const locationName = profile.location_name && profile.location_name !== 'Unknown'
+    ? profile.location_name
+    : 'this subaccount';
+
+  return (
+    <div className="min-h-screen bg-[#f7f7f7] dark:bg-[#18191d] flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-xl bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl shadow-xl p-6 sm:p-8">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300 flex items-center justify-center mb-5">
+          <FiAlertCircle className="w-6 h-6" />
+        </div>
+
+        <h1 className="text-[24px] sm:text-[28px] font-black tracking-tight text-[#111111] dark:text-white mb-3">
+          Registration required
+        </h1>
+        <p className="text-[14px] leading-6 text-[#5f6368] dark:text-[#b6bac2] mb-5">
+          {locationName} is not linked to a registered NOLA user yet. Complete onboarding before using messages, contacts, templates, or billing tools.
+        </p>
+
+        <div className="rounded-xl border border-[#e5e5e5] dark:border-white/10 bg-[#fafafa] dark:bg-white/[0.03] px-4 py-3 mb-6">
+          <div className="text-[11px] font-bold uppercase text-[#8a8f98] dark:text-[#8f949e] mb-1">GHL Location ID</div>
+          <div className="font-mono text-[13px] text-[#111111] dark:text-white break-all">{locationId}</div>
+          <div className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-700 dark:text-amber-300">
+            <FiAlertCircle className="w-3.5 h-3.5" />
+            {profile.registration_status === 'not_installed' ? 'Not installed' : 'Not registered'}
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => { window.location.href = buildBackendOnboardingUrl(locationId); }}
+            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white text-[13px] font-bold shadow-md shadow-blue-500/20 hover:shadow-lg transition-all"
+          >
+            Continue onboarding
+            <FiArrowRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onRetry}
+            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#f1f3f4] dark:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] text-[13px] font-bold hover:bg-[#e8eaed] dark:hover:bg-[#34363d] transition-all"
+          >
+            <FiRefreshCw className="w-4 h-4" />
+            Recheck
+          </button>
+        </div>
+
+        <div className="mt-6 flex items-center gap-2 text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">
+          <FiCheckCircle className="w-4 h-4 text-emerald-500" />
+          Already completed registration in another tab? Recheck to return to the app.
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: externalIsMobileMenuOpen, onMobileMenuToggle, darkMode, toggleDarkMode, initialView }) => {
   const navigate = useNavigate();
   const onboarding = useOnboarding();
   // Reactive location ID from context — re-renders whenever subaccount changes
   const { locationId } = useLocationId();
+  const [registrationCheck, setRegistrationCheck] = useState<RegistrationCheckState>({ status: 'idle' });
   const [activeContact, setActiveContact] = useState<Contact | null>(() => {
     try {
       const saved = safeStorage.getItem('nola_active_contact');
@@ -58,6 +128,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const [settingsOpen] = useState(false);
 
   const isMobileMenuOpen = externalIsMobileMenuOpen !== undefined ? externalIsMobileMenuOpen : false;
+
+  const checkRegistration = async () => {
+    if (!locationId) {
+      setRegistrationCheck({ status: 'idle' });
+      return;
+    }
+
+    setRegistrationCheck({ status: 'checking' });
+    try {
+      const profile = await fetchAccountProfile(locationId, { includeAuth: false });
+      if (!profile) {
+        setRegistrationCheck({ status: 'error', message: 'Unable to verify this subaccount right now.' });
+        return;
+      }
+
+      if (profile.is_registered === false || (!!profile.registration_status && profile.registration_status !== 'registered')) {
+        setRegistrationCheck({ status: 'required', profile });
+        return;
+      }
+
+      setRegistrationCheck({ status: 'registered' });
+    } catch (error) {
+      console.error('[Dashboard] Registration check failed', error);
+      setRegistrationCheck({ status: 'error', message: 'Unable to verify this subaccount right now.' });
+    }
+  };
 
   const handleSelectContact = (contact: Contact) => {
     setSelectedContacts([contact]);
@@ -152,6 +248,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     safeStorage.removeItem('nola_active_bulk_message');
   }, [locationId]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!locationId) {
+        if (!cancelled) setRegistrationCheck({ status: 'idle' });
+        return;
+      }
+
+      if (!cancelled) setRegistrationCheck({ status: 'checking' });
+      try {
+        const profile = await fetchAccountProfile(locationId, { includeAuth: false });
+        if (cancelled) return;
+
+        if (!profile) {
+          setRegistrationCheck({ status: 'error', message: 'Unable to verify this subaccount right now.' });
+          return;
+        }
+
+        if (profile.is_registered === false || (!!profile.registration_status && profile.registration_status !== 'registered')) {
+          setRegistrationCheck({ status: 'required', profile });
+          return;
+        }
+
+        setRegistrationCheck({ status: 'registered' });
+      } catch (error) {
+        if (cancelled) return;
+        console.error('[Dashboard] Registration check failed', error);
+        setRegistrationCheck({ status: 'error', message: 'Unable to verify this subaccount right now.' });
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [locationId]);
+
   // Handle navigation to settings tabs from CreditBadge
   useEffect(() => {
     const handleNavigateToSettings = (e: CustomEvent) => {
@@ -191,6 +326,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       window.removeEventListener('ghl-location-changed', handleLocationChanged);
     };
   }, []);
+
+  if (locationId && registrationCheck.status === 'checking') {
+    return (
+      <div className="min-h-screen bg-[#f7f7f7] dark:bg-[#18191d] flex items-center justify-center px-4">
+        <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 shadow-lg">
+          <FiLoader className="w-5 h-5 text-[#2b83fa] animate-spin" />
+          <span className="text-[13px] font-semibold text-[#37352f] dark:text-[#ececf1]">Checking registration...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (locationId && registrationCheck.status === 'required') {
+    return (
+      <RegistrationRequiredState
+        locationId={locationId}
+        profile={registrationCheck.profile}
+        onRetry={checkRegistration}
+      />
+    );
+  }
+
+  if (locationId && registrationCheck.status === 'error') {
+    return (
+      <div className="min-h-screen bg-[#f7f7f7] dark:bg-[#18191d] flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl shadow-xl p-6 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-300 flex items-center justify-center mx-auto mb-4">
+            <FiAlertCircle className="w-6 h-6" />
+          </div>
+          <h1 className="text-[20px] font-black tracking-tight text-[#111111] dark:text-white mb-2">Could not verify registration</h1>
+          <p className="text-[13px] leading-6 text-[#5f6368] dark:text-[#b6bac2] mb-5">{registrationCheck.message}</p>
+          <button
+            onClick={checkRegistration}
+            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#f1f3f4] dark:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] text-[13px] font-bold hover:bg-[#e8eaed] dark:hover:bg-[#34363d] transition-all"
+          >
+            <FiRefreshCw className="w-4 h-4" />
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-[#ffffff] dark:bg-[#202123] overflow-visible">

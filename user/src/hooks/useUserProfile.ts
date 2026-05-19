@@ -110,6 +110,14 @@ export const useUserProfile = () => {
   const [user, setUser] = useState<UserProfile | null>(getCachedUser);
 
   useEffect(() => {
+    const appIsRunningInGhl = (() => {
+      try {
+        return window.self !== window.top || sessionStorage.getItem('nola_is_ghl_frame') === 'true';
+      } catch {
+        return true;
+      }
+    })();
+
     const fetchFreshProfile = async () => {
       try {
         const token = getToken();
@@ -141,22 +149,26 @@ export const useUserProfile = () => {
             safeStorage.setItem('nola_auth_user', JSON.stringify(profile));
             safeStorage.setItem('nola_user', JSON.stringify(profile));
 
-            // Sync profile-derived location as a first-class source
+            // Sync profile-derived location only when it will not overwrite the active GHL subaccount.
             if (profile.location_id) {
-              safeStorage.setItem('nola_location_id', profile.location_id);
-              
               const settings = getAccountSettings();
-              if (settings.ghlLocationId !== profile.location_id) {
+              const shouldUseProfileLocation =
+                !settings.ghlLocationId ||
+                settings.ghlLocationId === profile.location_id ||
+                !appIsRunningInGhl;
+
+              if (shouldUseProfileLocation) {
+                safeStorage.setItem('nola_location_id', profile.location_id);
                 saveAccountSettings({
                   ...settings,
                   ghlLocationId: profile.location_id
                 });
-              }
 
-              // Dispatch event to force LocationContext to re-sync
-              window.dispatchEvent(
-                new CustomEvent('ghl-location-set', { detail: { locationId: profile.location_id } })
-              );
+                // Dispatch event to force LocationContext to re-sync
+                window.dispatchEvent(
+                  new CustomEvent('ghl-location-set', { detail: { locationId: profile.location_id } })
+                );
+              }
             }
           }
         } else {

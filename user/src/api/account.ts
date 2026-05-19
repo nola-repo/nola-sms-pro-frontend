@@ -14,9 +14,15 @@ export interface AccountProfile {
     name?: string | null;
     firstName?: string | null;
     lastName?: string | null;
+    registration_status?: "registered" | "unregistered" | "not_installed" | string;
+    is_registered?: boolean;
 }
 
-function getLocationHeaders(explicitLocationId?: string): { headers: Record<string, string>; locationId: string } {
+interface FetchAccountProfileOptions {
+    includeAuth?: boolean;
+}
+
+function getLocationHeaders(explicitLocationId?: string, includeAuth = true): { headers: Record<string, string>; locationId: string } {
     const { ghlLocationId } = getAccountSettings();
     const locationId = explicitLocationId || ghlLocationId;
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -24,7 +30,7 @@ function getLocationHeaders(explicitLocationId?: string): { headers: Record<stri
     if (locationId) {
         headers["X-GHL-Location-ID"] = locationId;
     }
-    if (token) {
+    if (includeAuth && token) {
         headers.Authorization = `Bearer ${token}`;
     }
     return { headers, locationId };
@@ -33,8 +39,11 @@ function getLocationHeaders(explicitLocationId?: string): { headers: Record<stri
 /**
  * Fetch the basic account profile (including location_name).
  */
-export const fetchAccountProfile = async (explicitLocationId?: string): Promise<AccountProfile | null> => {
-    const { headers, locationId } = getLocationHeaders(explicitLocationId);
+export const fetchAccountProfile = async (
+    explicitLocationId?: string,
+    options: FetchAccountProfileOptions = {}
+): Promise<AccountProfile | null> => {
+    const { headers, locationId } = getLocationHeaders(explicitLocationId, options.includeAuth ?? true);
 
     if (!locationId) return null;
 

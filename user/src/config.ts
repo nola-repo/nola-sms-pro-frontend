@@ -13,6 +13,13 @@ const API_BASE = "";
 export const GHL_MARKETPLACE_CONNECT_URL =
     "https://marketplace.gohighlevel.com/oauth/chooselocation?appId=65f8a0c2837bc281e59eef7b";
 
+export const GHL_BACKEND_ONBOARDING_URL =
+    "https://marketplace.leadconnectorhq.com/v2/oauth/chooselocation?response_type=code" +
+    "&redirect_uri=https%3A%2F%2Fsmspro-api.nolacrm.io%2Foauth%2Fcallback" +
+    "&client_id=6999da2b8f278296d95f7274-mmn30t4f" +
+    "&scope=workflows.readonly+conversations%2Fmessage.readonly+conversations.readonly+conversations.write+contacts.readonly+contacts.write+conversations%2Fmessage.write+saas%2Flocation.read+locations.readonly+locations%2Ftags.readonly+locations%2Ftags.write+oauth.write+oauth.readonly" +
+    "&version_id=6999da2b8f278296d95f7274";
+
 export const GHL_RECONNECT_REQUIRED_STORAGE_KEY = "nola_ghl_reconnect_required";
 export const GHL_OAUTH_RETURN_VIEW_STORAGE_KEY = "nola_ghl_oauth_return_view";
 
