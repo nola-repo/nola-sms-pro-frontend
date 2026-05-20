@@ -86,6 +86,23 @@ const buildFallbackSeries = (series: TrendPoint[], fallbackTotal: number): Trend
     }));
 };
 
+const getProfileColor = (name: string): string => {
+    if (!name) return 'hsl(217, 91%, 60%)';
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const h = Math.abs(hash) % 360;
+    return `hsl(${h}, 70%, 50%)`;
+};
+
+const getGreeting = (): string => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+};
+
 export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSelectContact, onSelectBulkMessage }) => {
     const { locationId } = useLocationId();
     const liveProfile = useUserProfileContext();
@@ -97,69 +114,41 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
     const [loading, setLoading] = useState(true);
     const [showAllActivity, setShowAllActivity] = useState(false);
     const [trendAnchor] = useState(() => new Date());
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
-        const loadHomeData = async (isInitial = false) => {
-            if (isInitial) {
-                setLoading(true);
+        if (!locationId) {
+            setLoading(false);
+            return;
+        }
+        let cancelled = false;
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                const [creditRes, convRes, contactRes, txRes] = await Promise.allSettled([
+                    fetchCreditStatus(locationId),
+                    fetchConversations(locationId),
+                    fetchContacts(locationId),
+                    fetchCreditTransactions('default', 100, locationId),
+                ]);
+                if (cancelled) return;
+                if (creditRes.status === 'fulfilled') setCreditStatus(creditRes.value);
+                if (convRes.status === 'fulfilled') setConversations(convRes.value || []);
+                if (contactRes.status === 'fulfilled') {
+                    const list = contactRes.value || [];
+                    setContacts(list);
+                    setContactsCount(list.length);
+                }
+                if (txRes.status === 'fulfilled') setTransactions(txRes.value || []);
+            } catch (err) {
+                console.error('[Home] Data fetch error:', err);
+            } finally {
+                if (!cancelled) setLoading(false);
             }
-
-            // Fetch contacts independently in the background
-            fetchContacts(locationId || undefined).then((data) => {
-                setContacts(data);
-                setContactsCount(data.length);
-            }).catch(() => []);
-
-            // Synchronize critical dashboard data (credits, conversations, and transactions)
-            const [credStatus, convs, txRes] = await Promise.allSettled([
-                fetchCreditStatus(locationId || undefined),
-                fetchConversations(locationId || undefined).catch(() => []),
-                fetchCreditTransactions('default', 50, locationId || undefined)
-            ]);
-
-            if (credStatus.status === 'fulfilled') {
-                setCreditStatus(credStatus.value);
-            }
-
-            if (convs.status === 'fulfilled') {
-                const fetchedConvs = convs.value as Conversation[];
-                const sortedNew = [...fetchedConvs].sort((a, b) => {
-                    const timeA = new Date(a.last_message_at || a.updated_at || 0).getTime();
-                    const timeB = new Date(b.last_message_at || b.updated_at || 0).getTime();
-                    return timeB - timeA;
-                });
-                setConversations(sortedNew);
-            }
-
-            if (txRes.status === 'fulfilled') {
-                const txs = txRes.value as CreditTransaction[];
-                const sortedTxs = (txs || []).sort((a, b) => {
-                    const timeA = new Date(a.created_at || 0).getTime();
-                    const timeB = new Date(b.created_at || 0).getTime();
-                    return timeB - timeA;
-                });
-                setTransactions(sortedTxs);
-            }
-
-            if (isInitial) setLoading(false);
         };
-
-        loadHomeData(true);
-
-        // Real-time polling: refresh dashboard data every 15 seconds
-        const interval = setInterval(() => {
-            loadHomeData(false);
-        }, 15000);
-
-        return () => clearInterval(interval);
+        loadData();
+        return () => { cancelled = true; };
     }, [locationId]);
-
-    const getGreeting = () => {
-        const hour = new Date().getHours();
-        if (hour < 12) return "Good morning";
-        if (hour < 18) return "Good afternoon";
-        return "Good evening";
-    };
 
     const toProperCase = (name: string): string => {
         return name.replace(/\b\w/g, (char) => char.toUpperCase());
@@ -326,7 +315,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
     };
 
     return (
-        <div className="h-full flex flex-col overflow-y-auto custom-scrollbar bg-[#f3f4f6] dark:bg-[#09090b] relative pb-8">
+        <div className="h-full flex flex-col overflow-y-auto custom-scrollbar bg-[#f3f4f6] dark:bg-[#09090b] relative">
             {/* Background Gradient Header */}
             <div className="absolute top-0 left-0 w-full h-[340px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] z-0 rounded-b-[40px] pointer-events-none" />
 
@@ -357,16 +346,68 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                     </div>
 
                     <div className="flex items-center gap-4 w-full sm:w-auto">
-                        <div className="relative flex-1 sm:w-64">
+                        <div className="relative flex-1 sm:w-64" onClick={(e) => e.stopPropagation()}>
                             <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/70" />
                             <input
                                 type="text"
-                                placeholder="Search.."
+                                placeholder="Search contacts..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-11 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-[14px] font-medium text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/20 transition-all"
                             />
+                            {searchQuery.trim() !== "" && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-[#1a1b1e]/95 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl shadow-xl z-50 overflow-hidden py-1.5 animate-in fade-in slide-in-from-top-2 duration-200 max-h-60 overflow-y-auto custom-scrollbar">
+                                    {(() => {
+                                        const query = searchQuery.toLowerCase();
+                                        const filtered = contacts.filter(c =>
+                                            c.name.toLowerCase().includes(query) || c.phone.toLowerCase().includes(query)
+                                        ).slice(0, 5);
+
+                                        if (filtered.length > 0) {
+                                            return filtered.map(contact => {
+                                                const cInitial = contact.name.charAt(0).toUpperCase();
+                                                const cColor = getProfileColor(contact.name);
+                                                return (
+                                                    <button
+                                                        key={contact.id}
+                                                        onClick={() => {
+                                                            onSelectContact(contact);
+                                                            setSearchQuery("");
+                                                        }}
+                                                        className="w-full px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors text-left flex items-center gap-3"
+                                                    >
+                                                        <div
+                                                            className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-[12px] flex-shrink-0"
+                                                            style={{ backgroundColor: cColor }}
+                                                        >
+                                                            {cInitial}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-[13.5px] font-bold text-[#111111] dark:text-white leading-tight truncate">
+                                                                {toProperCase(contact.name)}
+                                                            </p>
+                                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium truncate">
+                                                                {contact.phone}
+                                                            </p>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            });
+                                        } else {
+                                            return (
+                                                <div className="px-4 py-3 text-center text-gray-400 dark:text-gray-500 text-[12.5px] font-medium italic">
+                                                    No contacts found
+                                                </div>
+                                            );
+                                        }
+                                    })()}
+                                </div>
+                            )}
                         </div>
                         <div
-                            className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center shadow-lg shadow-black/10 border-2 border-white/20 flex-shrink-0 text-white font-bold text-[14px] overflow-hidden"
+                            onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'account' } }))}
+                            className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-black/10 border-2 border-white/20 flex-shrink-0 text-white font-bold text-[14px] overflow-hidden cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                            style={{ backgroundColor: getProfileColor(profileDisplayName) }}
                             title={profileDisplayName || "Profile"}
                         >
                             {profileInitial || <FiUser className="w-5 h-5" />}
@@ -542,7 +583,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                 Quick Actions
                             </h3>
                         </AnimatedContent>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3">
                             <AnimatedContent delay={0.45} distance={30} direction="vertical">
                                 <button
                                     onClick={() => onTabChange('compose')}

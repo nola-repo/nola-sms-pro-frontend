@@ -1,6 +1,6 @@
 import { safeStorage } from '../utils/safeStorage';
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
@@ -10,7 +10,7 @@ import { Composer } from "../components/Composer";
 import { ContactsTab } from "../components/ContactsTab";
 import { TemplatesTab } from "../components/TemplatesTab";
 import { Settings } from "./Settings";
-import { FiAlertCircle, FiArrowRight, FiCheckCircle, FiLoader, FiMenu, FiRefreshCw, FiSettings, FiUser } from "react-icons/fi";
+import { FiAlertCircle, FiArrowRight, FiCheckCircle, FiLoader, FiMenu, FiRefreshCw, FiSettings } from "react-icons/fi";
 import { Home } from "../components/Home";
 import { TicketsTab } from "../components/TicketsTab";
 import { useOnboarding } from "../components/onboarding/useOnboarding";
@@ -75,13 +75,6 @@ const RegistrationRequiredState: React.FC<{
             onClick={() => { window.location.href = buildBackendOnboardingUrl(locationId); }}
             className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white text-[13px] font-bold shadow-md shadow-blue-500/20 hover:shadow-lg transition-all"
           >
-            <div
-               className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-black/10 border-2 border-white/20 flex-shrink-0 text-white font-bold text-[14px] overflow-hidden cursor-pointer"
-               style={{ backgroundColor: "#2b83fa" }}
-               title="Profile"
-             >
-               <FiUser className="w-5 h-5" />
-             </div>
             Continue onboarding
             <FiArrowRight className="w-4 h-4" />
           </button>
@@ -108,7 +101,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const onboarding = useOnboarding();
   // Reactive location ID from context — re-renders whenever subaccount changes
   const { locationId } = useLocationId();
-  const [registrationCheck, setRegistrationCheck] = useState<RegistrationCheckState>({ status: 'idle' });
+  const [registrationCheck, setRegistrationCheck] = useState<RegistrationCheckState>(() => {
+    if (locationId) {
+      try {
+        const isCached = safeStorage.getItem('nola_registered_location_' + locationId) === 'true';
+        if (isCached) return { status: 'registered' };
+      } catch { /* ignore */ }
+    }
+    return { status: 'idle' };
+  });
   const [lottieError, setLottieError] = useState(false);
   const [activeContact, setActiveContact] = useState<Contact | null>(() => {
     try {
@@ -129,13 +130,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       return contact ? [contact] : [];
     } catch { return []; }
   });
-  // New search term state for dashboard search input
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  // Memoized random color for profile avatar
-  const profileColor = useMemo(() => {
-    const hue = Math.floor(Math.random() * 360);
-    return `hsl(${hue}, 70%, 50%)`;
-  }, []);
   // initialView from the router takes priority; fall back to persisted storage
   const [currentView, setCurrentView] = useState<ViewTab>(
     () => initialView || (safeStorage.getItem('nola_active_tab') as ViewTab) || 'home'
@@ -277,26 +271,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         return;
       }
 
-      if (!cancelled) setRegistrationCheck({ status: 'checking' });
+      // Check if already cached as registered
+      const isCached = safeStorage.getItem('nola_registered_location_' + locationId) === 'true';
+      if (!isCached) {
+        if (!cancelled) setRegistrationCheck({ status: 'checking' });
+      } else {
+        // If cached, immediately ensure it is in the registered state to avoid any screen flashing
+        if (!cancelled) setRegistrationCheck({ status: 'registered' });
+      }
+
       try {
         const profile = await fetchAccountProfile(locationId, { includeAuth: false });
         if (cancelled) return;
 
         if (!profile) {
+          safeStorage.removeItem('nola_registered_location_' + locationId);
           setRegistrationCheck({ status: 'error', message: 'Unable to verify this subaccount right now.' });
           return;
         }
 
         if (profile.is_registered === false || (!!profile.registration_status && profile.registration_status !== 'registered')) {
+          safeStorage.removeItem('nola_registered_location_' + locationId);
           setRegistrationCheck({ status: 'required', profile });
           return;
         }
 
+        safeStorage.setItem('nola_registered_location_' + locationId, 'true');
         setRegistrationCheck({ status: 'registered' });
       } catch (error) {
         if (cancelled) return;
         console.error('[Dashboard] Registration check failed', error);
-        setRegistrationCheck({ status: 'error', message: 'Unable to verify this subaccount right now.' });
+        if (!isCached) {
+          setRegistrationCheck({ status: 'error', message: 'Unable to verify this subaccount right now.' });
+        }
       }
     };
 
@@ -349,20 +356,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
 
   if (locationId && registrationCheck.status === 'checking') {
     return (
-      <div className="min-h-screen bg-[#f7f7f7] dark:bg-[#18191d] flex items-center justify-center px-4">
-        <div className="flex flex-col items-center gap-2 px-5 py-4 rounded-2xl bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 shadow-lg">
-          {!lottieError && (
+      <div className="min-h-screen bg-[#f3f4f6] dark:bg-[#09090b] flex items-center justify-center px-4 relative overflow-hidden">
+        {/* Soft atmospheric glow circles */}
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-[#2b83fa]/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
+
+        <div className="relative z-10 w-full max-w-sm flex flex-col items-center p-8 rounded-[2rem] bg-white/80 dark:bg-[#151618]/80 backdrop-blur-xl border border-white/50 dark:border-white/5 shadow-2xl text-center">
+          {!lottieError ? (
             <DotLottieReact
               src="https://lottie.host/8bff6661-62db-4473-adb8-7eced34f3649/mii3gOOlir.lottie"
               loop
               autoplay
-              className="w-40 h-40 md:w-56 md:h-56 mb-1"
+              className="w-32 h-32 mb-4 drop-shadow-xl"
               onError={() => setLottieError(true)}
             />
+          ) : (
+            <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/10 flex items-center justify-center text-blue-500 mb-6 animate-pulse">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            </div>
           )}
-          <div className="flex items-center gap-3">
-            <FiLoader className="w-5 h-5 text-[#2b83fa] animate-spin" />
-            <span className="text-[13px] font-semibold text-[#37352f] dark:text-[#ececf1]">Getting your workspace ready...</span>
+          <h2 className="text-[17px] font-black tracking-tight text-[#111111] dark:text-white mb-1">
+            Setting up your space
+          </h2>
+          <p className="text-[12.5px] font-medium text-gray-500 dark:text-[#b6bac2] mb-6">
+            Getting your workspace ready...
+          </p>
+          <div className="w-full bg-[#f1f3f4] dark:bg-white/[0.06] h-1.5 rounded-full overflow-hidden relative">
+            <div className="absolute top-0 bottom-0 left-0 bg-gradient-to-r from-[#2b83fa] to-purple-500 rounded-full animate-[shimmer_1.5s_infinite_linear]" style={{ width: "50%" }} />
           </div>
         </div>
       </div>
@@ -401,7 +423,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   }
 
   return (
-  <div className="flex h-screen min-h-0 bg-[#ffffff] dark:bg-[#202123] overflow-y-auto">
+    <div className="flex h-screen min-h-0 bg-[#ffffff] dark:bg-[#202123] overflow-hidden">
       {/* Sidebar - Left */}
       <div className={`
         fixed inset-y-0 left-0 z-[100] md:relative md:z-50 h-full transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
@@ -425,34 +447,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full min-h-0 w-full min-w-0 overflow-hidden bg-[#f7f7f7] dark:bg-[#18191d]">
-        {/* Desktop Header with Search & Profile */}
-        <div className="hidden md:flex items-center justify-between px-6 py-2.5 border-b border-[#0000000a] dark:border-[#ffffff0a] bg-white/80 dark:bg-[#121415]/80 backdrop-blur-lg sticky top-0 z-30">
-          <div className="relative flex-1 max-w-md">
-            <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9aa0a6] dark:text-[#8f949e] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search contacts..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && searchTerm.trim()) { handleTabChange('contacts'); } }}
-              className="w-full pl-10 pr-4 py-2 bg-[#f1f3f4] dark:bg-[#2a2b32] border border-transparent focus:border-[#2b83fa]/40 rounded-xl text-[13px] font-medium text-[#111111] dark:text-white placeholder-[#9aa0a6] dark:placeholder-[#8f949e] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 transition-all"
-            />
-          </div>
-          <div className="flex items-center gap-2 ml-4">
-            <button
-              onClick={() => { setSettingsTab('account'); handleTabChange('settings'); }}
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-[14px] shadow-md hover:shadow-lg transition-all hover:scale-105 cursor-pointer"
-              style={{ backgroundColor: profileColor }}
-              title="Account Settings"
-              aria-label="Account Settings"
-            >
-              <FiUser className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
         {/* Mobile Header with Sidebar Toggle */}
         <div className="md:hidden flex items-center justify-between px-4 py-2.5 border-b border-[#0000000a] dark:border-[#ffffff0a] bg-white/80 dark:bg-[#121415]/80 backdrop-blur-lg sticky top-0 z-30">
           <button
@@ -469,15 +463,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             <span className="font-bold text-[15px] text-[#111111] dark:text-white tracking-tight">NOLA SMS Pro</span>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => { setSettingsTab('account'); handleTabChange('settings'); }}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[12px] font-bold shadow-sm hover:shadow-md transition-all"
-              style={{ backgroundColor: profileColor }}
-              title="Account Settings"
-              aria-label="Account Settings"
-            >
-              <FiUser className="w-3.5 h-3.5" />
-            </button>
             <button
               onClick={() => handleTabChange('settings')}
               className="p-2 rounded-lg hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] transition-colors settings-icon-rotate"
@@ -536,7 +521,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         )}
 
         {/* Content Router */}
-        <div key={locationId || 'default'} className="flex-1 h-full min-h-0 overflow-hidden">
+        <div key={locationId || 'default'} className="flex-1 min-h-0 overflow-hidden">
           {currentView === 'home' ? (
             <Home
               onTabChange={handleTabChange}

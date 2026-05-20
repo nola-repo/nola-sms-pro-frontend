@@ -51,8 +51,14 @@ export interface RegisterPayload {
 
 // ── Session helpers ─────────────────────────────────────────────────────────
 export const getSession = (): AuthSession | null => {
-  // Token is in sessionStorage; other fields in safeStorage (localStorage)
-  const token = sessionSafeStorage.getItem(SESSION_KEYS.token);
+  // Try getting token from sessionStorage first, then fall back to localStorage (safeStorage)
+  let token = sessionSafeStorage.getItem(SESSION_KEYS.token);
+  if (!token) {
+    token = safeStorage.getItem(SESSION_KEYS.token);
+    if (token) {
+      sessionSafeStorage.setItem(SESSION_KEYS.token, token);
+    }
+  }
   if (!token) return null;
   return {
     token,
@@ -64,7 +70,7 @@ export const getSession = (): AuthSession | null => {
 };
 
 export const isAuthenticated = (): boolean =>
-  !!sessionSafeStorage.getItem(SESSION_KEYS.token);
+  !!sessionSafeStorage.getItem(SESSION_KEYS.token) || !!safeStorage.getItem(SESSION_KEYS.token);
 
 export const saveSession = (data: LoginResponse): void => {
   // Remove all prior session keys
@@ -75,8 +81,9 @@ export const saveSession = (data: LoginResponse): void => {
   safeStorage.removeItem('nola_user');
   safeStorage.removeItem('nola_settings_account');
 
-  // Token goes into sessionStorage (tab-scoped, cleared on close)
+  // Token goes into both sessionStorage and localStorage (safeStorage)
   sessionSafeStorage.setItem(SESSION_KEYS.token, data.token);
+  safeStorage.setItem(SESSION_KEYS.token, data.token);
   safeStorage.setItem(SESSION_KEYS.role, data.role);
 
   if (data.company_id) {
