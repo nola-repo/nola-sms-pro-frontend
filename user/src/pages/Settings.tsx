@@ -118,9 +118,9 @@ const AccountSection: React.FC = () => {
     const [fetchedName, setFetchedName] = useState<string | null>(() => {
         if (liveProfile?.location_name) return liveProfile.location_name;
         try {
-            const authUser = JSON.parse(localStorage.getItem('nola_auth_user') || '{}');
+            const authUser = JSON.parse(safeStorage.getItem('nola_auth_user') || '{}');
             if (authUser?.location_name) return authUser.location_name;
-            return JSON.parse(localStorage.getItem('nola_user') || '{}').location_name || null;
+            return JSON.parse(safeStorage.getItem('nola_user') || '{}').location_name || null;
         }
         catch { return null; }
     });
@@ -178,9 +178,9 @@ const AccountSection: React.FC = () => {
                  setFetchedName(profile.location_name);
                  // Also patch the nola_user cache with the fresh location name
                  try {
-                     const cached = JSON.parse(localStorage.getItem('nola_user') || '{}');
+                     const cached = JSON.parse(safeStorage.getItem('nola_user') || '{}');
                      cached.location_name = profile.location_name;
-                     localStorage.setItem('nola_user', JSON.stringify(cached));
+                     safeStorage.setItem('nola_user', JSON.stringify(cached));
                  } catch {
                      // Cache sync is best-effort only.
                  }
@@ -1075,8 +1075,8 @@ const CreditsSection: React.FC = () => {
         // ── Build query string ────────────────────────────────────────────────
         const readCachedProfile = (): Record<string, string | null | undefined> => {
             try {
-                const authUser = JSON.parse(localStorage.getItem('nola_auth_user') || 'null') || {};
-                const nolaUser = JSON.parse(localStorage.getItem('nola_user') || 'null') || {};
+                const authUser = JSON.parse(safeStorage.getItem('nola_auth_user') || 'null') || {};
+                const nolaUser = JSON.parse(safeStorage.getItem('nola_user') || 'null') || {};
                 return { ...authUser, ...nolaUser };
             } catch {
                 return {};

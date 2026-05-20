@@ -423,7 +423,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   }
 
   return (
-    <div className="flex h-screen min-h-0 bg-[#ffffff] dark:bg-[#202123] overflow-hidden">
+    <div className="flex h-[100dvh] min-h-0 bg-[#ffffff] dark:bg-[#202123] overflow-hidden">
       {/* Sidebar - Left */}
       <div className={`
         fixed inset-y-0 left-0 z-[100] md:relative md:z-50 h-full transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]

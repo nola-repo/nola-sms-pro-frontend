@@ -58,22 +58,21 @@ function normalizeProfile(raw: Record<string, unknown>): UserProfile {
     company_id:         (raw.company_id          as string) || undefined,
     location_name:      (raw.location_name       as string) || undefined,
     company_name:       (raw.company_name        as string) || undefined,
-    // location_memberships intentionally omitted (1:1 sub-account model)
   };
 }
 
 /**
- * Read the best available cached user from localStorage.
+ * Read the best available cached user from safeStorage.
  * Checks both keys: 'nola_auth_user' (written by authService/me endpoint)
  * and 'nola_user' (written by auth-handoff.html after GHL install).
  */
 function getCachedUser(): UserProfile | null {
   try {
-    const fromAuthUser = JSON.parse(localStorage.getItem('nola_auth_user') || 'null');
+    const fromAuthUser = JSON.parse(safeStorage.getItem('nola_auth_user') || 'null');
     if (fromAuthUser?.email) {
       return normalizeProfile(fromAuthUser);
     }
-    const fromNolaUser = JSON.parse(localStorage.getItem('nola_user') || 'null');
+    const fromNolaUser = JSON.parse(safeStorage.getItem('nola_user') || 'null');
     if (fromNolaUser?.email) {
       return normalizeProfile(fromNolaUser);
     }

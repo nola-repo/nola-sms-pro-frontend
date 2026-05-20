@@ -16,6 +16,7 @@ import FadeContent from "./FadeContent";
 import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
 import { useLocationId } from "../context/LocationContext";
 import { useUserProfileContext } from "../context/UserProfileContext";
+import { safeStorage } from "../utils/safeStorage";
 import type { ViewTab } from "./Sidebar";
 
 interface HomeProps {
@@ -245,12 +246,23 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
     const subaccountName =
         liveProfile?.location_name && liveProfile.location_name !== "Unknown"
             ? liveProfile.location_name
-            : "";
+            : (() => {
+                  try {
+                      return JSON.parse(safeStorage.getItem('nola_auth_user') || '{}')?.location_name ||
+                             JSON.parse(safeStorage.getItem('nola_user') || '{}')?.location_name || "";
+                  } catch { return ""; }
+              })();
     const profileDisplayName =
         liveProfile?.name?.trim() ||
         [liveProfile?.firstName, liveProfile?.lastName].filter(Boolean).join(" ").trim() ||
         liveProfile?.email?.trim() ||
-        "";
+        (() => {
+            try {
+                const u = JSON.parse(safeStorage.getItem('nola_auth_user') || '{}');
+                const u2 = JSON.parse(safeStorage.getItem('nola_user') || '{}');
+                return u?.name || u2?.name || u?.email || u2?.email || "";
+            } catch { return ""; }
+        })();
     const profileInitial = profileDisplayName.charAt(0).toUpperCase();
     const greetingText = subaccountName ? `${getGreeting()}, ${subaccountName}` : getGreeting();
     const sentToday = creditStatus?.stats?.sent_today ?? 0;
@@ -602,7 +614,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                             <AnimatedContent delay={0.45} distance={30} direction="vertical">
                                 <button
                                     onClick={() => onTabChange('compose')}
-                                    className="w-full min-h-[74px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-indigo-500/10 hover:border-[#2b83fa]/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
+                                    className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-indigo-500/10 hover:border-[#2b83fa]/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-[#2b83fa] transition-transform duration-300 group-hover:scale-110 flex-shrink-0">
@@ -620,7 +632,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                             <AnimatedContent delay={0.5} distance={30} direction="vertical">
                                 <button
                                     onClick={() => onTabChange('contacts')}
-                                    className="w-full min-h-[74px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
+                                    className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-500 transition-transform duration-300 group-hover:scale-110 flex-shrink-0">
@@ -638,7 +650,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                             <AnimatedContent delay={0.55} distance={30} direction="vertical">
                                 <button
                                     onClick={() => onTabChange('settings')}
-                                    className="w-full min-h-[74px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-gray-500/10 hover:border-gray-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
+                                    className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-gray-500/10 hover:border-gray-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className="w-11 h-11 rounded-xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 transition-transform duration-300 group-hover:scale-110 flex-shrink-0">
@@ -677,7 +689,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                             {loading && conversations.length === 0 ? (
                                 [1, 2, 3].map((i, idx) => (
                                     <AnimatedContent key={`skel-${i}`} delay={0.6 + idx * 0.05} distance={15} direction="vertical">
-                                        <div className="w-full h-[74px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center justify-between">
+                                        <div className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center justify-between">
                                             <div className="flex items-center gap-3 w-full">
                                                 <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse flex-shrink-0" />
                                                 <div className="space-y-2 w-full max-w-[150px]">
@@ -694,7 +706,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                     <AnimatedContent key={conv.id} delay={0.6 + idx * 0.05} distance={15} direction="vertical">
                                         <button
                                             onClick={() => handleRecentClick(conv)}
-                                            className="w-full min-h-[74px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:border-[#2b83fa]/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left flex items-center justify-between group"
+                                            className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:border-[#2b83fa]/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left flex items-center justify-between group"
                                         >
                                             <div className="flex items-center gap-3 overflow-hidden">
                                                 <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold shadow-sm transition-transform duration-300 group-hover:rotate-12 ${conv.type === 'bulk' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa]'}`}>
@@ -762,7 +774,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                             {loading ? (
                                 [...Array(4)].map((_, idx) => (
-                                    <div key={`tx-skel-${idx}`} className="h-[74px] rounded-[20px] bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent shadow-sm animate-pulse" />
+                                    <div key={`tx-skel-${idx}`} className="h-[80px] rounded-[20px] bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent shadow-sm animate-pulse" />
                                 ))
                             ) : transactions.length > 0 ? (
                                 transactions.slice(0, 4).map((tx: HomeCreditTransaction, idx) => {
@@ -772,7 +784,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                     const dateString = tx.created_at ? new Date(tx.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
 
                                     return (
-                                        <div key={`recent-tx-${idx}-${tx.transaction_id || tx.id || 'none'}`} className="group min-h-[74px] flex items-center gap-4 p-4 rounded-[20px] bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                                        <div key={`recent-tx-${idx}-${tx.transaction_id || tx.id || 'none'}`} className="group h-[80px] flex items-center gap-4 p-4 rounded-[20px] bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                                             <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 ${isUsage ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-500' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500'}`}>
                                                 {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
                                             </div>
