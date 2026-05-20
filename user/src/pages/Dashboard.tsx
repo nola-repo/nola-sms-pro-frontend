@@ -10,7 +10,7 @@ import { Composer } from "../components/Composer";
 import { ContactsTab } from "../components/ContactsTab";
 import { TemplatesTab } from "../components/TemplatesTab";
 import { Settings } from "./Settings";
-import { FiAlertCircle, FiArrowRight, FiCheckCircle, FiLoader, FiMenu, FiRefreshCw, FiSettings } from "react-icons/fi";
+import { FiAlertCircle, FiArrowRight, FiCheckCircle, FiLoader, FiMenu, FiRefreshCw, FiSettings, FiUser } from "react-icons/fi";
 import { Home } from "../components/Home";
 import { TicketsTab } from "../components/TicketsTab";
 import { useOnboarding } from "../components/onboarding/useOnboarding";
@@ -400,7 +400,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     );
   }
 
-  return <div className="flex h-screen min-h-0 bg-[#ffffff] dark:bg-[#202123] overflow-y-auto">
+  return (
+  <div className="flex h-screen min-h-0 bg-[#ffffff] dark:bg-[#202123] overflow-y-auto">
       {/* Sidebar - Left */}
       <div className={`
         fixed inset-y-0 left-0 z-[100] md:relative md:z-50 h-full transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
