@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { FiPlus, FiSearch, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiDownload, FiTrendingUp } from "react-icons/fi";
 import type { Contact } from "../types/Contact";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+gsap.registerPlugin(ScrollTrigger);
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
 import { fetchConversations } from "../api/sms";
 import { fetchContacts } from "../api/contacts";
@@ -149,6 +153,17 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         loadData();
         return () => { cancelled = true; };
     }, [locationId]);
+
+    useEffect(() => {
+        if (!loading) {
+            // Give a short delay for the DOM to fully render with the loaded items,
+            // then refresh GSAP ScrollTrigger so it recalculates all start/end offsets.
+            const timer = setTimeout(() => {
+                ScrollTrigger.refresh();
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [loading]);
 
     const toProperCase = (name: string): string => {
         return name.replace(/\b\w/g, (char) => char.toUpperCase());
@@ -315,7 +330,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
     };
 
     return (
-        <div className="flex-1 w-full flex flex-col overflow-y-auto custom-scrollbar bg-[#f3f4f6] dark:bg-[#09090b] relative">
+        <div id="snap-main-container" className="flex-1 w-full flex flex-col overflow-y-auto custom-scrollbar bg-[#f3f4f6] dark:bg-[#09090b] relative">
             {/* Background Gradient Header */}
             <div className="absolute top-0 left-0 w-full h-[340px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] z-0 rounded-b-[40px] pointer-events-none" />
 
