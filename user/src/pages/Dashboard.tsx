@@ -129,6 +129,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const [settingsTab, setSettingsTab] = useState<"account" | "senderIds" | "notifications" | "credits" | undefined>(undefined);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [settingsOpen] = useState(false);
+  const [autoOpenAddContact, setAutoOpenAddContact] = useState(false);
 
   const isMobileMenuOpen = externalIsMobileMenuOpen !== undefined ? externalIsMobileMenuOpen : false;
 
@@ -228,6 +229,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     if (window.innerWidth < 768 && onMobileMenuToggle) {
       onMobileMenuToggle();
     }
+  };
+
+  const handleCreateContactShortcut = () => {
+    setAutoOpenAddContact(true);
+    setCurrentView('contacts');
+    safeStorage.setItem('nola_active_tab', 'contacts');
+    navigate({ pathname: '/contacts', search: window.location.search }, { replace: false });
+
+    setSelectedContacts([]);
+    setActiveContact(null);
+    setActiveBulkMessage(null);
+    safeStorage.removeItem('nola_active_contact');
+    safeStorage.removeItem('nola_active_bulk_message');
   };
 
   const toggleMobileMenu = () => {
@@ -475,6 +489,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
           {currentView === 'home' ? (
             <Home
               onTabChange={handleTabChange}
+              onCreateContact={handleCreateContactShortcut}
               onSelectContact={handleSelectContact}
               onSelectBulkMessage={handleSelectBulkMessage}
             />
@@ -491,6 +506,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             <ContactsTab
               onSendToComposer={handleSendToComposer}
               onViewMessages={handleViewMessages}
+              autoOpenAddModal={autoOpenAddContact}
+              onAutoOpenAddModalHandled={() => setAutoOpenAddContact(false)}
             />
           ) : currentView === 'settings' || settingsOpen ? (
             <Settings

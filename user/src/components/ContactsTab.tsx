@@ -44,6 +44,8 @@ type GhlContactsError = {
 interface ContactsTabProps {
   onSendToComposer: (contacts: Contact[]) => void;
   onViewMessages?: (contact: Contact) => void;
+  autoOpenAddModal?: boolean;
+  onAutoOpenAddModalHandled?: () => void;
 }
 
 const ContactSkeleton = () => (
@@ -58,7 +60,12 @@ const ContactSkeleton = () => (
   </div>
 );
 
-export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onViewMessages }) => {
+export const ContactsTab: React.FC<ContactsTabProps> = ({
+  onSendToComposer,
+  onViewMessages,
+  autoOpenAddModal,
+  onAutoOpenAddModalHandled,
+}) => {
   const { locationId } = useLocationId();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
@@ -149,6 +156,15 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({ onSendToComposer, onVi
       cancelled = true;
     };
   }, [applyContactsFetch, locationId]);
+
+  useEffect(() => {
+    if (!autoOpenAddModal) return;
+
+    setError(null);
+    setSearchQuery("");
+    setIsAddModalOpen(true);
+    onAutoOpenAddModalHandled?.();
+  }, [autoOpenAddModal, onAutoOpenAddModalHandled]);
 
   const refreshContacts = async () => {
     setIsPullRefreshing(true);

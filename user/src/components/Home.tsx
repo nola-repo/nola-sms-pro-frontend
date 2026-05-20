@@ -2,14 +2,13 @@ import { useState, useEffect } from "react";
 import { FiPlus, FiSearch, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiDownload, FiTrendingUp } from "react-icons/fi";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
-import { fetchConversations, type SenderId } from "../api/sms";
+import { fetchConversations } from "../api/sms";
 import { fetchContacts } from "../api/contacts";
 import { fetchCreditStatus, fetchCreditTransactions, type CreditStatus, type CreditTransaction } from "../api/credits";
 import { generateMonthlyReport } from "../utils/pdfGenerator";
 import SplitText from "./SplitText";
 import AnimatedContent from "./AnimatedContent";
 import FadeContent from "./FadeContent";
-import { SenderSelector } from "./SenderSelector";
 import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
 import { useLocationId } from "../context/LocationContext";
 import { useUserProfileContext } from "../context/UserProfileContext";
@@ -17,6 +16,7 @@ import type { ViewTab } from "./Sidebar";
 
 interface HomeProps {
     onTabChange: (tab: ViewTab) => void;
+    onCreateContact: () => void;
     onSelectContact: (contact: Contact) => void;
     onSelectBulkMessage: (message: BulkMessageHistoryItem) => void;
 }
@@ -86,7 +86,7 @@ const buildFallbackSeries = (series: TrendPoint[], fallbackTotal: number): Trend
     }));
 };
 
-export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSelectBulkMessage }) => {
+export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSelectContact, onSelectBulkMessage }) => {
     const { locationId } = useLocationId();
     const liveProfile = useUserProfileContext();
     const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
@@ -96,7 +96,6 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
     const [contactsCount, setContactsCount] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [showAllActivity, setShowAllActivity] = useState(false);
-    const [senderName, setSenderName] = useState<SenderId>("NOLASMSPro");
     const [trendAnchor] = useState(() => new Date());
 
     useEffect(() => {
@@ -243,6 +242,12 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         liveProfile?.location_name && liveProfile.location_name !== "Unknown"
             ? liveProfile.location_name
             : "";
+    const profileDisplayName =
+        liveProfile?.name?.trim() ||
+        [liveProfile?.firstName, liveProfile?.lastName].filter(Boolean).join(" ").trim() ||
+        liveProfile?.email?.trim() ||
+        "";
+    const profileInitial = profileDisplayName.charAt(0).toUpperCase();
     const greetingText = subaccountName ? `${getGreeting()}, ${subaccountName}` : getGreeting();
     const sentToday = creditStatus?.stats?.sent_today ?? 0;
     const creditsUsedMonth = creditStatus?.stats?.credits_used_month ?? 0;
@@ -360,8 +365,11 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 className="w-full pl-11 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-[14px] font-medium text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/20 transition-all"
                             />
                         </div>
-                        <div className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center shadow-lg shadow-black/10 border-2 border-white/20 flex-shrink-0 text-white font-bold text-[14px] overflow-hidden">
-                            {subaccountName ? subaccountName.charAt(0).toUpperCase() : <FiUser className="w-5 h-5" />}
+                        <div
+                            className="w-10 h-10 rounded-xl bg-orange-500 flex items-center justify-center shadow-lg shadow-black/10 border-2 border-white/20 flex-shrink-0 text-white font-bold text-[14px] overflow-hidden"
+                            title={profileDisplayName || "Profile"}
+                        >
+                            {profileInitial || <FiUser className="w-5 h-5" />}
                         </div>
                     </div>
                 </div>
@@ -376,37 +384,37 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                             const isTrialActive = trialTotal > 0 && trialUsed < trialTotal;
                             const trialLeft    = trialTotal - trialUsed;
                             return (
-                                <div className="p-6 rounded-[24px] bg-[#e6f4ea] dark:bg-[#1a2e26] shadow-xl shadow-black/5 hover:shadow-black/10 transition-all group overflow-hidden relative h-full border border-emerald-500/10">
-                                    <div className="absolute -right-4 -top-4 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-                                    <div className="absolute bottom-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-emerald-900 dark:text-emerald-100">
+                                <div className="p-6 rounded-[24px] bg-gradient-to-br from-sky-100 via-blue-100 to-blue-300 dark:from-blue-950 dark:via-blue-900 dark:to-sky-800 shadow-xl shadow-blue-500/10 hover:shadow-blue-500/20 transition-all group overflow-hidden relative h-full border border-white/50 dark:border-blue-400/10">
+                                    <button
+                                        onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }))}
+                                        className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/85 text-blue-700 shadow-md shadow-blue-900/10 ring-1 ring-white/70 hover:bg-white hover:scale-105 active:scale-95 transition-all"
+                                        aria-label="Open credits"
+                                        title="Open credits"
+                                    >
+                                        <FiPlus className="h-4 w-4" />
+                                    </button>
+                                    <div className="absolute inset-0 bg-white/20 dark:bg-white/[0.03] pointer-events-none" />
+                                    <div className="absolute bottom-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-blue-900 dark:text-blue-100">
                                         <FiCreditCard className="w-24 h-24" />
                                     </div>
                                     <div className="relative z-10 flex flex-col h-full justify-between">
                                         <div>
-                                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4">
+                                            <div className="w-10 h-10 rounded-xl bg-white/55 dark:bg-white/10 flex items-center justify-center text-blue-700 dark:text-blue-200 mb-4 shadow-sm shadow-blue-900/5">
                                                 <FiCreditCard className="h-5 w-5" />
                                             </div>
-                                            <p className="text-[12px] font-bold text-emerald-900/60 dark:text-emerald-100/60 uppercase tracking-widest mb-1">
+                                            <p className="text-[12px] font-bold text-blue-950/60 dark:text-blue-100/70 uppercase tracking-widest mb-1">
                                                 Available Credits
                                             </p>
                                         </div>
-                                        <div className="flex items-center justify-between gap-4 mt-auto">
-                                            <div className="flex items-center gap-3 mt-4">
-                                                <h2 className="text-3xl sm:text-4xl font-black text-emerald-900 dark:text-emerald-50 leading-none">
-                                                    {loading ? <span className="inline-block w-16 h-10 bg-emerald-500/20 animate-pulse rounded-lg" /> : balance.toLocaleString()}
-                                                </h2>
-                                                {isTrialActive && !loading && (
-                                                    <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 rounded-full whitespace-nowrap">
-                                                        {trialLeft} Free Trial
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <button
-                                                onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }))}
-                                                className="px-3 py-1.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 text-[11px] font-bold transition-all flex items-center gap-1.5 flex-shrink-0 mt-4 shadow-md shadow-emerald-500/20"
-                                            >
-                                                <FiPlus className="w-3 h-3" /> Top Up
-                                            </button>
+                                        <div className="flex items-center gap-3 mt-4">
+                                            <h2 className="text-3xl sm:text-4xl font-black text-blue-950 dark:text-blue-50 leading-none">
+                                                {loading ? <span className="inline-block w-16 h-10 bg-blue-500/20 animate-pulse rounded-lg" /> : balance.toLocaleString()}
+                                            </h2>
+                                            {isTrialActive && !loading && (
+                                                <span className="text-[10px] font-bold bg-white/60 dark:bg-white/10 text-blue-800 dark:text-blue-200 px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                                                    {trialLeft} Free Trial
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -415,43 +423,56 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     </AnimatedContent>
 
                     <AnimatedContent delay={0.2} distance={50} direction="vertical">
-                        <div className="p-6 rounded-[24px] bg-[#ffede6] dark:bg-[#331c15] shadow-xl shadow-black/5 hover:shadow-black/10 transition-all group overflow-hidden relative h-full border border-orange-500/10">
-                            <div className="absolute -right-4 -top-4 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-                            <div className="absolute bottom-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-orange-900 dark:text-orange-100">
+                        <div className="p-6 rounded-[24px] bg-gradient-to-br from-fuchsia-100 via-purple-100 to-violet-300 dark:from-purple-950 dark:via-violet-950 dark:to-indigo-900 shadow-xl shadow-purple-500/10 hover:shadow-purple-500/20 transition-all group overflow-hidden relative h-full border border-white/50 dark:border-purple-400/10">
+                            <button
+                                onClick={() => onTabChange('compose')}
+                                className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/85 text-purple-700 shadow-md shadow-purple-900/10 ring-1 ring-white/70 hover:bg-white hover:scale-105 active:scale-95 transition-all"
+                                aria-label="New message"
+                                title="New message"
+                            >
+                                <FiPlus className="h-4 w-4" />
+                            </button>
+                            <div className="absolute inset-0 bg-white/20 dark:bg-white/[0.03] pointer-events-none" />
+                            <div className="absolute bottom-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-purple-900 dark:text-purple-100">
                                 <FiMessageSquare className="w-24 h-24" />
                             </div>
                             <div className="relative z-10 flex flex-col h-full justify-between">
                                 <div>
-                                    <div className="flex justify-between items-center mb-4">
-                                        <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-600 dark:text-orange-400">
-                                            <FiMessageSquare className="h-5 w-5" />
-                                        </div>
-                                        <SenderSelector value={senderName} onChange={setSenderName} align="right" />
+                                    <div className="w-10 h-10 rounded-xl bg-white/55 dark:bg-white/10 flex items-center justify-center text-purple-700 dark:text-purple-200 mb-4 shadow-sm shadow-purple-900/5">
+                                        <FiMessageSquare className="h-5 w-5" />
                                     </div>
-                                    <p className="text-[12px] font-bold text-orange-900/60 dark:text-orange-100/60 uppercase tracking-widest mb-1">Total Conversations</p>
+                                    <p className="text-[12px] font-bold text-purple-950/60 dark:text-purple-100/70 uppercase tracking-widest mb-1">Total Conversations</p>
                                 </div>
-                                <h2 className="text-3xl sm:text-4xl font-black text-orange-900 dark:text-orange-50 leading-none mt-4">
-                                    {loading ? <span className="inline-block w-12 h-10 bg-orange-500/20 animate-pulse rounded-lg" /> : conversations.length}
+                                <h2 className="text-3xl sm:text-4xl font-black text-purple-950 dark:text-purple-50 leading-none mt-4">
+                                    {loading ? <span className="inline-block w-12 h-10 bg-purple-500/20 animate-pulse rounded-lg" /> : conversations.length}
                                 </h2>
                             </div>
                         </div>
                     </AnimatedContent>
 
                     <AnimatedContent delay={0.3} distance={50} direction="vertical">
-                        <div className="p-6 rounded-[24px] bg-[#e6f4ff] dark:bg-[#152733] shadow-xl shadow-black/5 hover:shadow-black/10 transition-all group overflow-hidden relative h-full border border-blue-500/10">
-                            <div className="absolute -right-4 -top-4 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-                            <div className="absolute bottom-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform duration-500 text-blue-900 dark:text-blue-100">
+                        <div className="p-6 rounded-[24px] bg-gradient-to-br from-emerald-100 via-green-100 to-teal-300 dark:from-emerald-950 dark:via-green-950 dark:to-teal-900 shadow-xl shadow-emerald-500/10 hover:shadow-emerald-500/20 transition-all group overflow-hidden relative h-full border border-white/50 dark:border-emerald-400/10">
+                            <button
+                                onClick={onCreateContact}
+                                className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/85 text-emerald-700 shadow-md shadow-emerald-900/10 ring-1 ring-white/70 hover:bg-white hover:scale-105 active:scale-95 transition-all"
+                                aria-label="Add contact"
+                                title="Add contact"
+                            >
+                                <FiPlus className="h-4 w-4" />
+                            </button>
+                            <div className="absolute inset-0 bg-white/20 dark:bg-white/[0.03] pointer-events-none" />
+                            <div className="absolute bottom-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-emerald-900 dark:text-emerald-100">
                                 <FiUsers className="w-24 h-24" />
                             </div>
                             <div className="relative z-10 flex flex-col h-full justify-between">
                                 <div>
-                                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-4">
+                                    <div className="w-10 h-10 rounded-xl bg-white/55 dark:bg-white/10 flex items-center justify-center text-emerald-700 dark:text-emerald-200 mb-4 shadow-sm shadow-emerald-900/5">
                                         <FiUsers className="h-5 w-5" />
                                     </div>
-                                    <p className="text-[12px] font-bold text-blue-900/60 dark:text-blue-100/60 uppercase tracking-widest mb-1">Total Contacts</p>
+                                    <p className="text-[12px] font-bold text-emerald-950/60 dark:text-emerald-100/70 uppercase tracking-widest mb-1">Total Contacts</p>
                                 </div>
-                                <h2 className="text-3xl sm:text-4xl font-black text-blue-900 dark:text-blue-50 leading-none mt-4">
-                                    {loading ? <span className="inline-block w-12 h-10 bg-blue-500/20 animate-pulse rounded-lg" /> : contactsCount}
+                                <h2 className="text-3xl sm:text-4xl font-black text-emerald-950 dark:text-emerald-50 leading-none mt-4">
+                                    {loading ? <span className="inline-block w-12 h-10 bg-emerald-500/20 animate-pulse rounded-lg" /> : contactsCount}
                                 </h2>
                             </div>
                         </div>
