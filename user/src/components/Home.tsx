@@ -315,7 +315,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
     };
 
     return (
-        <div className="h-full flex flex-col overflow-y-auto custom-scrollbar bg-[#f3f4f6] dark:bg-[#09090b] relative">
+        <div className="flex-1 w-full flex flex-col overflow-y-auto custom-scrollbar bg-[#f3f4f6] dark:bg-[#09090b] relative">
             {/* Background Gradient Header */}
             <div className="absolute top-0 left-0 w-full h-[340px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] z-0 rounded-b-[40px] pointer-events-none" />
 
