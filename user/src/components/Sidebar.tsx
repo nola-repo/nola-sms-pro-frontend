@@ -92,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [editingBulkId, setEditingBulkId] = useState<string | null>(null);
   const [editingBulkName, setEditingBulkName] = useState("");
   const [deletingBulkId, setDeletingBulkId] = useState<string | null>(null);
-  const [deletingContact, setDeletingContact] = useState<{id: string, phone: string} | null>(null);
+  const [deletingContact, setDeletingContact] = useState<{ id: string, phone: string } | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<{ x: number, y: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,7 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       // Load conversations from server
       try {
         const conversations = await fetchConversations(locationId || undefined);
-        
+
         // Build a phone -> name lookup map from freshly-fetched contacts (not stale state)
         const contactMap = new Map<string, string>();
         data.forEach(c => {
@@ -148,10 +148,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         // Handle Direct Conversations
         const directConvs = conversations.filter(c => c.type === 'direct' || !c.type);
-        
+
         // Deduplicate conversations by phone number (merge legacy and scoped UI items)
         const dedupedDirectConvs = new Map<string, Contact>();
-        
+
         directConvs.forEach(conv => {
           const phone = extractPhoneFromDirectConversationId(conv.id) || conv.id;
           const cleanPhone = phone.replace(/\D/g, "");
@@ -159,17 +159,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const isPhoneNumber = (s: string) => /^[\d+\-() ]+$/.test(s);
           const contactName = contactMap.get(phone) || contactMap.get(cleanPhone) || contactMap.get('+63' + cleanPhone);
           let serverName = conv.name && !isPhoneNumber(conv.name) ? conv.name : null;
-          
+
           // Scrub accidental conversation IDs (e.g. "Name locationId_conv_09XX") from the server name
           if (serverName && serverName.includes('_conv_')) {
-             let cleanName = serverName.split('_conv_')[0].trim();
-             // Remove the 20-character location ID if it's at the end
-             cleanName = cleanName.replace(/\b[a-zA-Z0-9]{20}\b$/, '').trim();
-             serverName = cleanName || null;
+            let cleanName = serverName.split('_conv_')[0].trim();
+            // Remove the 20-character location ID if it's at the end
+            cleanName = cleanName.replace(/\b[a-zA-Z0-9]{20}\b$/, '').trim();
+            serverName = cleanName || null;
           }
-          
+
           const name = contactName || serverName || phone;
-          
+
           const item: Contact = {
             id: conv.id,
             name: name,
@@ -177,24 +177,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
             lastMessage: conv.last_message,
             lastSentAt: conv.last_message_at || conv.updated_at || undefined
           };
-          
+
           if (dedupedDirectConvs.has(phone)) {
             const existing = dedupedDirectConvs.get(phone)!;
             const existingIsScoped = existing.id.includes('_conv_');
             const newIsScoped = conv.id.includes('_conv_');
-            
+
             if (newIsScoped && !existingIsScoped) {
-               // Prefer scoped ID over unscoped legacy ID
-               dedupedDirectConvs.set(phone, item);
+              // Prefer scoped ID over unscoped legacy ID
+              dedupedDirectConvs.set(phone, item);
             } else if (!newIsScoped && existingIsScoped) {
-               // Keep existing scoped ID
+              // Keep existing scoped ID
             } else {
-               // Both scoped or both unscoped, keep newest message
-               const newTime = new Date(item.lastSentAt || 0).getTime();
-               const existingTime = new Date(existing.lastSentAt || 0).getTime();
-               if (newTime > existingTime) {
-                 dedupedDirectConvs.set(phone, item);
-               }
+              // Both scoped or both unscoped, keep newest message
+              const newTime = new Date(item.lastSentAt || 0).getTime();
+              const existingTime = new Date(existing.lastSentAt || 0).getTime();
+              if (newTime > existingTime) {
+                dedupedDirectConvs.set(phone, item);
+              }
             }
           } else {
             dedupedDirectConvs.set(phone, item);
@@ -218,7 +218,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const batchId = extractBatchIdFromGroupConversationId(conv.id) || conv.id.replace(/^group_/, '');
             const key = batchId;
             const existing = mergedBulk.get(key);
-            
+
             // Resolve recipient names from contact list if not present
             let recipientNames = existing?.recipientNames || [];
             if (recipientNames.length === 0 && conv.members.length > 0) {
@@ -355,7 +355,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const confirmDeleteBulk = async () => {
     if (!deletingBulkId) return;
-    
+
     // 1. Delete in backend
     const item = bulkHistory.find(h => h.id === deletingBulkId);
     if (item && item.batchId) {
@@ -387,7 +387,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const confirmDeleteContact = async () => {
     if (!deletingContact) return;
     const { id, phone } = deletingContact;
-    
+
     // 1. Delete from backend (GHL/Firestore) only if it's a real GHL contact ID
     //    Skip conversation-sourced IDs (e.g. "locationId_conv_09XXX" or "conv_09XXX")
     const isConversationId = id.includes('_conv_') || id.startsWith('conv_');
@@ -641,7 +641,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className={`transition-transform duration-200 ${directMessagesExpanded ? 'rotate-0' : '-rotate-90'}`}>
                       <FiChevronDown className="w-3.5 h-3.5 text-[#9aa0a6] dark:text-[#5f6368]" />
                     </div>
-                    <span className="text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6]">Direct Messages</span>
+                    <span className="text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6]">Direct Messages</span>
                   </div>
                   <span className="text-[10px] font-bold text-[#9aa0a6] dark:text-[#5f6368] bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                     {directHistory.length}
@@ -661,79 +661,79 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <div className="flex flex-col gap-0.5 py-0.5">
                     {directHistory.map(contact => (
-                        <div
-                          key={contact.id}
-                          className={`
+                      <div
+                        key={contact.id}
+                        className={`
                           group relative transition-all duration-200 overflow-visible
                           px-3 py-2 rounded-xl cursor-pointer mx-1
                           ${activeContactId === contact.id
-                              ? 'bg-[#2b83fa]/8 dark:bg-[#2b83fa]/12'
-                              : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'}
+                            ? 'bg-[#2b83fa]/8 dark:bg-[#2b83fa]/12'
+                            : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'}
                         `}
-                          onClick={() => {
-                            onTabChange('compose');
-                            onSelectContact(contact);
-                          }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="relative flex-shrink-0">
-                              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-[13px] transition-all duration-200
+                        onClick={() => {
+                          onTabChange('compose');
+                          onSelectContact(contact);
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="relative flex-shrink-0">
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-[13px] transition-all duration-200
                             ${activeContactId === contact.id
-                                  ? 'bg-[#2b83fa] text-white shadow-md shadow-blue-500/20'
-                                  : 'bg-[#f0f2f4] dark:bg-[#2a2b32] text-[#5f6368] dark:text-[#9aa0a6]'}
+                                ? 'bg-[#2b83fa] text-white shadow-md shadow-blue-500/20'
+                                : 'bg-[#f0f2f4] dark:bg-[#2a2b32] text-[#5f6368] dark:text-[#9aa0a6]'}
                             `}>
-                                {(contact.name || contact.phone).charAt(0).toUpperCase()}
-                              </div>
-                              {activeContactId === contact.id && (
-                                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white dark:border-[#121415]" />
-                              )}
+                              {(contact.name || contact.phone).charAt(0).toUpperCase()}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex justify-between items-center mb-0.5">
-                                <span className={`text-[13px] truncate leading-tight ${activeContactId === contact.id ? 'font-semibold text-[#111111] dark:text-white' : 'font-medium text-[#3c4043] dark:text-[#e8eaed]'}`}>
-                                  {toProperCase(contact.name || contact.phone)}
-                                </span>
-                                <div className="flex items-center gap-0.5 flex-shrink-0 ml-1">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (openMenuId === contact.id) {
-                                        setOpenMenuId(null);
-                                      } else {
-                                        const rect = e.currentTarget.getBoundingClientRect();
-                                        setMenuAnchor({ x: rect.right, y: rect.bottom });
-                                        setOpenMenuId(contact.id);
-                                      }
-                                    }}
-                                    className="p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-black/[0.06] dark:hover:bg-white/10 transition-all"
+                            {activeContactId === contact.id && (
+                              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-white dark:border-[#121415]" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-center mb-0.5">
+                              <span className={`text-[13px] truncate leading-tight ${activeContactId === contact.id ? 'font-semibold text-[#111111] dark:text-white' : 'font-medium text-[#3c4043] dark:text-[#e8eaed]'}`}>
+                                {toProperCase(contact.name || contact.phone)}
+                              </span>
+                              <div className="flex items-center gap-0.5 flex-shrink-0 ml-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (openMenuId === contact.id) {
+                                      setOpenMenuId(null);
+                                    } else {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      setMenuAnchor({ x: rect.right, y: rect.bottom });
+                                      setOpenMenuId(contact.id);
+                                    }
+                                  }}
+                                  className="p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-black/[0.06] dark:hover:bg-white/10 transition-all"
+                                >
+                                  <FiMoreVertical className="w-3.5 h-3.5 text-[#9aa0a6]" />
+                                </button>
+                                {openMenuId === contact.id && menuAnchor && createPortal(
+                                  <div
+                                    className="fixed bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-black/5 dark:border-white/10 py-1.5 min-w-[120px] z-[99999] animate-in zoom-in-95 duration-150"
+                                    style={{ top: menuAnchor.y + 4, left: menuAnchor.x, transform: 'translateX(-100%)', transformOrigin: 'top right' }}
+                                    onClick={(e) => e.stopPropagation()}
                                   >
-                                    <FiMoreVertical className="w-3.5 h-3.5 text-[#9aa0a6]" />
-                                  </button>
-                                  {openMenuId === contact.id && menuAnchor && createPortal(
-                                    <div
-                                      className="fixed bg-white dark:bg-[#1e1f23] rounded-xl shadow-xl border border-black/5 dark:border-white/10 py-1.5 min-w-[120px] z-[99999] animate-in zoom-in-95 duration-150"
-                                      style={{ top: menuAnchor.y + 4, left: menuAnchor.x, transform: 'translateX(-100%)', transformOrigin: 'top right' }}
-                                      onClick={(e) => e.stopPropagation()}
+                                    <button
+                                      onClick={(e) => startDeleteContact(contact.id, contact.phone, e)}
+                                      className="w-full px-3 py-2 text-left text-[12px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
                                     >
-                                      <button
-                                        onClick={(e) => startDeleteContact(contact.id, contact.phone, e)}
-                                        className="w-full px-3 py-2 text-left text-[12px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 transition-colors"
-                                      >
-                                        <FiTrash2 className="w-3.5 h-3.5" />
-                                        Delete
-                                      </button>
-                                    </div>,
-                                    document.body
-                                  )}
-                                </div>
+                                      <FiTrash2 className="w-3.5 h-3.5" />
+                                      Delete
+                                    </button>
+                                  </div>,
+                                  document.body
+                                )}
                               </div>
-                              <div className={`text-[11.5px] truncate leading-snug ${activeContactId === contact.id ? 'text-[#2b83fa]/80 dark:text-[#60a5fa]/80' : 'text-[#9aa0a6] dark:text-[#5f6368]'}`}>
-                                {contact.lastMessage || 'No messages yet'}
-                              </div>
+                            </div>
+                            <div className={`text-[11.5px] truncate leading-snug ${activeContactId === contact.id ? 'text-[#2b83fa]/80 dark:text-[#60a5fa]/80' : 'text-[#9aa0a6] dark:text-[#5f6368]'}`}>
+                              {contact.lastMessage || 'No messages yet'}
                             </div>
                           </div>
                         </div>
-                      ))}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -746,7 +746,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className={`transition-transform duration-200 ${bulkMessagesExpanded ? 'rotate-0' : '-rotate-90'}`}>
                       <FiChevronDown className="w-3.5 h-3.5 text-[#9aa0a6] dark:text-[#5f6368]" />
                     </div>
-                    <span className="text-[12px] font-semibold text-[#5f6368] dark:text-[#9aa0a6]">Bulk Messages</span>
+                    <span className="text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6]">Bulk Messages</span>
                   </div>
                   <span className="text-[10px] font-bold text-[#9aa0a6] dark:text-[#5f6368] bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{bulkHistory.length}</span>
                 </div>
