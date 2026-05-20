@@ -322,12 +322,6 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
 
     return (
         <div className="h-full flex flex-col overflow-y-auto custom-scrollbar bg-[#f9fafb] dark:bg-[#111111]">
-                        <nav className="flex items-center justify-between px-4 py-2 bg-white dark:bg-[#1a1b1e] rounded-b-xl shadow-sm">
-                            <input type="text" placeholder="Search contacts or messages" className="flex-1 px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2b83fa] bg-white dark:bg-[#2a2c2e] text-[#111111] dark:text-white" />
-                            <div className="ml-4 flex items-center">
-                                <img src="/path/to/profile.jpg" alt="Profile" className="w-8 h-8 rounded-full object-cover" />
-                            </div>
-                        </nav>
             <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
                 {/* Greeting Section */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 mb-7 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
@@ -481,7 +475,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     </AnimatedContent>
 
                     <AnimatedContent delay={0.2} distance={50} direction="vertical">
-                        <div className="p-6 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all group overflow-hidden relative h-full">
+                        <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all group overflow-hidden relative h-full">
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
                                 <FiMessageSquare className="w-24 h-24 text-white" />
                             </div>
