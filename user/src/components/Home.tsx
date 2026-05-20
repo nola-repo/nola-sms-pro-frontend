@@ -509,82 +509,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     </AnimatedContent>
                 </div>
 
-                {/* Recent Transactions */}
-                <AnimatedContent delay={0.35} distance={40} direction="vertical">
-                    <div className="mb-8 bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-4 sm:p-6 shadow-sm">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-                            <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
-                                <FiActivity className="w-4 h-4 text-amber-500" /> Recent Transactions
-                            </h3>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <button
-                                    onClick={async () => {
-                                        const currentMonth = new Date().toISOString().slice(0, 7);
-                                        const allTxs = await fetchCreditTransactions('default', 5000, locationId || undefined);
-                                        generateMonthlyReport(currentMonth, allTxs, 'subaccount', 'My Account');
-                                    }}
-                                    className="text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ffffff] py-1 px-3 border border-transparent rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition-colors flex items-center gap-1.5"
-                                >
-                                    <FiDownload className="w-3.5 h-3.5" /> Download Report
-                                </button>
-                                <button
-                                    onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }))}
-                                    className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                                >
-                                    See All
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                            {loading ? (
-                                [...Array(4)].map((_, idx) => (
-                                    <div key={`tx-skel-${idx}`} className="h-[74px] rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent shadow-sm animate-pulse" />
-                                ))
-                            ) : transactions.length > 0 ? (
-                                transactions.slice(0, 4).map((tx: HomeCreditTransaction, idx) => {
-                                    const isCredit = tx.type === 'top_up' || tx.type === 'refund' || tx.type === 'manual_adjustment' || tx.type === 'credit_purchase';
-                                    const isUsage = !isCredit;
-                                    const timeString = tx.created_at ? new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                                    const dateString = tx.created_at ? new Date(tx.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
-
-                                    return (
-                                        <div key={`recent-tx-${idx}-${tx.transaction_id || tx.id || 'none'}`} className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 ${isUsage ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-500' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500'}`}>
-                                                {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center justify-between mb-1 gap-2">
-                                                    <p className="text-[14px] font-bold text-[#111111] dark:text-white leading-tight truncate">
-                                                        {tx.description || (isUsage ? 'Credits Used' : 'Credits Purchased')}
-                                                    </p>
-                                                    <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">
-                                                        {dateString}{timeString ? ` - ${timeString}` : ''}
-                                                    </span>
-                                                </div>
-                                                <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] leading-snug truncate">
-                                                    {isUsage && Math.abs(tx.amount || 0) === 0 ? (
-                                                        <span className="font-bold text-amber-500">-1 free trial</span>
-                                                    ) : isUsage ? (
-                                                        <span className="font-bold text-amber-500">{Math.abs(tx.amount || 0).toLocaleString()} credits used</span>
-                                                    ) : (
-                                                        <>Added <span className="font-bold text-emerald-500">+{Math.abs(tx.amount || 0).toLocaleString()}</span> credits</>
-                                                    )}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            ) : (
-                                <div className="lg:col-span-2 p-8 text-center rounded-2xl border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
-                                    <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No recent transactions found.</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </AnimatedContent>
-
-                <div className="grid grid-cols-1 lg:grid-cols-[0.95fr_1.05fr] gap-6 lg:gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-[0.95fr_1.05fr] gap-6 lg:gap-8 mb-8">
                     {/* Quick Actions Column */}
                     <div>
                         <AnimatedContent delay={0.4} distance={50} direction="vertical">
@@ -744,7 +669,82 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     </div>
                 </div>
 
-            {/* All Activity Popup */}
+            {/* Recent Transactions */}
+                <AnimatedContent delay={0.35} distance={40} direction="vertical">
+                    <div className="mb-8 bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-4 sm:p-6 shadow-sm">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+                            <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
+                                <FiActivity className="w-4 h-4 text-amber-500" /> Recent Transactions
+                            </h3>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                    onClick={async () => {
+                                        const currentMonth = new Date().toISOString().slice(0, 7);
+                                        const allTxs = await fetchCreditTransactions('default', 5000, locationId || undefined);
+                                        generateMonthlyReport(currentMonth, allTxs, 'subaccount', 'My Account');
+                                    }}
+                                    className="text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ffffff] py-1 px-3 border border-transparent rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition-colors flex items-center gap-1.5"
+                                >
+                                    <FiDownload className="w-3.5 h-3.5" /> Download Report
+                                </button>
+                                <button
+                                    onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }))}
+                                    className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                >
+                                    See All
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                            {loading ? (
+                                [...Array(4)].map((_, idx) => (
+                                    <div key={`tx-skel-${idx}`} className="h-[74px] rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent shadow-sm animate-pulse" />
+                                ))
+                            ) : transactions.length > 0 ? (
+                                transactions.slice(0, 4).map((tx: HomeCreditTransaction, idx) => {
+                                    const isCredit = tx.type === 'top_up' || tx.type === 'refund' || tx.type === 'manual_adjustment' || tx.type === 'credit_purchase';
+                                    const isUsage = !isCredit;
+                                    const timeString = tx.created_at ? new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                                    const dateString = tx.created_at ? new Date(tx.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
+
+                                    return (
+                                        <div key={`recent-tx-${idx}-${tx.transaction_id || tx.id || 'none'}`} className="group min-h-[74px] flex items-center gap-4 p-4 rounded-2xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3 ${isUsage ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-500' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500'}`}>
+                                                {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between mb-1 gap-2">
+                                                    <p className="text-[14px] font-bold text-[#111111] dark:text-white leading-tight truncate">
+                                                        {tx.description || (isUsage ? 'Credits Used' : 'Credits Purchased')}
+                                                    </p>
+                                                    <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">
+                                                        {dateString}{timeString ? ` - ${timeString}` : ''}
+                                                    </span>
+                                                </div>
+                                                <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] leading-snug truncate">
+                                                    {isUsage && Math.abs(tx.amount || 0) === 0 ? (
+                                                        <span className="font-bold text-amber-500">-1 free trial</span>
+                                                    ) : isUsage ? (
+                                                        <span className="font-bold text-amber-500">{Math.abs(tx.amount || 0).toLocaleString()} credits used</span>
+                                                    ) : (
+                                                        <>Added <span className="font-bold text-emerald-500">+{Math.abs(tx.amount || 0).toLocaleString()}</span> credits</>
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="lg:col-span-2 p-8 text-center rounded-2xl border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
+                                    <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No recent transactions found.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </AnimatedContent>
+
+                {/* All Activity Popup */}
             {showAllActivity && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
                     <div
