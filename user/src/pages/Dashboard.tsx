@@ -1,4 +1,5 @@
 import { safeStorage } from '../utils/safeStorage';
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Contact } from "../types/Contact";
@@ -101,6 +102,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   // Reactive location ID from context — re-renders whenever subaccount changes
   const { locationId } = useLocationId();
   const [registrationCheck, setRegistrationCheck] = useState<RegistrationCheckState>({ status: 'idle' });
+  const [lottieError, setLottieError] = useState(false);
   const [activeContact, setActiveContact] = useState<Contact | null>(() => {
     try {
       const saved = safeStorage.getItem('nola_active_contact');
@@ -320,9 +322,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   if (locationId && registrationCheck.status === 'checking') {
     return (
       <div className="min-h-screen bg-[#f7f7f7] dark:bg-[#18191d] flex items-center justify-center px-4">
-        <div className="flex items-center gap-3 px-5 py-4 rounded-2xl bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 shadow-lg">
-          <FiLoader className="w-5 h-5 text-[#2b83fa] animate-spin" />
-          <span className="text-[13px] font-semibold text-[#37352f] dark:text-[#ececf1]">Checking registration...</span>
+        <div className="flex flex-col items-center gap-2 px-5 py-4 rounded-2xl bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 shadow-lg">
+          {!lottieError && (
+            <DotLottieReact
+              src="https://lottie.host/8bff6661-62db-4473-adb8-7eced34f3649/mii3gOOlir.lottie"
+              loop
+              autoplay
+              className="w-40 h-40 md:w-56 md:h-56 mb-1"
+              onError={() => setLottieError(true)}
+            />
+          )}
+          <div className="flex items-center gap-3">
+            <FiLoader className="w-5 h-5 text-[#2b83fa] animate-spin" />
+            <span className="text-[13px] font-semibold text-[#37352f] dark:text-[#ececf1]">Checking registration...</span>
+          </div>
         </div>
       </div>
     );
