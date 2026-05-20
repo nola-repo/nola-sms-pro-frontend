@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FiHome, FiPlus, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiChevronRight, FiChevronLeft, FiDownload } from "react-icons/fi";
+import { FiHome, FiPlus, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiChevronRight, FiChevronLeft, FiDownload, FiTrendingUp } from "react-icons/fi";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
 import { fetchConversations, type SenderId } from "../api/sms";
@@ -26,6 +26,35 @@ type HomeCreditTransaction = Omit<CreditTransaction, "type"> & {
     type: CreditTransaction["type"] | "credit_purchase" | string;
 };
 
+type TrendPoint = {
+    label: string;
+    value: number;
+};
+
+const toDate = (value?: string | null): Date | null => {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const dayKey = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+};
+
+const createDaySeries = (anchorDate: Date, days = 7): TrendPoint[] => {
+    return Array.from({ length: days }, (_, index) => {
+        const date = new Date(anchorDate);
+        date.setDate(anchorDate.getDate() - (days - 1 - index));
+        return {
+            label: date.toLocaleDateString([], { weekday: "short" }),
+            value: 0,
+        };
+    });
+};
+
 export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSelectBulkMessage }) => {
     const { locationId } = useLocationId();
     const liveProfile = useUserProfileContext();
@@ -38,6 +67,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
     const [showAllActivity, setShowAllActivity] = useState(false);
     const [senderName, setSenderName] = useState<SenderId>("NOLASMSPro");
     const [currentPage, setCurrentPage] = useState(1);
+    const [trendAnchor] = useState(() => new Date());
     const ITEMS_PER_PAGE = 5;
 
     useEffect(() => {
@@ -191,6 +221,72 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
     const lastActivityLabel = lastActivityAt
         ? new Date(lastActivityAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
         : "No messages yet";
+    const trendStartDate = new Date(trendAnchor);
+    trendStartDate.setDate(trendAnchor.getDate() - 6);
+    const trendStartKey = dayKey(trendStartDate);
+    const recentActivitySeries = createDaySeries(trendAnchor, 7);
+    const recentActivityIndex = new Map(recentActivitySeries.map((point, index) => [point.label, index]));
+    conversations.forEach((conv) => {
+        const date = toDate(conv.last_message_at || conv.updated_at);
+        if (!date) return;
+        const label = date.toLocaleDateString([], { weekday: "short" });
+        const index = recentActivityIndex.get(label);
+        if (index !== undefined && dayKey(date) >= trendStartKey) {
+            recentActivitySeries[index].value += 1;
+        }
+    });
+    const creditUsageSeries = createDaySeries(trendAnchor, 7);
+    const creditUsageIndex = new Map(creditUsageSeries.map((point, index) => [point.label, index]));
+    transactions.forEach((tx) => {
+        const log = tx as HomeCreditTransaction;
+        const date = toDate(log.created_at);
+        if (!date) return;
+        const label = date.toLocaleDateString([], { weekday: "short" });
+        const index = creditUsageIndex.get(label);
+        const isUsage = log.type !== 'top_up' && log.type !== 'refund' && log.type !== 'manual_adjustment' && log.type !== 'credit_purchase';
+        if (index !== undefined && isUsage && dayKey(date) >= trendStartKey) {
+            creditUsageSeries[index].value += Math.abs(log.amount || 0);
+        }
+    });
+    const sentTrendTotal = recentActivitySeries.reduce((sum, point) => sum + point.value, 0);
+    const creditTrendTotal = creditUsageSeries.reduce((sum, point) => sum + point.value, 0);
+    const renderMiniBars = (series: TrendPoint[], color: string, isLoading: boolean) => {
+        const maxValue = Math.max(1, ...series.map((point) => point.value));
+
+        if (isLoading) {
+            return (
+                <div className="h-12 flex items-end gap-1.5">
+                    {[36, 58, 44, 72, 52, 84, 64].map((height, index) => (
+                        <div
+                            key={`bar-skeleton-${index}`}
+                            className="flex-1 rounded-t-md bg-[#edf0f3] dark:bg-white/10 skeleton-gleam"
+                            style={{ height: `${height}%` }}
+                        />
+                    ))}
+                </div>
+            );
+        }
+
+        return (
+            <div className="h-12 flex items-end gap-1.5">
+                {series.map((point) => {
+                    const height = point.value === 0 ? 14 : Math.max(20, Math.round((point.value / maxValue) * 100));
+                    return (
+                        <div
+                            key={point.label}
+                            className="flex-1 rounded-t-md transition-all duration-300"
+                            title={`${point.label}: ${point.value.toLocaleString()}`}
+                            style={{
+                                height: `${height}%`,
+                                backgroundColor: point.value === 0 ? "rgba(154,160,166,0.18)" : color,
+                                opacity: point.value === 0 ? 1 : 0.9,
+                            }}
+                        />
+                    );
+                })}
+            </div>
+        );
+    };
 
     return (
         <div className="h-full flex flex-col overflow-y-auto custom-scrollbar bg-[#f9fafb] dark:bg-[#111111]">
@@ -234,25 +330,66 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-7">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 mb-7">
                     {[
-                        { label: 'Sent today', value: loading ? '' : sentToday.toLocaleString(), icon: <FiMessageSquare className="h-4 w-4" /> },
-                        { label: 'Credits used this month', value: loading ? '' : creditsUsedMonth.toLocaleString(), icon: <FiActivity className="h-4 w-4" /> },
-                        { label: 'Latest activity', value: loading ? '' : lastActivityLabel, icon: <FiClock className="h-4 w-4" /> },
+                        {
+                            label: 'Sent today',
+                            value: sentToday.toLocaleString(),
+                            icon: <FiMessageSquare className="h-5 w-5" />,
+                            accent: '#2b83fa',
+                            soft: 'bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa]',
+                            series: recentActivitySeries,
+                            note: `${sentTrendTotal.toLocaleString()} recent conversations`,
+                            compact: false,
+                        },
+                        {
+                            label: 'Credits used this month',
+                            value: creditsUsedMonth.toLocaleString(),
+                            icon: <FiActivity className="h-5 w-5" />,
+                            accent: '#f59e0b',
+                            soft: 'bg-amber-50 dark:bg-amber-900/20 text-amber-500',
+                            series: creditUsageSeries,
+                            note: `${creditTrendTotal.toLocaleString()} credits in 7 days`,
+                            compact: false,
+                        },
+                        {
+                            label: 'Latest activity',
+                            value: lastActivityLabel,
+                            icon: <FiClock className="h-5 w-5" />,
+                            accent: '#10b981',
+                            soft: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500',
+                            series: recentActivitySeries,
+                            note: lastActivityAt ? 'Most recent conversation' : 'No active conversations',
+                            compact: true,
+                        },
                     ].map((item) => (
-                        <div key={item.label} className="min-h-[76px] rounded-2xl border border-[#e8eaed] dark:border-white/5 bg-white dark:bg-[#1a1b1e] px-4 py-3 flex items-center gap-3 shadow-sm">
-                            <div className="w-9 h-9 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center flex-shrink-0">
-                                {item.icon}
+                        <AnimatedContent key={item.label} delay={0.08} distance={30} direction="vertical">
+                            <div className="min-h-[168px] rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 p-4 flex flex-col justify-between overflow-hidden">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-[#8a8f98] dark:text-[#777d88]">{item.label}</p>
+                                        {loading ? (
+                                            <div className="mt-3 h-8 w-24 rounded-lg bg-[#edf0f3] dark:bg-white/10 skeleton-gleam" />
+                                        ) : (
+                                            <p className={`${item.compact ? 'text-[18px] sm:text-[19px]' : 'text-3xl'} mt-2 font-black text-[#111111] dark:text-white leading-tight truncate`}>
+                                                {item.value}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${item.soft}`}>
+                                        {item.icon}
+                                    </div>
+                                </div>
+
+                                <div className="mt-5">
+                                    {renderMiniBars(item.series, item.accent, loading)}
+                                    <div className="mt-3 flex items-center justify-between gap-2 text-[11px] font-bold text-[#8a8f98] dark:text-[#777d88]">
+                                        <span className="truncate">{loading ? 'Loading trend' : item.note}</span>
+                                        <FiTrendingUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: item.accent }} />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="min-w-0">
-                                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8a8f98] dark:text-[#777d88]">{item.label}</p>
-                                {loading ? (
-                                    <div className="mt-1 h-4 w-24 rounded-full bg-[#edf0f3] dark:bg-white/10 animate-pulse" />
-                                ) : (
-                                    <p className="text-[14px] font-black text-[#111111] dark:text-white truncate">{item.value}</p>
-                                )}
-                            </div>
-                        </div>
+                        </AnimatedContent>
                     ))}
                 </div>
 

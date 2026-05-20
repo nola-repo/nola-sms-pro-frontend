@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useState, useCallback } from 'react';
 import {
   getSession,
   saveSession,
@@ -39,8 +39,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Store token in sessionStorage (tab-scoped) — not localStorage
         sessionSafeStorage.setItem(SESSION_KEYS.token, urlToken);
 
-        // Clean up the URL so the token doesn't linger in browser history
-        window.history.replaceState({}, document.title, window.location.pathname);
+        // Clean up only the token so GHL/location prefill params can still flow through the app.
+        params.delete('token');
+        const nextQuery = params.toString();
+        const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
+        window.history.replaceState({}, document.title, nextUrl);
       }
     } catch (e) {
       console.error("[AuthContext] Error parsing URL token:", e);
@@ -74,8 +77,3 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
-export const useAuth = (): AuthContextValue => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');
-  return ctx;
-};

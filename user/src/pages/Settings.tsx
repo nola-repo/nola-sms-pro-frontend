@@ -731,7 +731,7 @@ function formatTxDate(iso: string): string {
 const AR_AMOUNTS = [100, 250, 500, 1000, 2000];
 const AR_THRESHOLDS = [25, 50, 100, 200];
 const API_BASE_URL = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
-const CHECKOUT_ALLOWED_ORIGINS = new Set(['https://sms.nolawebsolutions.com']);
+const CHECKOUT_ALLOWED_ORIGINS = new Set(['https://sms.nolawebsolutions.com', 'https://nolasmspro.com']);
 const CHECKOUT_SESSION_STORAGE_KEY = 'nola_pending_checkout';
 const VALID_LOCATION_ID = /^[A-Za-z0-9_-]{8,80}$/;
 type CreditTransactionWithFallbacks = CreditTransaction & { timestamp?: string };
@@ -1073,6 +1073,63 @@ const CreditsSection: React.FC = () => {
         }
 
         // ── Build query string ────────────────────────────────────────────────
+        const readCachedProfile = (): Record<string, string | null | undefined> => {
+            try {
+                const authUser = JSON.parse(localStorage.getItem('nola_auth_user') || 'null') || {};
+                const nolaUser = JSON.parse(localStorage.getItem('nola_user') || 'null') || {};
+                return { ...authUser, ...nolaUser };
+            } catch {
+                return {};
+            }
+        };
+        const profileFields = accountProfile as unknown as Record<string, string | null | undefined>;
+        const liveProfileFields = (liveProfile || {}) as Record<string, string | null | undefined>;
+        const sessionUserFields = (session?.user || {}) as Record<string, string | null | undefined>;
+        const cachedFields = readCachedProfile();
+        const joinedLiveName = [liveProfile?.firstName, liveProfile?.lastName].filter(Boolean).join(' ');
+        const fullName = pick(
+            profileFields.full_name,
+            profileFields.name,
+            liveProfileFields.full_name,
+            liveProfileFields.name,
+            joinedLiveName,
+            sessionUserFields.full_name,
+            sessionUserFields.name,
+            cachedFields.full_name,
+            cachedFields.name
+        );
+        const nameParts = fullName.split(/\s+/).filter(Boolean);
+        const firstName = pick(
+            profileFields.firstName,
+            liveProfileFields.firstName,
+            sessionUserFields.firstName,
+            cachedFields.firstName,
+            nameParts[0]
+        );
+        const lastName = pick(
+            profileFields.lastName,
+            liveProfileFields.lastName,
+            sessionUserFields.lastName,
+            cachedFields.lastName,
+            nameParts.length > 1 ? nameParts.slice(1).join(' ') : ''
+        );
+        const email = pick(
+            profileFields.email,
+            profileFields.email_address,
+            liveProfileFields.email,
+            sessionUserFields.email,
+            cachedFields.email,
+            cachedFields.email_address
+        );
+        const phone = pick(
+            profileFields.phone,
+            profileFields.phone_number,
+            liveProfileFields.phone,
+            sessionUserFields.phone,
+            cachedFields.phone,
+            cachedFields.phone_number
+        );
+
         const checkoutState = createCheckoutState();
         const pending: PendingCheckoutSession = {
             state: checkoutState,
@@ -1083,6 +1140,16 @@ const CreditsSection: React.FC = () => {
         sessionSafeStorage.setItem(CHECKOUT_SESSION_STORAGE_KEY, JSON.stringify(pending));
 
         checkoutUrl.searchParams.set('location_id', resolvedLocationId);
+        [
+            ['name', fullName],
+            ['full_name', fullName],
+            ['first_name', firstName],
+            ['last_name', lastName],
+            ['email', email],
+            ['phone', phone],
+        ].forEach(([key, value]) => {
+            if (value) checkoutUrl.searchParams.set(key, value);
+        });
         checkoutUrl.searchParams.set('checkout_state', checkoutState);
         popup.location.href = checkoutUrl.toString();
 

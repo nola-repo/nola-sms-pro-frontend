@@ -76,26 +76,23 @@ const StatusBadgeSummary: React.FC<{ stats: { sent: number, sending: number, fai
 
 const MessageHistorySkeleton: React.FC = () => {
   const rows = [
-    { align: "items-start", width: "w-[58%]", height: "h-14", avatar: true },
-    { align: "items-end", width: "w-[72%]", height: "h-20" },
-    { align: "items-end", width: "w-[42%]", height: "h-11" },
-    { align: "items-start", width: "w-[66%]", height: "h-16", avatar: true },
-    { align: "items-end", width: "w-[50%]", height: "h-12" },
+    { width: "w-[58%]", height: "h-14" },
+    { width: "w-[72%]", height: "h-20" },
+    { width: "w-[42%]", height: "h-11" },
+    { width: "w-[66%]", height: "h-16" },
+    { width: "w-[50%]", height: "h-12" },
   ];
 
   return (
-    <div className="flex-1 flex flex-col justify-end gap-3 px-1 sm:px-3 pb-6 animate-in fade-in duration-300">
-      <div className="mx-auto mb-2 flex items-center gap-2 rounded-full border border-[#e5e7eb] dark:border-white/10 bg-white/80 dark:bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] shadow-sm">
+    <div className="flex-1 flex flex-col items-end justify-end gap-3 px-1 sm:px-3 pb-6 animate-in fade-in duration-300">
+      <div className="ml-auto mb-2 flex items-center gap-2 rounded-full border border-[#e5e7eb] dark:border-white/10 bg-white/80 dark:bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] shadow-sm">
         <FiLoader className="h-3 w-3 animate-spin text-[#2b83fa]" />
         Syncing conversation
       </div>
-      <div className="mx-auto mb-2 h-5 w-24 rounded-full bg-[#edf0f3] dark:bg-white/10 skeleton-gleam" />
+      <div className="ml-auto mb-2 h-5 w-24 rounded-full bg-[#edf0f3] dark:bg-white/10 skeleton-gleam" />
       {rows.map((row, index) => (
-        <div key={`history-skeleton-${index}`} className={`flex w-full ${row.align} ${row.avatar ? "gap-2.5" : ""}`}>
-          {row.avatar && (
-            <div className="mt-1 h-8 w-8 rounded-full bg-[#edf0f3] dark:bg-white/10 skeleton-gleam flex-shrink-0" />
-          )}
-          <div className={`${row.width} max-w-[620px] ${row.height} rounded-[20px] bg-[#edf0f3] dark:bg-white/10 skeleton-gleam ${row.align === "items-end" ? "rounded-br-md" : "rounded-bl-md"}`} />
+        <div key={`history-skeleton-${index}`} className="flex w-full justify-end">
+          <div className={`${row.width} max-w-[620px] ${row.height} rounded-[20px] rounded-br-md bg-[#edf0f3] dark:bg-white/10 skeleton-gleam`} />
         </div>
       ))}
     </div>
