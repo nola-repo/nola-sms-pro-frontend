@@ -55,7 +55,7 @@ const AppLayout: React.FC = () => {
 
   return (
     <UserProfileContext.Provider value={userProfile}>
-      <div className="h-screen bg-[#ffffff] dark:bg-[#1a1b1e]">
+      <div className="h-screen overflow-hidden bg-[#ffffff] dark:bg-[#1a1b1e]">
         {/* Theme Toggle - Fixed top right (Desktop only) */}
       {!hideToggle && (
         <div className="hidden md:flex fixed top-3 right-3 gap-2 z-50">

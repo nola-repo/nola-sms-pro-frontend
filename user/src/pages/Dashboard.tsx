@@ -334,7 +334,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
           )}
           <div className="flex items-center gap-3">
             <FiLoader className="w-5 h-5 text-[#2b83fa] animate-spin" />
-            <span className="text-[13px] font-semibold text-[#37352f] dark:text-[#ececf1]">Checking registration...</span>
+            <span className="text-[13px] font-semibold text-[#37352f] dark:text-[#ececf1]">Getting your workspace ready...</span>
           </div>
         </div>
       </div>
@@ -373,7 +373,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   }
 
   return (
-    <div className="flex h-screen bg-[#ffffff] dark:bg-[#202123] overflow-visible">
+    <div className="flex h-screen min-h-0 bg-[#ffffff] dark:bg-[#202123] overflow-hidden">
       {/* Sidebar - Left */}
       <div className={`
         fixed inset-y-0 left-0 z-[100] md:relative md:z-50 h-full transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
@@ -396,7 +396,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full w-full min-w-0 bg-[#f7f7f7] dark:bg-[#18191d]">
+      <div className="flex-1 flex flex-col h-full min-h-0 w-full min-w-0 overflow-hidden bg-[#f7f7f7] dark:bg-[#18191d]">
         {/* Mobile Header with Sidebar Toggle */}
         <div className="md:hidden flex items-center justify-between px-4 py-2.5 border-b border-[#0000000a] dark:border-[#ffffff0a] bg-white/80 dark:bg-[#121415]/80 backdrop-blur-lg sticky top-0 z-30">
           <button
@@ -471,7 +471,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         )}
 
         {/* Content Router */}
-        <div key={locationId || 'default'} className="flex-1 h-full overflow-hidden">
+        <div key={locationId || 'default'} className="flex-1 h-full min-h-0 overflow-hidden">
           {currentView === 'home' ? (
             <Home
               onTabChange={handleTabChange}
