@@ -386,8 +386,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     );
   }
 
-  return (
-    <div className="flex h-screen min-h-0 bg-[#ffffff] dark:bg-[#202123] overflow-hidden">
+  return <div className="flex h-screen min-h-0 bg-[#ffffff] dark:bg-[#202123] overflow-y-auto">
       {/* Sidebar - Left */}
       <div className={`
         fixed inset-y-0 left-0 z-[100] md:relative md:z-50 h-full transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
@@ -426,8 +425,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             </div>
             <span className="font-bold text-[15px] text-[#111111] dark:text-white tracking-tight">NOLA SMS Pro</span>
           </div>
-          <div className="flex items-center gap-1">
-            <button
               onClick={() => handleTabChange('settings')}
               className="p-2 rounded-lg hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] transition-colors settings-icon-rotate"
               aria-label="Settings"

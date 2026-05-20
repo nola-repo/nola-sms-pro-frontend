@@ -326,7 +326,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
     };
 
     return (
-        <div className="h-full flex flex-col overflow-y-auto custom-scrollbar bg-[#f3f4f6] dark:bg-[#09090b] relative">
+        <div className="h-full flex flex-col overflow-y-auto custom-scrollbar bg-[#f3f4f6] dark:bg-[#09090b] relative pb-8">
             {/* Background Gradient Header */}
             <div className="absolute top-0 left-0 w-full h-[340px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] z-0 rounded-b-[40px] pointer-events-none" />
 
@@ -594,24 +594,6 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                         </div>
                                     </div>
                                     <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-gray-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
-                                </button>
-                            </AnimatedContent>
-
-                            <AnimatedContent delay={0.6} distance={30} direction="vertical">
-                                <button
-                                    onClick={() => onTabChange('templates')}
-                                    className="w-full min-h-[74px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-blue-500/10 hover:border-sky-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-11 h-11 rounded-xl bg-sky-50 dark:bg-sky-900/20 flex items-center justify-center text-sky-500 transition-transform duration-300 group-hover:scale-110 flex-shrink-0">
-                                            <FiMessageSquare className="h-5 w-5" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px]">Message Templates</h4>
-                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium truncate">Reuse polished replies faster</p>
-                                        </div>
-                                    </div>
-                                    <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-sky-500 group-hover:translate-x-1 transition-all flex-shrink-0" />
                                 </button>
                             </AnimatedContent>
                         </div>
