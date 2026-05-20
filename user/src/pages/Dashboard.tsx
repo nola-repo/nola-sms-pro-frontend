@@ -1,6 +1,6 @@
 import { safeStorage } from '../utils/safeStorage';
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
@@ -75,6 +75,13 @@ const RegistrationRequiredState: React.FC<{
             onClick={() => { window.location.href = buildBackendOnboardingUrl(locationId); }}
             className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white text-[13px] font-bold shadow-md shadow-blue-500/20 hover:shadow-lg transition-all"
           >
+            <div
+               className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-black/10 border-2 border-white/20 flex-shrink-0 text-white font-bold text-[14px] overflow-hidden cursor-pointer"
+               style={{ backgroundColor: "#2b83fa" }}
+               title="Profile"
+             >
+               <FiUser className="w-5 h-5" />
+             </div>
             Continue onboarding
             <FiArrowRight className="w-4 h-4" />
           </button>
@@ -122,6 +129,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       return contact ? [contact] : [];
     } catch { return []; }
   });
+  // New search term state for dashboard search input
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  // Memoized random color for profile avatar
+  const profileColor = useMemo(() => {
+    const hue = Math.floor(Math.random() * 360);
+    return `hsl(${hue}, 70%, 50%)`;
+  }, []);
   // initialView from the router takes priority; fall back to persisted storage
   const [currentView, setCurrentView] = useState<ViewTab>(
     () => initialView || (safeStorage.getItem('nola_active_tab') as ViewTab) || 'home'
@@ -425,6 +439,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             </div>
             <span className="font-bold text-[15px] text-[#111111] dark:text-white tracking-tight">NOLA SMS Pro</span>
           </div>
+          <div className="flex items-center gap-1">
+            <button
               onClick={() => handleTabChange('settings')}
               className="p-2 rounded-lg hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] transition-colors settings-icon-rotate"
               aria-label="Settings"
@@ -469,6 +485,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
                 onClick={() => window.location.href = GHL_MARKETPLACE_CONNECT_URL}
                 className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white text-[12px] font-bold shadow-md hover:shadow-lg transition-all"
               >
+                <input
+                   type="text"
+                   placeholder="Search.."
+                   value={searchTerm}
+                   onChange={e => setSearchTerm(e.target.value)}
+                   onKeyDown={e => { if (e.key === 'Enter') { handleTabChange('contacts'); } }}
+                   className="w-full pl-11 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-[14px] font-medium text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/20 transition-all"
+                 />
                 Connect GHL
               </button>
               <button 
