@@ -425,6 +425,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full min-h-0 w-full min-w-0 overflow-hidden bg-[#f7f7f7] dark:bg-[#18191d]">
+        {/* Desktop Header with Search & Profile */}
+        <div className="hidden md:flex items-center justify-between px-6 py-2.5 border-b border-[#0000000a] dark:border-[#ffffff0a] bg-white/80 dark:bg-[#121415]/80 backdrop-blur-lg sticky top-0 z-30">
+          <div className="relative flex-1 max-w-md">
+            <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9aa0a6] dark:text-[#8f949e] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search contacts..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && searchTerm.trim()) { handleTabChange('contacts'); } }}
+              className="w-full pl-10 pr-4 py-2 bg-[#f1f3f4] dark:bg-[#2a2b32] border border-transparent focus:border-[#2b83fa]/40 rounded-xl text-[13px] font-medium text-[#111111] dark:text-white placeholder-[#9aa0a6] dark:placeholder-[#8f949e] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 transition-all"
+            />
+          </div>
+          <div className="flex items-center gap-2 ml-4">
+            <button
+              onClick={() => { setSettingsTab('account'); handleTabChange('settings'); }}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-[14px] shadow-md hover:shadow-lg transition-all hover:scale-105 cursor-pointer"
+              style={{ backgroundColor: profileColor }}
+              title="Account Settings"
+              aria-label="Account Settings"
+            >
+              <FiUser className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
         {/* Mobile Header with Sidebar Toggle */}
         <div className="md:hidden flex items-center justify-between px-4 py-2.5 border-b border-[#0000000a] dark:border-[#ffffff0a] bg-white/80 dark:bg-[#121415]/80 backdrop-blur-lg sticky top-0 z-30">
           <button
@@ -441,6 +469,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             <span className="font-bold text-[15px] text-[#111111] dark:text-white tracking-tight">NOLA SMS Pro</span>
           </div>
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => { setSettingsTab('account'); handleTabChange('settings'); }}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[12px] font-bold shadow-sm hover:shadow-md transition-all"
+              style={{ backgroundColor: profileColor }}
+              title="Account Settings"
+              aria-label="Account Settings"
+            >
+              <FiUser className="w-3.5 h-3.5" />
+            </button>
             <button
               onClick={() => handleTabChange('settings')}
               className="p-2 rounded-lg hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] transition-colors settings-icon-rotate"
@@ -486,14 +523,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
                 onClick={() => window.location.href = GHL_MARKETPLACE_CONNECT_URL}
                 className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white text-[12px] font-bold shadow-md hover:shadow-lg transition-all"
               >
-                <input
-                   type="text"
-                   placeholder="Search.."
-                   value={searchTerm}
-                   onChange={e => setSearchTerm(e.target.value)}
-                   onKeyDown={e => { if (e.key === 'Enter') { handleTabChange('contacts'); } }}
-                   className="w-full pl-11 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-[14px] font-medium text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/20 transition-all"
-                 />
                 Connect GHL
               </button>
               <button 
