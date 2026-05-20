@@ -12,15 +12,23 @@ import FadeContent from "./FadeContent";
 import { SenderSelector } from "./SenderSelector";
 import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
 import { useLocationId } from "../context/LocationContext";
+import { useUserProfileContext } from "../context/UserProfileContext";
+import type { ViewTab } from "./Sidebar";
 
 interface HomeProps {
-    onTabChange: (tab: any) => void;
+    onTabChange: (tab: ViewTab) => void;
     onSelectContact: (contact: Contact) => void;
     onSelectBulkMessage: (message: BulkMessageHistoryItem) => void;
 }
 
+type HomeCreditTransaction = Omit<CreditTransaction, "type"> & {
+    id?: string;
+    type: CreditTransaction["type"] | "credit_purchase" | string;
+};
+
 export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSelectBulkMessage }) => {
     const { locationId } = useLocationId();
+    const liveProfile = useUserProfileContext();
     const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
@@ -172,19 +180,31 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
         }
     };
 
+    const subaccountName =
+        liveProfile?.location_name && liveProfile.location_name !== "Unknown"
+            ? liveProfile.location_name
+            : "";
+    const greetingText = subaccountName ? `${getGreeting()}, ${subaccountName}` : getGreeting();
+    const sentToday = creditStatus?.stats?.sent_today ?? 0;
+    const creditsUsedMonth = creditStatus?.stats?.credits_used_month ?? 0;
+    const lastActivityAt = conversations[0]?.last_message_at || conversations[0]?.updated_at;
+    const lastActivityLabel = lastActivityAt
+        ? new Date(lastActivityAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : "No messages yet";
+
     return (
         <div className="h-full flex flex-col overflow-y-auto custom-scrollbar bg-[#f9fafb] dark:bg-[#111111]">
-            <div className="max-w-5xl mx-auto w-full px-6 py-8 sm:py-12">
+            <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
                 {/* Greeting Section */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center shadow-[0_8px_25px_rgba(43,131,250,0.4)]">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 mb-7 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+                    <div className="flex items-start gap-4 min-w-0">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center shadow-[0_8px_25px_rgba(43,131,250,0.28)] flex-shrink-0">
                             <FiHome className="h-6 w-6 text-white" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                             <SplitText
-                                text={getGreeting()}
-                                className="text-3xl font-extrabold text-[#111111] dark:text-white tracking-tight"
+                                text={greetingText}
+                                className="text-2xl sm:text-3xl font-extrabold text-[#111111] dark:text-white tracking-tight leading-tight max-w-[720px]"
                                 delay={50}
                                 duration={1.25}
                                 ease="power3.out"
@@ -198,12 +218,14 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 onLetterAnimationComplete={handleAnimationComplete}
                             />
                             <FadeContent blur={false} duration={1500} ease="ease-out" initialOpacity={0}>
-                                <p className="text-[#6e6e73] dark:text-[#a0a0ab] font-medium">Welcome back to NOLA SMS PRO</p>
+                                <p className="text-[#6e6e73] dark:text-[#a0a0ab] font-medium mt-1">
+                                    {subaccountName ? "Your subaccount is ready for today's conversations." : "Welcome back to NOLA SMS PRO."}
+                                </p>
                             </FadeContent>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="flex items-center gap-3 w-full sm:w-auto sm:flex-shrink-0">
                         <SenderSelector
                             value={senderName}
                             onChange={setSenderName}
@@ -212,8 +234,30 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     </div>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-7">
+                    {[
+                        { label: 'Sent today', value: loading ? '' : sentToday.toLocaleString(), icon: <FiMessageSquare className="h-4 w-4" /> },
+                        { label: 'Credits used this month', value: loading ? '' : creditsUsedMonth.toLocaleString(), icon: <FiActivity className="h-4 w-4" /> },
+                        { label: 'Latest activity', value: loading ? '' : lastActivityLabel, icon: <FiClock className="h-4 w-4" /> },
+                    ].map((item) => (
+                        <div key={item.label} className="min-h-[76px] rounded-2xl border border-[#e8eaed] dark:border-white/5 bg-white dark:bg-[#1a1b1e] px-4 py-3 flex items-center gap-3 shadow-sm">
+                            <div className="w-9 h-9 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center flex-shrink-0">
+                                {item.icon}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8a8f98] dark:text-[#777d88]">{item.label}</p>
+                                {loading ? (
+                                    <div className="mt-1 h-4 w-24 rounded-full bg-[#edf0f3] dark:bg-white/10 animate-pulse" />
+                                ) : (
+                                    <p className="text-[14px] font-black text-[#111111] dark:text-white truncate">{item.value}</p>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5 mb-8">
                     <AnimatedContent delay={0.1} distance={50} direction="vertical">
                         {(() => {
                             const balance      = creditStatus?.credit_balance ?? 0;
@@ -222,7 +266,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                             const isTrialActive = trialTotal > 0 && trialUsed < trialTotal;
                             const trialLeft    = trialTotal - trialUsed;
                             return (
-                                <div className="p-6 rounded-3xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all group overflow-hidden relative h-full">
+                                <div className="p-6 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all group overflow-hidden relative h-full">
                                     <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
                                         <FiCreditCard className="w-24 h-24 text-white" />
                                     </div>
@@ -262,7 +306,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     </AnimatedContent>
 
                     <AnimatedContent delay={0.2} distance={50} direction="vertical">
-                        <div className="p-6 rounded-3xl bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all group overflow-hidden relative h-full">
+                        <div className="p-6 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all group overflow-hidden relative h-full">
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
                                 <FiMessageSquare className="w-24 h-24 text-white" />
                             </div>
@@ -279,7 +323,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     </AnimatedContent>
 
                     <AnimatedContent delay={0.3} distance={50} direction="vertical">
-                        <div className="p-6 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all group overflow-hidden relative h-full">
+                        <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all group overflow-hidden relative h-full">
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
                                 <FiUsers className="w-24 h-24 text-white" />
                             </div>
@@ -296,7 +340,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                     </AnimatedContent>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <div className="grid grid-cols-1 lg:grid-cols-[0.95fr_1.05fr] gap-6 lg:gap-8">
                     {/* Quick Actions Column */}
                     <div>
                         <AnimatedContent delay={0.4} distance={50} direction="vertical">
@@ -304,7 +348,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 Quick Actions
                             </h3>
                         </AnimatedContent>
-                        <div className="flex flex-col gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
                             <AnimatedContent delay={0.45} distance={30} direction="vertical">
                                 <button
                                     onClick={() => onTabChange('compose')}
@@ -358,6 +402,24 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                     <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-gray-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
                                 </button>
                             </AnimatedContent>
+
+                            <AnimatedContent delay={0.6} distance={30} direction="vertical">
+                                <button
+                                    onClick={() => onTabChange('templates')}
+                                    className="w-full min-h-[74px] p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-blue-500/10 hover:border-sky-500/30 transition-all duration-300 text-left flex items-center justify-between group hover:-translate-y-0.5"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-900/20 flex items-center justify-center text-sky-500 transition-transform duration-300 group-hover:scale-110 flex-shrink-0">
+                                            <FiMessageSquare className="h-5 w-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px]">Message Templates</h4>
+                                            <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium truncate">Reuse polished replies faster</p>
+                                        </div>
+                                    </div>
+                                    <FiArrowRight className="h-4 w-4 text-gray-300 group-hover:text-sky-500 group-hover:translate-x-1 transition-all flex-shrink-0" />
+                                </button>
+                            </AnimatedContent>
                         </div>
                     </div>
 
@@ -368,7 +430,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                 <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
                                     Recent Activity
                                 </h3>
-                                {conversations.length > 5 && (
+                                {conversations.length > 3 && (
                                     <button
                                         onClick={() => setShowAllActivity(true)}
                                         className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
@@ -440,13 +502,13 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
 
                 {/* Credit Transactions (Recent Transactions) */}
                 <AnimatedContent delay={0.6} distance={50} direction="vertical">
-                    <div className="mt-10 bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col">
-                        <div className="flex items-center justify-between mb-5 h-8">
+                    <div className="mt-8 bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
                             <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
                                 <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Recent Transactions
                             </h3>
                             {transactions.length > 0 && (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                     <button
                                         onClick={async () => {
                                             const currentMonth = new Date().toISOString().slice(0, 7);
@@ -479,7 +541,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                     
                                     return (
                                         <>
-                                            {currentTxs.map((log: any, idx) => {
+                                            {currentTxs.map((log: HomeCreditTransaction, idx) => {
                                                 const isCredit = log.type === 'top_up' || log.type === 'refund' || log.type === 'manual_adjustment' || log.type === 'credit_purchase';
                                                 const isUsage = !isCredit;
                                                 const timeString = log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';

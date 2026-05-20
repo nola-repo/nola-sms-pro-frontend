@@ -1,9 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { fetchMessagesByConversationId, ConversationMessagesError } from "../api/sms";
 import type { Message } from "../types/Sms";
 import { useLocationId } from "../context/LocationContext";
 
 const POLL_INTERVAL = 3000;
+const CACHE_TTL_MS = 60_000;
+const SKELETON_DELAY_MS = 160;
+
+const messageHistoryCache = new Map<string, { messages: Message[]; fetchedAt: number }>();
 
 /** Parse a Firestore timestamp (string or _seconds object) to a JS Date */
 const parseFirestoreDate = (raw: unknown): Date => {
@@ -30,19 +34,35 @@ export const useConversationMessages = (conversationId: string | undefined, reci
     const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
     const isInitialLoad = useRef(true);
     const consecutiveServerErrors = useRef(0);
+    const skeletonTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const requestSeq = useRef(0);
+    const cacheKey = useMemo(
+        () => conversationId ? `${locationId || "global"}::${conversationId}::${recipientKey || "all"}` : "",
+        [conversationId, locationId, recipientKey]
+    );
 
     const fetchHistory = useCallback(async (showLoading = true) => {
         if (!conversationId) {
             setMessages([]);
+            setLoading(false);
             return;
         }
 
-        if (showLoading) setLoading(true);
+        const requestId = ++requestSeq.current;
+        if (showLoading) {
+            if (skeletonTimer.current) clearTimeout(skeletonTimer.current);
+            skeletonTimer.current = setTimeout(() => {
+                if (requestSeq.current === requestId) {
+                    setLoading(true);
+                }
+            }, SKELETON_DELAY_MS);
+        }
         setError(null);
         setErrorStatus(undefined);
 
         try {
             const rows = await fetchMessagesByConversationId(conversationId, 100, recipientKey, locationId || undefined);
+            if (requestSeq.current !== requestId) return;
 
             // Sort oldest → newest for chronological display
             const sorted = [...rows].sort(
@@ -117,13 +137,18 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                                 Math.abs(api.timestamp.getTime() - m.timestamp.getTime()) < 60_000
                         )
                 );
-                return [...merged, ...tempOnly];
+                const nextMessages = [...merged, ...tempOnly];
+                if (cacheKey) {
+                    messageHistoryCache.set(cacheKey, { messages: nextMessages, fetchedAt: Date.now() });
+                }
+                return nextMessages;
             });
 
             consecutiveServerErrors.current = 0;
             setError(null);
             setErrorStatus(undefined);
         } catch (err) {
+            if (requestSeq.current !== requestId) return;
             if (err instanceof ConversationMessagesError) {
                 setError(err.message);
                 setErrorStatus(err.status);
@@ -138,17 +163,54 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 setErrorStatus(undefined);
             }
         } finally {
-            setLoading(false);
-            isInitialLoad.current = false;
+            if (requestSeq.current === requestId) {
+                if (skeletonTimer.current) {
+                    clearTimeout(skeletonTimer.current);
+                    skeletonTimer.current = null;
+                }
+                setLoading(false);
+                isInitialLoad.current = false;
+            }
         }
-    }, [conversationId, recipientKey, locationId]);
+    }, [cacheKey, conversationId, recipientKey, locationId]);
 
     // Initial fetch — reset state when conversation changes
     useEffect(() => {
+        if (!conversationId) {
+            requestSeq.current += 1;
+            if (skeletonTimer.current) {
+                clearTimeout(skeletonTimer.current);
+                skeletonTimer.current = null;
+            }
+            isInitialLoad.current = false;
+            setMessages([]);
+            setLoading(false);
+            return;
+        }
+
+        const cached = cacheKey ? messageHistoryCache.get(cacheKey) : undefined;
+        const hasFreshCache = cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS;
+
+        if (hasFreshCache) {
+            isInitialLoad.current = false;
+            setMessages(cached.messages);
+            setLoading(false);
+            fetchHistory(false);
+            return;
+        }
+
         isInitialLoad.current = true;
         setMessages([]);
         fetchHistory(true);
-    }, [fetchHistory]);
+    }, [cacheKey, conversationId, fetchHistory]);
+
+    useEffect(() => {
+        return () => {
+            if (skeletonTimer.current) {
+                clearTimeout(skeletonTimer.current);
+            }
+        };
+    }, []);
 
     // Background polling every 3 seconds
     useEffect(() => {
@@ -187,7 +249,13 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             senderName,
             status: "sending",
         };
-        setMessages((prev) => [...prev, newMsg]);
+        setMessages((prev) => {
+            const nextMessages = [...prev, newMsg];
+            if (cacheKey) {
+                messageHistoryCache.set(cacheKey, { messages: nextMessages, fetchedAt: Date.now() });
+            }
+            return nextMessages;
+        });
         return id;
     };
 
@@ -197,13 +265,17 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         realId?: string,
         errorReason?: string
     ) => {
-        setMessages((prev) =>
-            prev.map((m) =>
+        setMessages((prev) => {
+            const nextMessages = prev.map((m) =>
                 m.id === tempId || (realId && m.id === realId)
                     ? { ...m, status, id: realId || m.id, errorReason }
                     : m
-            )
-        );
+            );
+            if (cacheKey) {
+                messageHistoryCache.set(cacheKey, { messages: nextMessages, fetchedAt: Date.now() });
+            }
+            return nextMessages;
+        });
     };
 
     return {

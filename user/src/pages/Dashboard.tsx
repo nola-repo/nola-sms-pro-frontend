@@ -17,6 +17,7 @@ import { OnboardingModal } from "../components/onboarding/OnboardingModal";
 import { useLocationId } from "../context/LocationContext";
 import { GHL_BACKEND_ONBOARDING_URL, GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
 import { fetchAccountProfile, type AccountProfile } from "../api/account";
+import faviconLogo from "../assets/FAV ICON - NOLA SMS PRO.png";
 
 interface DashboardProps {
   isMobileMenuOpen?: boolean;
@@ -393,10 +394,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             <FiMenu className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center shadow-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
-              </svg>
+            <div className="w-7 h-7 rounded-lg bg-white dark:bg-[#1a1b1e] border border-black/[0.06] dark:border-white/[0.08] flex items-center justify-center shadow-sm overflow-hidden">
+              <img src={faviconLogo} alt="NOLA SMS PRO" className="h-5 w-5 object-contain" />
             </div>
             <span className="font-bold text-[15px] text-[#111111] dark:text-white tracking-tight">NOLA SMS Pro</span>
           </div>

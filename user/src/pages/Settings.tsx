@@ -22,13 +22,14 @@ import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type
 import { fetchAccountProfile } from "../api/account";
 import type { AccountProfile } from "../api/account";
 import { useUserProfileContext } from "../context/UserProfileContext";
-import { redirectToLogin, SESSION_KEYS } from "../services/authService";
+import { getSession } from "../services/authService";
 import {
     GHL_MARKETPLACE_CONNECT_URL,
     GHL_OAUTH_RETURN_VIEW_STORAGE_KEY,
     GHL_RECONNECT_REQUIRED_STORAGE_KEY
 } from "../config";
 import { safeStorage } from "../utils/safeStorage";
+import { sessionSafeStorage } from "../utils/sessionSafeStorage";
 
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -730,7 +731,53 @@ function formatTxDate(iso: string): string {
 const AR_AMOUNTS = [100, 250, 500, 1000, 2000];
 const AR_THRESHOLDS = [25, 50, 100, 200];
 const API_BASE_URL = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
+const CHECKOUT_ALLOWED_ORIGINS = new Set(['https://sms.nolawebsolutions.com']);
+const CHECKOUT_SESSION_STORAGE_KEY = 'nola_pending_checkout';
+const VALID_LOCATION_ID = /^[A-Za-z0-9_-]{8,80}$/;
 type CreditTransactionWithFallbacks = CreditTransaction & { timestamp?: string };
+
+type PendingCheckoutSession = {
+    state: string;
+    locationId: string;
+    packageCredits: number;
+    createdAt: number;
+};
+
+const createCheckoutState = (): string => {
+    const webCrypto: Crypto | undefined = globalThis.crypto;
+    if (webCrypto?.randomUUID) {
+        return webCrypto.randomUUID();
+    }
+    const bytes = new Uint8Array(16);
+    if (webCrypto?.getRandomValues) {
+        webCrypto.getRandomValues(bytes);
+    } else {
+        bytes.forEach((_, index) => {
+            bytes[index] = Math.floor(Math.random() * 256);
+        });
+    }
+    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+};
+
+const readPendingCheckoutSession = (): PendingCheckoutSession | null => {
+    try {
+        const raw = sessionSafeStorage.getItem(CHECKOUT_SESSION_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+};
+
+const buildSafeCheckoutUrl = (rawUrl: string): URL | null => {
+    try {
+        const checkoutUrl = new URL(rawUrl);
+        if (checkoutUrl.protocol !== 'https:') return null;
+        if (!CHECKOUT_ALLOWED_ORIGINS.has(checkoutUrl.origin)) return null;
+        return checkoutUrl;
+    } catch {
+        return null;
+    }
+};
 
 const CreditsSection: React.FC = () => {
     const ghlLocationIdFromHook = useGhlLocation();
@@ -750,6 +797,7 @@ const CreditsSection: React.FC = () => {
     const [topUpAmount, setTopUpAmount] = useState(500);
     const [packages, setPackages] = useState<CreditPackage[]>([]);
     const [submitted, setSubmitted] = useState(false);
+    const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const mountedRef = useRef(true);
     const popupRef = useRef<Window | null>(null);
     const popupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -771,6 +819,31 @@ const CreditsSection: React.FC = () => {
 
     // Final derived location ID
     const locationId = ghlLocationIdFromHook || getAccountSettings().ghlLocationId;
+
+    const clearCheckoutTimers = useCallback(() => {
+        if (popupPollRef.current) {
+            clearInterval(popupPollRef.current);
+            popupPollRef.current = null;
+        }
+        if (countdownRef.current) {
+            clearInterval(countdownRef.current);
+            countdownRef.current = null;
+        }
+    }, []);
+
+    const resetCheckoutState = useCallback((closePopup = false) => {
+        clearCheckoutTimers();
+        setSubmitted(false);
+        sessionSafeStorage.removeItem(CHECKOUT_SESSION_STORAGE_KEY);
+        if (closePopup && popupRef.current && !popupRef.current.closed) {
+            try {
+                popupRef.current.close();
+            } catch {
+                // Cross-origin popups can reject close attempts; the poller handles this.
+            }
+        }
+        popupRef.current = null;
+    }, [clearCheckoutTimers]);
 
     const load = useCallback(async () => {
         setBalanceLoading(true);
@@ -828,35 +901,40 @@ const CreditsSection: React.FC = () => {
 
         // Listen for payment success signal from the checkout popup
         const handlePaymentMessage = (event: MessageEvent) => {
-            // Accept messages from the checkout domain
-            if (
-                (event.origin === 'https://sms.nolawebsolutions.com' || event.origin === window.location.origin) &&
-                event.data?.type === 'nola-payment-success'
-            ) {
-                if (popupPollRef.current) {
-                    clearInterval(popupPollRef.current);
-                    popupPollRef.current = null;
-                }
-                setSubmitted(false);
-                if (popupRef.current) popupRef.current.close();
-                load(); // Auto-refresh credits on success
-            }
+            const data = event.data || {};
+            if (data?.type !== 'nola-payment-success') return;
+            if (!CHECKOUT_ALLOWED_ORIGINS.has(event.origin) && event.origin !== window.location.origin) return;
+            if (!popupRef.current || event.source !== popupRef.current) return;
+
+            const pending = readPendingCheckoutSession();
+            if (!pending) return;
+
+            const incomingState =
+                typeof data.checkout_state === 'string' ? data.checkout_state :
+                typeof data.state === 'string' ? data.state :
+                '';
+            const incomingLocationId =
+                typeof data.location_id === 'string' ? data.location_id :
+                typeof data.locationId === 'string' ? data.locationId :
+                '';
+
+            if (incomingState && incomingState !== pending.state) return;
+            if (incomingLocationId && incomingLocationId !== pending.locationId) return;
+
+            setCheckoutError(null);
+            resetCheckoutState(true);
+            load(); // Auto-refresh credits on success
         };
         window.addEventListener('message', handlePaymentMessage);
-
-        const clearTimers = () => {
-            if (popupPollRef.current) clearInterval(popupPollRef.current);
-            if (countdownRef.current) clearInterval(countdownRef.current);
-        };
 
         return () => {
             mountedRef.current = false;
             window.removeEventListener('sms-sent', load);
             window.removeEventListener('bulk-message-sent', load);
             window.removeEventListener('message', handlePaymentMessage);
-            clearTimers();
+            clearCheckoutTimers();
         };
-    }, [load]);
+    }, [clearCheckoutTimers, load, resetCheckoutState]);
 
 
     const displayBalance  = creditStatus?.credit_balance ?? 0;
@@ -907,144 +985,118 @@ const CreditsSection: React.FC = () => {
 
     const handleTopUp = async (e: React.FormEvent) => {
         e.preventDefault();
+        setCheckoutError(null);
 
         const selectedPackage = packages.find(p => p.credits === topUpAmount);
         if (!selectedPackage) return;
 
-        const baseUrl = selectedPackage.link;
-        const separator = baseUrl.includes('?') ? '&' : '?';
+        const checkoutUrl = buildSafeCheckoutUrl(selectedPackage.link);
+        if (!checkoutUrl) {
+            setCheckoutError('This checkout link is not trusted. Please contact support before paying.');
+            return;
+        }
 
-        // Helper: read localStorage key safely
-        const readLS = (key: string): Record<string, string> => {
-            try { return JSON.parse(localStorage.getItem(key) || 'null') || {}; } catch { return {}; }
-        };
         const pick = (...vals: (string | undefined | null)[]) =>
-            vals.find(v => v && v.trim() !== '') || '';
-        const join = (...parts: (string | undefined | null)[]) =>
-            parts.filter(Boolean).join(' ').trim();
+            vals.find(v => typeof v === 'string' && v.trim() !== '')?.trim() || '';
+
+        const session = getSession();
+        if (session?.role && session.role !== 'user') {
+            setCheckoutError('This payment window is only available for user accounts.');
+            return;
+        }
 
         // ── Resolve location_id ───────────────────────────────────────────────
-        const cache1 = readLS('nola_user');
-        const cache2 = readLS('nola_auth_user');
         const resolvedLocationId = pick(
             locationId,
             liveProfile?.location_id,
-            cache1.location_id, cache1.active_location_id,
-            cache2.location_id, cache2.active_location_id
+            session?.locationId
         );
 
-        let checkoutUrl = resolvedLocationId
-            ? `${baseUrl}${separator}location_id=${encodeURIComponent(resolvedLocationId)}`
-            : baseUrl;
+        if (!resolvedLocationId || !VALID_LOCATION_ID.test(resolvedLocationId)) {
+            setCheckoutError('Open this app from a valid subaccount before buying credits.');
+            return;
+        }
+
+        if (session?.locationId && session.locationId !== resolvedLocationId) {
+            setCheckoutError('Your checkout session does not match the active subaccount. Refresh and try again.');
+            return;
+        }
+
+        const width = Math.max(320, Math.min(620, window.screen.availWidth - 32));
+        const height = Math.max(520, Math.min(860, window.screen.availHeight - 32));
+        const left = Math.max(16, (window.screen.availWidth / 2) - (width / 2));
+        const top = Math.max(16, (window.screen.availHeight / 2) - (height / 2));
+
+        const popup = window.open(
+            '',
+            'NolaSecureCheckout',
+            `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes,popup=yes`
+        );
+
+        if (!popup) {
+            setCheckoutError('Checkout window was blocked. Please allow popups for this site and try again.');
+            return;
+        }
+
+        popupRef.current = popup;
+        setSubmitted(true);
+
+        try {
+            popup.document.write(`
+                <!doctype html>
+                <title>Preparing checkout</title>
+                <style>
+                    body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:Inter,Arial,sans-serif;background:#f7f8fc;color:#111}
+                    .box{display:flex;align-items:center;gap:12px;padding:18px 20px;border:1px solid #e5e7eb;border-radius:16px;background:white;box-shadow:0 18px 45px rgba(15,23,42,.12)}
+                    .spin{width:18px;height:18px;border:3px solid #dbeafe;border-top-color:#2b83fa;border-radius:999px;animation:s 1s linear infinite}
+                    @keyframes s{to{transform:rotate(360deg)}}
+                </style>
+                <div class="box"><div class="spin"></div><strong>Preparing secure checkout...</strong></div>
+            `);
+        } catch {
+            // Some browsers block writing to the placeholder window; navigation still works.
+        }
 
         // ── Resolve profile fields ────────────────────────────────────────────
         // Prefer /api/account so checkout matches the Account Details panel.
         let accountProfile: Awaited<ReturnType<typeof fetchAccountProfile>> = null;
-        if (resolvedLocationId) {
-            try {
-                accountProfile = await fetchAccountProfile(resolvedLocationId);
-            } catch {
-                accountProfile = null;
-            }
+        try {
+            accountProfile = await fetchAccountProfile(resolvedLocationId);
+        } catch {
+            accountProfile = null;
         }
 
-        let prefillName  = pick(
-            accountProfile?.name,
-            accountProfile?.full_name,
-            join(accountProfile?.firstName, accountProfile?.lastName),
-            liveProfile?.name,
-            join(liveProfile?.firstName, liveProfile?.lastName)
-        );
-        let prefillEmail = pick(accountProfile?.email, accountProfile?.email_address, liveProfile?.email);
-        let prefillPhone = pick(accountProfile?.phone, accountProfile?.phone_number, liveProfile?.phone);
-
-        // localStorage caches (nola_user + nola_auth_user)
-        if (!prefillName || !prefillEmail) {
-            prefillName  = pick(prefillName,  cache1.name, cache1.full_name, join(cache1.firstName, cache1.lastName), join(cache1.first_name, cache1.last_name), cache2.name, join(cache2.firstName, cache2.lastName));
-            prefillEmail = pick(prefillEmail, cache1.email, cache1.email_address, cache2.email, cache2.email_address);
-            prefillPhone = pick(prefillPhone, cache1.phone, cache1.phone_number, cache2.phone, cache2.phone_number);
-        }
-
-        // live /api/auth/me call as guaranteed fallback
-        if (!prefillEmail) {
-            try {
-                const token = localStorage.getItem(SESSION_KEYS.token);
-                if (!token) return;
-
-                const meRes = await fetch(`${API_BASE_URL}/api/auth/me`, {
-                    method: 'GET',
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
-                });
-                if (meRes.status === 401) {
-                    redirectToLogin();
-                    return;
-                }
-                if (meRes.ok) {
-                    const meData = await meRes.json();
-                    const u = meData.user || meData;
-                    prefillName  = pick(prefillName,  u.name, u.full_name, join(u.firstName, u.lastName), join(u.first_name, u.last_name));
-                    prefillEmail = pick(prefillEmail, u.email, u.email_address);
-                    prefillPhone = pick(prefillPhone, u.phone, u.phone_number);
-                }
-            } catch { /* ignore, open without pre-fill */ }
-        }
-
-        // ── Build query string ────────────────────────────────────────────────
-        if (prefillName || prefillEmail || prefillPhone) {
-            const p = new URLSearchParams();
-            if (prefillName)  { p.set('name', prefillName); p.set('full_name', prefillName); }
-            if (prefillEmail)   p.set('email', prefillEmail);
-            if (prefillPhone)   p.set('phone', prefillPhone);
-            // Split name into first/last for funnels that use separate fields
-            const parts = prefillName.trim().split(/\s+/);
-            if (parts.length >= 2) {
-                p.set('first_name', parts[0]);
-                p.set('last_name',  parts.slice(1).join(' '));
-            }
-            const qs = p.toString();
-            if (qs) checkoutUrl += (checkoutUrl.includes('?') ? '&' : '?') + qs;
-        }
-
-        const width = 600;
-        const height = 850;
-        const left = (window.screen.width / 2) - (width / 2);
-        const top = (window.screen.height / 2) - (height / 2);
-
-        const popup = window.open(
-            checkoutUrl,
-            "Checkout",
-            `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
-        );
-        popupRef.current = popup;
-
-        if (!popup) {
-            alert("Checkout window blocked! Please allow popups for this site or use a different browser.");
+        if (!accountProfile?.location_id || accountProfile.location_id !== resolvedLocationId) {
+            resetCheckoutState(true);
+            setCheckoutError('We could not verify this subaccount for checkout. Please refresh and try again.');
             return;
         }
 
-        setSubmitted(true);
+        // ── Build query string ────────────────────────────────────────────────
+        const checkoutState = createCheckoutState();
+        const pending: PendingCheckoutSession = {
+            state: checkoutState,
+            locationId: resolvedLocationId,
+            packageCredits: selectedPackage.credits,
+            createdAt: Date.now(),
+        };
+        sessionSafeStorage.setItem(CHECKOUT_SESSION_STORAGE_KEY, JSON.stringify(pending));
 
-        // Clear any existing poll
-        if (popupPollRef.current) clearInterval(popupPollRef.current);
+        checkoutUrl.searchParams.set('location_id', resolvedLocationId);
+        checkoutUrl.searchParams.set('checkout_state', checkoutState);
+        popup.location.href = checkoutUrl.toString();
 
-        // Start polling the window status
+        clearCheckoutTimers();
         popupPollRef.current = setInterval(() => {
             try {
-                if (popup && popup.closed) {
-                    if (popupPollRef.current) clearInterval(popupPollRef.current);
-                    popupPollRef.current = null;
-                    setSubmitted(false);
-                    // Refresh balance in case they finished but message was missed
+                if (popup.closed) {
+                    resetCheckoutState(false);
                     load();
                 }
             } catch {
-                // Ignore cross-origin DOM exceptions
+                // Ignore cross-origin DOM exceptions.
             }
-        }, 500);
+        }, 750);
     };
 
     return (
@@ -1259,6 +1311,11 @@ const CreditsSection: React.FC = () => {
                             </button>
                         ))}
                     </div>
+                    {checkoutError && (
+                        <div className="rounded-xl border border-red-200/70 bg-red-50 px-3 py-2.5 text-[12.5px] font-semibold text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+                            {checkoutError}
+                        </div>
+                    )}
                     {submitted ? (
                         <div className="flex flex-col items-center justify-center gap-2 w-full">
                             <div className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl text-emerald-600 dark:text-emerald-400 font-semibold text-[13px]">
@@ -1267,8 +1324,8 @@ const CreditsSection: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setSubmitted(false);
-                                    if (popupPollRef.current) clearInterval(popupPollRef.current);
+                                    resetCheckoutState(false);
+                                    load();
                                 }}
                                 className="text-[12px] text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ececf1] underline decoration-dashed hover:decoration-solid transition-all"
                             >

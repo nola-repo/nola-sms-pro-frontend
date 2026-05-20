@@ -27,6 +27,28 @@
     animation: gear-rotate 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  .skeleton-gleam {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .skeleton-gleam::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+    animation: skeleton-gleam 1.35s ease-in-out infinite;
+  }
+
+  html.dark .skeleton-gleam::after {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  }
+
+  @keyframes skeleton-gleam {
+    100% { transform: translateX(100%); }
+  }
+
   /* Used by OnboardingModal progress bar — extracted from dangerouslySetInnerHTML */
   @keyframes shimmer {
     100% { transform: translateX(100%); }

@@ -74,6 +74,34 @@ const StatusBadgeSummary: React.FC<{ stats: { sent: number, sending: number, fai
   );
 };
 
+const MessageHistorySkeleton: React.FC = () => {
+  const rows = [
+    { align: "items-start", width: "w-[58%]", height: "h-14", avatar: true },
+    { align: "items-end", width: "w-[72%]", height: "h-20" },
+    { align: "items-end", width: "w-[42%]", height: "h-11" },
+    { align: "items-start", width: "w-[66%]", height: "h-16", avatar: true },
+    { align: "items-end", width: "w-[50%]", height: "h-12" },
+  ];
+
+  return (
+    <div className="flex-1 flex flex-col justify-end gap-3 px-1 sm:px-3 pb-6 animate-in fade-in duration-300">
+      <div className="mx-auto mb-2 flex items-center gap-2 rounded-full border border-[#e5e7eb] dark:border-white/10 bg-white/80 dark:bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] shadow-sm">
+        <FiLoader className="h-3 w-3 animate-spin text-[#2b83fa]" />
+        Syncing conversation
+      </div>
+      <div className="mx-auto mb-2 h-5 w-24 rounded-full bg-[#edf0f3] dark:bg-white/10 skeleton-gleam" />
+      {rows.map((row, index) => (
+        <div key={`history-skeleton-${index}`} className={`flex w-full ${row.align} ${row.avatar ? "gap-2.5" : ""}`}>
+          {row.avatar && (
+            <div className="mt-1 h-8 w-8 rounded-full bg-[#edf0f3] dark:bg-white/10 skeleton-gleam flex-shrink-0" />
+          )}
+          <div className={`${row.width} max-w-[620px] ${row.height} rounded-[20px] bg-[#edf0f3] dark:bg-white/10 skeleton-gleam ${row.align === "items-end" ? "rounded-br-md" : "rounded-bl-md"}`} />
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export const Composer: React.FC<ComposerProps> = ({
   selectedContacts,
   isNewMessage = true,
@@ -304,10 +332,9 @@ export const Composer: React.FC<ComposerProps> = ({
 
   // Reset bulkSelectedContacts when switching from bulk to single mode
   useEffect(() => {
-    if (composeMode === "single" && bulkSelectedContacts.length > 1) {
-      // Keep only the first contact when switching to single mode
-      setBulkSelectedContacts(bulkSelectedContacts.slice(0, 1));
-    }
+    setBulkSelectedContacts((current) =>
+      composeMode === "single" && current.length > 1 ? current.slice(0, 1) : current
+    );
     // Clear recipient filter when switching modes or conversations
     setRecipientKeyFocus(undefined);
   }, [composeMode, conversationId]);
@@ -1047,35 +1074,7 @@ export const Composer: React.FC<ComposerProps> = ({
               </div>
             </div>
           ) : historyLoading && !useRawLogView && conversationMessages.length === 0 ? (
-            <div className="flex-1 flex flex-col items-end justify-end gap-2 px-2 pb-6 animate-pulse overflow-hidden">
-              {/* Skeleton Date Separator */}
-              <div className="w-full flex justify-center mb-6 mt-4 opacity-40">
-                <div className="h-5 w-24 bg-gray-200 dark:bg-white/10 rounded-full"></div>
-              </div>
-              {/* Skeleton Message Bubbles - Top group */}
-              <div className="w-[55%] h-12 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-br-[4px] opacity-20"></div>
-              <div className="w-[85%] h-24 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-tr-[4px] rounded-br-[4px] opacity-20"></div>
-              <div className="w-[45%] h-10 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-tr-[4px] mb-6 opacity-20"></div>
-
-              {/* Skeleton Date Separator */}
-              <div className="w-full flex justify-center mb-6 mt-4 opacity-60">
-                <div className="h-5 w-32 bg-gray-200 dark:bg-white/10 rounded-full"></div>
-              </div>
-              {/* Skeleton Message Bubbles - Middle group */}
-              <div className="w-[75%] h-16 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-br-[4px] opacity-40"></div>
-              <div className="w-[30%] h-10 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-tr-[4px] mb-6 opacity-40"></div>
-              
-              {/* Skeleton Date Separator */}
-              <div className="w-full flex justify-center mb-6 mt-4">
-                <div className="h-6 w-28 bg-gray-200 dark:bg-white/10 rounded-full"></div>
-              </div>
-              {/* Skeleton Message Bubbles - Bottom active group */}
-              <div className="w-[65%] h-14 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-br-[4px]"></div>
-              <div className="w-[40%] h-10 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-tr-[4px] rounded-br-[4px]"></div>
-              <div className="w-[80%] h-20 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-tr-[4px] mb-4"></div>
-              <div className="w-[50%] h-12 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-br-[4px]"></div>
-              <div className="w-[30%] h-10 bg-gray-200 dark:bg-white/10 rounded-[20px] rounded-tr-[4px]"></div>
-            </div>
+            <MessageHistorySkeleton />
           ) : !useRawLogView && conversationMessages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center">
               {isNewMessage && !lottieError ? (
@@ -1136,7 +1135,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   </p>
                 </div>
               ) : (
-                (phoneLogMessages as any[]).map((msg, index) => {
+                phoneLogMessages.map((msg, index) => {
                   const isExpanded = expandedMessageId === msg.id;
                   const prevMsg = phoneLogMessages[index - 1];
                   const nextMsg = phoneLogMessages[index + 1];
@@ -1246,7 +1245,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   const GAP_MS = 2 * 60 * 1000; // 2 minutes
 
                   for (const row of allMessages) {
-                    const rowText = (row.text || (row as any).message || "").toString();
+                    const rowText = (row.text || row.message || "").toString();
                     const rowTime = new Date(row.timestamp);
 
                     const last = groups[groups.length - 1];
@@ -1327,7 +1326,7 @@ export const Composer: React.FC<ComposerProps> = ({
                             <div className="flex flex-col items-end gap-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                                  {(grp.rows[0] as any).senderName || (grp.rows[0] as any).sender_id || 'NOLASMSPro'}
+                                  {grp.rows[0]?.senderName || 'NOLASMSPro'}
                                 </span>
                                 <span className="text-[10px] text-gray-400">•</span>
                                 <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
@@ -1349,7 +1348,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   });
                 }
 
-                const sourceMessages = conversationMessages as any[];
+                const sourceMessages = conversationMessages;
                 return sourceMessages.map((msg, index) => {
                   const isExpanded = expandedMessageId === msg.id;
                   const prevMsg = sourceMessages[index - 1];

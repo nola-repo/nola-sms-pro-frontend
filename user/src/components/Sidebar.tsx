@@ -13,6 +13,7 @@ import GlareHover from "./GlareHover";
 import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
 import { getAccountSettings } from "../utils/settingsStorage";
 import { useLocationId } from "../context/LocationContext";
+import faviconLogo from "../assets/FAV ICON - NOLA SMS PRO.png";
 
 export type ViewTab = 'home' | 'compose' | 'contacts' | 'templates' | 'settings' | 'tickets';
 
@@ -483,17 +484,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`flex items-center relative group cursor-pointer transition-all ${isCollapsed ? '' : 'gap-3.5'}`}
             onClick={isCollapsed ? onToggleCollapse : undefined}
           >
-            <div className={`w-9 h-9 rounded-[10px] bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-md flex items-center justify-center transition-all duration-500 relative overflow-hidden group-hover:rotate-6 group-hover:scale-105 active:scale-95`}>
+            <div className={`w-9 h-9 rounded-[10px] bg-white dark:bg-[#1a1b1e] border border-black/[0.06] dark:border-white/[0.08] shadow-sm flex items-center justify-center transition-all duration-500 relative overflow-hidden group-hover:rotate-3 group-hover:scale-105 active:scale-95`}>
               <div className={`transition-all duration-500 ${isCollapsed ? 'group-hover:opacity-0 group-hover:scale-50' : 'group-hover:rotate-[-6deg]'}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
-                </svg>
+                <img src={faviconLogo} alt="NOLA SMS PRO" className="h-7 w-7 object-contain" />
               </div>
 
               {/* Rail Mode Expand Toggle (Right Collapse Icon) */}
               {isCollapsed && (
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
-                  <TbLayoutSidebarRightCollapse className="h-6 w-6 text-white" />
+                  <TbLayoutSidebarRightCollapse className="h-6 w-6 text-[#2b83fa]" />
                 </div>
               )}
             </div>
