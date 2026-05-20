@@ -10,7 +10,7 @@ import { Composer } from "../components/Composer";
 import { ContactsTab } from "../components/ContactsTab";
 import { TemplatesTab } from "../components/TemplatesTab";
 import { Settings } from "./Settings";
-import { FiAlertCircle, FiArrowRight, FiCheckCircle, FiLoader, FiMenu, FiRefreshCw, FiSettings } from "react-icons/fi";
+import { FiAlertCircle, FiArrowRight, FiCheckCircle, FiMenu, FiRefreshCw, FiSettings } from "react-icons/fi";
 import { Home } from "../components/Home";
 import { TicketsTab } from "../components/TicketsTab";
 import { useOnboarding } from "../components/onboarding/useOnboarding";
