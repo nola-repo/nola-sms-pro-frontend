@@ -260,8 +260,8 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
             try {
                 const u = JSON.parse(safeStorage.getItem('nola_auth_user') || '{}');
                 const u2 = JSON.parse(safeStorage.getItem('nola_user') || '{}');
-                return u?.name || u2?.name || u?.email || u2?.email || "";
-            } catch { return ""; }
+                return u?.name || u2?.name || u?.email || u2?.email || subaccountName || "User";
+            } catch { return subaccountName || "User"; }
         })();
     const profileInitial = profileDisplayName.charAt(0).toUpperCase();
     const greetingText = subaccountName ? `${getGreeting()}, ${subaccountName}` : getGreeting();
