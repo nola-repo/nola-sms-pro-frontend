@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FiHome, FiPlus, FiSearch, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiDownload, FiTrendingUp } from "react-icons/fi";
+import { FiPlus, FiSearch, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiDownload, FiTrendingUp } from "react-icons/fi";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
 import { fetchConversations, type SenderId } from "../api/sms";
@@ -706,7 +706,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onSelectContact, onSele
                                     <div key={`tx-skel-${idx}`} className="h-[74px] rounded-[20px] bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent shadow-sm animate-pulse" />
                                 ))
                             ) : transactions.length > 0 ? (
-                                transactions.slice(0, 4).map((tx, idx) => {
+                                transactions.slice(0, 4).map((tx: HomeCreditTransaction, idx) => {
                                     const isCredit = tx.type === 'top_up' || tx.type === 'refund' || tx.type === 'manual_adjustment' || tx.type === 'credit_purchase';
                                     const isUsage = !isCredit;
                                     const timeString = tx.created_at ? new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
