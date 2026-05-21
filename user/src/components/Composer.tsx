@@ -778,7 +778,7 @@ export const Composer: React.FC<ComposerProps> = ({
               >
                 <FiMenu className="h-5 w-5" />
               </button>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/20 flex-shrink-0 flex items-center justify-center text-white font-black text-base sm:text-lg shadow-lg shadow-blue-950/20 ring-1 ring-white/35">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 flex-shrink-0 flex items-center justify-center text-white font-black text-base sm:text-lg shadow-lg shadow-blue-950/20 ring-1 ring-white/35">
                 {(activeContact?.name || selectedContacts[0]?.name || "?").charAt(0).toUpperCase()}
               </div>
               <div className="flex flex-col min-w-0">
@@ -817,7 +817,7 @@ export const Composer: React.FC<ComposerProps> = ({
               >
                 <FiMenu className="h-5 w-5" />
               </button>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/20 flex-shrink-0 flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-lg shadow-blue-950/20 ring-1 ring-white/35">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 flex-shrink-0 flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-lg shadow-blue-950/20 ring-1 ring-white/35">
                 <FiUsers className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
               <div className="flex flex-col min-w-0">
@@ -875,7 +875,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 </button>
 
                 {/* Circular Avatar - Standardized Blue for new message / bulk */}
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex-shrink-0 flex items-center justify-center text-white font-bold text-base bg-white/20 shadow-lg shadow-blue-950/20 ring-1 ring-white/35">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-base bg-white/20 shadow-lg shadow-blue-950/20 ring-1 ring-white/35">
                   {activeBulkMessage ? (
                     <FiUsers className="h-5 w-5" />
                   ) : (
