@@ -579,7 +579,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   flex items-center transition-all duration-300 relative group
                   ${isCollapsed ? 'w-14 py-1.5 flex-col justify-center gap-0.5 rounded-xl' : 'w-full gap-2.5 px-2.5 py-1.5 rounded-lg'}
                   ${isActive
-                    ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
+                    ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/[0.15] text-[#2b83fa]'
                     : 'text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]'}
                 `}
               >
@@ -667,7 +667,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           group relative transition-all duration-200 overflow-visible
                           px-3 py-2 rounded-xl cursor-pointer mx-1
                           ${activeContactId === contact.id
-                            ? 'bg-[#2b83fa]/8 dark:bg-[#2b83fa]/12'
+                            ? 'bg-[#eff6ff] dark:bg-[#2b83fa]/[0.14] ring-1 ring-[#bfdbfe]/80 dark:ring-[#60a5fa]/20 shadow-sm'
                             : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'}
                         `}
                         onClick={() => {
@@ -764,7 +764,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               group relative transition-all duration-200 rounded-xl mx-1
                               px-3 py-2 cursor-pointer overflow-visible
                               ${isActive
-                                ? 'bg-[#2b83fa]/8 dark:bg-[#2b83fa]/12'
+                                ? 'bg-[#eff6ff] dark:bg-[#2b83fa]/[0.14] ring-1 ring-[#bfdbfe]/80 dark:ring-[#60a5fa]/20 shadow-sm'
                                 : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'
                               }
                             `}
@@ -780,7 +780,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200
                                   ${isActive
                                     ? 'bg-[#2b83fa] text-white shadow-md shadow-blue-500/20'
-                                    : 'bg-blue-50 dark:bg-[#2b83fa]/15 text-[#2b83fa] group-hover:bg-blue-100 dark:group-hover:bg-[#2b83fa]/25'
+                                    : 'bg-blue-50 dark:bg-[#2b83fa]/[0.15] text-[#2b83fa] group-hover:bg-blue-100 dark:group-hover:bg-[#2b83fa]/25'
                                   }
                                 `}>
                                   <FiUsers className="w-4 h-4" />
@@ -901,7 +901,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             flex items-center rounded-xl transition-all duration-200 group
             ${isCollapsed ? 'w-10 h-10 justify-center' : 'w-full gap-3 px-3 py-2'}
             ${activeTab === 'tickets'
-              ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
+              ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/[0.15] text-[#2b83fa]'
               : 'text-[#9aa0a6] dark:text-[#5f6368] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] hover:text-[#5f6368] dark:hover:text-[#9aa0a6]'}
           `}
         >
@@ -918,7 +918,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             flex items-center rounded-xl transition-all duration-200 group
             ${isCollapsed ? 'w-10 h-10 justify-center' : 'w-full gap-3 px-3 py-2'}
             ${activeTab === 'settings'
-              ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
+              ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/[0.15] text-[#2b83fa]'
               : 'text-[#9aa0a6] dark:text-[#5f6368] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] hover:text-[#5f6368] dark:hover:text-[#9aa0a6]'}
           `}
         >

@@ -677,31 +677,34 @@ export const Composer: React.FC<ComposerProps> = ({
     return "";
   };
 
-  // History state logic...
+  const composeWidthClass = "max-w-4xl mx-auto w-full";
+  const dateSeparatorClass = "px-3 py-1.5 rounded-full bg-white/[0.85] dark:bg-white/[0.07] border border-[#dce4ee] dark:border-white/10 shadow-sm text-[11px] font-bold text-[#667085] dark:text-[#b8bdc7]";
+  const messageContainerClass = "max-w-[78%] sm:max-w-[620px] flex flex-col items-end group mb-1.5 cursor-pointer";
+  const outboundBubbleClass = "bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] text-white px-4 py-3 shadow-[0_14px_32px_rgba(37,99,235,0.24)] dark:shadow-[0_16px_36px_rgba(0,0,0,0.38)] ring-1 ring-white/25 transition-transform group-hover:-translate-y-0.5";
 
   return (
-    <div className="flex flex-col h-full bg-[#f9fafb] dark:bg-[#111111] relative overflow-hidden transition-colors duration-300">
+    <div className="flex flex-col h-full bg-[linear-gradient(180deg,#f8fafc_0%,#f2f6fb_100%)] dark:bg-[linear-gradient(180deg,#121419_0%,#0c0d10_100%)] relative overflow-hidden transition-colors duration-300">
       {/* 1. Header & Recipient Area (Sticky) */}
-      <div className="flex-shrink-0 z-30 bg-white/80 dark:bg-[#1a1b1e]/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-white/5 shadow-sm">
+      <div className="flex-shrink-0 z-30 bg-white/90 dark:bg-[#17191f]/90 backdrop-blur-xl border-b border-[#dfe5ee] dark:border-white/[0.08] shadow-[0_1px_0_rgba(15,23,42,0.04)]">
         {activePhoneNumber ? (
           /* Chat Header for specific contact - Direct Messages */
-          (<div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-row items-center justify-between gap-3">
+          (<div className={`${composeWidthClass} px-4 sm:px-6 py-3.5 flex flex-row items-center justify-between gap-3`}>
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <button
                 onClick={onToggleMobileMenu}
-                className="md:hidden p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-[#ececf1] transition-colors"
+                className="md:hidden p-2 rounded-xl text-gray-500 hover:text-[#111111] hover:bg-black/[0.04] dark:text-gray-400 dark:hover:text-[#ececf1] dark:hover:bg-white/[0.06] transition-colors"
                 aria-label="Toggle sidebar"
               >
                 <FiMenu className="h-5 w-5" />
               </button>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex-shrink-0 flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-md shadow-blue-500/10">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] flex-shrink-0 flex items-center justify-center text-white font-black text-base sm:text-lg shadow-lg shadow-blue-500/25 ring-1 ring-white/60 dark:ring-white/[0.15]">
                 {(activeContact?.name || selectedContacts[0]?.name || "?").charAt(0).toUpperCase()}
               </div>
               <div className="flex flex-col min-w-0">
-                <h2 className="text-[15px] sm:text-[17px] font-bold text-[#111111] dark:text-[#ececf1] leading-tight tracking-tight truncate">
+                <h2 className="text-[15px] sm:text-[17px] font-black text-[#101828] dark:text-[#f7f8fb] leading-tight tracking-tight truncate">
                   {toProperCase(activeContact?.name || selectedContacts[0]?.name || '')}
                 </h2>
-                <span className="text-[12px] sm:text-[13px] text-gray-500 dark:text-gray-400 font-medium truncate">
+                <span className="text-[12px] sm:text-[13px] text-[#667085] dark:text-[#a7adba] font-semibold truncate">
                   {activePhoneNumber}
                 </span>
               </div>
@@ -723,20 +726,20 @@ export const Composer: React.FC<ComposerProps> = ({
           </div>)
         ) : activeBulkMessage ? (
           /* Bulk Message Conversation Header - Clean view like direct messages */
-          (<div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-row items-center justify-between gap-3">
+          (<div className={`${composeWidthClass} px-4 sm:px-6 py-3.5 flex flex-row items-center justify-between gap-3`}>
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <button
                 onClick={onToggleMobileMenu}
-                className="md:hidden p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-[#ececf1] transition-colors"
+                className="md:hidden p-2 rounded-xl text-gray-500 hover:text-[#111111] hover:bg-black/[0.04] dark:text-gray-400 dark:hover:text-[#ececf1] dark:hover:bg-white/[0.06] transition-colors"
                 aria-label="Toggle sidebar"
               >
                 <FiMenu className="h-5 w-5" />
               </button>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex-shrink-0 flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-md shadow-blue-500/20">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] flex-shrink-0 flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-lg shadow-blue-500/25 ring-1 ring-white/60 dark:ring-white/[0.15]">
                 <FiUsers className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
               <div className="flex flex-col min-w-0">
-                <h2 className="text-[15px] sm:text-[17px] font-bold text-[#111111] dark:text-[#ececf1] leading-tight tracking-tight truncate">
+                <h2 className="text-[15px] sm:text-[17px] font-black text-[#101828] dark:text-[#f7f8fb] leading-tight tracking-tight truncate">
                   {(() => {
                     const custom = activeBulkMessage.customName;
                     const looksLikeBatchId = !!custom && (/^batch[-_]\d+$/i.test(custom) || /^batch[-_]/i.test(custom));
@@ -755,7 +758,7 @@ export const Composer: React.FC<ComposerProps> = ({
                     return `${activeBulkMessage.recipientCount} recipients`;
                   })()}
                 </h2>
-                <span className="text-[12px] sm:text-[13px] text-gray-500 dark:text-gray-400 font-medium truncate">
+                <span className="text-[12px] sm:text-[13px] text-[#667085] dark:text-[#a7adba] font-semibold truncate">
                   {activeBulkMessage.recipientCount} recipient{activeBulkMessage.recipientCount !== 1 ? 's' : ''}
                 </span>
               </div>
@@ -777,19 +780,19 @@ export const Composer: React.FC<ComposerProps> = ({
           </div>)
         ) : (
           /* New Message / Bulk Header - Styled like individual contact header */
-          (<div className="max-w-5xl mx-auto px-4 sm:px-6 pt-3 pb-2">
+          (<div className={`${composeWidthClass} px-4 sm:px-6 pt-3.5 pb-3`}>
             <div className="flex flex-row items-center justify-between mb-3 gap-3">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                 <button
                   onClick={onToggleMobileMenu}
-                  className="md:hidden p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-[#ececf1] transition-colors"
+                  className="md:hidden p-2 rounded-xl text-gray-500 hover:text-[#111111] hover:bg-black/[0.04] dark:text-gray-400 dark:hover:text-[#ececf1] dark:hover:bg-white/[0.06] transition-colors"
                   aria-label="Toggle sidebar"
                 >
                   <FiMenu className="h-5 w-5" />
                 </button>
 
                 {/* Circular Avatar - Standardized Blue for new message / bulk */}
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold text-base shadow-md bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-blue-500/20">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex-shrink-0 flex items-center justify-center text-white font-bold text-base bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] shadow-lg shadow-blue-500/25 ring-1 ring-white/60 dark:ring-white/[0.15]">
                   {activeBulkMessage ? (
                     <FiUsers className="h-5 w-5" />
                   ) : (
@@ -800,7 +803,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 </div>
 
                 <div className="flex flex-col min-w-0">
-                  <h2 className="text-[15px] sm:text-[16px] font-bold text-[#111111] dark:text-[#ececf1] leading-tight tracking-tight truncate">
+                  <h2 className="text-[15px] sm:text-[16px] font-black text-[#101828] dark:text-[#f7f8fb] leading-tight tracking-tight truncate">
                     {composeMode === 'bulk' && bulkSelectedContacts.length > 0 ? (
                       (() => {
                         const count = bulkSelectedContacts.length;
@@ -812,7 +815,7 @@ export const Composer: React.FC<ComposerProps> = ({
                       "New Message"
                     )}
                   </h2>
-                  <span className="text-[12px] sm:text-[13px] text-gray-500 dark:text-gray-400 font-medium truncate">
+                  <span className="text-[12px] sm:text-[13px] text-[#667085] dark:text-[#a7adba] font-semibold truncate">
                     {bulkSelectedContacts.length > 0 ? `${bulkSelectedContacts.length} selected` : 'Select recipients'}
                   </span>
                 </div>
@@ -824,12 +827,12 @@ export const Composer: React.FC<ComposerProps> = ({
                 </div>
 
                 {/* Compact Toggle - restored for new message flow */}
-                <div className="flex p-0.5 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200/50 dark:border-white/5 order-2">
+                <div className="flex p-1 bg-[#eef3f8] dark:bg-white/[0.06] rounded-2xl border border-[#dde6f0] dark:border-white/10 order-2 shadow-inner">
                   <button
                     onClick={() => setComposeMode("single")}
                     className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${composeMode === "single"
-                      ? "bg-white dark:bg-[#2a2b32] text-[#2b83fa] shadow-sm shadow-blue-500/10"
-                      : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      ? "bg-white dark:bg-[#252833] text-[#1d6bd4] dark:text-[#8bbcff] shadow-sm shadow-blue-500/10"
+                      : "text-[#7a8492] hover:text-[#1f2937] dark:text-[#8f96a3] dark:hover:text-gray-300"
                       }`}
                   >
                     <FiUser className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
@@ -838,8 +841,8 @@ export const Composer: React.FC<ComposerProps> = ({
                   <button
                     onClick={() => setComposeMode("bulk")}
                     className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${composeMode === "bulk"
-                      ? "bg-white dark:bg-[#2a2b32] text-[#2b83fa] shadow-sm shadow-blue-500/10"
-                      : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      ? "bg-white dark:bg-[#252833] text-[#1d6bd4] dark:text-[#8bbcff] shadow-sm shadow-blue-500/10"
+                      : "text-[#7a8492] hover:text-[#1f2937] dark:text-[#8f96a3] dark:hover:text-gray-300"
                       }`}
                   >
                     <FiUsers className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
@@ -869,13 +872,13 @@ export const Composer: React.FC<ComposerProps> = ({
               </div>
             </div>
             {/* Recipient Line */}
-            <div className="flex items-start gap-3 pb-2 border-t border-gray-100 dark:border-white/5 pt-3">
-              <span className="text-[14px] font-semibold text-gray-400 dark:text-gray-500 mt-2.5 whitespace-nowrap">To:</span>
+            <div className="flex items-start gap-3 rounded-2xl border border-[#dce4ee] dark:border-white/10 bg-white/[0.65] dark:bg-white/[0.035] px-3 py-2 shadow-sm">
+              <span className="text-[12px] font-black text-[#667085] dark:text-[#a7adba] mt-2 whitespace-nowrap uppercase">To</span>
 
               <div className="flex-1 min-h-[44px]">
                 <div className="relative" ref={dropdownRef}>
                   <div
-                    className="flex flex-wrap gap-2 py-1.5 cursor-text"
+                    className="flex flex-wrap gap-2 py-1 cursor-text"
                     onClick={() => setIsPickerOpen(true)}
                   >
                     {bulkSelectedContacts.map(contact => {
@@ -1028,7 +1031,7 @@ export const Composer: React.FC<ComposerProps> = ({
       {/* 2. Message History Area */}
       <div
         ref={msgAreaRef}
-        className="flex-1 overflow-y-auto px-6 py-4 space-y-1 flex flex-col custom-scrollbar"
+        className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 space-y-1 flex flex-col custom-scrollbar"
         onScroll={handleScroll}
         onTouchStart={(e) => { touchStartYMsg.current = e.touches[0].clientY; }}
         onTouchEnd={async (e) => {
@@ -1041,7 +1044,7 @@ export const Composer: React.FC<ComposerProps> = ({
           }
         }}
       >
-        <div className="max-w-5xl mx-auto w-full min-h-full flex flex-col pb-2">
+        <div className={`${composeWidthClass} min-h-full flex flex-col pb-4`}>
           {/* Pull-to-refresh spinner */}
           {isPullRefreshing && (
             <div className="flex justify-center items-center py-2">
@@ -1091,7 +1094,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   src="https://lottie.host/8bff6661-62db-4473-adb8-7eced34f3649/mii3gOOlir.lottie"
                   loop
                   autoplay
-                  className="w-40 h-40 md:w-56 md:h-56 mb-1"
+                className="w-36 h-36 md:w-48 md:h-48 mb-1"
                   onError={() => setLottieError(true)}
                 />
               ) : (
@@ -1169,8 +1172,8 @@ export const Composer: React.FC<ComposerProps> = ({
                   return (
                     <div key={msg.id} className="w-full flex flex-col items-end">
                       {showDateSeparator && (
-                        <div className="w-full flex items-center justify-center my-4">
-                          <span className="px-3 py-1 bg-gray-100 dark:bg-white/10 rounded-full text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                        <div className="w-full flex items-center justify-center my-5">
+                          <span className={dateSeparatorClass}>
                             {new Date(msg.timestamp).toLocaleDateString([], {
                               weekday: "long",
                               month: "short",
@@ -1180,11 +1183,11 @@ export const Composer: React.FC<ComposerProps> = ({
                         </div>
                       )}
                       <div
-                        className="max-w-[85%] flex flex-col items-end group mb-1 cursor-pointer"
+                        className={messageContainerClass}
                         onClick={() => setExpandedMessageId(isExpanded ? null : msg.id)}
                       >
                         <div
-                          className={`bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white px-4 py-2.5 shadow-lg shadow-blue-500/10 transition-transform group-hover:scale-[1.01] ${roundingClasses}`}
+                          className={`${outboundBubbleClass} ${roundingClasses}`}
                         >
                           <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">
                             {msg.text}
@@ -1231,7 +1234,7 @@ export const Composer: React.FC<ComposerProps> = ({
               )}
             </div>
           ) : (
-            <div className="space-y-1 mt-auto w-full">
+            <div className="space-y-1.5 mt-auto w-full">
               {(() => {
                 // Group view: show bulk messages organized by batch
                 const isGroupView = (composeMode === 'bulk' && bulkSelectedContacts.length > 1) || activeBulkMessage;
@@ -1314,18 +1317,18 @@ export const Composer: React.FC<ComposerProps> = ({
                     return (
                       <div key={grp.id} className="flex flex-col items-end w-full mb-1">
                         {showDateSeparator && (
-                          <div className="w-full flex items-center justify-center my-4">
-                            <span className="px-3 py-1 bg-gray-100 dark:bg-white/10 rounded-full text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                          <div className="w-full flex items-center justify-center my-5">
+                            <span className={dateSeparatorClass}>
                               {date.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
                             </span>
                           </div>
                         )}
 
                         <div
-                          className="max-w-[85%] flex flex-col items-end group cursor-pointer"
+                          className={messageContainerClass}
                           onClick={() => setExpandedMessageId(isExpanded ? null : grp.id)}
                         >
-                          <div className={`bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white px-4 py-2.5 shadow-lg shadow-blue-500/10 transition-transform group-hover:scale-[1.01] ${roundingClasses}`}>
+                          <div className={`${outboundBubbleClass} ${roundingClasses}`}>
                             <div className="text-[14.5px] whitespace-pre-wrap leading-relaxed">
                               {grp.messageText}
                             </div>
@@ -1381,17 +1384,17 @@ export const Composer: React.FC<ComposerProps> = ({
                   return (
                     <div key={msg.id} className="w-full flex flex-col items-end">
                       {showDateSeparator && (
-                        <div className="w-full flex items-center justify-center my-4">
-                          <span className="px-3 py-1 bg-gray-100 dark:bg-white/10 rounded-full text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                        <div className="w-full flex items-center justify-center my-5">
+                          <span className={dateSeparatorClass}>
                             {new Date(msg.timestamp).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
                           </span>
                         </div>
                       )}
                       <div
-                        className="max-w-[85%] flex flex-col items-end group mb-1 cursor-pointer"
+                        className={messageContainerClass}
                         onClick={() => setExpandedMessageId(isExpanded ? null : msg.id)}
                       >
-                        <div className={`bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white px-4 py-2.5 shadow-lg shadow-blue-500/10 transition-transform group-hover:scale-[1.01] ${roundingClasses}`}>
+                        <div className={`${outboundBubbleClass} ${roundingClasses}`}>
                           <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                         </div>
 
@@ -1426,7 +1429,7 @@ export const Composer: React.FC<ComposerProps> = ({
         <div ref={messagesEndRef} className="h-4 w-full flex-shrink-0" />
       </div>
       {/* 3. Floating Input Card Area */}
-      <div className="px-6 pb-6 pt-2 z-20 relative">
+      <div className="px-4 sm:px-6 lg:px-8 pb-5 pt-3 z-20 relative bg-gradient-to-t from-[#f2f6fb] via-[#f2f6fb]/95 to-transparent dark:from-[#0c0d10] dark:via-[#0c0d10]/95">
         {/* Scroll to bottom floating button */}
         <div
           className={`absolute -top-10 left-1/2 -translate-x-1/2 z-10 transition-all duration-300 ${
@@ -1435,7 +1438,7 @@ export const Composer: React.FC<ComposerProps> = ({
         >
           <button
             onClick={scrollToBottom}
-            className="w-7 h-7 sm:w-8 sm:h-8 bg-white/80 dark:bg-black/40 backdrop-blur-md text-gray-500 dark:text-gray-400 border border-gray-200/60 dark:border-white/10 rounded-full shadow-md flex items-center justify-center hover:text-[#2b83fa] dark:hover:text-[#2b83fa] hover:scale-110 active:scale-95 transition-all"
+            className="w-8 h-8 bg-white/90 dark:bg-[#191b22]/90 backdrop-blur-md text-[#667085] dark:text-[#a7adba] border border-[#dce4ee] dark:border-white/10 rounded-full shadow-lg flex items-center justify-center hover:text-[#2b83fa] dark:hover:text-[#8bbcff] hover:scale-110 active:scale-95 transition-all"
             aria-label="Scroll to bottom"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1443,7 +1446,7 @@ export const Composer: React.FC<ComposerProps> = ({
             </svg>
           </button>
         </div>
-        <div className="max-w-5xl mx-auto">
+        <div className={composeWidthClass}>
           {!toggleEnabled && (
             <div className="mb-3 mx-2 sm:mx-0 px-4 py-3 bg-red-50 dark:bg-red-900/10 border border-red-200/60 dark:border-red-800/40 rounded-2xl flex items-start gap-3 shadow-sm">
               <svg className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1457,26 +1460,26 @@ export const Composer: React.FC<ComposerProps> = ({
               </div>
             </div>
           )}
-          <div className="bg-white dark:bg-[#1a1b1e] rounded-[1.5rem] border border-gray-200/80 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] p-2 transition-all focus-within:ring-2 focus-within:ring-[#2b83fa]/20 dark:focus-within:ring-[#2b83fa]/10 relative z-20">
+          <div className="bg-white/[0.96] dark:bg-[#17191f]/[0.96] rounded-[24px] border border-[#d8e1ec] dark:border-white/10 shadow-[0_20px_55px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_64px_rgba(0,0,0,0.48)] p-2.5 transition-all focus-within:ring-2 focus-within:ring-[#2b83fa]/25 dark:focus-within:ring-[#2b83fa]/20 relative z-20">
             <div className="flex flex-col">
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Type your message..."
-                className="w-full bg-transparent border-none px-4 pt-3 pb-1 text-[15px] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 dark:placeholder-gray-500 resize-none focus:outline-none min-h-[56px] max-h-[200px] custom-scrollbar"
+                className="w-full bg-transparent border-none px-4 pt-3.5 pb-2 text-[15px] text-[#101828] dark:text-[#f7f8fb] placeholder-[#98a2b3] dark:placeholder-[#737b89] resize-none focus:outline-none min-h-[58px] max-h-[200px] custom-scrollbar"
                 rows={1}
-                style={{ height: 'auto', minHeight: '56px' }}
+                style={{ height: 'auto', minHeight: '58px' }}
               />
 
-              <div className="flex items-center justify-between px-3 pt-2 pb-1 border-t border-gray-50 dark:border-white/5">
-                <div className="flex items-center gap-1">
+              <div className="flex items-center justify-between gap-3 px-3 pt-2.5 pb-1.5 border-t border-[#edf1f6] dark:border-white/[0.08]">
+                <div className="flex items-center gap-1.5 min-w-0">
                   {/* Custom Values Button */}
                   <div className="relative" ref={customValuesRef}>
                     <button
                       onClick={() => setIsCustomValuesOpen(!isCustomValuesOpen)}
                       title="Custom Values"
-                      className={`px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-[12px] font-bold ${isCustomValuesOpen ? "bg-blue-50 text-[#2b83fa] dark:bg-white/10" : "text-gray-400 hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-white/5"}`}
+                      className={`px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-[12px] font-bold ${isCustomValuesOpen ? "bg-[#eaf3ff] text-[#1d6bd4] dark:bg-white/10 dark:text-[#8bbcff]" : "text-[#7a8492] hover:text-[#1d6bd4] hover:bg-[#eef6ff] dark:text-[#8f96a3] dark:hover:text-[#8bbcff] dark:hover:bg-white/[0.06]"}`}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
@@ -1504,7 +1507,7 @@ export const Composer: React.FC<ComposerProps> = ({
                     <button
                       onClick={() => setIsTagsOpen(!isTagsOpen)}
                       title="Apply Tags to Recipients"
-                      className={`px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-[12px] font-bold ${selectedTagsToApply.length > 0 || isTagsOpen ? "bg-blue-50 text-[#2b83fa] dark:bg-white/10" : "text-gray-400 hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-white/5"}`}
+                      className={`px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-[12px] font-bold ${selectedTagsToApply.length > 0 || isTagsOpen ? "bg-[#eaf3ff] text-[#1d6bd4] dark:bg-white/10 dark:text-[#8bbcff]" : "text-[#7a8492] hover:text-[#1d6bd4] hover:bg-[#eef6ff] dark:text-[#8f96a3] dark:hover:text-[#8bbcff] dark:hover:bg-white/[0.06]"}`}
                     >
                       <div className="relative">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1548,15 +1551,15 @@ export const Composer: React.FC<ComposerProps> = ({
                   </div>
 
                   {isNewMessage && composeMode === "bulk" && message.length > 0 && bulkSelectedContacts.length > 0 && (
-                    <div className="ml-2 flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800/30">
+                    <div className="ml-2 flex items-center gap-1.5 px-2.5 py-1 bg-[#eef6ff] dark:bg-blue-900/20 rounded-full border border-blue-100 dark:border-blue-800/30">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#2b83fa] animate-pulse"></div>
                       <span className="text-[10px] font-bold text-[#2b83fa] uppercase tracking-wide">Est. {totalEstimatedSms} SMS</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <span className="text-[12px] font-medium text-gray-400 dark:text-gray-500 tabular-nums">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <span className="text-[12px] font-semibold text-[#98a2b3] dark:text-[#737b89] tabular-nums whitespace-nowrap">
                     {message.length} <span className="text-[10px] opacity-70">chars</span>
                   </span>
                   <button
@@ -1564,11 +1567,11 @@ export const Composer: React.FC<ComposerProps> = ({
                     disabled={isSendDisabled()}
                     className={`
                       group flex items-center justify-center gap-2 
-                      bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] 
-                      text-white transition-all 
+                      bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8]
+                      text-white transition-all shadow-[0_12px_24px_rgba(37,99,235,0.28)]
                       ${isSendDisabled()
-                        ? "opacity-30 cursor-not-allowed"
-                        : "hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] active:scale-95 cursor-pointer"}
+                        ? "opacity-35 cursor-not-allowed shadow-none"
+                        : "hover:shadow-[0_16px_32px_rgba(37,99,235,0.36)] hover:-translate-y-0.5 active:scale-95 cursor-pointer"}
                       ${isNewMessage || selectedContacts.length > 0 ? "px-5 py-2.5 rounded-2xl" : "p-3 rounded-full"}
                       sm:px-6 sm:py-3 sm:rounded-2xl
                     `}
