@@ -9,6 +9,7 @@ import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
 import { fetchConversations } from "../api/sms";
 import { fetchContacts } from "../api/contacts";
 import { fetchCreditStatus, fetchCreditTransactions, type CreditStatus, type CreditTransaction } from "../api/credits";
+import { fetchAccountProfile, getCachedAccountProfile, type AccountProfile } from "../api/account";
 import { generateMonthlyReport } from "../utils/pdfGenerator";
 import SplitText from "./SplitText";
 import AnimatedContent from "./AnimatedContent";
@@ -108,9 +109,48 @@ const getGreeting = (): string => {
     return 'Good evening';
 };
 
+const isUsableLocationName = (value?: string | null): value is string =>
+    Boolean(value?.trim() && value.trim() !== "Unknown");
+
+const getProfileLocationId = (profile?: { location_id?: string | null; active_location_id?: string | null } | null): string =>
+    profile?.location_id || profile?.active_location_id || "";
+
+const profileMatchesLocation = (
+    profile: { location_id?: string | null; active_location_id?: string | null } | null | undefined,
+    locationId: string
+): boolean => {
+    if (!locationId) return true;
+    const profileLocationId = getProfileLocationId(profile);
+    return Boolean(profileLocationId && profileLocationId === locationId);
+};
+
+const getStoredLocationName = (locationId: string): string => {
+    for (const key of ["nola_auth_user", "nola_user"]) {
+        try {
+            const stored = JSON.parse(safeStorage.getItem(key) || "{}");
+            if (
+                profileMatchesLocation(stored, locationId) &&
+                isUsableLocationName(stored?.location_name)
+            ) {
+                return stored.location_name.trim();
+            }
+        } catch {
+            // Ignore malformed cached sessions.
+        }
+    }
+    return "";
+};
+
 export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSelectContact, onSelectBulkMessage }) => {
     const { locationId } = useLocationId();
     const liveProfile = useUserProfileContext();
+    const [accountProfile, setAccountProfile] = useState<AccountProfile | null>(() => {
+        if (!locationId) return null;
+        return (
+            getCachedAccountProfile(locationId, { includeAuth: false, allowExpired: true }) ||
+            getCachedAccountProfile(locationId, { allowExpired: true })
+        );
+    });
     const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
@@ -153,6 +193,34 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         };
         loadData();
         return () => { cancelled = true; };
+    }, [locationId]);
+
+    useEffect(() => {
+        if (!locationId) {
+            setAccountProfile(null);
+            return;
+        }
+
+        let cancelled = false;
+        const cachedProfile =
+            getCachedAccountProfile(locationId, { includeAuth: false, allowExpired: true }) ||
+            getCachedAccountProfile(locationId, { allowExpired: true });
+
+        setAccountProfile(cachedProfile);
+
+        fetchAccountProfile(locationId, {
+            includeAuth: false,
+            forceRefresh: true,
+            allowStaleOnError: true,
+        }).then((profile) => {
+            if (!cancelled) {
+                setAccountProfile(profile || cachedProfile);
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
     }, [locationId]);
 
     useEffect(() => {
@@ -243,15 +311,17 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         }
     };
 
+    const accountProfileLocationName = isUsableLocationName(accountProfile?.location_name)
+        ? accountProfile.location_name.trim()
+        : "";
+    const liveProfileLocationName =
+        profileMatchesLocation(liveProfile, locationId) && isUsableLocationName(liveProfile?.location_name)
+            ? liveProfile.location_name.trim()
+            : "";
     const subaccountName =
-        liveProfile?.location_name && liveProfile.location_name !== "Unknown"
-            ? liveProfile.location_name
-            : (() => {
-                  try {
-                      return JSON.parse(safeStorage.getItem('nola_auth_user') || '{}')?.location_name ||
-                             JSON.parse(safeStorage.getItem('nola_user') || '{}')?.location_name || "";
-                  } catch { return ""; }
-              })();
+        accountProfileLocationName ||
+        liveProfileLocationName ||
+        getStoredLocationName(locationId);
     const profileDisplayName =
         liveProfile?.name?.trim() ||
         [liveProfile?.firstName, liveProfile?.lastName].filter(Boolean).join(" ").trim() ||
@@ -351,6 +421,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
                     <div className="text-white min-w-0 flex-shrink-0 w-full sm:w-auto">
                         <SplitText
+                            key={greetingText}
                             text={greetingText}
                             className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight"
                             delay={50}
