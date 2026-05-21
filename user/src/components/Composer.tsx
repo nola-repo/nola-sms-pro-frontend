@@ -5,7 +5,7 @@ import { sendSms, sendBulkSms, interpolateMessage, checkMessageStatus, type Send
 import { getRecipientKey } from "../utils/storage";
 import type { BulkMessageHistoryItem, Message } from "../types/Sms";
 import type { Contact } from "../types/Contact";
-import { FiUser, FiUsers, FiMenu } from "react-icons/fi";
+import { FiUser, FiUsers, FiMenu, FiMoreHorizontal, FiX } from "react-icons/fi";
 import ShinyText from "./ShinyText";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useConversationMessages } from "../hooks/useConversationMessages";
@@ -29,6 +29,36 @@ interface ComposerProps {
   onRequestSettings?: () => void;
   onToggleMobileMenu?: () => void;
 }
+
+type MessageDetailsSelection =
+  | {
+      kind: "message";
+      message: Message;
+      recipient?: string;
+      conversationId?: string;
+    }
+  | {
+      kind: "bulk";
+      id: string;
+      text: string;
+      timestamp: Date;
+      rows: Message[];
+      stats: { sent: number; sending: number; failed: number; total: number };
+      conversationId?: string;
+    };
+
+const DetailRow: React.FC<{ label: string; value?: string | number | null; mono?: boolean }> = ({ label, value, mono }) => {
+  if (value === undefined || value === null || value === "") return null;
+
+  return (
+    <div className="rounded-xl border border-[#e5ebf3] dark:border-white/10 bg-[#f8fafc] dark:bg-white/[0.04] px-3 py-2">
+      <div className="text-[10px] font-black uppercase text-[#98a2b3] dark:text-[#7d8491] mb-1">{label}</div>
+      <div className={`text-[12.5px] font-semibold text-[#344054] dark:text-[#e4e7ec] break-words ${mono ? "font-mono" : ""}`}>
+        {value}
+      </div>
+    </div>
+  );
+};
 
 const StatusBadgeSummary: React.FC<{ stats: { sent: number, sending: number, failed: number, total: number }, minimal?: boolean }> = ({ stats, minimal }) => {
   if (minimal) {
@@ -148,7 +178,21 @@ export const Composer: React.FC<ComposerProps> = ({
     return () => { cancelled = true; };
   }, [locationId]);
   const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null);
+  const [messageDetails, setMessageDetails] = useState<MessageDetailsSelection | null>(null);
   const [lottieError, setLottieError] = useState(false);
+
+  useEffect(() => {
+    if (!messageDetails) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMessageDetails(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [messageDetails]);
 
   // Filtering focus for bulk conversations
   const [recipientKeyFocus, setRecipientKeyFocus] = useState<string | undefined>(undefined);
@@ -677,10 +721,48 @@ export const Composer: React.FC<ComposerProps> = ({
     return "";
   };
 
+  const formatDetailsTimestamp = (date: Date) =>
+    date.toLocaleString([], {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const showMessageDetails = (msg: Message) => {
+    setMessageDetails({
+      kind: "message",
+      message: msg,
+      recipient: historyPhoneNumber,
+      conversationId,
+    });
+  };
+
+  const showBulkDetails = (
+    id: string,
+    text: string,
+    timestamp: Date,
+    rows: Message[],
+    stats: { sent: number; sending: number; failed: number; total: number }
+  ) => {
+    setMessageDetails({
+      kind: "bulk",
+      id,
+      text,
+      timestamp,
+      rows,
+      stats,
+      conversationId,
+    });
+  };
+
   const composeWidthClass = "max-w-4xl mx-auto w-full";
-  const dateSeparatorClass = "px-3 py-1.5 rounded-full bg-white/[0.85] dark:bg-white/[0.07] border border-[#dce4ee] dark:border-white/10 shadow-sm text-[11px] font-bold text-[#667085] dark:text-[#b8bdc7]";
-  const messageContainerClass = "max-w-[78%] sm:max-w-[620px] flex flex-col items-end group mb-1.5 cursor-pointer";
-  const outboundBubbleClass = "bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] text-white px-4 py-3 shadow-[0_14px_32px_rgba(37,99,235,0.24)] dark:shadow-[0_16px_36px_rgba(0,0,0,0.38)] ring-1 ring-white/25 transition-transform group-hover:-translate-y-0.5";
+  const dateSeparatorClass = "px-3 py-1.5 rounded-full bg-white/[0.85] dark:bg-white/[0.07] border border-[#dce4ee] dark:border-white/10 text-[11px] font-bold text-[#667085] dark:text-[#b8bdc7]";
+  const messageContainerClass = "max-w-[78%] sm:max-w-[620px] flex flex-col items-end group mb-0.5 cursor-pointer";
+  const outboundBubbleClass = "bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] text-white px-4 py-3 ring-1 ring-white/25 transition-colors";
+  const bubbleOptionsButtonClass = "mb-1 flex h-7 w-7 items-center justify-center rounded-full border border-[#d6e0eb] dark:border-white/10 bg-white/[0.82] dark:bg-white/[0.06] text-[#667085] dark:text-[#a7adba] opacity-75 transition-all hover:opacity-100 hover:text-[#1d6bd4] dark:hover:text-[#8bbcff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/30";
 
   return (
     <div className="flex flex-col h-full bg-[linear-gradient(180deg,#f8fafc_0%,#f2f6fb_100%)] dark:bg-[linear-gradient(180deg,#121419_0%,#0c0d10_100%)] relative overflow-hidden transition-colors duration-300">
@@ -1186,12 +1268,26 @@ export const Composer: React.FC<ComposerProps> = ({
                         className={messageContainerClass}
                         onClick={() => setExpandedMessageId(isExpanded ? null : msg.id)}
                       >
-                        <div
-                          className={`${outboundBubbleClass} ${roundingClasses}`}
-                        >
-                          <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">
-                            {msg.text}
-                          </p>
+                        <div className="flex items-end justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              showMessageDetails(msg);
+                            }}
+                            className={bubbleOptionsButtonClass}
+                            aria-label="Message options"
+                            title="Message details"
+                          >
+                            <FiMoreHorizontal className="h-4 w-4" />
+                          </button>
+                          <div
+                            className={`${outboundBubbleClass} ${roundingClasses}`}
+                          >
+                            <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">
+                              {msg.text}
+                            </p>
+                          </div>
                         </div>
                         <div
                           className={`overflow-hidden transition-all duration-300 ease-in-out ${
@@ -1234,7 +1330,7 @@ export const Composer: React.FC<ComposerProps> = ({
               )}
             </div>
           ) : (
-            <div className="space-y-1.5 mt-auto w-full">
+            <div className="space-y-0.5 mt-auto w-full">
               {(() => {
                 // Group view: show bulk messages organized by batch
                 const isGroupView = (composeMode === 'bulk' && bulkSelectedContacts.length > 1) || activeBulkMessage;
@@ -1328,9 +1424,23 @@ export const Composer: React.FC<ComposerProps> = ({
                           className={messageContainerClass}
                           onClick={() => setExpandedMessageId(isExpanded ? null : grp.id)}
                         >
-                          <div className={`${outboundBubbleClass} ${roundingClasses}`}>
-                            <div className="text-[14.5px] whitespace-pre-wrap leading-relaxed">
-                              {grp.messageText}
+                          <div className="flex items-end justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                showBulkDetails(grp.id, grp.messageText, grp.timestamp, grp.rows, campaignStats);
+                              }}
+                              className={bubbleOptionsButtonClass}
+                              aria-label="Message options"
+                              title="Message details"
+                            >
+                              <FiMoreHorizontal className="h-4 w-4" />
+                            </button>
+                            <div className={`${outboundBubbleClass} ${roundingClasses}`}>
+                              <div className="text-[14.5px] whitespace-pre-wrap leading-relaxed">
+                                {grp.messageText}
+                              </div>
                             </div>
                           </div>
 
@@ -1394,8 +1504,22 @@ export const Composer: React.FC<ComposerProps> = ({
                         className={messageContainerClass}
                         onClick={() => setExpandedMessageId(isExpanded ? null : msg.id)}
                       >
-                        <div className={`${outboundBubbleClass} ${roundingClasses}`}>
-                          <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                        <div className="flex items-end justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              showMessageDetails(msg);
+                            }}
+                            className={bubbleOptionsButtonClass}
+                            aria-label="Message options"
+                            title="Message details"
+                          >
+                            <FiMoreHorizontal className="h-4 w-4" />
+                          </button>
+                          <div className={`${outboundBubbleClass} ${roundingClasses}`}>
+                            <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                          </div>
                         </div>
 
                         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-40 opacity-100 mt-1 mb-1 px-1' : 'max-h-0 opacity-0'}`}>
@@ -1632,7 +1756,90 @@ export const Composer: React.FC<ComposerProps> = ({
           )}
         </div>
       </div>
-      {/* 4. Toast Overlay — custom, no-blink */}
+      {messageDetails && (
+        <div
+          className="fixed inset-0 z-[9998] flex items-center justify-center bg-[#0f172a]/35 px-4 backdrop-blur-sm"
+          onClick={() => setMessageDetails(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Message details"
+        >
+          <div
+            className="w-full max-w-lg rounded-[24px] border border-[#d8e1ec] dark:border-white/10 bg-white dark:bg-[#17191f] p-5 text-left shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-[#2b83fa] dark:text-[#8bbcff]">
+                  Message details
+                </div>
+                <h3 className="mt-1 text-[18px] font-black text-[#101828] dark:text-white">
+                  {messageDetails.kind === "bulk" ? "Bulk send event" : "Outbound message"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMessageDetails(null)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f2f4f7] text-[#667085] transition-colors hover:bg-[#e4e9f0] hover:text-[#101828] dark:bg-white/[0.06] dark:text-[#a7adba] dark:hover:bg-white/[0.1] dark:hover:text-white"
+                aria-label="Close message details"
+              >
+                <FiX className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mb-4 rounded-2xl bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] p-4 text-white">
+              <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-white/70">Message</div>
+              <p className="whitespace-pre-wrap text-[14px] font-semibold leading-relaxed">
+                {messageDetails.kind === "bulk"
+                  ? messageDetails.text
+                  : messageDetails.message.text || messageDetails.message.message || ""}
+              </p>
+            </div>
+
+            {messageDetails.kind === "message" ? (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <DetailRow label="Status" value={messageDetails.message.status} />
+                <DetailRow label="Sender" value={messageDetails.message.senderName} />
+                <DetailRow label="Sent at" value={formatDetailsTimestamp(messageDetails.message.timestamp)} />
+                <DetailRow label="Recipient" value={messageDetails.recipient} mono />
+                <DetailRow label="Message ID" value={messageDetails.message.id} mono />
+                <DetailRow label="Conversation ID" value={messageDetails.conversationId} mono />
+                <DetailRow label="Batch ID" value={messageDetails.message.batch_id} mono />
+                <DetailRow label="Error" value={messageDetails.message.errorReason} />
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <DetailRow label="Total" value={messageDetails.stats.total} />
+                  <DetailRow label="Sent" value={messageDetails.stats.sent} />
+                  <DetailRow label="Sending" value={messageDetails.stats.sending} />
+                  <DetailRow label="Failed" value={messageDetails.stats.failed} />
+                </div>
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <DetailRow label="Sent at" value={formatDetailsTimestamp(messageDetails.timestamp)} />
+                  <DetailRow label="Conversation ID" value={messageDetails.conversationId} mono />
+                  <DetailRow label="Event ID" value={messageDetails.id} mono />
+                  <DetailRow label="Batch ID" value={messageDetails.rows.find(row => row.batch_id)?.batch_id} mono />
+                </div>
+                <div className="mt-3 max-h-40 overflow-y-auto rounded-2xl border border-[#e5ebf3] dark:border-white/10 custom-scrollbar">
+                  {messageDetails.rows.map((row) => (
+                    <div key={row.id} className="flex items-center justify-between gap-3 border-b border-[#edf1f6] px-3 py-2 last:border-b-0 dark:border-white/[0.06]">
+                      <div className="min-w-0">
+                        <div className="truncate text-[12px] font-bold text-[#344054] dark:text-[#e4e7ec]">{row.senderName}</div>
+                        <div className="truncate font-mono text-[10px] text-[#98a2b3] dark:text-[#7d8491]">{row.id}</div>
+                      </div>
+                      <span className="rounded-full bg-[#eef6ff] px-2 py-1 text-[10px] font-black uppercase text-[#1d6bd4] dark:bg-white/[0.07] dark:text-[#8bbcff]">
+                        {row.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      {/* 4. Toast Overlay - custom, no-blink */}
       <div
         aria-live="polite"
         role="status"

@@ -667,7 +667,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           group relative transition-all duration-200 overflow-visible
                           px-3 py-2 rounded-xl cursor-pointer mx-1
                           ${activeContactId === contact.id
-                            ? 'bg-[#eff6ff] dark:bg-[#2b83fa]/[0.14] ring-1 ring-[#bfdbfe]/80 dark:ring-[#60a5fa]/20 shadow-sm'
+                            ? 'bg-[#e8f2ff] dark:bg-[#2b83fa]/[0.18] ring-1 ring-[#9cc7ff]/80 dark:ring-[#60a5fa]/30'
                             : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'}
                         `}
                         onClick={() => {
@@ -675,6 +675,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           onSelectContact(contact);
                         }}
                       >
+                        {activeContactId === contact.id && (
+                          <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#2b83fa]" />
+                        )}
                         <div className="flex items-center gap-3">
                           <div className="relative flex-shrink-0">
                             <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-[13px] transition-all duration-200
@@ -690,7 +693,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-center mb-0.5">
-                              <span className={`text-[13px] truncate leading-tight ${activeContactId === contact.id ? 'font-semibold text-[#111111] dark:text-white' : 'font-medium text-[#3c4043] dark:text-[#e8eaed]'}`}>
+                              <span className={`text-[13px] truncate leading-tight ${activeContactId === contact.id ? 'font-bold text-[#111111] dark:text-white' : 'font-medium text-[#3c4043] dark:text-[#e8eaed]'}`}>
                                 {toProperCase(contact.name || contact.phone)}
                               </span>
                               <div className="flex items-center gap-0.5 flex-shrink-0 ml-1">
@@ -764,7 +767,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               group relative transition-all duration-200 rounded-xl mx-1
                               px-3 py-2 cursor-pointer overflow-visible
                               ${isActive
-                                ? 'bg-[#eff6ff] dark:bg-[#2b83fa]/[0.14] ring-1 ring-[#bfdbfe]/80 dark:ring-[#60a5fa]/20 shadow-sm'
+                                ? 'bg-[#e8f2ff] dark:bg-[#2b83fa]/[0.18] ring-1 ring-[#9cc7ff]/80 dark:ring-[#60a5fa]/30'
                                 : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'
                               }
                             `}
@@ -775,6 +778,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               }
                             }}
                           >
+                            {isActive && (
+                              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#2b83fa]" />
+                            )}
                             <div className="flex items-center gap-3 overflow-visible">
                               <div className="relative flex-shrink-0">
                                 <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200
