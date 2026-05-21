@@ -19,6 +19,7 @@ import { useLocationId } from "../context/LocationContext";
 import { GHL_BACKEND_ONBOARDING_URL, GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
 import { fetchAccountProfile, type AccountProfile } from "../api/account";
 import faviconLogo from "../assets/FAV ICON - NOLA SMS PRO.png";
+import { isAuthenticated } from "../services/authService";
 
 interface DashboardProps {
   isMobileMenuOpen?: boolean;
@@ -40,6 +41,14 @@ const profileRequiresRegistration = (profile: AccountProfile): boolean =>
 const buildBackendOnboardingUrl = (locationId: string): string => {
   const state = encodeURIComponent(JSON.stringify({ selected_location_id: locationId }));
   return `${GHL_BACKEND_ONBOARDING_URL}&state=${state}`;
+};
+
+const isRunningInGhlFrame = (): boolean => {
+  try {
+    return window.self !== window.top || sessionStorage.getItem('nola_is_ghl_frame') === 'true';
+  } catch {
+    return true;
+  }
 };
 
 const RegistrationRequiredState: React.FC<{
@@ -145,6 +154,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [settingsOpen] = useState(false);
   const [autoOpenAddContact, setAutoOpenAddContact] = useState(false);
+  const [workspaceProfileSyncComplete, setWorkspaceProfileSyncComplete] = useState(false);
 
   const isMobileMenuOpen = externalIsMobileMenuOpen !== undefined ? externalIsMobileMenuOpen : false;
 
@@ -323,6 +333,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     };
   }, [locationId]);
 
+  useEffect(() => {
+    if (locationId) return;
+
+    const shouldWaitForWorkspace =
+      isAuthenticated() || isRunningInGhlFrame();
+
+    if (!shouldWaitForWorkspace) return;
+
+    const handleProfileSyncComplete = () => {
+      setWorkspaceProfileSyncComplete(true);
+    };
+    const fallbackTimer = window.setTimeout(handleProfileSyncComplete, 8000);
+
+    window.addEventListener('nola-profile-sync-complete', handleProfileSyncComplete);
+    return () => {
+      window.clearTimeout(fallbackTimer);
+      window.removeEventListener('nola-profile-sync-complete', handleProfileSyncComplete);
+    };
+  }, [locationId]);
+
   // Handle navigation to settings tabs from CreditBadge
   useEffect(() => {
     const handleNavigateToSettings = (e: CustomEvent) => {
@@ -365,11 +395,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
 
   const registrationCheckIsCurrent =
     !locationId || registrationCheck.locationId === locationId;
+  const shouldWaitForWorkspaceBootstrap =
+    isAuthenticated() || isRunningInGhlFrame();
+  const workspaceBootstrapComplete =
+    Boolean(locationId) || workspaceProfileSyncComplete || !shouldWaitForWorkspaceBootstrap;
+  const isAwaitingWorkspaceBootstrap =
+    !locationId && !workspaceBootstrapComplete;
   const isCheckingActiveLocation =
-    !!locationId &&
+    isAwaitingWorkspaceBootstrap ||
+    (!!locationId &&
     (!registrationCheckIsCurrent ||
       registrationCheck.status === 'checking' ||
-      registrationCheck.status === 'idle');
+      registrationCheck.status === 'idle'));
 
   if (isCheckingActiveLocation) {
     return (

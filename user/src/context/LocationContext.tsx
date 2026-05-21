@@ -25,6 +25,7 @@ const LocationContext = createContext<LocationContextValue>({
   setLocationId: () => {},
 });
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useLocationId = () => useContext(LocationContext);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -93,7 +94,13 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return fromUrl;
     }
     
-    // Priority 2: cached user profile (normal login)
+    // Priority 2: explicit session location from login/auth handoff
+    const sessionLocationId = safeStorage.getItem('nola_location_id');
+    if (sessionLocationId && sessionLocationId.length > 4) {
+      return sessionLocationId;
+    }
+
+    // Priority 3: cached user profile (normal login)
     try {
       const authUser = JSON.parse(safeStorage.getItem('nola_auth_user') || 'null');
       if (authUser?.location_id) return authUser.location_id;
@@ -102,11 +109,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const nolaUser = JSON.parse(safeStorage.getItem('nola_user') || 'null');
       if (nolaUser?.location_id) return nolaUser.location_id;
       if (nolaUser?.active_location_id) return nolaUser.active_location_id;
-    } catch (e) {
+    } catch {
       // ignore parsing errors
     }
 
-    // Priority 3: persisted storage (fallback)
+    // Priority 4: persisted storage (fallback)
     return getAccountSettings().ghlLocationId || '';
   });
 

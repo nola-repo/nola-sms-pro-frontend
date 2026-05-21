@@ -217,6 +217,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
 
         isInitialLoad.current = true;
         setMessages([]);
+        setLoading(true);
         fetchHistory(true);
     }, [cacheKey, conversationId, fetchHistory]);
 

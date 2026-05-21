@@ -171,6 +171,14 @@ export const Composer: React.FC<ComposerProps> = ({
     return undefined;
   }, [activeContact, selectedContacts]);
 
+  const draftSingleContact = useMemo(() => {
+    if (activeContact || activeBulkMessage || selectedContacts.length > 0) return null;
+    if (composeMode !== "single" || bulkSelectedContacts.length !== 1) return null;
+    return bulkSelectedContacts[0];
+  }, [activeContact, activeBulkMessage, selectedContacts.length, composeMode, bulkSelectedContacts]);
+
+  const historyPhoneNumber = activePhoneNumber || draftSingleContact?.phone;
+
   /**
    * Stable conversation_id for message fetching:
    *  - Direct chat:             {locationId}_conv_{phone} (or legacy conv_{phone})
@@ -182,8 +190,8 @@ export const Composer: React.FC<ComposerProps> = ({
    */
   const conversationId = useMemo(() => {
     const effectiveLocationId = locationId || getAccountSettings().ghlLocationId || null;
-    if (activePhoneNumber) {
-      return buildDirectConversationId(activePhoneNumber, effectiveLocationId) || undefined;
+    if (historyPhoneNumber) {
+      return buildDirectConversationId(historyPhoneNumber, effectiveLocationId) || undefined;
     }
     if (activeBulkMessage) {
       // Backend expects scoped IDs: {locationId}_group_{batchId}
@@ -191,7 +199,7 @@ export const Composer: React.FC<ComposerProps> = ({
       return prefix ? `${prefix}_group_${activeBulkMessage.batchId}` : `group_${activeBulkMessage.batchId}`;
     }
     return undefined;
-  }, [activePhoneNumber, activeBulkMessage, locationId]);
+  }, [historyPhoneNumber, activeBulkMessage, locationId]);
 
   const {
     messages: conversationMessages,
@@ -208,7 +216,7 @@ export const Composer: React.FC<ComposerProps> = ({
     messages: phoneLogMessages,
     loading: phoneLogLoading,
     error: phoneLogError,
-  } = usePhoneMessages(activePhoneNumber);
+  } = usePhoneMessages(historyPhoneNumber);
 
   const [useRawLogView, setUseRawLogView] = useState(false);
 
@@ -501,6 +509,10 @@ export const Composer: React.FC<ComposerProps> = ({
           // Optimistic update for single message
           const optimisticText = interpolateMessage(messageText, { name: recipients[0].name, phone: recipients[0].phone });
           const tempId = addOptimisticMessage(optimisticText, senderName);
+          const shouldPromoteDraftConversation = !activeContact && !activeBulkMessage && !!onSelectContact;
+          if (shouldPromoteDraftConversation) {
+            onSelectContact(recipients[0]);
+          }
           const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, recipients[0].name, undefined, recipients[0].ghl_contact_id, currentTags);
 
           if (smsResult.success) {
@@ -542,7 +554,7 @@ export const Composer: React.FC<ComposerProps> = ({
             }
 
             // Navigate to contact view if not already there
-            if (activeContact) {
+            if (activeContact || shouldPromoteDraftConversation) {
               // Already viewing contact, just refresh
             } else if (onSelectContact && recipients[0]) {
               setTimeout(() => onSelectContact(recipients[0]), 500);
@@ -1060,7 +1072,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 >
                   Retry
                 </button>
-                {activePhoneNumber && (
+                {historyPhoneNumber && (
                   <button
                     onClick={() => setUseRawLogView(true)}
                     className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-white/10 text-[13px] font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors"
@@ -1090,10 +1102,10 @@ export const Composer: React.FC<ComposerProps> = ({
                 </div>
               )}
               <h3 className="text-[19px] font-bold text-[#111111] dark:text-[#ececf1] mb-2 tracking-tight">
-                {activePhoneNumber ? "No history yet" : (composeMode === "bulk" ? "New Broadcast" : "New Message")}
+                {historyPhoneNumber ? "No history yet" : (composeMode === "bulk" ? "New Broadcast" : "New Message")}
               </h3>
               <p className="text-[14px] text-gray-500 dark:text-gray-400 text-center max-w-xs leading-relaxed">
-                {activePhoneNumber
+                {historyPhoneNumber
                   ? "Start a professional conversation by typing your first message below."
                   : (composeMode === "bulk" ? "Select contacts to send a synchronized update across your network." : "Type a message below to start a new professional conversation.")}
               </p>

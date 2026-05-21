@@ -175,11 +175,12 @@ export const useUserProfile = () => {
         }
       } catch (err) {
         console.error('[useUserProfile] Failed to fetch fresh user profile', err);
+      } finally {
+        window.dispatchEvent(new Event('nola-profile-sync-complete'));
       }
     };
 
     fetchFreshProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return user;
