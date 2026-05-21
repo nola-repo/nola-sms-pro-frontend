@@ -53,6 +53,17 @@
   @keyframes shimmer {
     100% { transform: translateX(100%); }
   }
+
+  .workspace-progress-bar {
+    animation: workspace-progress 1.45s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+    will-change: transform;
+  }
+
+  @keyframes workspace-progress {
+    0% { transform: translateX(-115%); }
+    55% { transform: translateX(95%); }
+    100% { transform: translateX(255%); }
+  }
 }
 
 html {
