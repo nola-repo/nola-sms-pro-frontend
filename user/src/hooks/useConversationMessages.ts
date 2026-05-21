@@ -111,8 +111,8 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 expired: 4,
             };
 
-            // Preserve any in-flight optimistic "temp-" messages that haven't been confirmed yet,
-            // and guard against status downgrades for real messages already in local state.
+            // Preserve local send results while the backend catches up, and guard
+            // against status downgrades for real messages already in local state.
             setMessages(prev => {
                 const prevById = new Map(prev.map(m => [m.id, m]));
 
@@ -128,16 +128,32 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                     return apiMsg;
                 });
 
-                const tempOnly = prev.filter(
-                    (m) =>
-                        m.id.startsWith("temp-") &&
-                        !formatted.some(
-                            (api) =>
-                                api.text === m.text &&
-                                Math.abs(api.timestamp.getTime() - m.timestamp.getTime()) < 60_000
-                        )
+                const apiMatchesLocal = (api: Message, local: Message) =>
+                    api.id === local.id ||
+                    (
+                        api.text === local.text &&
+                        Math.abs(api.timestamp.getTime() - local.timestamp.getTime()) < 60_000
+                    );
+
+                const apiReturnedTransientEmpty =
+                    !isInitialLoad.current && formatted.length === 0 && prev.length > 0;
+
+                const localOnly = prev.filter((local) => {
+                    if (formatted.some((api) => apiMatchesLocal(api, local))) {
+                        return false;
+                    }
+
+                    if (local.id.startsWith("temp-")) {
+                        return true;
+                    }
+
+                    const isRecentlySent = Date.now() - local.timestamp.getTime() < 5 * 60_000;
+                    return apiReturnedTransientEmpty || isRecentlySent;
+                });
+
+                const nextMessages = [...merged, ...localOnly].sort(
+                    (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
                 );
-                const nextMessages = [...merged, ...tempOnly];
                 if (cacheKey) {
                     messageHistoryCache.set(cacheKey, { messages: nextMessages, fetchedAt: Date.now() });
                 }
