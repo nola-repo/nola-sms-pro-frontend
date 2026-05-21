@@ -3,7 +3,11 @@ import { FiCreditCard, FiRefreshCw, FiZap, FiPlus, FiGift } from "react-icons/fi
 import { fetchCreditStatus, type CreditStatus } from "../api/credits";
 import { useLocationId } from "../context/LocationContext";
 
-export const CreditBadge = () => {
+interface CreditBadgeProps {
+    tone?: "default" | "onBlue";
+}
+
+export const CreditBadge = ({ tone = "default" }: CreditBadgeProps) => {
     const [status, setStatus] = useState<CreditStatus | null>(null);
     const [loading, setLoading] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
@@ -51,22 +55,24 @@ export const CreditBadge = () => {
     const accent = isTrialActive
         ? { ring: "#22c55e", bg: "from-[#22c55e]/10 to-[#22c55e]/5 dark:from-[#22c55e]/20 dark:to-[#22c55e]/5", border: "border-[#22c55e]/20 dark:border-[#22c55e]/30 hover:border-[#22c55e]/40", icon: "bg-[#22c55e]/10 dark:bg-[#22c55e]/20 text-[#22c55e]", label: "text-[#22c55e]" }
         : { ring: "#2b83fa", bg: "from-[#2b83fa]/10 to-[#2b83fa]/5 dark:from-[#2b83fa]/20 dark:to-[#2b83fa]/5", border: "border-[#2b83fa]/20 dark:border-[#2b83fa]/30 hover:border-[#2b83fa]/40", icon: "bg-[#2b83fa]/10 dark:bg-[#2b83fa]/20 text-[#2b83fa]", label: "text-[#2b83fa]" };
+    const isOnBlue = tone === "onBlue";
 
     return (
         <div className="relative group">
             <div
                 className={`
                     flex items-center gap-1.5 px-2.5 py-1 sm:py-1.5 transition-all duration-300
-                    bg-gradient-to-br ${accent.bg}
-                    border ${accent.border} rounded-full cursor-pointer
-                    hover:shadow-lg active:scale-95 select-none
+                    border rounded-full cursor-pointer active:scale-95 select-none
+                    ${isOnBlue
+                        ? "bg-white/[0.18] border-white/30 text-white shadow-sm shadow-blue-950/10 hover:bg-white/[0.24] hover:border-white/45"
+                        : `bg-gradient-to-br ${accent.bg} ${accent.border} hover:shadow-lg`}
                 `}
                 onClick={fetchStatus}
                 onMouseEnter={() => setShowInfo(true)}
                 onMouseLeave={() => setShowInfo(false)}
             >
                 {/* Icon */}
-                <div className={`w-5 h-5 flex items-center justify-center rounded-full flex-shrink-0 ${accent.icon}`}>
+                <div className={`w-5 h-5 flex items-center justify-center rounded-full flex-shrink-0 ${isOnBlue ? "bg-white/[0.18] text-white" : accent.icon}`}>
                     {isTrialActive
                         ? <FiGift className="w-2.5 h-2.5" />
                         : <FiCreditCard className="w-2.5 h-2.5" />
@@ -75,13 +81,13 @@ export const CreditBadge = () => {
 
                 {/* Value + label */}
                 <div className="flex items-baseline gap-1">
-                    <span className={`text-[13px] sm:text-[14px] font-black ${accent.label} leading-none`}>
+                    <span className={`text-[13px] sm:text-[14px] font-black ${isOnBlue ? "text-white" : accent.label} leading-none`}>
                         {loading
                             ? <FiRefreshCw className="w-3 h-3 animate-spin" />
                             : displayValue.toLocaleString()
                         }
                     </span>
-                    <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-tighter leading-none ${accent.label} opacity-50`}>
+                    <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-tighter leading-none ${isOnBlue ? "text-white/70" : `${accent.label} opacity-50`}`}>
                         {isTrialActive ? "Trial" : "Credits"}
                     </span>
                 </div>
@@ -89,7 +95,7 @@ export const CreditBadge = () => {
                 {/* Buy / top-up button */}
                 <button
                     onClick={(e) => { e.stopPropagation(); navigateToCredits(); }}
-                    className={`ml-1 w-4 h-4 flex items-center justify-center rounded-full transition-all ${accent.icon} hover:opacity-80`}
+                    className={`ml-1 w-4 h-4 flex items-center justify-center rounded-full transition-all ${isOnBlue ? "bg-white/[0.18] text-white hover:bg-white/[0.28]" : `${accent.icon} hover:opacity-80`}`}
                     title={isTrialActive ? "View Trial & Credits" : "Buy Credits"}
                 >
                     <FiPlus className="w-2.5 h-2.5" />

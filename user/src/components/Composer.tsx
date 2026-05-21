@@ -766,7 +766,7 @@ export const Composer: React.FC<ComposerProps> = ({
   return (
     <div className="flex flex-col h-full bg-[radial-gradient(circle_at_19%_39%,rgba(191,219,254,0.42)_0%,rgba(219,234,254,0.24)_20%,rgba(248,250,252,0)_42%),radial-gradient(circle_at_82%_48%,rgba(191,219,254,0.44)_0%,rgba(219,234,254,0.25)_22%,rgba(248,250,252,0)_45%),linear-gradient(180deg,#f8fafc_0%,#f3f6fb_100%)] dark:bg-[radial-gradient(circle_at_19%_39%,rgba(43,131,250,0.10)_0%,rgba(37,99,235,0.06)_22%,rgba(12,13,16,0)_46%),radial-gradient(circle_at_82%_48%,rgba(43,131,250,0.09)_0%,rgba(37,99,235,0.055)_24%,rgba(12,13,16,0)_48%),linear-gradient(180deg,#121419_0%,#0c0d10_100%)] relative overflow-hidden transition-colors duration-300">
       {/* 1. Header & Recipient Area (Sticky) */}
-      <div className="flex-shrink-0 z-30 bg-gradient-to-r from-[#1d6bd4] via-[#2b83fa] to-[#2563eb] border-b border-blue-200/30 shadow-[0_10px_28px_rgba(37,99,235,0.16)]">
+      <div className="flex-shrink-0 z-30 rounded-b-[26px] bg-gradient-to-r from-[#1d6bd4] via-[#2b83fa] to-[#2563eb] border-b border-blue-200/30 shadow-[0_10px_28px_rgba(37,99,235,0.16)]">
         {activePhoneNumber ? (
           /* Chat Header for specific contact - Direct Messages */
           (<div className={`${composeWidthClass} px-4 sm:px-6 py-3.5 flex flex-row items-center justify-between gap-3`}>
@@ -793,12 +793,13 @@ export const Composer: React.FC<ComposerProps> = ({
             {/* Sender + Credits */}
             <div className="flex items-center gap-2 group">
               <div className="flex-shrink-0 order-2 sm:order-1">
-                <CreditBadge />
+                <CreditBadge tone="onBlue" />
               </div>
               <div className="flex-shrink-0 order-1 sm:order-2">
                 <SenderSelector
                   value={senderName}
                   onChange={handleSenderChange}
+                  tone="onBlue"
                   onRequestSettings={onRequestSettings}
                   approvedSenderId={approvedSenderId}
                 />
@@ -847,12 +848,13 @@ export const Composer: React.FC<ComposerProps> = ({
             {/* Sender and Credits */}
             <div className="flex items-center gap-2 group">
               <div className="flex-shrink-0 order-2 sm:order-1">
-                <CreditBadge />
+                <CreditBadge tone="onBlue" />
               </div>
               <div className="flex-shrink-0 order-1 sm:order-2">
                 <SenderSelector
                   value={senderName}
                   onChange={handleSenderChange}
+                  tone="onBlue"
                   onRequestSettings={onRequestSettings}
                   approvedSenderId={approvedSenderId}
                 />
@@ -904,7 +906,7 @@ export const Composer: React.FC<ComposerProps> = ({
 
               <div className="flex items-center justify-end gap-2 sm:gap-3 flex-wrap">
                 <div className="order-1 hidden sm:block">
-                  <CreditBadge />
+                  <CreditBadge tone="onBlue" />
                 </div>
 
                 {/* Compact Toggle - restored for new message flow */}
@@ -936,19 +938,20 @@ export const Composer: React.FC<ComposerProps> = ({
             <div className="mb-3 w-full block sm:hidden">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="text-[14px] font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap">From:</span>
+                  <span className="text-[14px] font-semibold text-white/75 whitespace-nowrap">From:</span>
                   <div className="flex-1">
                     <SenderSelector
                       value={senderName}
                       onChange={handleSenderChange}
                       align="left"
+                      tone="onBlue"
                       onRequestSettings={onRequestSettings}
                       approvedSenderId={approvedSenderId}
                     />
                   </div>
                 </div>
                 <div className="flex-shrink-0 scale-90 origin-right">
-                  <CreditBadge />
+                  <CreditBadge tone="onBlue" />
                 </div>
               </div>
             </div>

@@ -9,11 +9,20 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { safeStorage } from "./utils/safeStorage";
 import { useUserProfile } from "./hooks/useUserProfile";
 import { UserProfileContext } from "./context/UserProfileContext";
+import { isAuthenticated } from "./services/authService";
 
 const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
+  const alreadySignedIn = path === '/login' && isAuthenticated();
+
   useEffect(() => {
+    if (alreadySignedIn) return;
     window.location.href = `https://smspro-api.nolacrm.io${path}${window.location.search}`;
-  }, [path]);
+  }, [path, alreadySignedIn]);
+
+  if (alreadySignedIn) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="h-screen w-full flex items-center justify-center bg-[#f7f8fc] dark:bg-[#0a0a0b]">
       <div className="w-10 h-10 rounded-full border-4 border-[#2b83fa]/20 border-t-[#2b83fa] animate-spin" />

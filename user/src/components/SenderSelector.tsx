@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { FiChevronDown, FiCheck, FiGlobe, FiPlus, FiCheckCircle, FiLoader } from "react-icons/fi";
 import { type SenderId } from "../api/sms";
 import { SenderRequestModal } from "./SenderRequestModal";
-import { type StoredSenderId } from "../utils/settingsStorage";
 import { fetchAccountSenderConfig, type AccountSenderConfig } from "../api/senderRequests";
 import { useLocationId } from "../context/LocationContext";
 
@@ -20,6 +19,7 @@ interface SenderSelectorProps {
     label?: string;
     size?: "sm" | "md";
     align?: "left" | "right";
+    tone?: "default" | "onBlue";
     onRequestSettings?: () => void;
     approvedSenderId?: string;
 }
@@ -39,6 +39,7 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
     label = "From:",
     size = "md",
     align = "right",
+    tone = "default",
     onRequestSettings,
     approvedSenderId
 }) => {
@@ -108,8 +109,9 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
     }, []);
 
     const selectedOption = allOptions.find(opt => opt.id === value) || allOptions[0] || SYSTEM_DEFAULT;
+    const isOnBlue = tone === "onBlue";
 
-    const handleSuccess = (_newSender: StoredSenderId) => {
+    const handleSuccess = () => {
         // After a request is submitted, the modal will handle its own auto-close
         // The sender won't appear in the dropdown until admin approves it
         setIsOpen(false);
@@ -118,7 +120,7 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
     return (
         <div className="flex items-center gap-2" ref={dropdownRef}>
             {label && (
-                <span className={`hidden sm:inline-block font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest whitespace-nowrap ${size === "sm" ? "text-[10px]" : "text-[11px]"}`}>
+                <span className={`hidden sm:inline-block font-bold uppercase tracking-widest whitespace-nowrap ${isOnBlue ? "text-white/75" : "text-gray-400 dark:text-gray-500"} ${size === "sm" ? "text-[10px]" : "text-[11px]"}`}>
                     {label}
                 </span>
             )}
@@ -129,20 +131,21 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
                     onClick={() => setIsOpen(!isOpen)}
                     className={`
             flex items-center justify-between gap-2.5 font-bold transition-all duration-200
-            bg-gray-50/50 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 rounded-xl
-            hover:bg-gray-100 dark:hover:bg-white/10 hover:border-gray-300 dark:hover:border-white/20
-            focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20
+            border rounded-xl focus:outline-none focus:ring-2
+            ${isOnBlue
+                            ? "bg-white/[0.18] border-white/30 hover:bg-white/[0.24] hover:border-white/45 focus:ring-white/30"
+                            : "bg-gray-50/50 dark:bg-white/5 border-gray-200/50 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-white/10 hover:border-gray-300 dark:hover:border-white/20 focus:ring-[#2b83fa]/20"}
             ${size === "sm" ? "px-2 py-1.5 text-[11px] uppercase tracking-wider" : "px-3 py-2 text-[13px]"}
-            ${isOpen ? "ring-2 ring-[#2b83fa]/20 border-[#2b83fa]/30" : ""}
+            ${isOpen ? (isOnBlue ? "ring-2 ring-white/30 border-white/50" : "ring-2 ring-[#2b83fa]/20 border-[#2b83fa]/30") : ""}
           `}
                 >
                     <div className="flex items-center gap-2 min-w-0">
-                        <div className={`flex-shrink-0 flex items-center justify-center rounded-lg text-white shadow-sm ${size === "sm" ? "w-5 h-5 text-[10px]" : "w-6 h-6 text-[12px]"} ${selectedOption.color}`}>
+                        <div className={`flex-shrink-0 flex items-center justify-center rounded-lg text-white shadow-sm ${size === "sm" ? "w-5 h-5 text-[10px]" : "w-6 h-6 text-[12px]"} ${isOnBlue ? "bg-white/[0.20]" : selectedOption.color}`}>
                             {configLoading ? <FiLoader className="animate-spin" /> : selectedOption.icon}
                         </div>
-                        <span className="text-[#37352f] dark:text-[#ececf1] truncate max-w-[80px] sm:max-w-[120px]">{selectedOption.name}</span>
+                        <span className={`${isOnBlue ? "text-white" : "text-[#37352f] dark:text-[#ececf1]"} truncate max-w-[80px] sm:max-w-[120px]`}>{selectedOption.name}</span>
                     </div>
-                    <FiChevronDown className={`flex-shrink-0 transition-transform duration-200 text-gray-400 ${isOpen ? "rotate-180 text-[#2b83fa]" : ""}`} />
+                    <FiChevronDown className={`flex-shrink-0 transition-transform duration-200 ${isOnBlue ? "text-white/75" : "text-gray-400"} ${isOpen ? (isOnBlue ? "rotate-180 text-white" : "rotate-180 text-[#2b83fa]") : ""}`} />
                 </button>
 
                 {/* Floating Menu */}

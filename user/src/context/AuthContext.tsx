@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback } from 'react';
+import React, { createContext, useState, useCallback, useEffect } from 'react';
 import {
   getSession,
   saveSession,
@@ -21,6 +21,13 @@ interface AuthContextValue extends Partial<AuthSession> {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const persistTokenForNewTabs = (token: string) => {
+  sessionSafeStorage.setItem(SESSION_KEYS.token, token);
+  safeStorage.setItem(SESSION_KEYS.token, token);
+  try { sessionStorage.setItem(SESSION_KEYS.token, token); } catch { /* storage may be blocked in embedded views */ }
+  try { localStorage.setItem(SESSION_KEYS.token, token); } catch { /* storage may be blocked in embedded views */ }
+};
+
 // ── Provider ─────────────────────────────────────────────────────────────────
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<AuthSession | null>(() => {
@@ -36,9 +43,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         safeStorage.removeItem('nola_user');
         safeStorage.removeItem('nola_settings_account');
-        // Store token in both scopes so new tabs can restore the session.
-        sessionSafeStorage.setItem(SESSION_KEYS.token, urlToken);
-        safeStorage.setItem(SESSION_KEYS.token, urlToken);
+        // Store token in every available browser scope so new tabs can restore the session.
+        persistTokenForNewTabs(urlToken);
 
         // Clean up only the token so GHL/location prefill params can still flow through the app.
         params.delete('token');
@@ -53,6 +59,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initialSession = getSession();
     return initialSession;
   });
+
+  useEffect(() => {
+    if (!session?.token) return;
+    persistTokenForNewTabs(session.token);
+  }, [session?.token]);
 
   const login = useCallback((data: LoginResponse) => {
     saveSession(data);
