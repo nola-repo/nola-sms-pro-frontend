@@ -36,8 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         safeStorage.removeItem('nola_user');
         safeStorage.removeItem('nola_settings_account');
-        // Store token in sessionStorage (tab-scoped) — not localStorage
+        // Store token in both scopes so new tabs can restore the session.
         sessionSafeStorage.setItem(SESSION_KEYS.token, urlToken);
+        safeStorage.setItem(SESSION_KEYS.token, urlToken);
 
         // Clean up only the token so GHL/location prefill params can still flow through the app.
         params.delete('token');

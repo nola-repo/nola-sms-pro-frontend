@@ -106,20 +106,19 @@ const StatusBadgeSummary: React.FC<{ stats: { sent: number, sending: number, fai
 
 const MessageHistorySkeleton: React.FC = () => {
   const rows = [
+    { width: "w-[46%]", height: "h-10" },
+    { width: "w-[68%]", height: "h-16" },
     { width: "w-[58%]", height: "h-14" },
     { width: "w-[72%]", height: "h-20" },
     { width: "w-[42%]", height: "h-11" },
     { width: "w-[66%]", height: "h-16" },
     { width: "w-[50%]", height: "h-12" },
+    { width: "w-[62%]", height: "h-14" },
   ];
 
   return (
-    <div className="flex-1 flex flex-col items-end justify-end gap-3 px-1 sm:px-3 pb-6 animate-in fade-in duration-300">
-      <div className="ml-auto mb-2 flex items-center gap-2 rounded-full border border-[#e5e7eb] dark:border-white/10 bg-white/80 dark:bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] shadow-sm">
-        <FiLoader className="h-3 w-3 animate-spin text-[#2b83fa]" />
-        Syncing conversation
-      </div>
-      <div className="ml-auto mb-2 h-5 w-24 rounded-full bg-[#edf0f3] dark:bg-white/10 skeleton-gleam" />
+    <div className="flex-1 flex flex-col items-end justify-start gap-2 px-1 sm:px-3 pt-2 pb-6 animate-in fade-in duration-300">
+      <div className="mx-auto mb-3 h-7 w-28 rounded-full bg-[#edf0f3] dark:bg-white/10 skeleton-gleam" />
       {rows.map((row, index) => (
         <div key={`history-skeleton-${index}`} className="flex w-full justify-end">
           <div className={`${row.width} max-w-[620px] ${row.height} rounded-[20px] rounded-br-md bg-[#edf0f3] dark:bg-white/10 skeleton-gleam`} />
@@ -762,10 +761,10 @@ export const Composer: React.FC<ComposerProps> = ({
   const dateSeparatorClass = "px-3 py-1.5 rounded-full bg-white/[0.85] dark:bg-white/[0.07] border border-[#dce4ee] dark:border-white/10 text-[11px] font-bold text-[#667085] dark:text-[#b8bdc7]";
   const messageContainerClass = "max-w-[78%] sm:max-w-[620px] flex flex-col items-end group mb-0.5 cursor-pointer";
   const outboundBubbleClass = "bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] text-white px-4 py-3 ring-1 ring-white/25 transition-colors";
-  const bubbleOptionsButtonClass = "mb-1 flex h-7 w-7 items-center justify-center rounded-full border border-[#d6e0eb] dark:border-white/10 bg-white/[0.82] dark:bg-white/[0.06] text-[#667085] dark:text-[#a7adba] opacity-75 transition-all hover:opacity-100 hover:text-[#1d6bd4] dark:hover:text-[#8bbcff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/30";
+  const bubbleOptionsButtonClass = "absolute -left-9 bottom-1 flex h-7 w-7 items-center justify-center rounded-full border border-[#d6e0eb] dark:border-white/10 bg-white/[0.9] dark:bg-[#17191f]/90 text-[#667085] dark:text-[#a7adba] opacity-0 pointer-events-none transition-all group-hover:opacity-100 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto hover:text-[#1d6bd4] dark:hover:text-[#8bbcff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/30";
 
   return (
-    <div className="flex flex-col h-full bg-[linear-gradient(180deg,#f8fafc_0%,#f2f6fb_100%)] dark:bg-[linear-gradient(180deg,#121419_0%,#0c0d10_100%)] relative overflow-hidden transition-colors duration-300">
+    <div className="flex flex-col h-full bg-[radial-gradient(ellipse_at_34%_34%,rgba(43,131,250,0.16)_0%,rgba(147,197,253,0.10)_34%,rgba(248,250,252,0)_68%),linear-gradient(180deg,#f8fafc_0%,#f2f6fb_100%)] dark:bg-[radial-gradient(ellipse_at_34%_34%,rgba(43,131,250,0.12)_0%,rgba(37,99,235,0.08)_36%,rgba(12,13,16,0)_70%),linear-gradient(180deg,#121419_0%,#0c0d10_100%)] relative overflow-hidden transition-colors duration-300">
       {/* 1. Header & Recipient Area (Sticky) */}
       <div className="flex-shrink-0 z-30 bg-white/90 dark:bg-[#17191f]/90 backdrop-blur-xl border-b border-[#dfe5ee] dark:border-white/[0.08] shadow-[0_1px_0_rgba(15,23,42,0.04)]">
         {activePhoneNumber ? (
@@ -1268,7 +1267,7 @@ export const Composer: React.FC<ComposerProps> = ({
                         className={messageContainerClass}
                         onClick={() => setExpandedMessageId(isExpanded ? null : msg.id)}
                       >
-                        <div className="flex items-end justify-end gap-1.5">
+                        <div className="relative flex items-end justify-end">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1281,9 +1280,7 @@ export const Composer: React.FC<ComposerProps> = ({
                           >
                             <FiMoreHorizontal className="h-4 w-4" />
                           </button>
-                          <div
-                            className={`${outboundBubbleClass} ${roundingClasses}`}
-                          >
+                          <div className={`${outboundBubbleClass} ${roundingClasses}`}>
                             <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">
                               {msg.text}
                             </p>
@@ -1424,7 +1421,7 @@ export const Composer: React.FC<ComposerProps> = ({
                           className={messageContainerClass}
                           onClick={() => setExpandedMessageId(isExpanded ? null : grp.id)}
                         >
-                          <div className="flex items-end justify-end gap-1.5">
+                          <div className="relative flex items-end justify-end">
                             <button
                               type="button"
                               onClick={(e) => {
@@ -1504,7 +1501,7 @@ export const Composer: React.FC<ComposerProps> = ({
                         className={messageContainerClass}
                         onClick={() => setExpandedMessageId(isExpanded ? null : msg.id)}
                       >
-                        <div className="flex items-end justify-end gap-1.5">
+                        <div className="relative flex items-end justify-end">
                           <button
                             type="button"
                             onClick={(e) => {
