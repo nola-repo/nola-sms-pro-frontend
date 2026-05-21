@@ -764,28 +764,28 @@ export const Composer: React.FC<ComposerProps> = ({
   const bubbleOptionsButtonClass = "absolute -left-9 bottom-1 flex h-7 w-7 items-center justify-center rounded-full border border-[#d6e0eb] dark:border-white/10 bg-white/[0.9] dark:bg-[#17191f]/90 text-[#667085] dark:text-[#a7adba] opacity-0 pointer-events-none transition-all group-hover:opacity-100 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto hover:text-[#1d6bd4] dark:hover:text-[#8bbcff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/30";
 
   return (
-    <div className="flex flex-col h-full bg-[radial-gradient(circle_at_13%_42%,rgba(191,219,254,0.68)_0%,rgba(219,234,254,0.42)_32%,rgba(248,250,252,0)_62%),radial-gradient(circle_at_87%_54%,rgba(191,219,254,0.72)_0%,rgba(219,234,254,0.44)_34%,rgba(248,250,252,0)_64%),linear-gradient(180deg,#f8fafc_0%,#f3f6fb_100%)] dark:bg-[radial-gradient(circle_at_13%_42%,rgba(43,131,250,0.16)_0%,rgba(37,99,235,0.10)_34%,rgba(12,13,16,0)_64%),radial-gradient(circle_at_87%_54%,rgba(43,131,250,0.14)_0%,rgba(37,99,235,0.09)_36%,rgba(12,13,16,0)_66%),linear-gradient(180deg,#121419_0%,#0c0d10_100%)] relative overflow-hidden transition-colors duration-300">
+    <div className="flex flex-col h-full bg-[radial-gradient(circle_at_19%_39%,rgba(191,219,254,0.42)_0%,rgba(219,234,254,0.24)_20%,rgba(248,250,252,0)_42%),radial-gradient(circle_at_82%_48%,rgba(191,219,254,0.44)_0%,rgba(219,234,254,0.25)_22%,rgba(248,250,252,0)_45%),linear-gradient(180deg,#f8fafc_0%,#f3f6fb_100%)] dark:bg-[radial-gradient(circle_at_19%_39%,rgba(43,131,250,0.10)_0%,rgba(37,99,235,0.06)_22%,rgba(12,13,16,0)_46%),radial-gradient(circle_at_82%_48%,rgba(43,131,250,0.09)_0%,rgba(37,99,235,0.055)_24%,rgba(12,13,16,0)_48%),linear-gradient(180deg,#121419_0%,#0c0d10_100%)] relative overflow-hidden transition-colors duration-300">
       {/* 1. Header & Recipient Area (Sticky) */}
-      <div className="flex-shrink-0 z-30 bg-white/90 dark:bg-[#17191f]/90 backdrop-blur-xl border-b border-[#dfe5ee] dark:border-white/[0.08] shadow-[0_1px_0_rgba(15,23,42,0.04)]">
+      <div className="flex-shrink-0 z-30 bg-gradient-to-r from-[#1d6bd4] via-[#2b83fa] to-[#2563eb] border-b border-blue-200/30 shadow-[0_10px_28px_rgba(37,99,235,0.16)]">
         {activePhoneNumber ? (
           /* Chat Header for specific contact - Direct Messages */
           (<div className={`${composeWidthClass} px-4 sm:px-6 py-3.5 flex flex-row items-center justify-between gap-3`}>
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <button
                 onClick={onToggleMobileMenu}
-                className="md:hidden p-2 rounded-xl text-gray-500 hover:text-[#111111] hover:bg-black/[0.04] dark:text-gray-400 dark:hover:text-[#ececf1] dark:hover:bg-white/[0.06] transition-colors"
+                className="md:hidden p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-colors"
                 aria-label="Toggle sidebar"
               >
                 <FiMenu className="h-5 w-5" />
               </button>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] flex-shrink-0 flex items-center justify-center text-white font-black text-base sm:text-lg shadow-lg shadow-blue-500/25 ring-1 ring-white/60 dark:ring-white/[0.15]">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/20 flex-shrink-0 flex items-center justify-center text-white font-black text-base sm:text-lg shadow-lg shadow-blue-950/20 ring-1 ring-white/35">
                 {(activeContact?.name || selectedContacts[0]?.name || "?").charAt(0).toUpperCase()}
               </div>
               <div className="flex flex-col min-w-0">
-                <h2 className="text-[15px] sm:text-[17px] font-black text-[#101828] dark:text-[#f7f8fb] leading-tight tracking-tight truncate">
+                <h2 className="text-[15px] sm:text-[17px] font-black text-white leading-tight tracking-tight truncate">
                   {toProperCase(activeContact?.name || selectedContacts[0]?.name || '')}
                 </h2>
-                <span className="text-[12px] sm:text-[13px] text-[#667085] dark:text-[#a7adba] font-semibold truncate">
+                <span className="text-[12px] sm:text-[13px] text-white/75 font-semibold truncate">
                   {activePhoneNumber}
                 </span>
               </div>
@@ -811,16 +811,16 @@ export const Composer: React.FC<ComposerProps> = ({
             <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
               <button
                 onClick={onToggleMobileMenu}
-                className="md:hidden p-2 rounded-xl text-gray-500 hover:text-[#111111] hover:bg-black/[0.04] dark:text-gray-400 dark:hover:text-[#ececf1] dark:hover:bg-white/[0.06] transition-colors"
+                className="md:hidden p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-colors"
                 aria-label="Toggle sidebar"
               >
                 <FiMenu className="h-5 w-5" />
               </button>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] flex-shrink-0 flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-lg shadow-blue-500/25 ring-1 ring-white/60 dark:ring-white/[0.15]">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/20 flex-shrink-0 flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-lg shadow-blue-950/20 ring-1 ring-white/35">
                 <FiUsers className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
               <div className="flex flex-col min-w-0">
-                <h2 className="text-[15px] sm:text-[17px] font-black text-[#101828] dark:text-[#f7f8fb] leading-tight tracking-tight truncate">
+                <h2 className="text-[15px] sm:text-[17px] font-black text-white leading-tight tracking-tight truncate">
                   {(() => {
                     const custom = activeBulkMessage.customName;
                     const looksLikeBatchId = !!custom && (/^batch[-_]\d+$/i.test(custom) || /^batch[-_]/i.test(custom));
@@ -839,7 +839,7 @@ export const Composer: React.FC<ComposerProps> = ({
                     return `${activeBulkMessage.recipientCount} recipients`;
                   })()}
                 </h2>
-                <span className="text-[12px] sm:text-[13px] text-[#667085] dark:text-[#a7adba] font-semibold truncate">
+                <span className="text-[12px] sm:text-[13px] text-white/75 font-semibold truncate">
                   {activeBulkMessage.recipientCount} recipient{activeBulkMessage.recipientCount !== 1 ? 's' : ''}
                 </span>
               </div>
@@ -866,14 +866,14 @@ export const Composer: React.FC<ComposerProps> = ({
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                 <button
                   onClick={onToggleMobileMenu}
-                  className="md:hidden p-2 rounded-xl text-gray-500 hover:text-[#111111] hover:bg-black/[0.04] dark:text-gray-400 dark:hover:text-[#ececf1] dark:hover:bg-white/[0.06] transition-colors"
+                  className="md:hidden p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-colors"
                   aria-label="Toggle sidebar"
                 >
                   <FiMenu className="h-5 w-5" />
                 </button>
 
                 {/* Circular Avatar - Standardized Blue for new message / bulk */}
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex-shrink-0 flex items-center justify-center text-white font-bold text-base bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] shadow-lg shadow-blue-500/25 ring-1 ring-white/60 dark:ring-white/[0.15]">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex-shrink-0 flex items-center justify-center text-white font-bold text-base bg-white/20 shadow-lg shadow-blue-950/20 ring-1 ring-white/35">
                   {activeBulkMessage ? (
                     <FiUsers className="h-5 w-5" />
                   ) : (
@@ -884,7 +884,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 </div>
 
                 <div className="flex flex-col min-w-0">
-                  <h2 className="text-[15px] sm:text-[16px] font-black text-[#101828] dark:text-[#f7f8fb] leading-tight tracking-tight truncate">
+                  <h2 className="text-[15px] sm:text-[16px] font-black text-white leading-tight tracking-tight truncate">
                     {composeMode === 'bulk' && bulkSelectedContacts.length > 0 ? (
                       (() => {
                         const count = bulkSelectedContacts.length;
@@ -896,7 +896,7 @@ export const Composer: React.FC<ComposerProps> = ({
                       "New Message"
                     )}
                   </h2>
-                  <span className="text-[12px] sm:text-[13px] text-[#667085] dark:text-[#a7adba] font-semibold truncate">
+                  <span className="text-[12px] sm:text-[13px] text-white/75 font-semibold truncate">
                     {bulkSelectedContacts.length > 0 ? `${bulkSelectedContacts.length} selected` : 'Select recipients'}
                   </span>
                 </div>
@@ -908,12 +908,12 @@ export const Composer: React.FC<ComposerProps> = ({
                 </div>
 
                 {/* Compact Toggle - restored for new message flow */}
-                <div className="flex p-1 bg-[#eef3f8] dark:bg-white/[0.06] rounded-2xl border border-[#dde6f0] dark:border-white/10 order-2 shadow-inner">
+                <div className="flex p-1 bg-white/15 rounded-2xl border border-white/20 order-2 shadow-inner">
                   <button
                     onClick={() => setComposeMode("single")}
                     className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${composeMode === "single"
-                      ? "bg-white dark:bg-[#252833] text-[#1d6bd4] dark:text-[#8bbcff] shadow-sm shadow-blue-500/10"
-                      : "text-[#7a8492] hover:text-[#1f2937] dark:text-[#8f96a3] dark:hover:text-gray-300"
+                      ? "bg-white text-[#1d6bd4] shadow-sm shadow-blue-950/10"
+                      : "text-white/75 hover:text-white"
                       }`}
                   >
                     <FiUser className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
@@ -922,8 +922,8 @@ export const Composer: React.FC<ComposerProps> = ({
                   <button
                     onClick={() => setComposeMode("bulk")}
                     className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 sm:py-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 ${composeMode === "bulk"
-                      ? "bg-white dark:bg-[#252833] text-[#1d6bd4] dark:text-[#8bbcff] shadow-sm shadow-blue-500/10"
-                      : "text-[#7a8492] hover:text-[#1f2937] dark:text-[#8f96a3] dark:hover:text-gray-300"
+                      ? "bg-white text-[#1d6bd4] shadow-sm shadow-blue-950/10"
+                      : "text-white/75 hover:text-white"
                       }`}
                   >
                     <FiUsers className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
