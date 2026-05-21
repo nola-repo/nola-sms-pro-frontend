@@ -19,7 +19,7 @@ import {
 import { SenderRequestModal } from "../components/SenderRequestModal";
 import { useGhlLocation } from "../hooks/useGhlLocation";
 import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
-import { fetchAccountProfile } from "../api/account";
+import { fetchAccountProfile, getCachedAccountProfile } from "../api/account";
 import type { AccountProfile } from "../api/account";
 import { useUserProfileContext } from "../context/UserProfileContext";
 import { getSession } from "../services/authService";
@@ -113,9 +113,21 @@ const AccountSection: React.FC = () => {
 
     // Consume live profile from context (populated by App.tsx -> useUserProfile)
     const liveProfile = useUserProfileContext();
+    const initialLocationIdRef = useRef<string>(
+        ghlLocationIdFromHook || liveProfile?.location_id || getAccountSettings().ghlLocationId || ""
+    );
+    const initialCachedProfileRef = useRef<AccountProfile | null | undefined>(undefined);
+    if (initialCachedProfileRef.current === undefined) {
+        initialCachedProfileRef.current = initialLocationIdRef.current
+            ? getCachedAccountProfile(initialLocationIdRef.current, { allowExpired: true })
+            : null;
+    }
 
     // Initialize fetchedName from context or cached location_name
     const [fetchedName, setFetchedName] = useState<string | null>(() => {
+        if (initialCachedProfileRef.current?.location_name) {
+            return initialCachedProfileRef.current.location_name;
+        }
         if (liveProfile?.location_name) return liveProfile.location_name;
         try {
             const authUser = JSON.parse(safeStorage.getItem('nola_auth_user') || '{}');
@@ -124,10 +136,16 @@ const AccountSection: React.FC = () => {
         }
         catch { return null; }
     });
-    const [fetchedProfile, setFetchedProfile] = useState<AccountProfile | null>(null);
+    const [fetchedProfile, setFetchedProfile] = useState<AccountProfile | null>(
+        () => initialCachedProfileRef.current ?? null
+    );
     const [isFetchingLocation, setIsFetchingLocation] = useState(false);
     const [showReconnectNotice, setShowReconnectNotice] = useState(
         () => safeStorage.getItem(GHL_RECONNECT_REQUIRED_STORAGE_KEY) === 'true'
+    );
+    const activeFetchRef = useRef(0);
+    const lastLoadedLocationRef = useRef<string | null>(
+        initialCachedProfileRef.current?.location_id || null
     );
 
     // Synchronize context state with local variables if needed
@@ -139,7 +157,7 @@ const AccountSection: React.FC = () => {
 
     // Manage input location ID state
     const [inputLocationId, setInputLocationId] = useState<string>(() => {
-        return ghlLocationIdFromHook || liveProfile?.location_id || getAccountSettings().ghlLocationId || "";
+        return initialLocationIdRef.current;
     });
 
     useEffect(() => {
@@ -150,46 +168,88 @@ const AccountSection: React.FC = () => {
 
     // Update if hook updates (e.g. from URL or from postMessage)
     useEffect(() => {
-        if (ghlLocationIdFromHook && ghlLocationIdFromHook !== inputLocationId) {
-            setInputLocationId(ghlLocationIdFromHook);
+        if (ghlLocationIdFromHook) {
+            setInputLocationId(prev => prev === ghlLocationIdFromHook ? prev : ghlLocationIdFromHook);
+        }
+        if (ghlLocationIdFromHook && lastLoadedLocationRef.current !== ghlLocationIdFromHook) {
             fetchAndSetLocation(ghlLocationIdFromHook);
         }
-    }, [ghlLocationIdFromHook, inputLocationId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [ghlLocationIdFromHook]);
 
-    const fetchAndSetLocation = async (locId: string) => {
-         if (!locId || locId.trim() === "") return;
+    const applyAccountProfile = useCallback((profile: AccountProfile) => {
+        setFetchedProfile(profile);
 
+        const nextLocationName =
+            profile.location_name && profile.location_name !== "Unknown"
+                ? profile.location_name
+                : null;
+
+        if (nextLocationName) {
+            setFetchedName(nextLocationName);
+        }
+
+        const patchCachedUser = (key: string) => {
+            try {
+                const cached = JSON.parse(safeStorage.getItem(key) || '{}');
+                safeStorage.setItem(key, JSON.stringify({
+                    ...cached,
+                    location_id: profile.location_id || cached.location_id,
+                    location_name: nextLocationName || cached.location_name,
+                    name: profile.full_name || profile.name || cached.name,
+                    email: profile.email || profile.email_address || cached.email,
+                    phone: profile.phone || profile.phone_number || cached.phone,
+                }));
+            } catch {
+                // Cache sync is best-effort only.
+            }
+        };
+
+        patchCachedUser('nola_user');
+        patchCachedUser('nola_auth_user');
+
+        if (nextLocationName) {
+            const fresh = getAccountSettings();
+            if (fresh.displayName !== nextLocationName) {
+                saveAccountSettings({ ...fresh, displayName: nextLocationName });
+                window.dispatchEvent(new Event("account-settings-updated"));
+            }
+        }
+    }, []);
+
+    const fetchAndSetLocation = async (locId: string, options: { forceRefresh?: boolean } = {}) => {
+         const normalizedLocationId = locId.trim();
+         if (!normalizedLocationId) return;
+
+         const cachedProfile = getCachedAccountProfile(normalizedLocationId);
+         if (cachedProfile && !options.forceRefresh) {
+             applyAccountProfile(cachedProfile);
+             lastLoadedLocationRef.current = normalizedLocationId;
+             return;
+         }
+
+         const requestId = activeFetchRef.current + 1;
+         activeFetchRef.current = requestId;
          setIsFetchingLocation(true);
          const currentSettings = getAccountSettings();
-         if (currentSettings.ghlLocationId !== locId) {
-             saveAccountSettings({ ...currentSettings, ghlLocationId: locId });
+         if (currentSettings.ghlLocationId !== normalizedLocationId) {
+             saveAccountSettings({ ...currentSettings, ghlLocationId: normalizedLocationId });
              // Notify LocationContext so all subscribers get the new location reactively
              window.dispatchEvent(
-                 new CustomEvent('ghl-location-set', { detail: { locationId: locId } })
+                 new CustomEvent('ghl-location-set', { detail: { locationId: normalizedLocationId } })
              );
          }
 
-         const profile = await fetchAccountProfile(locId);
+         const profile = await fetchAccountProfile(normalizedLocationId, {
+             forceRefresh: options.forceRefresh,
+             allowStaleOnError: true,
+         });
+         if (activeFetchRef.current !== requestId) return;
          setIsFetchingLocation(false);
 
          if (profile) {
-             setFetchedProfile(profile);
-             if (profile.location_name && profile.location_name !== "Unknown") {
-                 setFetchedName(profile.location_name);
-                 // Also patch the nola_user cache with the fresh location name
-                 try {
-                     const cached = JSON.parse(safeStorage.getItem('nola_user') || '{}');
-                     cached.location_name = profile.location_name;
-                     safeStorage.setItem('nola_user', JSON.stringify(cached));
-                 } catch {
-                     // Cache sync is best-effort only.
-                 }
-                 const fresh = getAccountSettings();
-                 if (fresh.displayName !== profile.location_name) {
-                     saveAccountSettings({ ...fresh, displayName: profile.location_name });
-                     window.dispatchEvent(new Event("account-settings-updated"));
-                 }
-             }
+             applyAccountProfile(profile);
+             lastLoadedLocationRef.current = normalizedLocationId;
          }
          // Note: do NOT set fetchedName to "Location Not Found" on failure —
          // we already have the correct value from nola_user cache (set at login/register)
@@ -197,14 +257,14 @@ const AccountSection: React.FC = () => {
 
     // Initial fetch on mount
     useEffect(() => {
-        if (inputLocationId) {
-            fetchAndSetLocation(inputLocationId);
+        if (initialLocationIdRef.current) {
+            fetchAndSetLocation(initialLocationIdRef.current);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleSaveLocation = () => {
-        fetchAndSetLocation(inputLocationId);
+        fetchAndSetLocation(inputLocationId, { forceRefresh: true });
     };
 
     const handleReconnectGhl = () => {
@@ -219,14 +279,34 @@ const AccountSection: React.FC = () => {
         : (liveProfile?.location_name || form.displayName || "Not Found");
     const statusCfg = STATUS_CONFIG[form.accountStatus];
     // fullName: use fetchedProfile, then `name` field; fall back to legacy firstName+lastName for old sessions
-    const fullName = fetchedProfile?.name 
+    const fullName = fetchedProfile?.full_name
+        || fetchedProfile?.name
         || liveProfile?.name
         || (`${liveProfile?.firstName ?? ''} ${liveProfile?.lastName ?? ''}`.trim())
         || 'N/A';
         
-    const displayEmail = fetchedProfile?.email || liveProfile?.email || 'N/A';
-    const displayPhone = fetchedProfile?.phone || liveProfile?.phone || 'N/A';
+    const displayEmail = fetchedProfile?.email || fetchedProfile?.email_address || liveProfile?.email || 'N/A';
+    const displayPhone = fetchedProfile?.phone || fetchedProfile?.phone_number || liveProfile?.phone || 'N/A';
     const resolvedLocationId = ghlLocationIdFromHook || liveProfile?.location_id || inputLocationId || '';
+    const hasPersonalDetails = Boolean(
+        fetchedProfile?.full_name ||
+        fetchedProfile?.name ||
+        fetchedProfile?.email ||
+        fetchedProfile?.phone ||
+        liveProfile?.name ||
+        liveProfile?.firstName ||
+        liveProfile?.lastName ||
+        liveProfile?.email ||
+        liveProfile?.phone
+    );
+    const hasWorkspaceDetails = Boolean(
+        fetchedProfile?.location_name ||
+        fetchedName ||
+        liveProfile?.location_name ||
+        resolvedLocationId
+    );
+    const showPersonalSkeleton = isFetchingLocation && !hasPersonalDetails;
+    const showWorkspaceSkeleton = isFetchingLocation && !hasWorkspaceDetails;
 
     return (
         <div className="space-y-5">
@@ -267,7 +347,7 @@ const AccountSection: React.FC = () => {
                         <FiUser className="w-6 h-6" />
                     </div>
                     <div className="flex-1">
-                        {isFetchingLocation ? (
+                        {showPersonalSkeleton ? (
                             <div className="space-y-2">
                                 <Skeleton className="h-5 w-32" />
                                 <Skeleton className="h-3 w-48" />
@@ -284,7 +364,7 @@ const AccountSection: React.FC = () => {
                 <div className="space-y-3.5 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Full Name</label>
-                        {isFetchingLocation ? (
+                        {showPersonalSkeleton ? (
                             <Skeleton className="h-9 w-full rounded-xl" />
                         ) : (
                             <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
@@ -294,7 +374,7 @@ const AccountSection: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Email Address</label>
-                        {isFetchingLocation ? (
+                        {showPersonalSkeleton ? (
                             <Skeleton className="h-9 w-full rounded-xl" />
                         ) : (
                             <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
@@ -304,7 +384,7 @@ const AccountSection: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Phone Number</label>
-                        {isFetchingLocation ? (
+                        {showPersonalSkeleton ? (
                             <Skeleton className="h-9 w-full rounded-xl" />
                         ) : (
                             <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
@@ -322,7 +402,7 @@ const AccountSection: React.FC = () => {
                         <FiMapPin className="w-6 h-6" />
                     </div>
                     <div className="flex-1">
-                        {isFetchingLocation ? (
+                        {showWorkspaceSkeleton ? (
                             <div className="space-y-2">
                                 <Skeleton className="h-5 w-40" />
                                 <Skeleton className="h-3 w-32" />
@@ -359,7 +439,7 @@ const AccountSection: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Location Name</label>
-                        {isFetchingLocation ? (
+                        {showWorkspaceSkeleton ? (
                             <Skeleton className="h-9 w-full rounded-xl" />
                         ) : (
                             <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">

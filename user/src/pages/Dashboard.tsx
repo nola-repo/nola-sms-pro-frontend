@@ -1,5 +1,4 @@
 import { safeStorage } from '../utils/safeStorage';
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Contact } from "../types/Contact";
@@ -17,7 +16,7 @@ import { useOnboarding } from "../components/onboarding/useOnboarding";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
 import { useLocationId } from "../context/LocationContext";
 import { GHL_BACKEND_ONBOARDING_URL, GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
-import { fetchAccountProfile, type AccountProfile } from "../api/account";
+import { fetchAccountProfile, getCachedAccountProfile, type AccountProfile } from "../api/account";
 import faviconLogo from "../assets/FAV ICON - NOLA SMS PRO.png";
 
 interface DashboardProps {
@@ -32,6 +31,41 @@ type RegistrationCheckState =
   | { status: 'idle' | 'checking' | 'registered' }
   | { status: 'required'; profile: AccountProfile }
   | { status: 'error'; message: string };
+
+type RegistrationCacheState = 'miss' | 'stale' | 'fresh';
+
+const REGISTRATION_CACHE_TTL_MS = 10 * 60 * 1000;
+const SETUP_LOADER_DELAY_MS = 650;
+
+const registrationCacheKey = (locationId: string) => 'nola_registered_location_' + locationId;
+const registrationCheckedAtKey = (locationId: string) => 'nola_registered_location_checked_' + locationId;
+
+const profileRequiresRegistration = (profile: AccountProfile): boolean =>
+  profile.is_registered === false ||
+  (!!profile.registration_status && profile.registration_status !== 'registered');
+
+const getRegistrationCacheState = (locationId: string): RegistrationCacheState => {
+  try {
+    if (safeStorage.getItem(registrationCacheKey(locationId)) !== 'true') {
+      return 'miss';
+    }
+
+    const checkedAt = Number(safeStorage.getItem(registrationCheckedAtKey(locationId)) || 0);
+    return checkedAt && Date.now() - checkedAt <= REGISTRATION_CACHE_TTL_MS ? 'fresh' : 'stale';
+  } catch {
+    return 'miss';
+  }
+};
+
+const markLocationRegistered = (locationId: string): void => {
+  safeStorage.setItem(registrationCacheKey(locationId), 'true');
+  safeStorage.setItem(registrationCheckedAtKey(locationId), String(Date.now()));
+};
+
+const clearLocationRegistered = (locationId: string): void => {
+  safeStorage.removeItem(registrationCacheKey(locationId));
+  safeStorage.removeItem(registrationCheckedAtKey(locationId));
+};
 
 const buildBackendOnboardingUrl = (locationId: string): string => {
   const state = encodeURIComponent(JSON.stringify({ selected_location_id: locationId }));
@@ -103,14 +137,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const { locationId } = useLocationId();
   const [registrationCheck, setRegistrationCheck] = useState<RegistrationCheckState>(() => {
     if (locationId) {
-      try {
-        const isCached = safeStorage.getItem('nola_registered_location_' + locationId) === 'true';
-        if (isCached) return { status: 'registered' };
-      } catch { /* ignore */ }
+      if (getRegistrationCacheState(locationId) !== 'miss') {
+        return { status: 'registered' };
+      }
+
+      const cachedProfile = getCachedAccountProfile(locationId, { includeAuth: false });
+      if (cachedProfile && !profileRequiresRegistration(cachedProfile)) {
+        return { status: 'registered' };
+      }
     }
     return { status: 'idle' };
   });
-  const [lottieError, setLottieError] = useState(false);
+  const [showSetupLoader, setShowSetupLoader] = useState(false);
   const [activeContact, setActiveContact] = useState<Contact | null>(() => {
     try {
       const saved = safeStorage.getItem('nola_active_contact');
@@ -147,19 +185,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       return;
     }
 
+    setShowSetupLoader(false);
     setRegistrationCheck({ status: 'checking' });
     try {
-      const profile = await fetchAccountProfile(locationId, { includeAuth: false });
+      const profile = await fetchAccountProfile(locationId, { includeAuth: false, forceRefresh: true });
       if (!profile) {
         setRegistrationCheck({ status: 'error', message: 'Unable to verify this subaccount right now.' });
         return;
       }
 
-      if (profile.is_registered === false || (!!profile.registration_status && profile.registration_status !== 'registered')) {
+      if (profileRequiresRegistration(profile)) {
+        clearLocationRegistered(locationId);
         setRegistrationCheck({ status: 'required', profile });
         return;
       }
 
+      markLocationRegistered(locationId);
       setRegistrationCheck({ status: 'registered' });
     } catch (error) {
       console.error('[Dashboard] Registration check failed', error);
@@ -271,37 +312,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         return;
       }
 
-      // Check if already cached as registered
-      const isCached = safeStorage.getItem('nola_registered_location_' + locationId) === 'true';
-      if (!isCached) {
-        if (!cancelled) setRegistrationCheck({ status: 'checking' });
-      } else {
-        // If cached, immediately ensure it is in the registered state to avoid any screen flashing
+      const cacheState = getRegistrationCacheState(locationId);
+      const cachedProfile = getCachedAccountProfile(locationId, { includeAuth: false });
+      const canUseCachedRegistration =
+        cacheState !== 'miss' ||
+        (!!cachedProfile && !profileRequiresRegistration(cachedProfile));
+
+      if (canUseCachedRegistration) {
         if (!cancelled) setRegistrationCheck({ status: 'registered' });
+        if (cacheState === 'fresh') return;
+      } else if (!cancelled) {
+        setShowSetupLoader(false);
+        setRegistrationCheck({ status: 'checking' });
       }
 
       try {
-        const profile = await fetchAccountProfile(locationId, { includeAuth: false });
+        const profile = await fetchAccountProfile(locationId, {
+          includeAuth: false,
+          forceRefresh: canUseCachedRegistration,
+          cacheTtlMs: 30 * 1000,
+        });
         if (cancelled) return;
 
         if (!profile) {
-          safeStorage.removeItem('nola_registered_location_' + locationId);
-          setRegistrationCheck({ status: 'error', message: 'Unable to verify this subaccount right now.' });
+          clearLocationRegistered(locationId);
+          if (!canUseCachedRegistration) {
+            setRegistrationCheck({ status: 'error', message: 'Unable to verify this subaccount right now.' });
+          }
           return;
         }
 
-        if (profile.is_registered === false || (!!profile.registration_status && profile.registration_status !== 'registered')) {
-          safeStorage.removeItem('nola_registered_location_' + locationId);
+        if (profileRequiresRegistration(profile)) {
+          clearLocationRegistered(locationId);
           setRegistrationCheck({ status: 'required', profile });
           return;
         }
 
-        safeStorage.setItem('nola_registered_location_' + locationId, 'true');
+        markLocationRegistered(locationId);
         setRegistrationCheck({ status: 'registered' });
       } catch (error) {
         if (cancelled) return;
         console.error('[Dashboard] Registration check failed', error);
-        if (!isCached) {
+        if (!canUseCachedRegistration) {
           setRegistrationCheck({ status: 'error', message: 'Unable to verify this subaccount right now.' });
         }
       }
@@ -313,6 +365,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       cancelled = true;
     };
   }, [locationId]);
+
+  useEffect(() => {
+    if (!locationId || registrationCheck.status !== 'checking') {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowSetupLoader(true);
+    }, SETUP_LOADER_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [locationId, registrationCheck.status]);
 
   // Handle navigation to settings tabs from CreditBadge
   useEffect(() => {
@@ -354,34 +418,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     };
   }, []);
 
-  if (locationId && registrationCheck.status === 'checking') {
+  if (locationId && registrationCheck.status === 'checking' && showSetupLoader) {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] dark:bg-[#09090b] flex items-center justify-center px-4 relative overflow-hidden">
-        {/* Soft atmospheric glow circles */}
-        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-[#2b83fa]/10 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
-
-        <div className="relative z-10 w-full max-w-sm flex flex-col items-center p-8 rounded-[2rem] bg-white/80 dark:bg-[#151618]/80 backdrop-blur-xl border border-white/50 dark:border-white/5 shadow-2xl text-center">
-          {!lottieError ? (
-            <DotLottieReact
-              src="https://lottie.host/8bff6661-62db-4473-adb8-7eced34f3649/mii3gOOlir.lottie"
-              loop
-              autoplay
-              className="w-32 h-32 mb-4 drop-shadow-xl"
-              onError={() => setLottieError(true)}
-            />
-          ) : (
-            <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/10 flex items-center justify-center text-blue-500 mb-6 animate-pulse">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
+      <div className="min-h-screen bg-[#f3f4f6] dark:bg-[#09090b] flex items-center justify-center px-4">
+        <div className="relative z-10 w-full max-w-sm flex flex-col items-center p-8 rounded-2xl bg-white dark:bg-[#151618] border border-[#e5e5e5] dark:border-white/5 shadow-xl text-center">
+          <div className="relative mb-6">
+            <div className="w-16 h-16 rounded-2xl bg-white dark:bg-[#1f2024] border border-[#e5e5e5] dark:border-white/10 flex items-center justify-center shadow-sm overflow-hidden">
+              <img src={faviconLogo} alt="NOLA SMS PRO" className="h-10 w-10 object-contain" />
             </div>
-          )}
+            <div className="absolute -inset-1.5 rounded-[1.35rem] border-2 border-[#2b83fa]/20 border-t-[#2b83fa] animate-spin" />
+          </div>
           <h2 className="text-[17px] font-black tracking-tight text-[#111111] dark:text-white mb-1">
-            Setting up your space
+            Setting up your workspace
           </h2>
           <p className="text-[12.5px] font-medium text-gray-500 dark:text-[#b6bac2] mb-6">
-            Getting your workspace ready...
+            Checking your workspace access...
           </p>
           <div className="w-full bg-[#f1f3f4] dark:bg-white/[0.06] h-1.5 rounded-full overflow-hidden relative">
             <div className="absolute top-0 bottom-0 left-0 bg-gradient-to-r from-[#2b83fa] to-purple-500 rounded-full animate-[shimmer_1.5s_infinite_linear]" style={{ width: "50%" }} />
