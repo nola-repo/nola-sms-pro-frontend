@@ -141,6 +141,46 @@ const getStoredLocationName = (locationId: string): string => {
     return "";
 };
 
+const getPersonDisplayName = (profile?: {
+    full_name?: string | null;
+    name?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+    email_address?: string | null;
+} | null): string => {
+    if (!profile) return "";
+
+    const joinedName = [profile.firstName, profile.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+    return (
+        profile.full_name?.trim() ||
+        profile.name?.trim() ||
+        joinedName ||
+        profile.email?.trim() ||
+        profile.email_address?.trim() ||
+        ""
+    );
+};
+
+const getStoredProfileDisplayName = (locationId: string): string => {
+    for (const key of ["nola_auth_user", "nola_user"]) {
+        try {
+            const stored = JSON.parse(safeStorage.getItem(key) || "{}");
+            if (profileMatchesLocation(stored, locationId)) {
+                const displayName = getPersonDisplayName(stored);
+                if (displayName) return displayName;
+            }
+        } catch {
+            // Ignore malformed cached sessions.
+        }
+    }
+    return "";
+};
+
 export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSelectContact, onSelectBulkMessage }) => {
     const { locationId } = useLocationId();
     const liveProfile = useUserProfileContext();
@@ -322,17 +362,15 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         accountProfileLocationName ||
         liveProfileLocationName ||
         getStoredLocationName(locationId);
+    const liveProfileDisplayName = profileMatchesLocation(liveProfile, locationId)
+        ? getPersonDisplayName(liveProfile)
+        : "";
     const profileDisplayName =
-        liveProfile?.name?.trim() ||
-        [liveProfile?.firstName, liveProfile?.lastName].filter(Boolean).join(" ").trim() ||
-        liveProfile?.email?.trim() ||
-        (() => {
-            try {
-                const u = JSON.parse(safeStorage.getItem('nola_auth_user') || '{}');
-                const u2 = JSON.parse(safeStorage.getItem('nola_user') || '{}');
-                return u?.name || u2?.name || u?.email || u2?.email || subaccountName || "User";
-            } catch { return subaccountName || "User"; }
-        })();
+        subaccountName ||
+        getPersonDisplayName(accountProfile) ||
+        liveProfileDisplayName ||
+        getStoredProfileDisplayName(locationId) ||
+        "User";
     const profileInitial = profileDisplayName.charAt(0).toUpperCase();
     const greetingText = subaccountName ? `${getGreeting()}, ${subaccountName}` : getGreeting();
     const sentToday = creditStatus?.stats?.sent_today ?? 0;
