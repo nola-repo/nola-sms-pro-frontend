@@ -3,7 +3,7 @@ import { fetchMessagesByConversationId, ConversationMessagesError } from "../api
 import type { Message } from "../types/Sms";
 import { useLocationId } from "../context/LocationContext";
 
-const POLL_INTERVAL = 3000;
+const POLL_INTERVAL = 4000;
 const CACHE_TTL_MS = 60_000;
 const SKELETON_DELAY_MS = 160;
 
@@ -278,7 +278,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
 
     const updateMessageStatus = (
         tempId: string,
-        status: "sent" | "failed",
+        status: "sending" | "sent" | "failed",
         realId?: string,
         errorReason?: string
     ) => {

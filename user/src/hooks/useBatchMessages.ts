@@ -17,11 +17,17 @@ export const useBatchMessages = (batchId?: string) => {
         try {
             const data = await fetchBatchMessages(batchId);
             const mappedData = data.map((log: SmsLog) => {
-                let mappedStatus = (log.status || 'sent').toLowerCase();
-                if (mappedStatus === 'pending' || mappedStatus === 'queued') {
-                    mappedStatus = 'sent';
+                let status = (log.status || 'sending').toLowerCase();
+                
+                // Strictly unify statuses for UI matching the backend 3-state hierarchy
+                if (['queued', 'pending', 'sending'].includes(status)) {
+                    status = 'sending';
+                } else if (['delivered', 'success', 'sent'].includes(status)) {
+                    status = 'sent';
+                } else if (['rejected', 'undelivered', 'expired', 'failed'].includes(status)) {
+                    status = 'failed';
                 }
-                return { ...log, status: mappedStatus };
+                return { ...log, status };
             });
             setMessages(mappedData);
         } catch (error) {

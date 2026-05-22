@@ -598,6 +598,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
               onSelectContact={handleSelectContact}
               onSelectBulkMessage={handleSelectBulkMessage}
               onToggleMobileMenu={toggleMobileMenu}
+              darkMode={darkMode}
             />
           ) : currentView === 'contacts' ? (
             <ContactsTab

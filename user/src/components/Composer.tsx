@@ -28,6 +28,7 @@ interface ComposerProps {
   onSelectBulkMessage?: (item: BulkMessageHistoryItem) => void;
   onRequestSettings?: () => void;
   onToggleMobileMenu?: () => void;
+  darkMode?: boolean;
 }
 
 type MessageDetailsSelection =
@@ -136,7 +137,8 @@ export const Composer: React.FC<ComposerProps> = ({
   onSelectContact,
   onSelectBulkMessage,
   onRequestSettings,
-  onToggleMobileMenu
+  onToggleMobileMenu,
+  darkMode
 }) => {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -561,9 +563,9 @@ export const Composer: React.FC<ComposerProps> = ({
           if (smsResult.success) {
             const messageIds = smsResult.messageIds || [];
             if (messageIds.length > 0) {
-              updateMessageStatus(tempId, 'sent', messageIds[0]);
+              updateMessageStatus(tempId, 'sending', messageIds[0]);
             } else {
-              updateMessageStatus(tempId, 'sent');
+              updateMessageStatus(tempId, 'sending');
             }
             guardedToast("success", smsResult.message || "Message sent successfully!");
 
@@ -956,13 +958,13 @@ export const Composer: React.FC<ComposerProps> = ({
               </div>
             </div>
             {/* Recipient Line */}
-            <div className="flex items-start gap-3 rounded-2xl border border-[#dce4ee] dark:border-white/10 bg-white/[0.65] dark:bg-white/[0.035] px-3 py-2 shadow-sm">
-              <span className="text-[12px] font-black text-[#667085] dark:text-[#a7adba] mt-2 whitespace-nowrap uppercase">To</span>
+            <div className="flex items-center gap-3 rounded-2xl border border-[#dce4ee] dark:border-white/10 bg-white/[0.65] dark:bg-white/[0.07] px-3 py-1.5 shadow-sm">
+              <span className="text-[12px] font-black text-[#667085] dark:text-white/70 whitespace-nowrap uppercase">To</span>
 
-              <div className="flex-1 min-h-[44px]">
-                <div className="relative" ref={dropdownRef}>
+              <div className="flex-1 min-h-[40px] flex items-center">
+                <div className="relative w-full" ref={dropdownRef}>
                   <div
-                    className="flex flex-wrap gap-2 py-1 cursor-text"
+                    className="flex flex-wrap items-center gap-2 py-1 cursor-text"
                     onClick={() => setIsPickerOpen(true)}
                   >
                     {bulkSelectedContacts.map(contact => {
@@ -1024,7 +1026,7 @@ export const Composer: React.FC<ComposerProps> = ({
                       }}
                       onFocus={() => setIsPickerOpen(true)}
                       placeholder={bulkSelectedContacts.length === 0 ? (composeMode === "single" ? "Search or enter number..." : "Search or enter multiple...") : ""}
-                      className="flex-1 bg-transparent border-none min-w-[120px] text-[15px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none py-1"
+                      className="flex-1 bg-transparent border-none min-w-[120px] text-[15px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-[#667085]/60 dark:placeholder-white/50 focus:outline-none py-1"
                     />
                   </div>
 
@@ -1098,12 +1100,16 @@ export const Composer: React.FC<ComposerProps> = ({
                 </div>
               </div>
 
-              {/* Sender Selector — right of To: row (Desktop only) */}
-              <div className="flex-shrink-0 mt-1 hidden sm:block">
+              {/* Separator + From label + Sender Selector — right of To: row (Desktop only) */}
+              <div className="flex-shrink-0 hidden sm:flex items-center gap-2.5">
+                <div className="w-px h-4 bg-[#dce4ee] dark:bg-white/20 flex-shrink-0" />
+                <span className="text-[12px] font-black text-[#667085] dark:text-white/70 whitespace-nowrap uppercase">From</span>
                 <SenderSelector
                   value={senderName}
                   onChange={setSenderName}
+                  label=""
                   size="sm"
+                  tone={darkMode ? "onBlue" : "default"}
                   onRequestSettings={onRequestSettings}
                   approvedSenderId={approvedSenderId}
                 />

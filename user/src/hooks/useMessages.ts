@@ -30,13 +30,17 @@ export const useMessages = (phoneNumber: string | undefined) => {
             timestamp: date,
             senderName: log.sender_id || 'NOLASMSPro',
             status: (() => {
-                let mappedStatus = (log.status || 'sent').toLowerCase();
-                // Optimistically show 'sent' (green) for messages that have reached Semaphore (pending delivery)
-                // This stops the UI from flickering back to gray 'pending' while the backend syncs
-                if (mappedStatus === 'pending' || mappedStatus === 'queued' || mappedStatus === 'success') {
-                    mappedStatus = 'sent';
+                let status = (log.status || 'sending').toLowerCase();
+                
+                // Strictly unify statuses for UI matching the backend 3-state hierarchy
+                if (['queued', 'pending', 'sending'].includes(status)) {
+                    status = 'sending';
+                } else if (['delivered', 'success', 'sent'].includes(status)) {
+                    status = 'sent';
+                } else if (['rejected', 'undelivered', 'expired', 'failed'].includes(status)) {
+                    status = 'failed';
                 }
-                return mappedStatus as Message['status'];
+                return status as Message['status'];
             })(),
             errorReason: log.error_reason,
         };
@@ -102,7 +106,7 @@ export const useMessages = (phoneNumber: string | undefined) => {
         return id;
     };
 
-    const updateMessageStatus = (tempId: string, status: 'sent' | 'failed', realId?: string, errorReason?: string) => {
+    const updateMessageStatus = (tempId: string, status: 'sending' | 'sent' | 'failed', realId?: string, errorReason?: string) => {
         setMessages(prev =>
             prev.map(msg =>
                 msg.id === tempId || (realId && msg.id === realId)

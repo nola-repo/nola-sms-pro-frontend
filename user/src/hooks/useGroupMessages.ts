@@ -107,11 +107,17 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
                             timestamp: new Date(parseDate(m.date_created)),
                             senderName: m.sender_id || 'NOLASMSPro',
                             status: (() => {
-                                let mappedStatus = (m.status || 'sent').toLowerCase();
-                                if (mappedStatus === 'pending' || mappedStatus === 'queued') {
-                                    mappedStatus = 'sent';
+                                let status = (m.status || 'sending').toLowerCase();
+                                
+                                // Strictly unify statuses for UI matching the backend 3-state hierarchy
+                                if (['queued', 'pending', 'sending'].includes(status)) {
+                                    status = 'sending';
+                                } else if (['delivered', 'success', 'sent'].includes(status)) {
+                                    status = 'sent';
+                                } else if (['rejected', 'undelivered', 'expired', 'failed'].includes(status)) {
+                                    status = 'failed';
                                 }
-                                return mappedStatus as Message['status'];
+                                return status as Message['status'];
                             })(),
                             batch_id: m.batch_id,
                             message: m.message,
@@ -142,10 +148,10 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
 
         if (!recipientKey && !batchId) return;
 
-        // Background polling every 10 seconds
+        // Background polling every 5 seconds
         const interval = setInterval(() => {
             refresh(false);
-        }, 10000);
+        }, 5000);
 
         return () => clearInterval(interval);
     }, [recipientKey, refresh, batchId]);
