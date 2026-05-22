@@ -412,10 +412,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     return (
       <div className="min-h-screen bg-[#eef3fb] dark:bg-[#09090b] flex items-center justify-center px-4 relative overflow-hidden">
         {/* Soft blue gradient blobs */}
-        <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-[#2b83fa]/25 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute -top-20 -right-20 w-[400px] h-[400px] bg-[#60a5fa]/20 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute -bottom-32 -left-20 w-[420px] h-[420px] bg-[#3b82f6]/15 rounded-full blur-[110px] pointer-events-none" />
-        <div className="absolute -bottom-20 -right-32 w-[500px] h-[500px] bg-[#93c5fd]/20 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute -top-32 -left-32 w-[550px] h-[550px] bg-[#2b83fa]/25 rounded-full blur-[130px] pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-[550px] h-[550px] bg-[#93c5fd]/22 rounded-full blur-[130px] pointer-events-none" />
 
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center p-8 rounded-[2rem] bg-white/80 dark:bg-[#151618]/80 backdrop-blur-xl border border-white/50 dark:border-white/5 shadow-2xl text-center">
           {/* Logo */}
