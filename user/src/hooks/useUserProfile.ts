@@ -148,10 +148,15 @@ export const useUserProfile = () => {
             safeStorage.setItem('nola_auth_user', JSON.stringify(profile));
             safeStorage.setItem('nola_user', JSON.stringify(profile));
 
-            // Sync profile-derived location only when it will not overwrite the active GHL subaccount.
             if (profile.location_id) {
               const settings = getAccountSettings();
+              const cachedUser = getCachedUser();
+              const userChanged = cachedUser && cachedUser.email !== profile.email;
+              const isStandardUser = profile.role === 'user';
+
               const shouldUseProfileLocation =
+                isStandardUser ||
+                userChanged ||
                 !settings.ghlLocationId ||
                 settings.ghlLocationId === profile.location_id ||
                 !appIsRunningInGhl;

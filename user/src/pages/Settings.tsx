@@ -162,22 +162,14 @@ const AccountSection: React.FC = () => {
         }
     }, [liveProfile, inputLocationId]);
 
+    // Keep active location in sync with hook or context profile
     useEffect(() => {
-        if (liveProfile?.location_id && !inputLocationId) {
-            setInputLocationId(liveProfile.location_id);
+        const activeLocation = ghlLocationIdFromHook || liveProfile?.location_id;
+        if (activeLocation && activeLocation !== lastLoadedLocationRef.current) {
+            setInputLocationId(activeLocation);
+            fetchAndSetLocation(activeLocation);
         }
-    }, [liveProfile, inputLocationId]);
-
-    // Update if hook updates (e.g. from URL or from postMessage)
-    useEffect(() => {
-        if (ghlLocationIdFromHook) {
-            setInputLocationId(prev => prev === ghlLocationIdFromHook ? prev : ghlLocationIdFromHook);
-        }
-        if (ghlLocationIdFromHook && lastLoadedLocationRef.current !== ghlLocationIdFromHook) {
-            fetchAndSetLocation(ghlLocationIdFromHook);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [ghlLocationIdFromHook]);
+    }, [ghlLocationIdFromHook, liveProfile?.location_id]);
 
     const applyAccountProfile = useCallback((profile: AccountProfile) => {
         setFetchedProfile(profile);
@@ -191,33 +183,39 @@ const AccountSection: React.FC = () => {
             setFetchedName(nextLocationName);
         }
 
-        const patchCachedUser = (key: string) => {
-            try {
-                const cached = JSON.parse(safeStorage.getItem(key) || '{}');
-                safeStorage.setItem(key, JSON.stringify({
-                    ...cached,
-                    location_id: profile.location_id || cached.location_id,
-                    location_name: nextLocationName || cached.location_name,
-                    name: profile.full_name || profile.name || cached.name,
-                    email: profile.email || profile.email_address || cached.email,
-                    phone: profile.phone || profile.phone_number || cached.phone,
-                }));
-            } catch {
-                // Cache sync is best-effort only.
-            }
-        };
+        // Only patch cached session profile if this is the active session location
+        const sessionLocationId = safeStorage.getItem('nola_location_id') || liveProfile?.location_id;
+        const isSessionLocation = sessionLocationId === profile.location_id;
 
-        patchCachedUser('nola_user');
-        patchCachedUser('nola_auth_user');
+        if (isSessionLocation) {
+            const patchCachedUser = (key: string) => {
+                try {
+                    const cached = JSON.parse(safeStorage.getItem(key) || '{}');
+                    safeStorage.setItem(key, JSON.stringify({
+                        ...cached,
+                        location_id: profile.location_id || cached.location_id,
+                        location_name: nextLocationName || cached.location_name,
+                        name: profile.full_name || profile.name || cached.name,
+                        email: profile.email || profile.email_address || cached.email,
+                        phone: profile.phone || profile.phone_number || cached.phone,
+                    }));
+                } catch {
+                    // Cache sync is best-effort only.
+                }
+            };
 
-        if (nextLocationName) {
-            const fresh = getAccountSettings();
-            if (fresh.displayName !== nextLocationName) {
-                saveAccountSettings({ ...fresh, displayName: nextLocationName });
-                window.dispatchEvent(new Event("account-settings-updated"));
+            patchCachedUser('nola_user');
+            patchCachedUser('nola_auth_user');
+
+            if (nextLocationName) {
+                const fresh = getAccountSettings();
+                if (fresh.displayName !== nextLocationName) {
+                    saveAccountSettings({ ...fresh, displayName: nextLocationName });
+                    window.dispatchEvent(new Event("account-settings-updated"));
+                }
             }
         }
-    }, []);
+    }, [liveProfile]);
 
     const fetchAndSetLocation = async (locId: string, options: { forceRefresh?: boolean } = {}) => {
          const normalizedLocationId = locId.trim();
@@ -290,8 +288,8 @@ const AccountSection: React.FC = () => {
     const displayEmail = fetchedProfile?.email || fetchedProfile?.email_address || (liveProfile?.location_id === inputLocationId ? liveProfile?.email : null) || 'N/A';
     const displayPhone = fetchedProfile?.phone || fetchedProfile?.phone_number || (liveProfile?.location_id === inputLocationId ? liveProfile?.phone : null) || 'N/A';
     const resolvedLocationId = ghlLocationIdFromHook || liveProfile?.location_id || inputLocationId || '';
-    const showPersonalSkeleton = isFetchingLocation;
-    const showWorkspaceSkeleton = isFetchingLocation;
+    const showPersonalSkeleton = isFetchingLocation && (fullName === 'N/A' || displayEmail === 'N/A');
+    const showWorkspaceSkeleton = isFetchingLocation && (subaccountName === 'Not Found' || subaccountName === 'N/A');
 
     return (
         <div className="space-y-5">
