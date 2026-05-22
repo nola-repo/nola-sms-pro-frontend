@@ -56,8 +56,8 @@ const SENDER_ICONS = [<FiGlobe />, <FiMapPin />, <FiBriefcase />, <FiCheckCircle
 
 const STATUS_CONFIG = {
     approved: { label: "Approved", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20", icon: <FiCheck className="w-3 h-3" /> },
-    pending: { label: "Pending", color: "text-amber-600  dark:text-amber-400", bg: "bg-amber-50  dark:bg-amber-900/20", icon: <FiClock className="w-3 h-3" /> },
-    rejected: { label: "Rejected", color: "text-red-600    dark:text-red-400", bg: "bg-red-50    dark:bg-red-900/20", icon: <FiAlertCircle className="w-3 h-3" /> },
+    pending: { label: "Pending", color: "text-amber-600  dark:text-amber-400", bg: "bg-amber-50  dark:amber-900/20", icon: <FiClock className="w-3 h-3" /> },
+    rejected: { label: "Rejected", color: "text-red-600    dark:text-red-400", bg: "bg-red-50    dark:red-900/20", icon: <FiAlertCircle className="w-3 h-3" /> },
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ const AccountSection: React.FC = () => {
     const initialCachedProfileRef = useRef<AccountProfile | null | undefined>(undefined);
     if (initialCachedProfileRef.current === undefined) {
         initialCachedProfileRef.current = initialLocationIdRef.current
-            ? getCachedAccountProfile(initialLocationIdRef.current, { allowExpired: true })
+            ? getCachedAccountProfile(initialLocationIdRef.current)
             : null;
     }
 
@@ -128,13 +128,15 @@ const AccountSection: React.FC = () => {
         if (initialCachedProfileRef.current?.location_name) {
             return initialCachedProfileRef.current.location_name;
         }
-        if (liveProfile?.location_name) return liveProfile.location_name;
+        if (liveProfile?.location_id === initialLocationIdRef.current && liveProfile?.location_name) return liveProfile.location_name;
         try {
             const authUser = JSON.parse(safeStorage.getItem('nola_auth_user') || '{}');
-            if (authUser?.location_name) return authUser.location_name;
-            return JSON.parse(safeStorage.getItem('nola_user') || '{}').location_name || null;
+            if (authUser?.location_id === initialLocationIdRef.current && authUser?.location_name) return authUser.location_name;
+            const nolaUser = JSON.parse(safeStorage.getItem('nola_user') || '{}');
+            if (nolaUser?.location_id === initialLocationIdRef.current && nolaUser?.location_name) return nolaUser.location_name;
         }
         catch { return null; }
+        return null;
     });
     const [fetchedProfile, setFetchedProfile] = useState<AccountProfile | null>(
         () => initialCachedProfileRef.current ?? null
@@ -148,17 +150,17 @@ const AccountSection: React.FC = () => {
         initialCachedProfileRef.current?.location_id || null
     );
 
-    // Synchronize context state with local variables if needed
-    useEffect(() => {
-        if (liveProfile?.location_name) {
-            setFetchedName(liveProfile.location_name);
-        }
-    }, [liveProfile]);
-
     // Manage input location ID state
     const [inputLocationId, setInputLocationId] = useState<string>(() => {
         return initialLocationIdRef.current;
     });
+
+    // Synchronize context state with local variables if needed
+    useEffect(() => {
+        if (liveProfile?.location_id === inputLocationId && liveProfile?.location_name) {
+            setFetchedName(liveProfile.location_name);
+        }
+    }, [liveProfile, inputLocationId]);
 
     useEffect(() => {
         if (liveProfile?.location_id && !inputLocationId) {
@@ -272,41 +274,24 @@ const AccountSection: React.FC = () => {
         window.location.href = GHL_MARKETPLACE_CONNECT_URL;
     };
 
+
     // Derived values
     // subaccountName: use the fetchedName if it's a real value, otherwise fallback to profile cache
     const subaccountName = (fetchedName && fetchedName !== "Location Not Found")
         ? fetchedName
-        : (liveProfile?.location_name || form.displayName || "Not Found");
+        : ((liveProfile?.location_id === inputLocationId && liveProfile?.location_name) || form.displayName || "Not Found");
     const statusCfg = STATUS_CONFIG[form.accountStatus];
     // fullName: use fetchedProfile, then `name` field; fall back to legacy firstName+lastName for old sessions
     const fullName = fetchedProfile?.full_name
         || fetchedProfile?.name
-        || liveProfile?.name
-        || (`${liveProfile?.firstName ?? ''} ${liveProfile?.lastName ?? ''}`.trim())
+        || (liveProfile?.location_id === inputLocationId ? liveProfile?.name : null)
+        || (liveProfile?.location_id === inputLocationId ? `${liveProfile?.firstName ?? ''} ${liveProfile?.lastName ?? ''}`.trim() : '')
         || 'N/A';
-        
-    const displayEmail = fetchedProfile?.email || fetchedProfile?.email_address || liveProfile?.email || 'N/A';
-    const displayPhone = fetchedProfile?.phone || fetchedProfile?.phone_number || liveProfile?.phone || 'N/A';
+    const displayEmail = fetchedProfile?.email || fetchedProfile?.email_address || (liveProfile?.location_id === inputLocationId ? liveProfile?.email : null) || 'N/A';
+    const displayPhone = fetchedProfile?.phone || fetchedProfile?.phone_number || (liveProfile?.location_id === inputLocationId ? liveProfile?.phone : null) || 'N/A';
     const resolvedLocationId = ghlLocationIdFromHook || liveProfile?.location_id || inputLocationId || '';
-    const hasPersonalDetails = Boolean(
-        fetchedProfile?.full_name ||
-        fetchedProfile?.name ||
-        fetchedProfile?.email ||
-        fetchedProfile?.phone ||
-        liveProfile?.name ||
-        liveProfile?.firstName ||
-        liveProfile?.lastName ||
-        liveProfile?.email ||
-        liveProfile?.phone
-    );
-    const hasWorkspaceDetails = Boolean(
-        fetchedProfile?.location_name ||
-        fetchedName ||
-        liveProfile?.location_name ||
-        resolvedLocationId
-    );
-    const showPersonalSkeleton = isFetchingLocation && !hasPersonalDetails;
-    const showWorkspaceSkeleton = isFetchingLocation && !hasWorkspaceDetails;
+    const showPersonalSkeleton = isFetchingLocation;
+    const showWorkspaceSkeleton = isFetchingLocation;
 
     return (
         <div className="space-y-5">
@@ -874,7 +859,7 @@ const CreditsSection: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
 
-    const [topUpAmount, setTopUpAmount] = useState(500);
+    const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
     const [packages, setPackages] = useState<CreditPackage[]>([]);
     const [submitted, setSubmitted] = useState(false);
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -1441,29 +1426,73 @@ const CreditsSection: React.FC = () => {
             <Card>
                 <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider mb-4">Top Up Credits</h3>
                 <form onSubmit={handleTopUp} className="space-y-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {packages.map(pkg => (
-                            <button
-                                key={pkg.credits}
-                                type="button"
-                                onClick={() => setTopUpAmount(pkg.credits)}
-                                className={`flex flex-col items-center py-3 rounded-xl border-2 transition-all ${topUpAmount === pkg.credits
-                                    ? 'border-[#2b83fa] bg-[#2b83fa]/5 dark:bg-[#2b83fa]/10'
-                                    : 'border-[#e0e0e0] dark:border-[#2a2b32] hover:border-[#2b83fa]/40'
-                                    }`}
-                            >
-                                <span className={`text-[16px] font-black ${topUpAmount === pkg.credits ? 'text-[#2b83fa]' : 'text-[#111111] dark:text-[#ececf1]'}`}>{pkg.credits?.toLocaleString() || pkg.credits}</span>
-                                <span className="text-[11px] text-[#9aa0a6]">credits</span>
-                                <span className={`text-[12px] font-bold mt-1 ${topUpAmount === pkg.credits ? 'text-[#2b83fa]' : 'text-[#6e6e73] dark:text-[#94959b]'}`}>₱{pkg.price}</span>
-                            </button>
-                        ))}
-                    </div>
+                    {balanceLoading || packages.length === 0 || topUpAmount === null ? (
+                        <div className="grid grid-cols-6 gap-3">
+                            {Array.from({ length: 5 }).map((_, idx) => {
+                                const colSpan = idx < 3 ? 'col-span-6 sm:col-span-2' : 'col-span-6 sm:col-span-3';
+                                return (
+                                    <div
+                                        key={idx}
+                                        className={`flex flex-col items-center py-4 px-3 rounded-xl border border-[#e5e5e5] dark:border-[#2a2b32] animate-pulse space-y-2.5 ${colSpan} bg-gray-50/50 dark:bg-[#1a1b1e]/30`}
+                                    >
+                                        <div className="h-4 bg-gray-200 dark:bg-[#2a2b32] rounded w-16" />
+                                        <div className="h-3 bg-gray-100 dark:bg-[#1e1f22] rounded w-10" />
+                                        <div className="h-4 bg-gray-200 dark:bg-[#2a2b32] rounded w-12 mt-1" />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-6 gap-3">
+                            {packages.map((pkg, idx) => {
+                                const colSpan = idx < 3 ? 'col-span-6 sm:col-span-2' : 'col-span-6 sm:col-span-3';
+                                const isSelected = topUpAmount === pkg.credits;
+                                const bonusCredits = pkg.credits - pkg.price;
+                                const bonusPercent = pkg.price > 0 ? Math.round((bonusCredits / pkg.price) * 100) : 0;
+
+                                return (
+                                    <button
+                                        key={pkg.credits}
+                                        type="button"
+                                        onClick={() => setTopUpAmount(pkg.credits)}
+                                        className={`relative flex flex-col items-center py-4 px-3 rounded-xl border-2 transition-all duration-300 ease-out transform hover:scale-[1.02] active:scale-[0.98] ${
+                                            isSelected
+                                                ? 'border-[#2b83fa] bg-gradient-to-br from-[#2b83fa]/10 to-[#2b83fa]/5 dark:from-[#2b83fa]/20 dark:to-[#2b83fa]/5 shadow-[0_0_15px_rgba(43,131,250,0.15)] dark:shadow-[0_0_20px_rgba(43,131,250,0.25)]'
+                                                : 'border-[#e0e0e0] dark:border-[#2a2b32] bg-white dark:bg-[#1a1b1e]/50 hover:border-[#2b83fa]/50 hover:bg-gray-50/50 dark:hover:bg-[#2b832]/30'
+                                        } ${colSpan}`}
+                                    >
+                                        {/* Dynamic premium badge for bonus percentage */}
+                                        {bonusPercent > 0 && (
+                                            <span className="absolute -top-2.5 -right-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9.5px] font-black px-2 py-0.5 rounded-full shadow-md uppercase tracking-wider">
+                                                +{bonusPercent}% Bonus
+                                            </span>
+                                        )}
+                                        <span className={`text-[17px] font-black tracking-tight ${isSelected ? 'text-[#2b83fa]' : 'text-[#111111] dark:text-[#ececf1]'}`}>
+                                            {pkg.credits?.toLocaleString() || pkg.credits}
+                                        </span>
+                                        <span className="text-[10px] text-[#9aa0a6] font-semibold mt-0.5">credits</span>
+                                        <span className={`text-[13px] font-bold mt-1.5 px-3 py-0.5 rounded-lg ${
+                                            isSelected
+                                                ? 'bg-[#2b83fa] text-white'
+                                                : 'bg-gray-100 dark:bg-[#2a2b32] text-[#6e6e73] dark:text-[#94959b]'
+                                        }`}>
+                                            ₱{pkg.price?.toLocaleString() || pkg.price}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                     {checkoutError && (
                         <div className="rounded-xl border border-red-200/70 bg-red-50 px-3 py-2.5 text-[12.5px] font-semibold text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
                             {checkoutError}
                         </div>
                     )}
-                    {submitted ? (
+                    {balanceLoading || packages.length === 0 || topUpAmount === null ? (
+                        <div className="w-full h-12 bg-gray-200 dark:bg-[#2a2b32] rounded-xl animate-pulse flex items-center justify-center">
+                            <div className="h-4 bg-gray-300 dark:bg-[#3a3b3f] rounded w-40" />
+                        </div>
+                    ) : submitted ? (
                         <div className="flex flex-col items-center justify-center gap-2 w-full">
                             <div className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl text-emerald-600 dark:text-emerald-400 font-semibold text-[13px]">
                                 <FiCheck className="w-4 h-4" /> Checkout window opened
