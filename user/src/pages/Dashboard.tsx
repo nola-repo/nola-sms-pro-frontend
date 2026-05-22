@@ -1,6 +1,6 @@
 import { safeStorage } from '../utils/safeStorage';
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useState, useEffect } from "react";
+import nolaLogo from "../assets/NOLA SMS PRO Logo.png";
 import { useNavigate } from "react-router-dom";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
@@ -126,7 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
 
     return { status: 'idle' };
   });
-  const [lottieError, setLottieError] = useState(false);
+
   const [activeContact, setActiveContact] = useState<Contact | null>(() => {
     try {
       const saved = safeStorage.getItem('nola_active_contact');
@@ -416,21 +416,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
 
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center p-8 rounded-[2rem] bg-white/80 dark:bg-[#151618]/80 backdrop-blur-xl border border-white/50 dark:border-white/5 shadow-2xl text-center">
-          {!lottieError ? (
-            <DotLottieReact
-              src="https://lottie.host/8bff6661-62db-4473-adb8-7eced34f3649/mii3gOOlir.lottie"
-              loop
-              autoplay
-              className="w-32 h-32 mb-4 drop-shadow-xl"
-              onError={() => setLottieError(true)}
-            />
-          ) : (
-            <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/10 flex items-center justify-center text-blue-500 mb-6 animate-pulse">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-            </div>
-          )}
+          {/* Logo */}
+          <img
+            src={nolaLogo}
+            alt="NOLA SMS PRO"
+            className="w-24 h-24 mb-3 drop-shadow-xl object-contain"
+          />
+
+          {/* Spinning loader icon */}
+          <div className="w-14 h-14 rounded-[16px] bg-[#2b83fa]/10 dark:bg-[#2b83fa]/[0.15] flex items-center justify-center mb-5 relative group">
+            <div className="absolute inset-0 bg-[#2b83fa]/20 rounded-[16px] blur-xl opacity-50" />
+            <svg
+              className="w-7 h-7 text-[#2b83fa] relative z-10 animate-spin"
+              style={{ animationDuration: '2s' }}
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.5}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          </div>
           <h2 className="text-[17px] font-black tracking-tight text-[#111111] dark:text-white mb-1">
             Setting up your workspace
           </h2>
