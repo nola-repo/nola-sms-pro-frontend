@@ -426,17 +426,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
           {/* Spinning loader icon */}
           <div className="w-14 h-14 rounded-[16px] bg-[#2b83fa]/10 dark:bg-[#2b83fa]/[0.15] flex items-center justify-center mb-5 relative group">
             <div className="absolute inset-0 bg-[#2b83fa]/20 rounded-[16px] blur-xl opacity-50" />
-            <svg
-              className="w-7 h-7 text-[#2b83fa] relative z-10 animate-spin"
-              style={{ animationDuration: '2s' }}
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
+            <img
+              src={nolaLogo}
+              alt="NOLA"
+              className="w-8 h-8 object-contain relative z-10 animate-spin"
+              style={{ animationDuration: '3s' }}
+            />
           </div>
           <h2 className="text-[17px] font-black tracking-tight text-[#111111] dark:text-white mb-1">
             Setting up your workspace
