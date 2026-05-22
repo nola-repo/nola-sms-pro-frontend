@@ -423,14 +423,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             className="w-24 h-24 mb-3 drop-shadow-xl object-contain"
           />
 
-          {/* Spinning loader icon */}
+          {/* Workspace logo placeholder */}
           <div className="w-14 h-14 rounded-[16px] bg-[#2b83fa]/10 dark:bg-[#2b83fa]/[0.15] flex items-center justify-center mb-5 relative group">
             <div className="absolute inset-0 bg-[#2b83fa]/20 rounded-[16px] blur-xl opacity-50" />
             <img
               src={nolaLogo}
-              alt="NOLA"
-              className="w-8 h-8 object-contain relative z-10 animate-spin"
-              style={{ animationDuration: '3s' }}
+              alt="Workspace Logo"
+              className="w-8 h-8 object-contain relative z-10"
             />
           </div>
           <h2 className="text-[17px] font-black tracking-tight text-[#111111] dark:text-white mb-1">
