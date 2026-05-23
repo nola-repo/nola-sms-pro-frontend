@@ -635,11 +635,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <p className="text-[11.5px] leading-relaxed text-gray-500 dark:text-gray-400 max-w-[180px] relative z-10">
                   Click here or the <span className="text-[#2b83fa] font-bold group-hover:underline">New Message</span> button above to send your first SMS.
                 </p>
-
-                {/* A tiny subtle badge showing "Quick Start" or similar on hover */}
-                <div className="mt-4 px-2.5 py-0.5 rounded-full bg-[#2b83fa]/10 text-[#2b83fa] text-[9.5px] font-bold tracking-wider uppercase opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-                  Quick Start
-                </div>
               </div>
             ) : (
               <>
