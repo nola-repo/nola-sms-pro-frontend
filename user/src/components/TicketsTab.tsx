@@ -1,6 +1,25 @@
 import React from "react";
 import { FiMessageSquare } from "react-icons/fi";
 import { useLocationId } from "../context/LocationContext";
+import { safeStorage } from "../utils/safeStorage";
+
+const getCachedProfile = () => {
+    try {
+        const authProfile = JSON.parse(safeStorage.getItem('nola_auth_user') || 'null');
+        const userProfile = JSON.parse(safeStorage.getItem('nola_user') || 'null');
+        return { ...(userProfile || {}), ...(authProfile || {}) };
+    } catch {
+        return {};
+    }
+};
+
+const formatPhoneForForm = (value?: string | null) => {
+    const digits = (value || '').replace(/\D/g, '');
+    if (/^09\d{9}$/.test(digits)) return `+63${digits.slice(1)}`;
+    if (/^9\d{9}$/.test(digits)) return `+63${digits}`;
+    if (/^639\d{9}$/.test(digits)) return `+${digits}`;
+    return value || '';
+};
 
 export const TicketsTab: React.FC = () => {
     const { locationId } = useLocationId();
@@ -11,18 +30,36 @@ export const TicketsTab: React.FC = () => {
     // Generate the dynamic URL with pre-fill parameters
     const getFunnelUrl = () => {
         try {
-            const stored = localStorage.getItem('nola_user');
-            const profile = stored ? JSON.parse(stored) : {};
+            const profile = getCachedProfile();
             const params = new URLSearchParams();
+            const fullName =
+                profile.full_name ||
+                profile.name ||
+                [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim();
+            const firstName = profile.firstName || fullName.split(' ')[0] || '';
+            const lastName = profile.lastName || fullName.split(' ').slice(1).join(' ');
+            const resolvedPhone = formatPhoneForForm(profile.phone || profile.phone_number);
+            const resolvedLocationId =
+                locationId ||
+                profile.location_id ||
+                profile.active_location_id ||
+                safeStorage.getItem('nola_location_id') ||
+                '';
             
-            // Map profile fields to standard GHL auto-fill parameters
-            if (profile.firstName || profile.lastName) {
-                const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(' ');
+            if (fullName) {
                 params.set('name', fullName);
+                params.set('full_name', fullName);
             }
+            if (firstName) params.set('first_name', firstName);
+            if (lastName) params.set('last_name', lastName);
             if (profile.email) params.set('email', profile.email);
-            if (profile.phone) params.set('phone', profile.phone);
-            if (locationId) params.set('location_id', locationId);
+            if (resolvedPhone) params.set('phone', resolvedPhone);
+            if (resolvedLocationId) {
+                params.set('location_id', resolvedLocationId);
+                params.set('locationId', resolvedLocationId);
+                params.set('ghl_location_id', resolvedLocationId);
+                params.set('app_location_id', resolvedLocationId);
+            }
 
             const queryString = params.toString();
             return queryString ? `${BASE_URL}?${queryString}` : BASE_URL;
@@ -52,11 +89,11 @@ export const TicketsTab: React.FC = () => {
 
             {/* Content Area */}
             <main className="flex-1 overflow-y-auto px-4 pb-4 pt-5 md:px-6 md:pb-6 md:pt-6 lg:px-8 lg:pb-8 lg:pt-6">
-                <div className="max-w-5xl mx-auto h-full min-h-[750px] flex flex-col">
-                    <div className="flex-1 overflow-hidden rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] shadow-sm relative group">
+                <div className="max-w-5xl mx-auto min-h-[1500px] flex flex-col">
+                    <div className="overflow-hidden rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] shadow-sm relative group">
                         <iframe
                             src={SUPPORT_FUNNEL_URL}
-                            style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px' }}
+                            style={{ width: '100%', height: '1500px', border: 'none', borderRadius: '8px' }}
                             id="inline-Nt1MWKmO93qOlvJWzZzk" 
                             data-layout="{'id':'INLINE'}"
                             data-trigger-type="alwaysShow"
@@ -66,10 +103,10 @@ export const TicketsTab: React.FC = () => {
                             data-deactivation-type="neverDeactivate"
                             data-deactivation-value=""
                             data-form-name="Ticket Form"
-                            data-height="1057"
+                            data-height="1500"
                             data-layout-iframe-id="inline-Nt1MWKmO93qOlvJWzZzk"
                             data-form-id="Nt1MWKmO93qOlvJWzZzk"
-                            className="w-full h-full min-h-[1057px]"
+                            className="w-full h-[1500px]"
                             title="Ticket Form"
                             allow="camera; microphone; clipboard-read; clipboard-write; display-capture"
                         />
