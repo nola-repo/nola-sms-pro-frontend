@@ -7,7 +7,7 @@ import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
 import { renameBulkMessage, deleteBulkMessage, deleteContact as deleteContactLocal, getDeletedContactIds } from "../utils/storage";
 import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarRightCollapse } from "react-icons/tb";
-import { FiUsers, FiChevronDown, FiEdit2, FiTrash2, FiMoreVertical, FiHome, FiPlus, FiX, FiLogOut, FiMessageSquare } from "react-icons/fi";
+import { FiBookOpen, FiUsers, FiChevronDown, FiEdit2, FiTrash2, FiMoreVertical, FiHome, FiPlus, FiX, FiLogOut, FiMessageSquare } from "react-icons/fi";
 import { logout } from "../services/authService";
 import GlareHover from "./GlareHover";
 import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
@@ -112,9 +112,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     window.addEventListener('storage', handler);
     // Also listen for GHL location change which may reset state
     window.addEventListener('ghl-location-changed', handler);
+    window.addEventListener('nola-onboarding-updated', handler);
     return () => {
       window.removeEventListener('storage', handler);
       window.removeEventListener('ghl-location-changed', handler);
+      window.removeEventListener('nola-onboarding-updated', handler);
     };
   }, []);
 
@@ -890,16 +892,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             window.dispatchEvent(new CustomEvent('open-onboarding', { detail: { step: 0 } }));
           }}
           className={`
-            flex items-center rounded-xl transition-all duration-200 group relative
+            md:hidden flex items-center rounded-xl transition-all duration-200 group relative
             ${isCollapsed ? 'w-10 h-10 justify-center' : 'w-full gap-3 px-3 py-2'}
             text-[#9aa0a6] dark:text-[#5f6368] hover:bg-[#2b83fa]/5 dark:hover:bg-[#2b83fa]/10 hover:text-[#2b83fa]
           `}
           title="Getting Started"
         >
           <div className="relative flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+            <FiBookOpen className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
             {!onboardingDone && (
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-[#121415] animate-pulse" />
             )}

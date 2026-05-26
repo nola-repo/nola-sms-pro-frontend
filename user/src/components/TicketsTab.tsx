@@ -52,28 +52,29 @@ export const TicketsTab: React.FC = () => {
 
             {/* Content Area */}
             <main className="flex-1 overflow-y-auto px-4 pb-4 pt-5 md:px-6 md:pb-6 md:pt-6 lg:px-8 lg:pb-8 lg:pt-6">
-                <div className="max-w-3xl mx-auto h-full min-h-[750px] flex flex-col">
-                    <div className="flex-1 overflow-hidden rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] shadow-sm relative group">
-                        <iframe
-                            src={SUPPORT_FUNNEL_URL}
-                            style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px' }}
-                            id="inline-Nt1MWKmO93qOlvJWzZzk" 
-                            data-layout="{'id':'INLINE'}"
-                            data-trigger-type="alwaysShow"
-                            data-trigger-value=""
-                            data-activation-type="alwaysActivated"
-                            data-activation-value=""
-                            data-deactivation-type="neverDeactivate"
-                            data-deactivation-value=""
-                            data-form-name="Ticket Form"
-                            data-height="1057"
-                            data-layout-iframe-id="inline-Nt1MWKmO93qOlvJWzZzk"
-                            data-form-id="Nt1MWKmO93qOlvJWzZzk"
-                            className="w-full h-full min-h-[1057px]"
-                            title="Ticket Form"
-                            allow="camera; microphone; clipboard-read; clipboard-write; display-capture"
-                        />
-                        
+                <div className="max-w-5xl mx-auto h-full">
+                    <div className="max-w-3xl h-full min-h-[750px] flex flex-col">
+                        <div className="flex-1 overflow-hidden rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] shadow-sm relative group">
+                            <iframe
+                                src={SUPPORT_FUNNEL_URL}
+                                style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px' }}
+                                id="inline-Nt1MWKmO93qOlvJWzZzk" 
+                                data-layout="{'id':'INLINE'}"
+                                data-trigger-type="alwaysShow"
+                                data-trigger-value=""
+                                data-activation-type="alwaysActivated"
+                                data-activation-value=""
+                                data-deactivation-type="neverDeactivate"
+                                data-deactivation-value=""
+                                data-form-name="Ticket Form"
+                                data-height="1057"
+                                data-layout-iframe-id="inline-Nt1MWKmO93qOlvJWzZzk"
+                                data-form-id="Nt1MWKmO93qOlvJWzZzk"
+                                className="w-full h-full min-h-[1057px]"
+                                title="Ticket Form"
+                                allow="camera; microphone; clipboard-read; clipboard-write; display-capture"
+                            />
+                        </div>
                     </div>
                 </div>
             </main>

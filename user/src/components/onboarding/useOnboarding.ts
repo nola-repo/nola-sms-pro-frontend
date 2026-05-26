@@ -52,6 +52,7 @@ export function useOnboarding(): UseOnboardingReturn {
 
   const close = useCallback(() => {
     localStorage.setItem(STORAGE_DONE_KEY, "true");
+    window.dispatchEvent(new Event("nola-onboarding-updated"));
     setIsOpen(false);
   }, []);
 
@@ -66,6 +67,7 @@ export function useOnboarding(): UseOnboardingReturn {
   const complete = useCallback(() => {
     localStorage.setItem(STORAGE_DONE_KEY, "true");
     localStorage.removeItem(STORAGE_STEP_KEY);
+    window.dispatchEvent(new Event("nola-onboarding-updated"));
     setIsOpen(false);
   }, []);
 

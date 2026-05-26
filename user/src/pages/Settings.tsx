@@ -1786,8 +1786,10 @@ export const Settings: React.FC<SettingsProps> = ({ initialTab, autoOpenAddModal
 
             {/* Content Panel */}
             <main className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 pt-5 md:px-6 md:pb-6 md:pt-6 lg:px-8 lg:pb-8 lg:pt-6 custom-scrollbar">
-                <div className="max-w-2xl mx-auto">
-                    {renderContent()}
+                <div className="max-w-5xl mx-auto">
+                    <div className="max-w-2xl">
+                        {renderContent()}
+                    </div>
                 </div>
             </main>
         </div>
