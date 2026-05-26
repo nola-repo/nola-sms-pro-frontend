@@ -63,19 +63,20 @@ const normalizeNumber = (value: unknown, fallback = 0) => {
 const normalizeAccount = (item: any): Account => {
     const raw = item?.data ? { id: item.id, ...item.data } : item || {};
     const name = raw.name || raw.full_name || [raw.firstName, raw.lastName].filter(Boolean).join(' ').trim();
+    const locationName = raw.location_name || raw.subaccount_name || raw.company_name || '';
 
     return {
         ...raw,
         id: raw.id || raw.user_id || raw.uid || raw.location_id || raw.email || `user-${Math.random().toString(36).slice(2)}`,
-        name: name || raw.email || 'Unnamed User',
-        full_name: raw.full_name || name || raw.email || 'Unnamed User',
+        name: name || raw.email || locationName || 'Unnamed User',
+        full_name: raw.full_name || name || raw.email || locationName || 'Unnamed User',
         email: raw.email || raw.email_address || '',
         phone: raw.phone || raw.phone_number || '',
         role: raw.role || 'user',
         active: raw.active !== false,
         location_id: raw.location_id || raw.active_location_id || '',
         active_location_id: raw.active_location_id || raw.location_id || '',
-        location_name: raw.location_name || raw.subaccount_name || raw.company_name || '',
+        location_name: locationName,
         agency_name: raw.agency_name || raw.company_name || '',
         credit_balance: normalizeNumber(raw.credit_balance ?? raw.credits, 0),
         credits: normalizeNumber(raw.credits ?? raw.credit_balance, 0),
@@ -109,6 +110,13 @@ const roleBadge = (role?: string) => {
 
 const emptyValue = (value?: string | null) => value?.trim() || '—';
 
+const getLocationLine = (account: Account) => {
+    const locationName = account.location_name?.trim();
+    const locationId = (account.location_id || account.active_location_id || '').trim();
+    if (locationName && locationId) return `${locationName} - ${locationId}`;
+    return locationName || locationId || '';
+};
+
 export const AdminAccounts: React.FC = () => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
@@ -133,6 +141,7 @@ export const AdminAccounts: React.FC = () => {
     const [isLoadingReport, setIsLoadingReport] = useState(false);
     const [reportSelectedMonth, setReportSelectedMonth] = useState('All');
     const [selectedReportAccount, setSelectedReportAccount] = useState<Account | null>(null);
+    const userListUnavailableRef = useRef(false);
 
     const { toasts, showToast, dismissToast } = useToast();
 
@@ -156,21 +165,35 @@ export const AdminAccounts: React.FC = () => {
         setError(null);
 
         try {
-            const res = await fetch(ADMIN_LIST_USERS_API, { headers: getAdminAuthHeaders() });
-            const json = await res.json();
-            if (!res.ok || json.status !== 'success') {
-                throw new Error(json.message || 'Failed to load registered users.');
+            if (userListUnavailableRef.current && !isInitial) {
+                throw new Error('USER_LIST_SKIPPED_AFTER_401');
             }
 
+            const res = await fetch(ADMIN_LIST_USERS_API, { headers: getAdminAuthHeaders() });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || json.status !== 'success') {
+                const error = new Error(json.message || (res.status === 401 ? 'Admin session was rejected by the user list endpoint.' : 'Failed to load registered users.'));
+                (error as any).status = res.status;
+                throw error;
+            }
+
+            userListUnavailableRef.current = false;
             setAccounts((json.data || []).map(normalizeAccount));
             setLastRefreshed(new Date());
         } catch (primaryError) {
+            const primaryStatus = (primaryError as any)?.status;
+            if (primaryStatus === 401) {
+                userListUnavailableRef.current = true;
+            }
+
             try {
                 const legacyRes = await fetch(`${ADMIN_SENDER_API}?action=accounts`, { headers: getAdminAuthHeaders() });
                 const legacyJson = await legacyRes.json();
                 if (!legacyRes.ok || legacyJson.status !== 'success') throw primaryError;
                 setAccounts((legacyJson.data || []).map(normalizeAccount));
-                setError('User list endpoint is unavailable locally. Showing legacy account data for testing.');
+                setError(primaryStatus === 401
+                    ? 'Admin user list rejected this session (401). Showing legacy account data. Log out and back in if this keeps happening.'
+                    : 'User list endpoint is unavailable. Showing legacy account data.');
                 setLastRefreshed(new Date());
             } catch {
                 setError(primaryError instanceof Error ? primaryError.message : 'Network error. Could not reach the backend.');
@@ -467,7 +490,7 @@ export const AdminAccounts: React.FC = () => {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="border-b border-[#e5e5e5] dark:border-white/5">
-                                        {['Name', 'Email', 'Phone', 'Role', 'Location ID', 'Location Name', 'Credits', 'Free Used', 'Actions'].map(header => (
+                                        {['Name', 'Email', 'Phone', 'Role', 'Credits', 'Free Used', 'Actions'].map(header => (
                                             <th key={header} className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                                 {header}
                                             </th>
@@ -477,7 +500,7 @@ export const AdminAccounts: React.FC = () => {
                                 <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
                                     {currentAccounts.map(account => (
                                         <tr key={account.id} className="group hover:bg-[#f7f7f7] dark:hover:bg-white/[0.015] transition-colors">
-                                            <td className="py-4 pr-4 min-w-[220px]">
+                                            <td className="py-4 pr-4 min-w-[300px]">
                                                 <div className="flex items-center gap-3">
                                                     <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 shadow-sm">
                                                         {getInitials(account)}
@@ -485,17 +508,13 @@ export const AdminAccounts: React.FC = () => {
                                                     </div>
                                                     <div className="min-w-0">
                                                         <p className="font-bold text-[13px] text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors truncate">{getAccountName(account)}</p>
-                                                        <p className="text-[10px] text-[#9aa0a6] font-mono mt-0.5 truncate">{account.id}</p>
+                                                        <p className="text-[10px] text-[#9aa0a6] font-medium mt-0.5 truncate">{getLocationLine(account) || account.id}</p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[190px]">{emptyValue(account.email)}</td>
                                             <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[130px]">{emptyValue(account.phone)}</td>
                                             <td className="py-4 pr-4">{roleBadge(account.role)}</td>
-                                            <td className="py-4 pr-4 min-w-[170px]">
-                                                <span className="text-[11px] font-mono text-[#6e6e73] dark:text-[#9aa0a6]">{emptyValue(account.location_id)}</span>
-                                            </td>
-                                            <td className="py-4 pr-4 text-[12px] font-semibold text-[#111111] dark:text-white min-w-[150px]">{emptyValue(account.location_name)}</td>
                                             <td className="py-4 pr-4">
                                                 <div className="flex flex-col">
                                                     <span className="text-[13px] font-bold text-[#111111] dark:text-white">{(account.credit_balance ?? account.credits ?? 0).toLocaleString()}</span>
@@ -518,18 +537,16 @@ export const AdminAccounts: React.FC = () => {
                             </table>
 
                             {totalPages > 1 && (
-                                <div className="flex items-center justify-between px-4 py-4 mt-2 border-t border-[#e5e5e5] dark:border-white/5">
+                                <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#e5e5e5] dark:border-white/5">
                                     <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] font-medium">
-                                        Showing <span className="font-bold text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-bold text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, filteredAccounts.length)}</span> of <span className="font-bold text-[#111111] dark:text-white">{filteredAccounts.length}</span> users
+                                        Showing <b className="text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</b> - <b className="text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, filteredAccounts.length)}</b> of <b className="text-[#111111] dark:text-white">{filteredAccounts.length}</b>
                                     </div>
                                     <div className="flex items-center gap-1.5">
-                                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(page => Math.max(1, page - 1))} className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 transition-colors">
-                                            <FiChevronLeft className="w-4 h-4" />
-                                        </button>
-                                        <span className="px-2 text-[12px] font-bold text-[#111111] dark:text-white">{currentPage} / {totalPages}</span>
-                                        <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))} className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 transition-colors">
-                                            <FiChevronRight className="w-4 h-4" />
-                                        </button>
+                                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronLeft className="w-4 h-4" /></button>
+                                        {Array.from({ length: Math.min(5, totalPages - Math.floor((currentPage - 1) / 5) * 5) }, (_, i) => Math.floor((currentPage - 1) / 5) * 5 + 1 + i).map(page => (
+                                            <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 rounded-lg text-[12px] font-bold flex items-center justify-center transition-all ${currentPage === page ? 'bg-[#2b83fa] text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5'}`}>{page}</button>
+                                        ))}
+                                        <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronRight className="w-4 h-4" /></button>
                                     </div>
                                 </div>
                             )}

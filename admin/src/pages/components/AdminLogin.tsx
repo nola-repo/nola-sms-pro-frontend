@@ -38,8 +38,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
         const json = await res.json();
         
         if (res.ok && json.status === 'success') {
-            // Pass any token the backend returns so it can be stored securely
-            onLogin(username, json.token ?? undefined);
+            const adminToken = json.token ?? json.admin_token ?? json.access_token ?? json.jwt ?? undefined;
+            onLogin(username, adminToken);
         } else {
             setError(json.message || 'Incorrect username or password.');
         }

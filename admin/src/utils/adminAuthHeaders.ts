@@ -18,8 +18,10 @@ export const getAdminAuthHeaders = (): Record<string, string> => {
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-  } else if (user) {
-    // Fallback until backend issues real JWTs
+  }
+
+  if (user) {
+    // Kept for legacy endpoints and useful for backend-side audit logs.
     headers['X-Admin-Auth'] = 'true';
     headers['X-Admin-User'] = user;
   }
