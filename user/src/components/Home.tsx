@@ -561,10 +561,10 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                             const isTrialActive = trialTotal > 0 && trialUsed < trialTotal;
                             const trialLeft    = trialTotal - trialUsed;
                             return (
-                                <div className="p-6 rounded-[24px] bg-gradient-to-br from-[#f6fbff] via-[#bfdbfe] to-[#60a5fa] dark:from-[#244aa8] dark:via-[#1d63b7] dark:to-[#0f7d95] shadow-xl shadow-blue-500/15 hover:shadow-blue-500/25 transition-all group overflow-hidden relative h-full border border-white/70 dark:border-blue-200/15">
+                                <div className="p-6 rounded-[24px] bg-gradient-to-br from-[#e0f2fe] via-[#60a5fa] to-[#06b6d4] dark:from-[#3b82f6] dark:via-[#2584d5] dark:to-[#14a3a1] shadow-xl shadow-blue-500/20 hover:shadow-blue-500/30 transition-all group overflow-hidden relative h-full border border-white/70 dark:border-blue-200/20">
                                     <button
                                         onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }))}
-                                        className="group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-blue-700 text-white shadow-[0_10px_24px_rgba(29,78,216,0.32)] ring-1 ring-white/45 hover:bg-blue-800 hover:shadow-[0_14px_30px_rgba(29,78,216,0.42)] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300 dark:bg-blue-400 dark:text-blue-950 dark:ring-white/25 dark:shadow-black/25 dark:hover:bg-blue-300 dark:focus-visible:ring-offset-blue-900 transition-all"
+                                        className="group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-blue-700 text-white shadow-[0_10px_24px_rgba(29,78,216,0.32)] ring-1 ring-white/45 hover:bg-blue-800 hover:shadow-[0_14px_30px_rgba(29,78,216,0.42)] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300 dark:bg-blue-500 dark:text-white dark:ring-white/30 dark:shadow-black/25 dark:hover:bg-blue-400 dark:focus-visible:ring-offset-blue-900 transition-all"
                                         aria-label="Open credits"
                                         title="Open credits"
                                     >
@@ -600,10 +600,10 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                     </AnimatedContent>
 
                     <AnimatedContent delay={0.2} distance={50} direction="vertical">
-                        <div className="p-6 rounded-[24px] bg-gradient-to-br from-[#fff7ff] via-[#e9d5ff] to-[#a78bfa] dark:from-[#5b21b6] dark:via-[#6d28d9] dark:to-[#4338ca] shadow-xl shadow-purple-500/15 hover:shadow-purple-500/25 transition-all group overflow-hidden relative h-full border border-white/70 dark:border-purple-200/15">
+                        <div className="p-6 rounded-[24px] bg-gradient-to-br from-[#fae8ff] via-[#c084fc] to-[#7c3aed] dark:from-[#8b5cf6] dark:via-[#7c3aed] dark:to-[#5b5ce2] shadow-xl shadow-purple-500/20 hover:shadow-purple-500/30 transition-all group overflow-hidden relative h-full border border-white/70 dark:border-purple-200/20">
                             <button
                                 onClick={() => onTabChange('compose')}
-                                className="group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-purple-700 text-white shadow-[0_10px_24px_rgba(109,40,217,0.32)] ring-1 ring-white/45 hover:bg-purple-800 hover:shadow-[0_14px_30px_rgba(109,40,217,0.42)] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-violet-300 dark:bg-purple-300 dark:text-purple-950 dark:ring-white/25 dark:shadow-black/25 dark:hover:bg-purple-200 dark:focus-visible:ring-offset-purple-900 transition-all"
+                                className="group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-purple-700 text-white shadow-[0_10px_24px_rgba(109,40,217,0.32)] ring-1 ring-white/45 hover:bg-purple-800 hover:shadow-[0_14px_30px_rgba(109,40,217,0.42)] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-violet-300 dark:bg-purple-500 dark:text-white dark:ring-white/30 dark:shadow-black/25 dark:hover:bg-purple-400 dark:focus-visible:ring-offset-purple-900 transition-all"
                                 aria-label="New message"
                                 title="New message"
                             >
@@ -628,10 +628,10 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                     </AnimatedContent>
 
                     <AnimatedContent delay={0.3} distance={50} direction="vertical">
-                        <div className="p-6 rounded-[24px] bg-gradient-to-br from-[#f0fdf4] via-[#bbf7d0] to-[#5eead4] dark:from-[#047857] dark:via-[#059669] dark:to-[#0f766e] shadow-xl shadow-emerald-500/15 hover:shadow-emerald-500/25 transition-all group overflow-hidden relative h-full border border-white/70 dark:border-emerald-200/15">
+                        <div className="p-6 rounded-[24px] bg-gradient-to-br from-[#dcfce7] via-[#86efac] to-[#2dd4bf] dark:from-[#10b981] dark:via-[#0ea56f] dark:to-[#0d9488] shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all group overflow-hidden relative h-full border border-white/70 dark:border-emerald-200/20">
                             <button
                                 onClick={onCreateContact}
-                                className="group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-700 text-white shadow-[0_10px_24px_rgba(4,120,87,0.32)] ring-1 ring-white/45 hover:bg-emerald-800 hover:shadow-[0_14px_30px_rgba(4,120,87,0.42)] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-300 dark:bg-emerald-300 dark:text-emerald-950 dark:ring-white/25 dark:shadow-black/25 dark:hover:bg-emerald-200 dark:focus-visible:ring-offset-emerald-900 transition-all"
+                                className="group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-700 text-white shadow-[0_10px_24px_rgba(4,120,87,0.32)] ring-1 ring-white/45 hover:bg-emerald-800 hover:shadow-[0_14px_30px_rgba(4,120,87,0.42)] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-300 dark:bg-emerald-500 dark:text-white dark:ring-white/30 dark:shadow-black/25 dark:hover:bg-emerald-400 dark:focus-visible:ring-offset-emerald-900 transition-all"
                                 aria-label="Add contact"
                                 title="Add contact"
                             >

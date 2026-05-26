@@ -146,34 +146,45 @@ export const TemplatesTab: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#f7f7f7] dark:bg-[#111111]">
+    <div className="flex flex-col h-full bg-[#f3f4f6] dark:bg-[#09090b]">
       {/* Header */}
-      <div className="flex-shrink-0 bg-white/80 dark:bg-[#1a1b1e]/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-white/5 shadow-sm">
-        <div className="max-w-5xl mx-auto px-3 md:px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
+      <div className="flex-shrink-0 bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] rounded-b-[40px] shadow-[0_18px_45px_rgba(29,107,212,0.24)]">
+        <div className="max-w-5xl mx-auto px-3 md:px-6 pt-5 pb-7">
+          <div className="flex items-center justify-between gap-4 mb-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white shadow-md shadow-blue-500/10">
+              <div className="w-10 h-10 rounded-full bg-white/20 border border-white/20 flex items-center justify-center text-white shadow-md shadow-blue-950/10">
                 <FiMessageSquare className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-[18px] font-bold text-[#111111] dark:text-[#ececf1] tracking-tight">Templates</h2>
-                <p className="text-[12px] text-gray-500 dark:text-gray-400">
+                <h2 className="text-[20px] font-extrabold text-white tracking-tight">Templates</h2>
+                <p className="text-[12px] text-white/75">
                   {templates.length} templates available
                 </p>
               </div>
             </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSearchQuery("");
+                handleOpenModal();
+              }}
+              className="group flex items-center justify-center gap-1 sm:gap-2 bg-white text-[#1d6bd4] px-3 sm:px-4 py-2.5 rounded-2xl text-[13px] font-bold hover:bg-white/90 hover:shadow-[0_8px_25px_rgba(0,0,0,0.16)] active:scale-95 transition-all duration-200"
+            >
+              <FiPlus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Template</span>
+            </button>
           </div>
 
           {/* Search Bar */}
           <div className="relative">
-            <FiSearch className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <FiSearch className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/70" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search templates by name or content..."
               disabled={isModalOpen}
-              className="w-full pl-10 sm:pl-11 pr-10 py-2.5 sm:py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 focus:border-[#2b83fa] transition-all disabled:opacity-50"
+              className="w-full pl-10 sm:pl-11 pr-10 py-2.5 sm:py-3 bg-white/10 border border-white/20 rounded-xl text-[14px] font-medium text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/25 focus:border-white/40 transition-all disabled:opacity-50"
             />
             {searchQuery && !isModalOpen && (
               <button
@@ -181,25 +192,11 @@ export const TemplatesTab: React.FC = () => {
                   e.stopPropagation();
                   setSearchQuery("");
                 }}
-                className="absolute right-3 sm:right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 text-gray-400 transition-colors"
+                className="absolute right-3 sm:right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/20 text-white/70 hover:text-white transition-colors"
               >
                 <FiX className="h-4 w-4" />
               </button>
             )}
-          </div>
-
-          <div className="flex items-center justify-end mt-4 pt-3 border-t border-gray-100 dark:border-white/5">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSearchQuery("");
-                handleOpenModal();
-              }}
-              className="group flex items-center justify-center gap-1 sm:gap-2 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white px-3 sm:px-4 py-2.5 rounded-2xl text-[13px] font-bold hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] active:scale-95 transition-all duration-200"
-            >
-              <FiPlus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Template</span>
-            </button>
           </div>
         </div>
       </div>

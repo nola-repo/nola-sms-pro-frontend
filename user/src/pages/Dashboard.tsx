@@ -404,23 +404,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const isCheckingActiveLocation =
     isAwaitingWorkspaceBootstrap ||
     (!!locationId &&
-    (!registrationCheckIsCurrent ||
-      registrationCheck.status === 'checking' ||
-      registrationCheck.status === 'idle'));
+      (!registrationCheckIsCurrent ||
+        registrationCheck.status === 'checking' ||
+        registrationCheck.status === 'idle'));
 
   if (isCheckingActiveLocation) {
     return (
-      <div className="min-h-screen bg-[#eef3fb] dark:bg-[#09090b] flex items-center justify-center px-4 relative overflow-hidden">
-        {/* Soft blue gradient blobs */}
-        <div className="absolute -top-32 -left-32 w-[550px] h-[550px] bg-[#2b83fa]/25 rounded-full blur-[130px] pointer-events-none" />
-        <div className="absolute -bottom-32 -right-32 w-[550px] h-[550px] bg-[#93c5fd]/22 rounded-full blur-[130px] pointer-events-none" />
+      <div className="min-h-screen bg-[#f3f4f6] dark:bg-[#09090b] flex items-center justify-center px-4 relative overflow-hidden">
+        {/* Soft atmospheric glow circles */}
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-[#2b83fa]/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
 
         <div className="relative z-10 w-full max-w-sm flex flex-col items-center p-8 rounded-[2rem] bg-white/80 dark:bg-[#151618]/80 backdrop-blur-xl border border-white/50 dark:border-white/5 shadow-2xl text-center">
           {/* Logo */}
           <img
             src={nolaLogo}
             alt="NOLA SMS PRO"
-            className="w-32 h-32 mb-6 drop-shadow-xl object-contain"
+            className="w-24 h-24 mb-3 drop-shadow-xl object-contain"
           />
           <h2 className="text-[17px] font-black tracking-tight text-[#111111] dark:text-white mb-1">
             Setting up your workspace
@@ -429,7 +429,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             Getting your workspace ready...
           </p>
           <div className="w-full bg-[#f1f3f4] dark:bg-white/[0.06] h-1.5 rounded-full overflow-hidden relative">
-            <div className="workspace-progress-bar absolute top-0 bottom-0 left-0 w-[42%] rounded-full bg-gradient-to-r from-[#2b83fa] via-[#7c3aed] to-[#2b83fa]" />
+            <div className="workspace-progress-bar absolute top-0 bottom-0 left-0 w-[42%] rounded-full bg-gradient-to-r from-[#2b83fa] via-[#1e40af] to-[#2b83fa]" />
           </div>
         </div>
       </div>
@@ -549,14 +549,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={() => window.location.href = GHL_MARKETPLACE_CONNECT_URL}
                 className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white text-[12px] font-bold shadow-md hover:shadow-lg transition-all"
               >
                 Connect GHL
               </button>
-              <button 
-                onClick={() => handleTabChange('settings')} 
+              <button
+                onClick={() => handleTabChange('settings')}
                 className="px-4 py-1.5 rounded-lg bg-amber-200 dark:bg-amber-800/50 text-amber-800 dark:text-amber-200 text-[12px] font-bold shadow-sm hover:bg-amber-300 dark:hover:bg-amber-700/50 transition-all"
               >
                 Type Location ID

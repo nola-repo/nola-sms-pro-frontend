@@ -403,18 +403,18 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
 
 
   return (
-    <div className="flex flex-col h-full bg-[#f7f7f7] dark:bg-[#111111]">
+    <div className="flex flex-col h-full bg-[#f3f4f6] dark:bg-[#09090b]">
       {/* Header */}
-      <div className="flex-shrink-0 bg-white/80 dark:bg-[#1a1b1e]/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-white/5 shadow-sm">
-        <div className="max-w-5xl mx-auto px-3 md:px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
+      <div className="flex-shrink-0 bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] rounded-b-[40px] shadow-[0_18px_45px_rgba(29,107,212,0.24)]">
+        <div className="max-w-5xl mx-auto px-3 md:px-6 pt-5 pb-7">
+          <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white shadow-md shadow-blue-500/10">
+              <div className="w-10 h-10 rounded-full bg-white/20 border border-white/20 flex items-center justify-center text-white shadow-md shadow-blue-950/10">
                 <FiUser className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-[18px] font-bold text-[#111111] dark:text-[#ececf1] tracking-tight">Contacts</h2>
-                <p className="text-[12px] text-gray-500 dark:text-gray-400">
+                <h2 className="text-[20px] font-extrabold text-white tracking-tight">Contacts</h2>
+                <p className="text-[12px] text-white/75">
                   {contacts.length} contacts available
                 </p>
               </div>
@@ -424,14 +424,14 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
           {/* Search Bar and Tag Filter */}
           <div className="flex flex-col sm:flex-row gap-3 relative z-20">
             <div className="relative flex-1">
-              <FiSearch className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <FiSearch className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/70" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by name or phone..."
                 disabled={isAddModalOpen}
-                className="w-full pl-10 sm:pl-11 pr-10 py-2.5 sm:py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 focus:border-[#2b83fa] transition-all disabled:opacity-50"
+                className="w-full pl-10 sm:pl-11 pr-10 py-2.5 sm:py-3 bg-white/10 border border-white/20 rounded-xl text-[14px] font-medium text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/25 focus:border-white/40 transition-all disabled:opacity-50"
               />
               {searchQuery && !isAddModalOpen && (
                 <button
@@ -439,7 +439,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                     e.stopPropagation();
                     setSearchQuery("");
                   }}
-                  className="absolute right-3 sm:right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 text-gray-400 transition-colors"
+                  className="absolute right-3 sm:right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/20 text-white/70 hover:text-white transition-colors"
                 >
                   <FiX className="h-4 w-4" />
                 </button>
@@ -453,14 +453,14 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                   e.stopPropagation();
                   setIsTagDropdownOpen(!isTagDropdownOpen);
                 }}
-                className={`flex items-center justify-center p-2.5 sm:p-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl transition-all w-[44px] h-[44px] sm:w-[48px] sm:h-[48px] shadow-sm
-                  ${selectedTags.length > 0 ? 'text-[#2b83fa] border-[#2b83fa]/30 bg-[#2b83fa]/5' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5'}`}
+                className={`flex items-center justify-center p-2.5 sm:p-3 border rounded-xl transition-all w-[44px] h-[44px] sm:w-[48px] sm:h-[48px] shadow-sm
+                  ${selectedTags.length > 0 ? 'text-[#1d6bd4] border-white bg-white' : 'text-white border-white/20 bg-white/10 hover:bg-white/20'}`}
                 title="Filter by Tags"
               >
                 <div className="relative">
                   <FiTag className="h-[18px] w-[18px] sm:h-5 sm:w-5" />
                   {selectedTags.length > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#2b83fa] text-[10px] font-bold text-white border-2 border-white dark:border-[#111111]">
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#1d6bd4] text-[10px] font-bold text-white border-2 border-white">
                       {selectedTags.length}
                     </span>
                   )}
@@ -502,13 +502,13 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
           </div>
 
           {/* Selection Controls */}
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-white/5">
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/20">
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={isAllSelected ? handleClearSelection : handleSelectAll}
                 className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-[12px] font-semibold transition-all duration-200 ${isAllSelected
-                  ? "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20"
-                  : "bg-[#2b83fa]/10 dark:bg-[#2b83fa]/20 text-[#2b83fa] hover:bg-[#2b83fa]/20 dark:hover:bg-[#2b83fa]/30"
+                  ? "bg-red-500/15 text-white hover:bg-red-500/25"
+                  : "bg-white/10 text-white hover:bg-white/20 border border-white/20"
                   }`}
               >
                 <FiCheck className="h-3.5 w-3.5" />
@@ -518,14 +518,14 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
               {selectedContacts.length > 0 && (
                 <button
                   onClick={handleClearSelection}
-                  className="px-3 sm:px-4 py-2 text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-all duration-200"
+                  className="px-3 sm:px-4 py-2 text-[12px] font-semibold text-white/75 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200"
                 >
                   Clear
                 </button>
               )}
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
-              <span className="text-[12px] font-bold text-[#2b83fa] bg-[#2b83fa]/10 px-3 py-1 rounded-full whitespace-nowrap">
+              <span className="text-[12px] font-bold text-white bg-white/10 border border-white/20 px-3 py-1 rounded-full whitespace-nowrap">
                 {selectedContacts.length} selected
               </span>
               <button
@@ -534,7 +534,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                   setSearchQuery("");
                   setIsAddModalOpen(true);
                 }}
-                className="group flex items-center justify-center gap-1 sm:gap-2 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white px-3 sm:px-4 py-2.5 rounded-2xl text-[13px] font-bold hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] active:scale-95 transition-all duration-200"
+                className="group flex items-center justify-center gap-1 sm:gap-2 bg-white text-[#1d6bd4] px-3 sm:px-4 py-2.5 rounded-2xl text-[13px] font-bold hover:bg-white/90 hover:shadow-[0_8px_25px_rgba(0,0,0,0.16)] active:scale-95 transition-all duration-200"
               >
                 <FiPlus className="h-4 w-4" />
                 <span className="hidden sm:inline">Add Contact</span>

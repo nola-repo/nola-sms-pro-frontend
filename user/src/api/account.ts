@@ -18,6 +18,12 @@ export interface AccountProfile {
     is_registered?: boolean;
 }
 
+export interface UpdateAccountProfilePayload {
+    name: string;
+    email: string;
+    phone: string;
+}
+
 interface FetchAccountProfileOptions {
     includeAuth?: boolean;
     forceRefresh?: boolean;
@@ -93,6 +99,34 @@ function writeCacheEntry(locationId: string, includeAuth: boolean, profile: Acco
     } catch {
         // Cache writes are best-effort only.
     }
+}
+
+function splitDisplayName(name: string): { firstName: string; lastName: string } {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    return {
+        firstName: parts[0] || "",
+        lastName: parts.slice(1).join(" "),
+    };
+}
+
+function patchCachedSessionProfile(profile: AccountProfile): void {
+    const patchKey = (key: string) => {
+        try {
+            const cached = JSON.parse(safeStorage.getItem(key) || "{}");
+            safeStorage.setItem(key, JSON.stringify({
+                ...cached,
+                ...profile,
+                email: profile.email || profile.email_address || cached.email,
+                phone: profile.phone || profile.phone_number || cached.phone,
+                name: profile.name || profile.full_name || cached.name,
+            }));
+        } catch {
+            // Session cache updates are best-effort only.
+        }
+    };
+
+    patchKey("nola_user");
+    patchKey("nola_auth_user");
 }
 
 export const getCachedAccountProfile = (
@@ -176,4 +210,59 @@ export const fetchAccountProfile = async (
 
     accountProfileRequests.set(requestCacheId, request);
     return request;
+};
+
+export const updateAccountProfile = async (
+    payload: UpdateAccountProfilePayload,
+    explicitLocationId?: string
+): Promise<AccountProfile> => {
+    const { headers, locationId } = getLocationHeaders(explicitLocationId, true);
+    const trimmedName = payload.name.trim();
+    const trimmedEmail = payload.email.trim();
+    const trimmedPhone = payload.phone.trim();
+    const { firstName, lastName } = splitDisplayName(trimmedName);
+
+    const res = await fetch(API_CONFIG.account, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+            action: "update_profile",
+            name: trimmedName,
+            email: trimmedEmail,
+            phone: trimmedPhone,
+        }),
+    });
+
+    let data: any = null;
+    try {
+        data = await res.json();
+    } catch {
+        data = null;
+    }
+
+    if (!res.ok || (data?.status && data.status !== "success")) {
+        throw new Error(data?.message || data?.error || "Failed to update profile.");
+    }
+
+    const updatedProfile: AccountProfile = {
+        ...(data?.data || {}),
+        location_id: data?.data?.location_id || locationId,
+        location_name: data?.data?.location_name || null,
+        full_name: data?.data?.full_name || trimmedName,
+        name: data?.data?.name || trimmedName,
+        firstName: data?.data?.firstName || firstName,
+        lastName: data?.data?.lastName || lastName,
+        email: data?.data?.email || trimmedEmail,
+        email_address: data?.data?.email_address || trimmedEmail,
+        phone: data?.data?.phone || trimmedPhone,
+        phone_number: data?.data?.phone_number || trimmedPhone,
+    };
+
+    if (updatedProfile.location_id) {
+        writeCacheEntry(updatedProfile.location_id, true, updatedProfile);
+        writeCacheEntry(updatedProfile.location_id, false, updatedProfile);
+    }
+    patchCachedSessionProfile(updatedProfile);
+
+    return updatedProfile;
 };

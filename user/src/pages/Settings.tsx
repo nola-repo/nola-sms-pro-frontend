@@ -6,7 +6,7 @@ import {
     FiSave, FiPlus, FiCheck,
     FiGlobe, FiMapPin, FiBriefcase, FiCheckCircle, FiAlertCircle, FiClock,
     FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown, FiDownload,
-    FiCopy, FiExternalLink
+    FiCopy, FiExternalLink, FiSettings
 } from "react-icons/fi";
 import { generateMonthlyReport } from "../utils/pdfGenerator";
 import {
@@ -19,7 +19,7 @@ import {
 import { SenderRequestModal } from "../components/SenderRequestModal";
 import { useGhlLocation } from "../hooks/useGhlLocation";
 import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
-import { fetchAccountProfile, getCachedAccountProfile } from "../api/account";
+import { fetchAccountProfile, getCachedAccountProfile, updateAccountProfile } from "../api/account";
 import type { AccountProfile } from "../api/account";
 import { useUserProfileContext } from "../context/UserProfileContext";
 import { getSession } from "../services/authService";
@@ -56,8 +56,8 @@ const SENDER_ICONS = [<FiGlobe />, <FiMapPin />, <FiBriefcase />, <FiCheckCircle
 
 const STATUS_CONFIG = {
     approved: { label: "Approved", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20", icon: <FiCheck className="w-3 h-3" /> },
-    pending: { label: "Pending", color: "text-amber-600  dark:text-amber-400", bg: "bg-amber-50  dark:amber-900/20", icon: <FiClock className="w-3 h-3" /> },
-    rejected: { label: "Rejected", color: "text-red-600    dark:text-red-400", bg: "bg-red-50    dark:red-900/20", icon: <FiAlertCircle className="w-3 h-3" /> },
+    pending: { label: "Pending", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20", icon: <FiClock className="w-3 h-3" /> },
+    rejected: { label: "Rejected", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20", icon: <FiAlertCircle className="w-3 h-3" /> },
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -154,6 +154,34 @@ const AccountSection: React.FC = () => {
     const [inputLocationId, setInputLocationId] = useState<string>(() => {
         return initialLocationIdRef.current;
     });
+    const [profileForm, setProfileForm] = useState({ name: "", email: "", phone: "" });
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [profileSaveStatus, setProfileSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+    const getEditableProfileValues = useCallback(() => {
+        const safeValue = (value?: string | null) => (value && value !== "N/A" ? value : "");
+        const liveName = liveProfile?.location_id === inputLocationId
+            ? (liveProfile?.name || `${liveProfile?.firstName ?? ""} ${liveProfile?.lastName ?? ""}`.trim())
+            : "";
+
+        return {
+            name: safeValue(fetchedProfile?.full_name || fetchedProfile?.name || liveName),
+            email: safeValue(
+                fetchedProfile?.email ||
+                fetchedProfile?.email_address ||
+                (liveProfile?.location_id === inputLocationId ? liveProfile?.email : "")
+            ),
+            phone: safeValue(
+                fetchedProfile?.phone ||
+                fetchedProfile?.phone_number ||
+                (liveProfile?.location_id === inputLocationId ? liveProfile?.phone : "")
+            ),
+        };
+    }, [fetchedProfile, inputLocationId, liveProfile]);
+
+    useEffect(() => {
+        setProfileForm(getEditableProfileValues());
+    }, [getEditableProfileValues]);
 
     // Synchronize context state with local variables if needed
     useEffect(() => {
@@ -272,6 +300,46 @@ const AccountSection: React.FC = () => {
         window.location.href = GHL_MARKETPLACE_CONNECT_URL;
     };
 
+    const handleSaveProfile = async () => {
+        if (!profileForm.name.trim() || !profileForm.email.trim()) {
+            setProfileSaveStatus({ type: "error", message: "Name and email are required." });
+            return;
+        }
+
+        setIsSavingProfile(true);
+        setProfileSaveStatus(null);
+        try {
+            const updatedProfile = await updateAccountProfile(
+                {
+                    name: profileForm.name,
+                    email: profileForm.email,
+                    phone: profileForm.phone,
+                },
+                inputLocationId
+            );
+            applyAccountProfile({
+                ...(fetchedProfile || {}),
+                ...updatedProfile,
+                location_id: updatedProfile.location_id || inputLocationId,
+                location_name: updatedProfile.location_name ?? fetchedProfile?.location_name ?? null,
+            });
+            setProfileForm({
+                name: updatedProfile.full_name || updatedProfile.name || profileForm.name.trim(),
+                email: updatedProfile.email || updatedProfile.email_address || profileForm.email.trim(),
+                phone: updatedProfile.phone || updatedProfile.phone_number || profileForm.phone.trim(),
+            });
+            setProfileSaveStatus({ type: "success", message: "Profile updated successfully." });
+            window.dispatchEvent(new Event("nola-profile-updated"));
+        } catch (err) {
+            setProfileSaveStatus({
+                type: "error",
+                message: err instanceof Error ? err.message : "Failed to update profile.",
+            });
+        } finally {
+            setIsSavingProfile(false);
+        }
+    };
+
 
     // Derived values
     // subaccountName: use the fetchedName if it's a real value, otherwise fallback to profile cache
@@ -286,7 +354,6 @@ const AccountSection: React.FC = () => {
         || (liveProfile?.location_id === inputLocationId ? `${liveProfile?.firstName ?? ''} ${liveProfile?.lastName ?? ''}`.trim() : '')
         || 'N/A';
     const displayEmail = fetchedProfile?.email || fetchedProfile?.email_address || (liveProfile?.location_id === inputLocationId ? liveProfile?.email : null) || 'N/A';
-    const displayPhone = fetchedProfile?.phone || fetchedProfile?.phone_number || (liveProfile?.location_id === inputLocationId ? liveProfile?.phone : null) || 'N/A';
     const resolvedLocationId = ghlLocationIdFromHook || liveProfile?.location_id || inputLocationId || '';
     const showPersonalSkeleton = isFetchingLocation && (fullName === 'N/A' || displayEmail === 'N/A');
     const showWorkspaceSkeleton = isFetchingLocation && (subaccountName === 'Not Found' || subaccountName === 'N/A');
@@ -337,8 +404,8 @@ const AccountSection: React.FC = () => {
                             </div>
                         ) : (
                             <>
-                                <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">{fullName}</h3>
-                                <p className="text-[12px] text-[#9aa0a6]">{displayEmail}</p>
+                                <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">{profileForm.name || fullName}</h3>
+                                <p className="text-[12px] text-[#9aa0a6]">{profileForm.email || displayEmail}</p>
                             </>
                         )}
                     </div>
@@ -350,9 +417,16 @@ const AccountSection: React.FC = () => {
                         {showPersonalSkeleton ? (
                             <Skeleton className="h-9 w-full rounded-xl" />
                         ) : (
-                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                                {fullName}
-                            </div>
+                            <input
+                                type="text"
+                                value={profileForm.name}
+                                onChange={(e) => {
+                                    setProfileForm(prev => ({ ...prev, name: e.target.value }));
+                                    setProfileSaveStatus(null);
+                                }}
+                                placeholder="Full name"
+                                className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 focus:border-[#2b83fa]/60 transition-all"
+                            />
                         )}
                     </div>
                     <div>
@@ -360,9 +434,16 @@ const AccountSection: React.FC = () => {
                         {showPersonalSkeleton ? (
                             <Skeleton className="h-9 w-full rounded-xl" />
                         ) : (
-                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                                {displayEmail}
-                            </div>
+                            <input
+                                type="email"
+                                value={profileForm.email}
+                                onChange={(e) => {
+                                    setProfileForm(prev => ({ ...prev, email: e.target.value }));
+                                    setProfileSaveStatus(null);
+                                }}
+                                placeholder="Email address"
+                                className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 focus:border-[#2b83fa]/60 transition-all"
+                            />
                         )}
                     </div>
                     <div>
@@ -370,10 +451,37 @@ const AccountSection: React.FC = () => {
                         {showPersonalSkeleton ? (
                             <Skeleton className="h-9 w-full rounded-xl" />
                         ) : (
-                            <div className="px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold">
-                                {displayPhone}
-                            </div>
+                            <input
+                                type="tel"
+                                value={profileForm.phone}
+                                onChange={(e) => {
+                                    setProfileForm(prev => ({ ...prev, phone: e.target.value }));
+                                    setProfileSaveStatus(null);
+                                }}
+                                placeholder="Phone number"
+                                className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 focus:border-[#2b83fa]/60 transition-all"
+                            />
                         )}
+                    </div>
+                    {profileSaveStatus && (
+                        <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold ${
+                            profileSaveStatus.type === "success"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20"
+                                : "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20"
+                        }`}>
+                            {profileSaveStatus.type === "success" ? <FiCheck className="w-4 h-4" /> : <FiAlertCircle className="w-4 h-4" />}
+                            {profileSaveStatus.message}
+                        </div>
+                    )}
+                    <div className="flex justify-end pt-1">
+                        <button
+                            onClick={handleSaveProfile}
+                            disabled={showPersonalSkeleton || isSavingProfile || !profileForm.name.trim() || !profileForm.email.trim()}
+                            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[13px] font-bold hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                        >
+                            {isSavingProfile ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiSave className="w-4 h-4" />}
+                            {isSavingProfile ? "Saving..." : "Save Profile"}
+                        </button>
                     </div>
                 </div>
             </Card>
@@ -1638,64 +1746,50 @@ export const Settings: React.FC<SettingsProps> = ({ initialTab, autoOpenAddModal
     const activeTabInfo = TABS.find(t => t.id === activeTab)!;
 
     return (
-        <div className="h-full flex flex-col overflow-hidden bg-[#f7f7f7] dark:bg-[#111111]">
+        <div className="h-full flex flex-col overflow-hidden bg-[#f3f4f6] dark:bg-[#09090b]">
             {/* Page Header */}
-            <div className="px-6 py-4 border-b border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e]/80 backdrop-blur-xl flex-shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
+            <div className="flex-shrink-0 min-h-[200px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] rounded-b-[40px] shadow-[0_18px_45px_rgba(29,107,212,0.24)]">
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 pb-7">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 rounded-full bg-white/20 border border-white/20 flex items-center justify-center text-white shadow-md shadow-blue-950/10">
+                            <FiSettings className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h1 className="text-[22px] font-extrabold text-white tracking-tight">Settings</h1>
+                            <p className="text-[12px] text-white/75">{activeTabInfo.description}</p>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-[16px] font-bold text-[#111111] dark:text-white">Settings</h1>
-                        <p className="text-[11px] text-[#9aa0a6]">{activeTabInfo.description}</p>
-                    </div>
+
+                    <nav className="overflow-x-auto custom-scrollbar pb-1">
+                        <div className="flex gap-2 min-w-max">
+                            {TABS.map(tab => {
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl border transition-all duration-200 text-left whitespace-nowrap ${
+                                            isActive
+                                                ? "bg-white text-[#1d6bd4] border-white shadow-sm"
+                                                : "bg-white/10 text-white border-white/20 hover:bg-white/20"
+                                        }`}
+                                    >
+                                        <span className="text-[15px] flex-shrink-0">{tab.icon}</span>
+                                        <span className="text-[13px] font-bold">{tab.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </nav>
                 </div>
             </div>
 
-            {/* Body: two-column layout on md+ */}
-            <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
-
-                {/* Sidebar Nav */}
-                <nav className="md:w-56 flex-shrink-0 border-b md:border-b-0 md:border-r border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e]/80 backdrop-blur-xl overflow-x-auto md:overflow-x-visible overflow-y-auto">
-                    <div className="flex md:flex-col gap-1 p-2 md:p-3">
-                        {TABS.map(tab => {
-                            const isActive = activeTab === tab.id;
-                            return (
-                                <div key={tab.id} className="flex flex-col md:w-full flex-shrink-0 md:flex-shrink">
-                                    <button
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left whitespace-nowrap md:whitespace-normal w-full group
-                    ${isActive
-                                                ? "bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]"
-                                                : "text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]"}
-                  `}
-                                    >
-                                        {/* Left accent bar - desktop only */}
-                                        {isActive && (
-                                            <div className="hidden md:block absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#2b83fa] rounded-r-full shadow-[0_0_8px_rgba(43,131,250,0.5)]" />
-                                        )}
-                                        <span className={`text-[15px] flex-shrink-0 transition-all duration-300 ${isActive
-                                            ? "scale-110 text-[#2b83fa] drop-shadow-[0_0_8px_rgba(43,131,250,0.4)]"
-                                            : "group-hover:scale-105 group-hover:text-[#2b83fa]"
-                                            }`}>{tab.icon}</span>
-                                        <span className={`text-[13.5px] ${isActive ? "font-bold tracking-tight" : "font-medium"}`}>{tab.label}</span>
-                                    </button>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </nav>
-
-                {/* Content Panel */}
-                <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-[#f7f7f7] dark:bg-[#111111]">
-                    <div className="max-w-2xl mx-auto">
-                        {renderContent()}
-                    </div>
-                </main>
-            </div>
+            {/* Content Panel */}
+            <main className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar">
+                <div className="max-w-2xl mx-auto">
+                    {renderContent()}
+                </div>
+            </main>
         </div>
     );
 };

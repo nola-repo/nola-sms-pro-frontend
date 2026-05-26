@@ -36,6 +36,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
         sessionStorage.getItem('nola_admin_auth') === 'true'
     );
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // ── #2 Idle timeout: auto-logout after 30 minutes of inactivity ──────────
@@ -82,6 +83,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
         sessionStorage.removeItem('nola_admin_auth');
         sessionStorage.removeItem('nola_admin_user');
         sessionStorage.removeItem('nola_admin_token');
+        setShowLogoutConfirm(false);
         setIsAuthenticated(false);
         navigate('/dashboard');
     };
@@ -151,7 +153,10 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
 
             <div className="p-4 border-t border-[#00000005] dark:border-[#ffffff05]">
                 <button
-                    onClick={handleLogout}
+                    onClick={() => {
+                        setIsMobileOpen(false);
+                        setShowLogoutConfirm(true);
+                    }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-bold text-[#6e6e73] dark:text-[#94959b] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                 >
                     <FiLogOut /> Logout
@@ -231,6 +236,35 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                     </div>
                 </main>
             </div>
+            {showLogoutConfirm && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-[#e5e5e5] dark:border-white/10 bg-white dark:bg-[#1a1b1e] shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="p-6">
+                            <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-500 flex items-center justify-center mb-4">
+                                <FiLogOut className="w-5 h-5" />
+                            </div>
+                            <h3 className="text-[18px] font-bold text-[#111111] dark:text-white mb-2">Log out of Admin Panel?</h3>
+                            <p className="text-[13px] leading-relaxed text-[#6e6e73] dark:text-[#9aa0a6]">
+                                This will clear the current admin session and return you to the login screen.
+                            </p>
+                        </div>
+                        <div className="flex justify-end gap-3 border-t border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-black/30 p-4">
+                            <button
+                                onClick={() => setShowLogoutConfirm(false)}
+                                className="px-4 py-2 rounded-xl text-[13px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-white dark:hover:bg-white/10 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleLogout}
+                                className="px-5 py-2 rounded-xl text-[13px] font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm transition-colors"
+                            >
+                                Log Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -97,6 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [menuAnchor, setMenuAnchor] = useState<{ x: number, y: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showRenameModal, setShowRenameModal] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const touchStartY = useRef<number>(0);
   const contactsListRef = useRef<HTMLDivElement>(null);
   // Track last_message per conversation to detect new messages and notify the Composer
@@ -118,6 +119,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
     logout();
     window.location.href = '/login';
   };
@@ -966,6 +971,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         )}
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#1e1f23] rounded-2xl shadow-xl border border-[#0000001a] dark:border-[#ffffff1a] w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-5 pb-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-500 flex items-center justify-center mb-4">
+                <FiLogOut className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-bold text-[#111111] dark:text-white mb-2">Log out?</h3>
+              <p className="text-[13px] text-gray-600 dark:text-gray-300">
+                Are you sure you want to log out?
+              </p>
+            </div>
+            <div className="flex bg-gray-50 dark:bg-black/40 border-t border-gray-100 dark:border-white/5 p-4 gap-3 justify-end mt-2">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm transition-all"
+              >
+                Log Out
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Rename Modal Portal */}
       {showRenameModal && createPortal(
