@@ -1749,8 +1749,8 @@ export const Settings: React.FC<SettingsProps> = ({ initialTab, autoOpenAddModal
         <div className="h-full flex flex-col overflow-hidden bg-[#f3f4f6] dark:bg-[#09090b]">
             {/* Page Header */}
             <div className="flex-shrink-0 bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] rounded-b-[40px] shadow-[0_18px_45px_rgba(29,107,212,0.24)]">
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 pb-5 flex flex-col items-center text-center">
-                    <div className="flex items-center justify-center gap-3 mb-5">
+                <div className="max-w-5xl mx-auto px-3 md:px-6 pt-5 pb-5">
+                    <div className="flex items-center gap-3 mb-5">
                         <div className="w-10 h-10 rounded-full bg-white/20 border border-white/20 flex items-center justify-center text-white shadow-md shadow-blue-950/10">
                             <FiSettings className="h-5 w-5" />
                         </div>
@@ -1761,7 +1761,7 @@ export const Settings: React.FC<SettingsProps> = ({ initialTab, autoOpenAddModal
                     </div>
 
                     <nav className="overflow-x-auto custom-scrollbar pb-1">
-                        <div className="flex justify-center gap-2 min-w-max">
+                        <div className="flex gap-2 min-w-max">
                             {TABS.map(tab => {
                                 const isActive = activeTab === tab.id;
                                 return (

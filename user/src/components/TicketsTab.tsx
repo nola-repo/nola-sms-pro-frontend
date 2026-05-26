@@ -37,13 +37,15 @@ export const TicketsTab: React.FC = () => {
         <div className="h-full flex flex-col overflow-hidden bg-[#f3f4f6] dark:bg-[#09090b]">
             {/* Page Header */}
             <div className="flex-shrink-0 bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] rounded-b-[40px] shadow-[0_18px_45px_rgba(29,107,212,0.24)]">
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 pb-5 flex flex-col items-center text-center">
-                    <div className="w-10 h-10 rounded-full bg-white/20 border border-white/20 flex items-center justify-center text-white shadow-md shadow-blue-950/10 mb-3">
-                        <FiMessageSquare className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <h1 className="text-[22px] font-extrabold text-white tracking-tight">Support Tickets</h1>
-                        <p className="text-[12px] text-white/75 mt-1">Submit and track your support requests</p>
+                <div className="max-w-5xl mx-auto px-3 md:px-6 pt-5 pb-5">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-white/20 border border-white/20 flex items-center justify-center text-white shadow-md shadow-blue-950/10">
+                            <FiMessageSquare className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h1 className="text-[22px] font-extrabold text-white tracking-tight">Support Tickets</h1>
+                            <p className="text-[12px] text-white/75 mt-1">Submit and track your support requests</p>
+                        </div>
                     </div>
                 </div>
             </div>
