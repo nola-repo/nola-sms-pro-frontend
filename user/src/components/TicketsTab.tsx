@@ -34,22 +34,22 @@ export const TicketsTab: React.FC = () => {
 
     const SUPPORT_FUNNEL_URL = getFunnelUrl();
     return (
-        <div className="h-full flex flex-col overflow-hidden bg-[#f7f7f7] dark:bg-[#111111]">
+        <div className="h-full flex flex-col overflow-hidden bg-[#f3f4f6] dark:bg-[#09090b]">
             {/* Page Header */}
-            <div className="px-6 py-4 border-b border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e]/80 backdrop-blur-xl flex-shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
-                        <FiMessageSquare className="h-4.5 w-4.5" />
+            <div className="flex-shrink-0 bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] rounded-b-[40px] shadow-[0_18px_45px_rgba(29,107,212,0.24)]">
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-5 pb-5 flex flex-col items-center text-center">
+                    <div className="w-10 h-10 rounded-full bg-white/20 border border-white/20 flex items-center justify-center text-white shadow-md shadow-blue-950/10 mb-3">
+                        <FiMessageSquare className="h-5 w-5" />
                     </div>
                     <div>
-                        <h1 className="text-[16px] font-bold text-[#111111] dark:text-white">Support Tickets</h1>
-                        <p className="text-[11px] text-[#9aa0a6]">Submit and track your support requests</p>
+                        <h1 className="text-[22px] font-extrabold text-white tracking-tight">Support Tickets</h1>
+                        <p className="text-[12px] text-white/75 mt-1">Submit and track your support requests</p>
                     </div>
                 </div>
             </div>
 
             {/* Content Area */}
-            <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+            <main className="flex-1 overflow-y-auto px-4 pb-4 pt-5 md:px-6 md:pb-6 md:pt-6 lg:px-8 lg:pb-8 lg:pt-6">
                 <div className="max-w-3xl mx-auto h-full min-h-[750px] flex flex-col">
                     <div className="flex-1 overflow-hidden rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] shadow-sm relative group">
                         <iframe
