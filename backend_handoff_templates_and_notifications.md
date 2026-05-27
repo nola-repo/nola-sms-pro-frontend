@@ -1,116 +1,148 @@
-# Backend Handoff - Templates, Notification Settings, and GHL Workflow Balance Emails
+# Backend Handoff - Backend Scan Follow-up for Templates and GHL Low Balance Emails
 
-## Overview
+Date: 2026-05-27
 
-The frontend now supports categorized SMS templates, pre-built template loading, template previews, quick send, Composer template insertion, and backend-backed notification settings.
+Backend scanned: `C:\Users\User\nola-sms-pro-backend`
 
-Important decision: do not add or use `ghlWebhookUrl`. We are avoiding HighLevel's premium Inbound Webhook trigger. Instead, NOLA will update a managed GHL contact for the registered account owner. A normal GHL workflow can trigger from contact field changes and send the balance email to that contact.
+Frontend behavior expected:
 
-The email recipient must always be the registered email from NOLA Account Details. Do not accept or trust a user-entered notification email.
+- Templates tab now shows built-in templates automatically, grouped by category.
+- Notification settings UI now has one customer-facing toggle: Low Balance Email Alert.
+- That one toggle saves both `lowBalanceAlert = true` and `ghlWorkflowSyncEnabled = true`.
+- The email recipient is read-only and must come from the registered email in NOLA Account Details.
+- No `ghlWebhookUrl` is needed. Do not use HighLevel Inbound Webhook, because that is a premium trigger.
 
----
+## Executive Summary
+
+The backend is partly implemented already. The scan shows:
+
+- `api/templates.php` already accepts, stores, and returns `category`.
+- `api/notification-settings.php` already stores preferences in `integrations/ghl_{locId}.notification_preferences`.
+- `api/services/NotificationService.php` already reads the integration preferences and has a GHL contact bridge.
+- `api/webhook/send_sms.php` calls `NotificationService::checkLowBalance()` after normal paid SMS credit deduction.
+- `api/services/StatusSync.php` calls `NotificationService::notifyDeliveryStatus()` after terminal status sync.
+
+The main remaining issues are:
+
+1. GHL contact may not appear because `api/webhook/ghl_provider.php` deducts credits but does not call `NotificationService::checkLowBalance()`.
+2. GHL custom fields may not update because `NotificationService.php` sends custom field keys as `id` values. HighLevel usually expects the actual custom field ID in `customFields[].id`, not the friendly key such as `nola_sms_balance`.
+3. `notification-settings.php` saves correctly but POST/PUT returns only `{ success, message }`. It should return the full settings data after save.
+4. `templates.php` PUT saves correctly but returns no updated template `data`. It should return the updated template row.
+5. Delivery report email is not customer-facing in the frontend now. Keep backend support, but low-balance is the priority.
+
+## Files Reviewed
+
+- `api/templates.php`
+- `api/notification-settings.php`
+- `api/services/NotificationService.php`
+- `api/services/GhlClient.php`
+- `api/webhook/send_sms.php`
+- `api/webhook/ghl_provider.php`
+- `api/services/StatusSync.php`
+- `api/auth_helpers.php`
+- `api/ghl_contacts.php`
 
 ## 1. Templates API
 
-Endpoint: `api/templates.php` or routed `/api/templates`
+File: `api/templates.php`
 
-### Required Changes
+Current status: mostly done.
 
-1. `GET`
-   - Return `category` for every template.
-   - If missing, return `"General"`.
-   - Continue supporting the existing frontend response if it returns a raw array.
-   - Preferred response:
+Already present:
+
+- GET reads from `integrations/ghl_{locId}/templates`.
+- GET returns `category`, defaulting to `General`.
+- POST accepts `category`.
+- POST validates allowed categories.
+- PUT accepts `category`.
+- PUT validates allowed categories.
+- Cache invalidation exists.
+
+Required backend cleanup:
+
+### Return full data on PUT
+
+Current PUT response:
 
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "id": "tpl_123",
-      "location_id": "abc",
-      "name": "Appointment Confirmation",
-      "content": "Hi {{contact.first_name}}, your appointment is confirmed.",
-      "category": "Appointments",
-      "created_at": "2026-05-27T00:00:00Z",
-      "updated_at": "2026-05-27T00:00:00Z"
-    }
-  ]
+  "message": "Template updated"
 }
 ```
 
-2. `POST`
-   - Accept optional `category`.
-   - Save it to Firestore.
-   - Default to `"General"` if empty.
+Please return the updated template row:
 
-3. `PUT`
-   - Accept optional `category`.
-   - Merge it into the existing Firestore document.
+```json
+{
+  "success": true,
+  "message": "Template updated",
+  "data": {
+    "id": "tpl_...",
+    "name": "Updated title",
+    "content": "Updated message",
+    "category": "Marketing",
+    "created_at": "2026-05-27T00:00:00Z",
+    "updated_at": "2026-05-27T00:00:00Z"
+  }
+}
+```
 
-### Firestore Path
+The frontend can tolerate wrapped or raw responses, but returning `data` prevents stale or blank UI rows after edit.
+
+### Optional POST improvement
+
+POST currently returns the main fields. Please also return `created_at` and `updated_at` if easy.
+
+Allowed categories:
+
+```text
+Appointments
+Marketing
+Transactional
+General
+```
+
+Firestore path:
 
 ```text
 integrations/ghl_{locId}/templates/{templateId}
 ```
 
-### Template Fields
-
-```json
-{
-  "id": "tpl_123",
-  "name": "Appointment Confirmation",
-  "content": "Hi {{contact.first_name}}, your appointment is confirmed.",
-  "category": "Appointments",
-  "created_at": "timestamp",
-  "updated_at": "timestamp"
-}
-```
-
-Allowed category values for the frontend are:
-
-- `Appointments`
-- `Marketing`
-- `Transactional`
-- `General`
-
----
-
 ## 2. Notification Settings API
 
-Endpoint: `api/notification-settings.php` or routed `/api/notification-settings`
+File: `api/notification-settings.php`
 
-### Required Storage
+Current status: mostly done.
 
-Save settings inside:
+Already present:
 
-```text
-integrations/ghl_{locId}.notification_preferences
-```
+- Reads and writes `integrations/ghl_{locId}.notification_preferences`.
+- Supports `deliveryReports`, `lowBalanceAlert`, `lowBalanceThreshold`, `marketingEmails`, `ghlWorkflowSyncEnabled`.
+- Preserves system fields like `ghl_alert_contact_id`.
+- Resolves `alertEmail` server-side from profile/account sources.
 
-Do not save settings to `notification_settings/{locId}` for new writes.
+Required backend cleanup:
 
-### Frontend Request Shape
+### Return full data after save
 
-```json
-{
-  "deliveryReports": true,
-  "lowBalanceAlert": true,
-  "lowBalanceThreshold": 50,
-  "marketingEmails": false,
-  "ghlWorkflowSyncEnabled": true
-}
-```
-
-### Frontend Response Shape
-
-Return this exact camelCase shape:
+POST/PUT currently returns:
 
 ```json
 {
   "success": true,
+  "message": "Notification settings updated"
+}
+```
+
+Please return the same shape as GET after saving:
+
+```json
+{
+  "success": true,
+  "message": "Notification settings updated",
   "data": {
-    "deliveryReports": true,
+    "deliveryReports": false,
     "lowBalanceAlert": true,
     "lowBalanceThreshold": 50,
     "marketingEmails": false,
@@ -121,75 +153,105 @@ Return this exact camelCase shape:
 }
 ```
 
-The frontend treats `alertEmail` and `ghlAlertContactId` as read-only.
+Important:
 
-### Firestore Map Shape
+- `alertEmail` must always be resolved server-side.
+- Never trust `alertEmail` from the request body.
+- Frontend hides delivery and marketing toggles, but the backend can keep these fields for future use.
+
+Firestore map:
 
 ```json
 {
   "notification_preferences": {
-    "delivery_reports_enabled": true,
+    "delivery_reports_enabled": false,
     "low_balance_alert_enabled": true,
     "low_balance_threshold": 50,
     "marketing_emails_enabled": false,
     "ghl_workflow_sync_enabled": true,
     "ghl_alert_contact_id": "abc123",
-    "last_low_balance_notified_at": "2026-05-27T03:15:00Z"
+    "last_low_balance_notified_at": "timestamp"
   }
 }
 ```
 
-### Email Recipient Rule
+## 3. Low Balance Trigger Coverage
 
-`alertEmail` must be derived server-side from the same registered account/profile source used by `/api/account.php`.
+Files:
 
-Do not accept an `alertEmail` request body value as authoritative.
+- `api/webhook/send_sms.php`
+- `api/webhook/ghl_provider.php`
+- `api/services/NotificationService.php`
 
----
+### Normal app send path
 
-## 3. NotificationService Changes
+Current status: implemented.
+
+`api/webhook/send_sms.php` deducts paid credits, gets the new balance, and calls:
+
+```php
+NotificationService::checkLowBalance($db, $locId, $newBalance);
+```
+
+This means low-balance email sync can trigger only after a successful paid credit deduction.
+
+### GHL provider path
+
+Current status: missing.
+
+`api/webhook/ghl_provider.php` also deducts paid credits through `CreditManager`, but it does not call `NotificationService::checkLowBalance()` after deduction.
+
+Add the same low-balance check after the paid deduction block:
+
+```php
+try {
+    require_once __DIR__ . '/../services/NotificationService.php';
+    $newBalance = $creditManager->get_balance($account_id);
+    NotificationService::checkLowBalance($db, $locationId, $newBalance);
+} catch (\Throwable $e) {
+    error_log('[LowBalanceAlert][ghl_provider] ' . $e->getMessage());
+}
+```
+
+Use the actual location id variable in that file. In the scanned file, the GHL provider route uses `$locationId`.
+
+Why this matters:
+
+- If the user sends SMS from the normal NOLA frontend, the low-balance bridge can run.
+- If the user sends through the GHL custom provider route, credits are deducted but the GHL contact/email workflow is never triggered.
+- This is one likely reason the contact is not appearing in GHL.
+
+## 4. GHL Contact Bridge Fix
 
 File: `api/services/NotificationService.php`
 
-### Preference Loading
+Current status: partially implemented, but high risk.
 
-Update `NotificationService::getPreferences()` to read:
-
-```text
-integrations/ghl_{locId}.notification_preferences
-```
-
-Defaults:
+Current bridge builds fields like:
 
 ```php
-$defaults = [
-    'delivery_reports_enabled' => false,
-    'low_balance_alert_enabled' => true,
-    'low_balance_threshold' => 50,
-    'marketing_emails_enabled' => false,
-    'ghl_workflow_sync_enabled' => false,
-    'ghl_alert_contact_id' => null,
+$ghlCustomFields[] = [
+    'id' => $k,
+    'value' => $v,
 ];
 ```
 
-### Low Balance Flow
+Where `$k` is a friendly key like:
 
-When credits are deducted:
+```text
+nola_sms_balance
+nola_sms_alert_id
+```
 
-1. Load preferences from `integrations/ghl_{locId}`.
-2. Stop if `low_balance_alert_enabled` is false.
-3. Stop if current balance is above `low_balance_threshold`.
-4. Stop if `ghl_workflow_sync_enabled` is false.
-5. Check `last_low_balance_notified_at` and suppress repeat alerts for 24 hours while still under threshold.
-6. Resolve registered account email from the NOLA account profile source.
-7. Upsert or update a GHL contact for that email.
-8. Save the contact id to `notification_preferences.ghl_alert_contact_id`.
-9. Update the contact fields listed below.
-10. Save `last_low_balance_notified_at`.
+This may not work. HighLevel contact update payloads usually require the real custom field ID, not the friendly field key, in `customFields[].id`.
 
-### GHL Contact Custom Fields To Update
+Required change:
 
-Create these GHL contact custom fields manually in v1:
+### Add custom field key-to-ID resolution
+
+Backend should resolve each NOLA field key to the actual GHL custom field ID before sending contact create/update requests.
+
+Recommended fields:
 
 ```text
 nola_sms_balance
@@ -197,37 +259,125 @@ nola_sms_low_balance_threshold
 nola_sms_alert_type
 nola_sms_alert_id
 nola_sms_alerted_at
+nola_sms_message_id
+nola_sms_delivery_status
+nola_sms_recipient
 ```
 
-For low balance, update values like:
+Implementation options:
+
+1. Preferred: fetch location custom fields from HighLevel, cache the mapping by key/name, then use the real IDs.
+2. Acceptable: store a map in Firestore under `integrations/ghl_{locId}.notification_preferences.ghl_custom_field_ids`.
+3. Temporary: configure environment or admin settings with the custom field IDs.
+
+Example saved map:
 
 ```json
 {
-  "nola_sms_balance": 45,
-  "nola_sms_low_balance_threshold": 50,
-  "nola_sms_alert_type": "low_balance",
-  "nola_sms_alert_id": "low_balance_ghlLoc123_20260527031500",
-  "nola_sms_alerted_at": "2026-05-27T03:15:00Z"
+  "notification_preferences": {
+    "ghl_custom_field_ids": {
+      "nola_sms_balance": "abcFieldId1",
+      "nola_sms_low_balance_threshold": "abcFieldId2",
+      "nola_sms_alert_type": "abcFieldId3",
+      "nola_sms_alert_id": "abcFieldId4",
+      "nola_sms_alerted_at": "abcFieldId5"
+    }
+  }
 }
 ```
 
-Use the existing GHL OAuth token for the subaccount. The app already requests `contacts.write`, which is sufficient for contact upsert/update.
+Then build:
 
-### Optional Tag Fallback
+```php
+$ghlCustomFields[] = [
+    'id' => $fieldId,
+    'value' => $value,
+];
+```
 
-If a GHL workflow cannot reliably trigger from custom field change in the target account, add this fallback after updating fields:
+Do not assume the friendly key can be used as the `id` unless tested successfully against HighLevel.
 
-1. Remove tag `nola-low-balance-alert` from the managed alert contact if it exists.
-2. Add tag `nola-low-balance-alert` again.
-3. Configure GHL workflow trigger as Contact Tag Added.
+### Log the exact GHL response
 
-Use this only if field-change trigger is unreliable.
+When contact create/update fails, log:
 
-### Delivery Failure Flow
+- HTTP status
+- response body
+- location id
+- email
+- whether this was create or update
 
-For delivery failures, reuse the same managed contact bridge if `delivery_reports_enabled` and `ghl_workflow_sync_enabled` are true.
+This is necessary to diagnose why the contact is not visible in GHL.
 
-Suggested fields:
+## 5. GHL Contact Upsert Behavior
+
+File: `api/services/NotificationService.php`
+
+Expected behavior:
+
+1. Resolve registered account email from the same source as Account Details.
+2. Search GHL contacts by that email.
+3. If found, update the existing contact.
+4. If not found, create a new contact.
+5. Save the contact id in:
+
+```text
+integrations/ghl_{locId}.notification_preferences.ghl_alert_contact_id
+```
+
+The frontend Account Details email is the intended recipient. For example, if Account Details shows `raely@gmail.com`, the GHL contact should be created or updated with that email. The GHL workflow sends to that contact.
+
+Also verify that `GhlClient` can initialize from background contexts. `NotificationService::syncGhlContactBridge()` calls:
+
+```php
+$jwtCtx = auth_get_optional_jwt_context($db);
+$tokenRegistryId = auth_resolve_ghl_token_registry_id($db, $jwtCtx, $locationId);
+```
+
+When no JWT is present, this falls back to `$locationId`. That is okay only if `ghl_tokens/{locationId}` exists. If this app sometimes stores the usable OAuth token under an agency/company token registry id, add a fallback resolver so background calls can still find the correct token.
+
+## 6. Low Balance Flow
+
+File: `api/services/NotificationService.php`
+
+Current flow is mostly correct:
+
+1. Load preferences from `integrations/ghl_{locId}.notification_preferences`.
+2. Stop if `low_balance_alert_enabled` is false.
+3. Stop if current balance is above threshold.
+4. Stop if `ghl_workflow_sync_enabled` is false.
+5. Stop if `last_low_balance_notified_at` is within 24 hours.
+6. Resolve registered email.
+7. Sync GHL contact.
+8. Save `last_low_balance_notified_at`.
+9. Save `ghl_alert_contact_id`.
+
+Backend should keep this behavior.
+
+Suggested optional improvement:
+
+- If balance rises above the threshold, clear or ignore `last_low_balance_notified_at` so the user can be alerted again immediately after topping up and later dropping below the threshold.
+
+## 7. Delivery Failure Flow
+
+Files:
+
+- `api/services/StatusSync.php`
+- `api/services/NotificationService.php`
+
+Current status:
+
+- `StatusSync.php` calls `NotificationService::notifyDeliveryStatus()` when status becomes `Sent` or `Failed`.
+- `notifyDeliveryStatus()` returns immediately unless `delivery_reports_enabled` is true.
+- Frontend currently saves `deliveryReports = false`, because the customer-facing toggle was removed.
+
+Recommendation:
+
+- Leave delivery failure support in backend.
+- Do not expect delivery failure emails until the product team decides to expose that toggle again or turns it on by policy.
+- If enabled later, reuse the same GHL contact bridge and create a workflow branch where `NOLA SMS Alert Type equals delivery_failure`.
+
+Delivery fields:
 
 ```text
 nola_sms_alert_type = delivery_failure
@@ -238,23 +388,19 @@ nola_sms_recipient
 nola_sms_alerted_at
 ```
 
-Delivery failure workflow setup can be a separate GHL branch where `NOLA SMS Alert Type` equals `delivery_failure`.
+## 8. GHL Workflow Setup for Non-Premium Email Alert
 
----
+This does not use Inbound Webhook.
 
-## 4. GHL Workflow Setup - Balance Email Without Premium Webhooks
+### Step 1: Create GHL contact custom fields
 
-This is the setup the agency or subaccount admin performs in GoHighLevel.
-
-### Step 1: Create Custom Fields
-
-In GHL:
+In the target GHL location:
 
 1. Go to Settings.
-2. Open Custom Fields.
-3. Create these Contact custom fields:
+2. Go to Custom Fields.
+3. Create Contact custom fields:
 
-| Field Label | Suggested Unique Key |
+| Field Label | Suggested Key |
 | --- | --- |
 | NOLA SMS Balance | `nola_sms_balance` |
 | NOLA SMS Low Balance Threshold | `nola_sms_low_balance_threshold` |
@@ -262,50 +408,60 @@ In GHL:
 | NOLA SMS Alert ID | `nola_sms_alert_id` |
 | NOLA SMS Alerted At | `nola_sms_alerted_at` |
 
-If GHL generates a different internal custom value token, use the token GHL shows in the email editor.
+For delivery failure later:
 
-### Step 2: Create the Workflow
+| Field Label | Suggested Key |
+| --- | --- |
+| NOLA SMS Message ID | `nola_sms_message_id` |
+| NOLA SMS Delivery Status | `nola_sms_delivery_status` |
+| NOLA SMS Recipient | `nola_sms_recipient` |
+
+Backend must know the real GHL custom field IDs for these fields.
+
+### Step 2: Create workflow
 
 1. Go to Automation.
 2. Open Workflows.
-3. Create a new workflow.
-4. Start from scratch.
-5. Name it `NOLA SMS - Low Balance Email`.
+3. Create a new workflow from scratch.
+4. Name it `NOLA SMS Pro - Low Balance Email`.
 
-### Step 3: Add the Trigger
+### Step 3: Add trigger
 
-Recommended trigger:
+Use:
 
 ```text
 Contact Changed
 ```
 
-Configure it so the workflow runs when the field `NOLA SMS Alert ID` changes.
-
-If the account cannot trigger reliably from field changes, use the optional fallback:
+Configure it to fire when:
 
 ```text
-Contact Tag Added
-Tag: nola-low-balance-alert
+NOLA SMS Alert ID has changed
 ```
 
-### Step 4: Add a Filter or If/Else
+### Step 4: Add If/Else
 
-Add a condition:
+Condition:
 
 ```text
-NOLA SMS Alert Type equals low_balance
+NOLA SMS Alert Type is low_balance
 ```
 
-This prevents other NOLA notification events from sending the low-balance email.
+This prevents delivery-failure or future NOLA events from sending the low-balance email.
 
 ### Step 5: Add Send Email
 
-Add the normal GHL `Send Email` workflow action.
+Add a normal `Send Email` workflow action.
 
-The email goes to the workflow contact. NOLA creates or updates that contact using the registered email from Account Details.
+Recipient:
 
-Suggested email:
+```text
+Workflow Contact
+```
+
+Do not type a static email address. NOLA will keep the workflow contact synced to the registered Account Details email.
+
+Example email:
 
 ```text
 Subject: Your NOLA SMS Pro balance is low
@@ -318,49 +474,99 @@ Your alert threshold is {{contact.custom_fields.nola_sms_low_balance_threshold}}
 Please top up your account to keep messages sending smoothly.
 ```
 
-If GHL shows different custom value tokens in the email editor, use GHL's inserted custom value tokens instead of the examples above.
+Use the actual custom value tokens inserted by the GHL editor if they differ from the example.
 
-### Step 6: Publish and Test
+### Step 6: Publish
 
-1. Publish the workflow.
-2. Use a test subaccount with a registered email in NOLA Account Details.
-3. Enable:
-   - Low Balance Alert
-   - GHL Workflow Email Alerts
-4. Set a threshold above the current test balance.
-5. Trigger a credit deduction or run the backend test hook.
-6. Confirm:
-   - The owner contact exists or was updated in GHL.
-   - The custom fields show the balance and alert id.
-   - The workflow history shows an enrollment.
-   - The registered email receives the message.
+Turn the workflow from Draft to Publish.
 
----
+## 9. How to Test End-to-End
 
-## 5. Verification Checklist
+Important: Changing the threshold to 50 does not trigger the email by itself. The backend sends the alert after a paid credit deduction or a backend test call runs `NotificationService::checkLowBalance()`.
 
-Frontend:
+### Backend test path
 
-- `npm run build` succeeds in `user`.
-- Templates can be created, edited, deleted, categorized, searched, and filtered.
-- Empty template list can load the five pre-built templates.
-- Template preview resolves contact and company variables.
-- Quick Send loads contacts, previews the resolved message, and sends SMS.
-- Composer `Use Template` inserts template content at the cursor.
-- Notification settings load from `/api/notification-settings`.
-- Notification settings save to `/api/notification-settings`.
-- Workflow recipient is read-only and matches Account Details email.
+Recommended temporary backend QA helper:
 
-Backend:
+```php
+NotificationService::checkLowBalance($db, $locationId, $testBalance);
+```
 
-- `integrations/ghl_{locId}.notification_preferences` is the single source for notification preferences.
-- `NotificationService::getPreferences()` reads from the integration document.
-- Low balance alert respects the threshold and 24-hour circuit breaker.
-- GHL contact is created or updated for the registered email.
-- GHL custom fields are updated with balance alert values.
-- GHL workflow sends email without using Inbound Webhook.
+Guard this behind admin auth or run it only in a local/backend test script. Suggested test input:
 
----
+```text
+locationId = target GHL location id
+testBalance = 50
+```
+
+Preconditions:
+
+- `low_balance_alert_enabled = true`
+- `ghl_workflow_sync_enabled = true`
+- `low_balance_threshold >= 50`
+- `last_low_balance_notified_at` is empty or older than 24 hours
+- Registered Account Details email exists
+- GHL OAuth token is valid
+- GHL custom field IDs are mapped correctly
+
+Expected results:
+
+1. Backend logs show `LowBalanceAlert Triggering GHL Contact Bridge`.
+2. GHL contact exists with the registered Account Details email.
+3. Contact custom fields are updated.
+4. `ghl_alert_contact_id` is saved under `notification_preferences`.
+5. `last_low_balance_notified_at` is saved.
+6. GHL workflow enrollment appears.
+7. Email is delivered to the registered Account Details email.
+
+### Real send test path
+
+1. Set NOLA balance to just above threshold, for example 51.
+2. Set threshold to 50.
+3. Enable Low Balance Email Alert in frontend Settings.
+4. Send one paid SMS that deducts at least 1 credit.
+5. Confirm new balance is 50 or lower.
+6. Check GHL contact and workflow execution.
+
+If balance is already below threshold and the 24-hour timestamp already exists, clear `last_low_balance_notified_at` for testing.
+
+## 10. Why the Contact May Not Be Visible in GHL Right Now
+
+Most likely causes from the scan:
+
+1. The SMS was sent through `api/webhook/ghl_provider.php`, which currently deducts credits but does not call `checkLowBalance()`.
+2. The alert already fired within the last 24 hours, so the circuit breaker blocked a repeat.
+3. `ghl_workflow_sync_enabled` is false in Firestore.
+4. Registered email could not be resolved from profile/account sources.
+5. `GhlClient` could not load a usable OAuth token for that location.
+6. GHL contact create/update failed because custom field keys were sent as IDs.
+7. Required GHL custom fields do not exist in the target location.
+
+## 11. Acceptance Checklist
+
+Templates:
+
+- GET returns category for every template.
+- POST saves category.
+- PUT saves category and returns updated `data`.
+- DELETE still invalidates cache.
+
+Notification settings:
+
+- GET returns full camelCase frontend shape.
+- POST/PUT saves to `integrations/ghl_{locId}.notification_preferences`.
+- POST/PUT returns full camelCase data after save.
+- `alertEmail` is derived from registered Account Details source only.
+
+Low balance:
+
+- `send_sms.php` triggers low-balance check after paid deduction.
+- `ghl_provider.php` triggers low-balance check after paid deduction.
+- Contact is created or updated in GHL using registered email.
+- GHL custom fields use real GHL field IDs.
+- `ghl_alert_contact_id` is saved.
+- `last_low_balance_notified_at` is saved.
+- Workflow sends email without Inbound Webhook.
 
 ## References
 
