@@ -31,9 +31,49 @@ const PREBUILT_TEMPLATES: Array<Pick<Template, "name" | "content" | "category">>
     content: "Hi {{contact.first_name}}, your appointment with {{company.name}} is confirmed. Reply YES to confirm or call us if you need to reschedule.",
   },
   {
+    name: "Appointment Reminder",
+    category: "Appointments",
+    content: "Hi {{contact.first_name}}, reminder that your appointment with {{company.name}} is coming up soon. Reply C to confirm or R to reschedule.",
+  },
+  {
+    name: "Missed Appointment Follow-up",
+    category: "Appointments",
+    content: "Hi {{contact.first_name}}, we missed you at your appointment with {{company.name}}. Reply here and we can help you book a new time.",
+  },
+  {
+    name: "Appointment Reschedule Notice",
+    category: "Appointments",
+    content: "Hi {{contact.first_name}}, your appointment with {{company.name}} needs to be rescheduled. Please reply with a preferred day and time.",
+  },
+  {
+    name: "Post-Appointment Thank You",
+    category: "Appointments",
+    content: "Hi {{contact.first_name}}, thank you for visiting {{company.name}} today. Reply here if you have any questions after your appointment.",
+  },
+  {
     name: "Welcome Message",
     category: "General",
     content: "Hi {{contact.first_name}}, welcome to {{company.name}}. We are glad to have you here. Reply to this message if you need help.",
+  },
+  {
+    name: "Business Hours Reply",
+    category: "General",
+    content: "Hi {{contact.first_name}}, thanks for contacting {{company.name}}. Our team will get back to you during business hours.",
+  },
+  {
+    name: "Information Request",
+    category: "General",
+    content: "Hi {{contact.first_name}}, this is {{company.name}}. Could you please send the details we need so our team can assist you faster?",
+  },
+  {
+    name: "Support Follow-up",
+    category: "General",
+    content: "Hi {{contact.first_name}}, just checking in from {{company.name}}. Were we able to resolve your concern?",
+  },
+  {
+    name: "Review Request",
+    category: "General",
+    content: "Hi {{contact.first_name}}, thank you for choosing {{company.name}}. We would love your feedback. Please reply with your rating from 1 to 5.",
   },
   {
     name: "Payment Reminder",
@@ -41,14 +81,49 @@ const PREBUILT_TEMPLATES: Array<Pick<Template, "name" | "content" | "category">>
     content: "Hi {{contact.first_name}}, this is a friendly reminder from {{company.name}} that your payment is due soon. Thank you.",
   },
   {
+    name: "Payment Received",
+    category: "Transactional",
+    content: "Hi {{contact.first_name}}, {{company.name}} has received your payment. Thank you for settling your balance.",
+  },
+  {
+    name: "Order Confirmation",
+    category: "Transactional",
+    content: "Hi {{contact.first_name}}, your order with {{company.name}} has been confirmed. We will update you once it is ready.",
+  },
+  {
+    name: "Document Request",
+    category: "Transactional",
+    content: "Hi {{contact.first_name}}, {{company.name}} needs one more document to complete your request. Please reply here when ready.",
+  },
+  {
+    name: "Service Completed",
+    category: "Transactional",
+    content: "Hi {{contact.first_name}}, your service request with {{company.name}} has been completed. Reply here if anything else is needed.",
+  },
+  {
     name: "Promotional Offer",
     category: "Marketing",
     content: "Hi {{contact.first_name}}, {{company.name}} has a limited-time offer for you. Reply DEAL and our team will send the details.",
   },
   {
-    name: "Review Request",
-    category: "General",
-    content: "Hi {{contact.first_name}}, thank you for choosing {{company.name}}. We would love your feedback. Please reply with your rating from 1 to 5.",
+    name: "Flash Sale",
+    category: "Marketing",
+    content: "Hi {{contact.first_name}}, flash sale at {{company.name}} today only. Reply SAVE to claim the offer before it ends.",
+  },
+  {
+    name: "Event Invitation",
+    category: "Marketing",
+    content: "Hi {{contact.first_name}}, you are invited to an upcoming {{company.name}} event. Reply RSVP and we will reserve your spot.",
+  },
+  {
+    name: "Reactivation Offer",
+    category: "Marketing",
+    content: "Hi {{contact.first_name}}, we miss you at {{company.name}}. Reply BACK to receive a special returning customer offer.",
+  },
+  {
+    name: "Referral Invite",
+    category: "Marketing",
+    content: "Hi {{contact.first_name}}, know someone who could use {{company.name}}? Reply REFER and we will send you the referral details.",
   },
 ];
 
@@ -86,7 +161,7 @@ const interpolateTemplate = (content: string, contact: Contact | null = MOCK_CON
 };
 
 const PhonePreview: React.FC<{ template?: Template | Pick<Template, "name" | "content" | "category">; contact?: Contact | null }> = ({ template, contact }) => (
-  <div className="rounded-[28px] border border-gray-200 dark:border-white/10 bg-[#101828] p-2 shadow-xl">
+  <div className="rounded-[28px] border-4 border-[#2b83fa] bg-[#2b83fa] p-2 shadow-xl shadow-blue-500/20">
     <div className="rounded-[22px] bg-[#f7f8fb] dark:bg-[#111318] p-4 min-h-[360px] flex flex-col">
       <div className="flex items-center justify-center gap-2 pb-3 border-b border-gray-200 dark:border-white/10">
         <FiSmartphone className="w-4 h-4 text-[#2b83fa]" />
@@ -266,17 +341,25 @@ export const TemplatesTab: React.FC = () => {
   };
 
   const handleLoadPrebuilt = async () => {
-    if (templates.length > 0) return;
     setIsSubmitting(true);
     setError(null);
     try {
+      const existingNames = new Set(templates.map((template) => template.name.trim().toLowerCase()));
+      const missingTemplates = PREBUILT_TEMPLATES.filter((template) => !existingNames.has(template.name.trim().toLowerCase()));
+
+      if (missingTemplates.length === 0) {
+        setNotice("All pre-built templates are already loaded.");
+        setTimeout(() => setNotice(null), 2400);
+        return;
+      }
+
       const created: Template[] = [];
-      for (const template of PREBUILT_TEMPLATES) {
+      for (const template of missingTemplates) {
         created.push(await createTemplate(template.name, template.content, template.category || "General"));
       }
-      setTemplates(created);
+      setTemplates(prev => [...created, ...prev]);
       setPreviewTemplate(created[0] || null);
-      setNotice("Pre-built templates loaded.");
+      setNotice(`${created.length} pre-built template${created.length === 1 ? "" : "s"} loaded.`);
       setTimeout(() => setNotice(null), 2400);
     } catch (err: any) {
       setError(err.message || "Failed to load pre-built templates.");
@@ -347,17 +430,27 @@ export const TemplatesTab: React.FC = () => {
                 <p className="text-[12px] text-white/75">{templates.length} templates available</p>
               </div>
             </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSearchQuery("");
-                handleOpenModal();
-              }}
-              className="group flex items-center justify-center gap-1 sm:gap-2 bg-white text-[#1d6bd4] px-3 sm:px-4 py-2.5 rounded-2xl text-[13px] font-bold hover:bg-white/90 hover:shadow-[0_8px_25px_rgba(0,0,0,0.16)] active:scale-95 transition-all duration-200"
-            >
-              <FiPlus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Template</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleLoadPrebuilt}
+                disabled={isSubmitting}
+                className="group hidden sm:flex items-center justify-center gap-2 bg-white/15 text-white px-3 sm:px-4 py-2.5 rounded-2xl text-[13px] font-bold hover:bg-white/25 active:scale-95 transition-all duration-200 disabled:opacity-60"
+              >
+                {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : <FiPackage className="h-4 w-4" />}
+                <span>Load Pre-built</span>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSearchQuery("");
+                  handleOpenModal();
+                }}
+                className="group flex items-center justify-center gap-1 sm:gap-2 bg-white text-[#1d6bd4] px-3 sm:px-4 py-2.5 rounded-2xl text-[13px] font-bold hover:bg-white/90 hover:shadow-[0_8px_25px_rgba(0,0,0,0.16)] active:scale-95 transition-all duration-200"
+              >
+                <FiPlus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Template</span>
+              </button>
+            </div>
           </div>
 
           <div className="relative">
