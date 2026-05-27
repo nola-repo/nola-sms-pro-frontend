@@ -29,6 +29,9 @@ export interface NotificationSettings {
     lowBalanceAlert: boolean;
     lowBalanceThreshold: number;
     marketingEmails: boolean;
+    ghlWorkflowSyncEnabled: boolean;
+    alertEmail?: string;
+    ghlAlertContactId?: string;
 }
 
 export interface StoredSenderId {
@@ -65,6 +68,9 @@ const DEFAULT_NOTIFICATIONS: NotificationSettings = {
     lowBalanceAlert: true,
     lowBalanceThreshold: 50,
     marketingEmails: false,
+    ghlWorkflowSyncEnabled: false,
+    alertEmail: "",
+    ghlAlertContactId: "",
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

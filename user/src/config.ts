@@ -40,6 +40,7 @@ export const API_CONFIG = {
     account_sender: `${API_BASE}/api/account-sender`,
     account: `${API_BASE}/api/account`,
     templates: `${API_BASE}/api/templates`,
+    notificationSettings: `${API_BASE}/api/notification-settings`,
     check_message_status: `${API_BASE}/api/check_message_status`,
 };
 

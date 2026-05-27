@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 
 import { fetchContacts } from "../api/contacts";
+import { fetchTemplates } from "../api/templates";
 import { sendSms, sendBulkSms, interpolateMessage, checkMessageStatus, type SenderId } from "../api/sms";
 import { getRecipientKey } from "../utils/storage";
 import type { BulkMessageHistoryItem, Message } from "../types/Sms";
 import type { Contact } from "../types/Contact";
+import type { Template } from "../types/Template";
 import { FiUser, FiUsers, FiMenu, FiMoreHorizontal, FiX } from "react-icons/fi";
 import ShinyText from "./ShinyText";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
@@ -13,7 +15,7 @@ import { useMessages as usePhoneMessages } from "../hooks/useMessages";
 import { useLocationId } from "../context/LocationContext";
 import { SenderSelector } from "./SenderSelector";
 import { CreditBadge } from "./CreditBadge";
-import { FiCheck, FiAlertCircle, FiLoader } from "react-icons/fi";
+import { FiCheck, FiAlertCircle, FiLoader, FiFileText } from "react-icons/fi";
 import { getAccountSettings, getPreferredSender, savePreferredSender } from "../utils/settingsStorage";
 import { fetchAccountSenderConfig } from "../api/senderRequests";
 import { buildDirectConversationId } from "../utils/conversationId";
@@ -269,6 +271,8 @@ export const Composer: React.FC<ComposerProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const customValuesRef = useRef<HTMLDivElement>(null);
+  const templatePickerRef = useRef<HTMLDivElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const tagsRef = useRef<HTMLDivElement>(null);
   const msgAreaRef = useRef<HTMLDivElement>(null);
   const touchStartYMsg = useRef<number>(0);
@@ -277,6 +281,9 @@ export const Composer: React.FC<ComposerProps> = ({
   // Interactive features state
   const [isCustomValuesOpen, setIsCustomValuesOpen] = useState(false);
   const [isTagsOpen, setIsTagsOpen] = useState(false);
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [templateOptions, setTemplateOptions] = useState<Template[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
   const [selectedTagsToApply, setSelectedTagsToApply] = useState<string[]>([]);
 
   // ─── Toast (custom, no-blink) ───────────────────────────────────────────────
@@ -402,6 +409,9 @@ export const Composer: React.FC<ComposerProps> = ({
       if (customValuesRef.current && !customValuesRef.current.contains(event.target as Node)) {
         setIsCustomValuesOpen(false);
       }
+      if (templatePickerRef.current && !templatePickerRef.current.contains(event.target as Node)) {
+        setIsTemplatesOpen(false);
+      }
       if (tagsRef.current && !tagsRef.current.contains(event.target as Node)) {
         setIsTagsOpen(false);
       }
@@ -467,9 +477,48 @@ export const Composer: React.FC<ComposerProps> = ({
     { label: "Contact Email", value: "{{contact.email}}" },
   ];
 
+  const insertAtCursor = (text: string) => {
+    const input = messageInputRef.current;
+    const start = input?.selectionStart ?? message.length;
+    const end = input?.selectionEnd ?? message.length;
+    const nextMessage = `${message.slice(0, start)}${text}${message.slice(end)}`;
+    const nextCursor = start + text.length;
+
+    setMessage(nextMessage);
+    window.setTimeout(() => {
+      input?.focus();
+      input?.setSelectionRange(nextCursor, nextCursor);
+    }, 0);
+  };
+
   const handleCustomValueSelect = (val: string) => {
-    setMessage(prev => prev + val);
+    insertAtCursor(val);
     setIsCustomValuesOpen(false);
+  };
+
+  const handleTemplateToggle = async () => {
+    const nextOpen = !isTemplatesOpen;
+    setIsTemplatesOpen(nextOpen);
+    setIsCustomValuesOpen(false);
+    setIsTagsOpen(false);
+
+    if (nextOpen && templateOptions.length === 0 && !templatesLoading) {
+      setTemplatesLoading(true);
+      try {
+        setTemplateOptions(await fetchTemplates());
+      } catch (error) {
+        console.error("Failed to load templates:", error);
+        showToast("error", "Failed to load templates.");
+      } finally {
+        setTemplatesLoading(false);
+      }
+    }
+  };
+
+  const handleTemplateSelect = (template: Template) => {
+    insertAtCursor(template.content);
+    setIsTemplatesOpen(false);
+    showToast("success", `Inserted ${template.name}.`);
   };
 
   const allTags = useMemo(() => {
@@ -558,7 +607,7 @@ export const Composer: React.FC<ComposerProps> = ({
           if (shouldPromoteDraftConversation) {
             onSelectContact(recipients[0]);
           }
-          const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, recipients[0].name, undefined, recipients[0].ghl_contact_id, currentTags);
+          const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, recipients[0].name, undefined, recipients[0].ghl_contact_id, currentTags, recipients[0].email);
 
           if (smsResult.success) {
             const messageIds = smsResult.messageIds || [];
@@ -1593,6 +1642,7 @@ export const Composer: React.FC<ComposerProps> = ({
           <div className="bg-white/[0.96] dark:bg-[#17191f]/[0.96] rounded-[24px] border border-[#d8e1ec] dark:border-white/10 shadow-[0_20px_55px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_64px_rgba(0,0,0,0.48)] p-2.5 transition-all focus-within:ring-2 focus-within:ring-[#2b83fa]/25 dark:focus-within:ring-[#2b83fa]/20 relative z-20">
             <div className="flex flex-col">
               <textarea
+                ref={messageInputRef}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -1604,6 +1654,42 @@ export const Composer: React.FC<ComposerProps> = ({
 
               <div className="flex items-center justify-between gap-3 px-3 pt-2.5 pb-1.5 border-t border-[#edf1f6] dark:border-white/[0.08]">
                 <div className="flex items-center gap-1.5 min-w-0">
+                  {/* Templates Button */}
+                  <div className="relative" ref={templatePickerRef}>
+                    <button
+                      onClick={handleTemplateToggle}
+                      title="Use Template"
+                      className={`px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-[12px] font-bold ${isTemplatesOpen ? "bg-[#eaf3ff] text-[#1d6bd4] dark:bg-white/10 dark:text-[#8bbcff]" : "text-[#7a8492] hover:text-[#1d6bd4] hover:bg-[#eef6ff] dark:text-[#8f96a3] dark:hover:text-[#8bbcff] dark:hover:bg-white/[0.06]"}`}
+                    >
+                      <FiFileText className="h-4 w-4" />
+                      <span className="hidden sm:inline">Use Template</span>
+                    </button>
+
+                    {isTemplatesOpen && (
+                      <div className="absolute bottom-full left-0 mb-2 p-2 bg-white dark:bg-[#1a1b1e] rounded-2xl border border-gray-200 dark:border-white/10 shadow-xl flex flex-col gap-1 z-50 animate-scale-up w-72 max-h-72 overflow-y-auto custom-scrollbar">
+                        {templatesLoading ? (
+                          <div className="flex items-center justify-center gap-2 px-3 py-5 text-[12px] font-semibold text-gray-500">
+                            <FiLoader className="h-4 w-4 animate-spin" />
+                            Loading templates...
+                          </div>
+                        ) : templateOptions.length === 0 ? (
+                          <div className="px-3 py-5 text-center text-[12px] font-medium text-gray-500">No templates available</div>
+                        ) : (
+                          templateOptions.map(template => (
+                            <button
+                              key={template.id}
+                              onClick={() => handleTemplateSelect(template)}
+                              className="w-full px-3 py-2.5 text-left rounded-xl transition-colors hover:bg-gray-100 dark:hover:bg-white/5"
+                            >
+                              <span className="block truncate text-[13px] font-bold text-[#111111] dark:text-[#ececf1]">{template.name}</span>
+                              <span className="block truncate text-[11px] text-[#7a8492] dark:text-[#8f96a3]">{template.content}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Custom Values Button */}
                   <div className="relative" ref={customValuesRef}>
                     <button

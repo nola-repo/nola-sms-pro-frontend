@@ -11,11 +11,15 @@ import {
 import { generateMonthlyReport } from "../utils/pdfGenerator";
 import {
     getAccountSettings, saveAccountSettings,
-    getNotificationSettings, saveNotificationSettings,
+    getNotificationSettings, saveNotificationSettings as saveNotificationSettingsLocal,
     getStoredSenderIds, saveStoredSenderIds,
     getPreferredSender, savePreferredSender,
     type AccountSettings, type NotificationSettings, type StoredSenderId
 } from "../utils/settingsStorage";
+import {
+    fetchNotificationSettings,
+    saveNotificationSettings as saveNotificationSettingsRemote,
+} from "../api/notificationSettings";
 import { SenderRequestModal } from "../components/SenderRequestModal";
 import { useGhlLocation } from "../hooks/useGhlLocation";
 import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
@@ -74,16 +78,19 @@ const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ chi
     </div>
 );
 
-const SaveButton: React.FC<{ onClick: () => void; saved: boolean }> = ({ onClick, saved }) => (
+const SaveButton: React.FC<{ onClick: () => void; saved: boolean; disabled?: boolean; saving?: boolean }> = ({ onClick, saved, disabled = false, saving = false }) => (
     <button
         onClick={onClick}
+        disabled={disabled || saving}
         className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-[13px] transition-all duration-300 ${saved
             ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
+            : disabled || saving
+                ? "bg-gray-200 dark:bg-white/10 text-gray-400 dark:text-gray-500 cursor-not-allowed"
             : "bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white shadow-md shadow-blue-500/20"
             }`}
     >
-        {saved ? <FiCheck className="w-4 h-4" /> : <FiSave className="w-4 h-4" />}
-        {saved ? "Saved!" : "Save Changes"}
+        {saved ? <FiCheck className="w-4 h-4" /> : saving ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiSave className="w-4 h-4" />}
+        {saved ? "Saved!" : saving ? "Saving..." : "Save Changes"}
     </button>
 );
 
@@ -815,22 +822,96 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
 
 
 // ─── Section: Notifications ─────────────────────────────────────────────────
+type NotificationToggleKey = "deliveryReports" | "lowBalanceAlert" | "marketingEmails" | "ghlWorkflowSyncEnabled";
+
+const resolveProfileEmail = (profile?: Partial<AccountProfile> | null): string =>
+    profile?.email || profile?.email_address || "";
+
 const NotificationsSection: React.FC = () => {
     const [form, setForm] = useState<NotificationSettings>(getNotificationSettings);
+    const [registeredEmail, setRegisteredEmail] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const ghlLocationIdFromHook = useGhlLocation();
+    const liveProfile = useUserProfileContext();
 
-    const toggle = (key: keyof NotificationSettings) =>
+    const toggle = (key: NotificationToggleKey) =>
         setForm(prev => ({ ...prev, [key]: !prev[key] }));
 
-    const handleSave = () => {
-        saveNotificationSettings(form);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
+    useEffect(() => {
+        let cancelled = false;
+        const locationId = ghlLocationIdFromHook || liveProfile?.location_id || getAccountSettings().ghlLocationId || "";
+        const cachedEmail = resolveProfileEmail(getCachedAccountProfile(locationId));
+        const liveEmail = liveProfile?.location_id === locationId ? resolveProfileEmail(liveProfile) : "";
+
+        if (liveEmail || cachedEmail) {
+            setRegisteredEmail(liveEmail || cachedEmail);
+        }
+
+        const load = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const [settings, profile] = await Promise.all([
+                    fetchNotificationSettings(),
+                    locationId
+                        ? fetchAccountProfile(locationId, { allowStaleOnError: true })
+                        : Promise.resolve(null),
+                ]);
+
+                if (cancelled) return;
+
+                setForm(settings);
+                setRegisteredEmail(
+                    settings.alertEmail ||
+                    resolveProfileEmail(profile) ||
+                    liveEmail ||
+                    cachedEmail
+                );
+            } catch (err) {
+                if (!cancelled) {
+                    setError(err instanceof Error ? err.message : "Failed to load notification settings.");
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+
+        load();
+        return () => { cancelled = true; };
+    }, [ghlLocationIdFromHook, liveProfile]);
+
+    const missingWorkflowEmail = form.ghlWorkflowSyncEnabled && !registeredEmail.trim();
+
+    const handleSave = async () => {
+        if (missingWorkflowEmail) {
+            setError("Add a registered email in Account Details before enabling GHL workflow email alerts.");
+            return;
+        }
+
+        setSaving(true);
+        setError(null);
+        try {
+            const payload = { ...form, alertEmail: registeredEmail };
+            const next = await saveNotificationSettingsRemote(payload);
+            const merged = { ...next, alertEmail: next.alertEmail || registeredEmail };
+            saveNotificationSettingsLocal(merged);
+            setForm(merged);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to save notification settings.");
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const ROWS: { key: keyof NotificationSettings; label: string; desc: string; icon: React.ReactNode }[] = [
+    const ROWS: { key: NotificationToggleKey; label: string; desc: string; icon: React.ReactNode }[] = [
         { key: "deliveryReports", label: "SMS Delivery Reports", desc: "Get notified when messages are delivered or fail.", icon: <FiCheckCircle className="w-4 h-4" /> },
         { key: "lowBalanceAlert", label: "Low Balance Alert", desc: "Alert when credit balance drops below threshold.", icon: <FiAlertCircle className="w-4 h-4" /> },
+        { key: "ghlWorkflowSyncEnabled", label: "GHL Workflow Email Alerts", desc: "Sync balance alerts to GHL so a workflow can email the registered account owner.", icon: <FiZap className="w-4 h-4" /> },
         { key: "marketingEmails", label: "Marketing & Updates", desc: "Product news and feature announcements via email.", icon: <FiGlobe className="w-4 h-4" /> },
     ];
 
@@ -838,10 +919,17 @@ const NotificationsSection: React.FC = () => {
         <div className="space-y-5">
             <SectionHeader title="Notifications" subtitle="Choose which alerts and reports you want to receive." />
 
+            {error && (
+                <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 rounded-xl">
+                    <FiAlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-[12px] text-red-700 dark:text-red-400">{error}</p>
+                </div>
+            )}
+
             <Card>
                 <div className="divide-y divide-[#f0f0f0] dark:divide-[#2a2b32]">
                     {ROWS.map(row => (
-                        <div key={row.key} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                        <div key={row.key} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
                             <div className="flex items-start gap-3">
                                 <div className="w-8 h-8 rounded-lg bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa] flex-shrink-0 mt-0.5">
                                     {row.icon}
@@ -851,10 +939,33 @@ const NotificationsSection: React.FC = () => {
                                     <p className="text-[12px] text-[#9aa0a6]">{row.desc}</p>
                                 </div>
                             </div>
-                            <Toggle checked={form[row.key] as boolean} onChange={() => toggle(row.key)} id={`toggle-${row.key}`} />
+                            <Toggle checked={Boolean(form[row.key])} onChange={() => toggle(row.key)} id={`toggle-${row.key}`} />
                         </div>
                     ))}
                 </div>
+            </Card>
+
+            <Card>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa] flex-shrink-0 mt-0.5">
+                            <FiBell className="w-4 h-4" />
+                        </div>
+                        <div>
+                            <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider">Workflow Email Recipient</h3>
+                            <p className="text-[12px] text-[#9aa0a6] mt-1">GHL workflow emails are sent to the registered email in Account Details.</p>
+                        </div>
+                    </div>
+                    <div className={`px-3 py-2 rounded-xl border text-[13px] font-semibold ${registeredEmail ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300" : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"}`}>
+                        {loading ? "Loading..." : registeredEmail || "No registered email found"}
+                    </div>
+                </div>
+                {missingWorkflowEmail && (
+                    <div className="mt-4 flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30">
+                        <FiAlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                        <p className="text-[12px] text-amber-700 dark:text-amber-400">Add and save an email in Account Details before enabling GHL workflow email alerts.</p>
+                    </div>
+                )}
             </Card>
 
             {form.lowBalanceAlert && (
@@ -875,7 +986,7 @@ const NotificationsSection: React.FC = () => {
             )}
 
             <div className="flex justify-end">
-                <SaveButton onClick={handleSave} saved={saved} />
+                <SaveButton onClick={handleSave} saved={saved} saving={saving} disabled={loading || missingWorkflowEmail} />
             </div>
         </div>
     );

@@ -3,6 +3,7 @@ import { getAccountSettings } from "../utils/settingsStorage";
 import type { Template } from "../types/Template";
 
 const API_URL = API_CONFIG.templates;
+const DEFAULT_CATEGORY = "General";
 
 const getHeaders = () => {
   const accountSettings = getAccountSettings();
@@ -13,6 +14,39 @@ const getHeaders = () => {
     headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
   }
   return headers;
+};
+
+const normalizeTemplate = (raw: any): Template => ({
+  id: String(raw?.id ?? raw?.template_id ?? `tpl-${Date.now()}`),
+  location_id: String(raw?.location_id ?? raw?.locationId ?? getAccountSettings().ghlLocationId ?? ""),
+  name: String(raw?.name ?? ""),
+  content: String(raw?.content ?? raw?.message ?? ""),
+  category: String(raw?.category ?? DEFAULT_CATEGORY),
+  created_at: String(raw?.created_at ?? raw?.createdAt ?? new Date().toISOString()),
+  updated_at: String(raw?.updated_at ?? raw?.updatedAt ?? new Date().toISOString()),
+});
+
+const unwrapTemplateList = (payload: any): Template[] => {
+  const rawList = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.templates)
+        ? payload.templates
+        : Array.isArray(payload?.data?.templates)
+          ? payload.data.templates
+          : [];
+
+  return rawList.map(normalizeTemplate);
+};
+
+const unwrapTemplate = (payload: any): Template => {
+  const raw = payload?.data && !Array.isArray(payload.data)
+    ? payload.data
+    : payload?.template
+      ? payload.template
+      : payload;
+  return normalizeTemplate(raw);
 };
 
 export const fetchTemplates = async (): Promise<Template[]> => {
@@ -33,7 +67,7 @@ export const fetchTemplates = async (): Promise<Template[]> => {
     if (!res.ok) {
       throw new Error(`Error fetching templates: ${res.statusText}`);
     }
-    return await res.json();
+    return unwrapTemplateList(await res.json());
   } catch (error) {
     console.error('Failed to fetch templates:', error);
     const mockStr = localStorage.getItem('nola_mock_templates');
@@ -41,12 +75,12 @@ export const fetchTemplates = async (): Promise<Template[]> => {
   }
 };
 
-export const createTemplate = async (name: string, content: string): Promise<Template> => {
+export const createTemplate = async (name: string, content: string, category: string = DEFAULT_CATEGORY): Promise<Template> => {
   try {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ name, content }),
+      body: JSON.stringify({ name, content, category }),
     });
     
     if (res.status === 404) {
@@ -58,6 +92,7 @@ export const createTemplate = async (name: string, content: string): Promise<Tem
         location_id: getAccountSettings().ghlLocationId || '',
         name,
         content,
+        category,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -70,7 +105,7 @@ export const createTemplate = async (name: string, content: string): Promise<Tem
       const error = await res.json().catch(() => ({}));
       throw new Error(error.message || 'Failed to create template');
     }
-    return await res.json();
+    return unwrapTemplate(await res.json());
   } catch (error: any) {
     // Mock logic fallback
     if (error.message === 'Failed to fetch') {
@@ -81,6 +116,7 @@ export const createTemplate = async (name: string, content: string): Promise<Tem
         location_id: getAccountSettings().ghlLocationId || '',
         name,
         content,
+        category,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -92,12 +128,12 @@ export const createTemplate = async (name: string, content: string): Promise<Tem
   }
 };
 
-export const updateTemplate = async (id: string, name: string, content: string): Promise<Template> => {
+export const updateTemplate = async (id: string, name: string, content: string, category: string = DEFAULT_CATEGORY): Promise<Template> => {
   try {
     const res = await fetch(API_URL, {
       method: 'PUT',
       headers: getHeaders(),
-      body: JSON.stringify({ id, name, content }),
+      body: JSON.stringify({ id, name, content, category }),
     });
     
     if (res.status === 404) {
@@ -106,7 +142,7 @@ export const updateTemplate = async (id: string, name: string, content: string):
       let updated: Template | null = null;
       templates = templates.map(t => {
         if (t.id === id) {
-          updated = { ...t, name, content, updated_at: new Date().toISOString() };
+          updated = { ...t, name, content, category, updated_at: new Date().toISOString() };
           return updated;
         }
         return t;
@@ -120,7 +156,7 @@ export const updateTemplate = async (id: string, name: string, content: string):
       const error = await res.json().catch(() => ({}));
       throw new Error(error.message || 'Failed to update template');
     }
-    return await res.json();
+    return unwrapTemplate(await res.json());
   } catch (error: any) {
     // Mock logic fallback
     if (error.message === 'Failed to fetch') {
@@ -129,7 +165,7 @@ export const updateTemplate = async (id: string, name: string, content: string):
       let updated: Template | null = null;
       templates = templates.map(t => {
         if (t.id === id) {
-          updated = { ...t, name, content, updated_at: new Date().toISOString() };
+          updated = { ...t, name, content, category, updated_at: new Date().toISOString() };
           return updated;
         }
         return t;

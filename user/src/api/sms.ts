@@ -132,6 +132,7 @@ export const interpolateMessage = (text: string, contact: { name?: string, phone
   result = result.replace(/\{\{contact\.last_name\}\}/gi, last_name);
   result = result.replace(/\{\{contact\.phone\}\}/gi, contact.phone || "");
   result = result.replace(/\{\{contact\.email\}\}/gi, contact.email || "");
+  result = result.replace(/\{\{company\.name\}\}/gi, "NOLA SMS Pro");
   
   return result;
 };
@@ -144,7 +145,8 @@ export const sendSms = async (
   contactName?: string,
   recipientKey?: string,
   contactId?: string,
-  tagsToApply?: string[]
+  tagsToApply?: string[],
+  contactEmail?: string
 
 ): Promise<SendSmsResponse> => {
   if (!phoneNumber || !message) {
@@ -163,7 +165,7 @@ export const sendSms = async (
     };
   }
 
-  const personalizedMessage = interpolateMessage(message, { name: contactName, phone: formattedNumber });
+  const personalizedMessage = interpolateMessage(message, { name: contactName, phone: formattedNumber, email: contactEmail });
 
   const payload = {
     customData: {
@@ -276,7 +278,7 @@ export const sendBulkSms = async (
   phoneNumbers: string[],
   message: string,
   senderName: string = "NOLASMSPro",
-  _contacts: { phone: string, name: string, ghl_contact_id?: string }[] = [],
+  _contacts: { phone: string, name: string, email?: string, ghl_contact_id?: string }[] = [],
   recipientKey?: string,
   existingBatchId?: string,
   tagsToApply?: string[]
@@ -312,9 +314,9 @@ export const sendBulkSms = async (
   // Sequentially send SMS so that we can pass the ghl_contact_id per recipient for full bidirectional sync
   for (const phone of normalizedNumbers) {
     // Find corresponding contact to extract ghl_contact_id
-    const contact = _contacts.find(c => normalizePHNumber(c.phone) === phone) || { phone, name: undefined, ghl_contact_id: undefined };
+    const contact = _contacts.find(c => normalizePHNumber(c.phone) === phone) || { phone, name: undefined, email: undefined, ghl_contact_id: undefined };
     try {
-      const res = await sendSms(phone, message, senderName, batchId, contact.name, recipientKey, contact.ghl_contact_id, tagsToApply);
+      const res = await sendSms(phone, message, senderName, batchId, contact.name, recipientKey, contact.ghl_contact_id, tagsToApply, contact.email);
       results.push({ ...res, number: phone });
     } catch (error) {
       devLog.error(`[sendBulkSms] Error sending to ${phone}:`, error);
