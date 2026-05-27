@@ -12,7 +12,6 @@ import {
   FiLoader,
   FiMessageSquare,
   FiMoreVertical,
-  FiPackage,
   FiPlus,
   FiSearch,
   FiSend,
@@ -26,7 +25,7 @@ const EDIT_CATEGORIES = CATEGORIES.filter((category) => category !== "All");
 
 const PREBUILT_TEMPLATES: Array<Pick<Template, "name" | "content" | "category">> = [
   {
-    name: "Appointment Confirmation",
+    name: "Appointment Confirmed",
     category: "Appointments",
     content: "Hi {{contact.first_name}}, your appointment with {{company.name}} is confirmed. Reply YES to confirm or call us if you need to reschedule.",
   },
@@ -36,22 +35,12 @@ const PREBUILT_TEMPLATES: Array<Pick<Template, "name" | "content" | "category">>
     content: "Hi {{contact.first_name}}, reminder that your appointment with {{company.name}} is coming up soon. Reply C to confirm or R to reschedule.",
   },
   {
-    name: "Missed Appointment Follow-up",
-    category: "Appointments",
-    content: "Hi {{contact.first_name}}, we missed you at your appointment with {{company.name}}. Reply here and we can help you book a new time.",
-  },
-  {
-    name: "Appointment Reschedule Notice",
+    name: "Reschedule Appointment",
     category: "Appointments",
     content: "Hi {{contact.first_name}}, your appointment with {{company.name}} needs to be rescheduled. Please reply with a preferred day and time.",
   },
   {
-    name: "Post-Appointment Thank You",
-    category: "Appointments",
-    content: "Hi {{contact.first_name}}, thank you for visiting {{company.name}} today. Reply here if you have any questions after your appointment.",
-  },
-  {
-    name: "Welcome Message",
+    name: "New Customer Welcome",
     category: "General",
     content: "Hi {{contact.first_name}}, welcome to {{company.name}}. We are glad to have you here. Reply to this message if you need help.",
   },
@@ -61,17 +50,7 @@ const PREBUILT_TEMPLATES: Array<Pick<Template, "name" | "content" | "category">>
     content: "Hi {{contact.first_name}}, thanks for contacting {{company.name}}. Our team will get back to you during business hours.",
   },
   {
-    name: "Information Request",
-    category: "General",
-    content: "Hi {{contact.first_name}}, this is {{company.name}}. Could you please send the details we need so our team can assist you faster?",
-  },
-  {
-    name: "Support Follow-up",
-    category: "General",
-    content: "Hi {{contact.first_name}}, just checking in from {{company.name}}. Were we able to resolve your concern?",
-  },
-  {
-    name: "Review Request",
+    name: "Customer Review Request",
     category: "General",
     content: "Hi {{contact.first_name}}, thank you for choosing {{company.name}}. We would love your feedback. Please reply with your rating from 1 to 5.",
   },
@@ -81,12 +60,7 @@ const PREBUILT_TEMPLATES: Array<Pick<Template, "name" | "content" | "category">>
     content: "Hi {{contact.first_name}}, this is a friendly reminder from {{company.name}} that your payment is due soon. Thank you.",
   },
   {
-    name: "Payment Received",
-    category: "Transactional",
-    content: "Hi {{contact.first_name}}, {{company.name}} has received your payment. Thank you for settling your balance.",
-  },
-  {
-    name: "Order Confirmation",
+    name: "Order Confirmed",
     category: "Transactional",
     content: "Hi {{contact.first_name}}, your order with {{company.name}} has been confirmed. We will update you once it is ready.",
   },
@@ -94,11 +68,6 @@ const PREBUILT_TEMPLATES: Array<Pick<Template, "name" | "content" | "category">>
     name: "Document Request",
     category: "Transactional",
     content: "Hi {{contact.first_name}}, {{company.name}} needs one more document to complete your request. Please reply here when ready.",
-  },
-  {
-    name: "Service Completed",
-    category: "Transactional",
-    content: "Hi {{contact.first_name}}, your service request with {{company.name}} has been completed. Reply here if anything else is needed.",
   },
   {
     name: "Promotional Offer",
@@ -111,19 +80,9 @@ const PREBUILT_TEMPLATES: Array<Pick<Template, "name" | "content" | "category">>
     content: "Hi {{contact.first_name}}, flash sale at {{company.name}} today only. Reply SAVE to claim the offer before it ends.",
   },
   {
-    name: "Event Invitation",
+    name: "Event Invite",
     category: "Marketing",
     content: "Hi {{contact.first_name}}, you are invited to an upcoming {{company.name}} event. Reply RSVP and we will reserve your spot.",
-  },
-  {
-    name: "Reactivation Offer",
-    category: "Marketing",
-    content: "Hi {{contact.first_name}}, we miss you at {{company.name}}. Reply BACK to receive a special returning customer offer.",
-  },
-  {
-    name: "Referral Invite",
-    category: "Marketing",
-    content: "Hi {{contact.first_name}}, know someone who could use {{company.name}}? Reply REFER and we will send you the referral details.",
   },
 ];
 
@@ -133,6 +92,19 @@ const MOCK_CONTACT: Contact = {
   phone: "09171234567",
   email: "john@example.com",
 };
+
+type TemplateListItem = Template & { isPrebuilt?: boolean };
+
+const createPrebuiltTemplate = (template: Pick<Template, "name" | "content" | "category">, index: number): TemplateListItem => ({
+  id: `prebuilt-${template.category}-${index}-${template.name}`.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+  location_id: "",
+  name: template.name,
+  content: template.content,
+  category: template.category || "General",
+  created_at: "",
+  updated_at: "",
+  isPrebuilt: true,
+});
 
 const TemplateSkeleton = () => (
   <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl bg-white/50 dark:bg-[#1a1b1e]/50 border border-gray-100 dark:border-white/5 animate-pulse mb-2">
@@ -160,7 +132,7 @@ const interpolateTemplate = (content: string, contact: Contact | null = MOCK_CON
     .replace(/\{\{company\.name\}\}/gi, "NOLA SMS Pro");
 };
 
-const PhonePreview: React.FC<{ template?: Template | Pick<Template, "name" | "content" | "category">; contact?: Contact | null }> = ({ template, contact }) => (
+const PhonePreview: React.FC<{ template?: TemplateListItem | Template | Pick<Template, "name" | "content" | "category">; contact?: Contact | null }> = ({ template, contact }) => (
   <div className="rounded-[28px] border-4 border-[#2b83fa] bg-[#2b83fa] p-2 shadow-xl shadow-blue-500/20">
     <div className="rounded-[22px] bg-[#f7f8fb] dark:bg-[#111318] p-4 min-h-[360px] flex flex-col">
       <div className="flex items-center justify-center gap-2 pb-3 border-b border-gray-200 dark:border-white/10">
@@ -204,9 +176,9 @@ export const TemplatesTab: React.FC = () => {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isCustomValuesOpen, setIsCustomValuesOpen] = useState(false);
-  const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<TemplateListItem | null>(null);
 
-  const [quickSendTemplate, setQuickSendTemplate] = useState<Template | null>(null);
+  const [quickSendTemplate, setQuickSendTemplate] = useState<TemplateListItem | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [contactQuery, setContactQuery] = useState("");
@@ -252,21 +224,30 @@ export const TemplatesTab: React.FC = () => {
     loadTemplates();
   }, []);
 
+  const visibleTemplates = useMemo<TemplateListItem[]>(() => {
+    const savedNames = new Set(templates.map((template) => template.name.trim().toLowerCase()));
+    const prebuilt = PREBUILT_TEMPLATES
+      .filter((template) => !savedNames.has(template.name.trim().toLowerCase()))
+      .map(createPrebuiltTemplate);
+
+    return [...templates, ...prebuilt];
+  }, [templates]);
+
   const filteredTemplates = useMemo(() => {
     const lowerQ = searchQuery.toLowerCase();
-    return templates.filter((template) => {
+    return visibleTemplates.filter((template) => {
       const category = template.category || "General";
       const matchesCategory = activeCategory === "All" || category === activeCategory;
       const matchesSearch = !lowerQ || template.name.toLowerCase().includes(lowerQ) || template.content.toLowerCase().includes(lowerQ);
       return matchesCategory && matchesSearch;
     });
-  }, [activeCategory, searchQuery, templates]);
+  }, [activeCategory, searchQuery, visibleTemplates]);
 
   const sortedTemplates = useMemo(() => {
     return [...filteredTemplates].sort((a, b) => a.name.localeCompare(b.name));
   }, [filteredTemplates]);
 
-  const selectedPreviewTemplate = previewTemplate || sortedTemplates[0] || templates[0] || null;
+  const selectedPreviewTemplate = previewTemplate || sortedTemplates[0] || visibleTemplates[0] || null;
 
   const filteredContacts = useMemo(() => {
     const query = contactQuery.trim().toLowerCase();
@@ -280,9 +261,9 @@ export const TemplatesTab: React.FC = () => {
       .slice(0, 8);
   }, [contactQuery, contacts]);
 
-  const handleOpenModal = (template?: Template) => {
+  const handleOpenModal = (template?: TemplateListItem) => {
     if (template) {
-      setEditingTemplate(template);
+      setEditingTemplate(template.isPrebuilt ? null : template);
       setFormData({ name: template.name, content: template.content, category: template.category || "General" });
     } else {
       setEditingTemplate(null);
@@ -340,35 +321,7 @@ export const TemplatesTab: React.FC = () => {
     }
   };
 
-  const handleLoadPrebuilt = async () => {
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      const existingNames = new Set(templates.map((template) => template.name.trim().toLowerCase()));
-      const missingTemplates = PREBUILT_TEMPLATES.filter((template) => !existingNames.has(template.name.trim().toLowerCase()));
-
-      if (missingTemplates.length === 0) {
-        setNotice("All pre-built templates are already loaded.");
-        setTimeout(() => setNotice(null), 2400);
-        return;
-      }
-
-      const created: Template[] = [];
-      for (const template of missingTemplates) {
-        created.push(await createTemplate(template.name, template.content, template.category || "General"));
-      }
-      setTemplates(prev => [...created, ...prev]);
-      setPreviewTemplate(created[0] || null);
-      setNotice(`${created.length} pre-built template${created.length === 1 ? "" : "s"} loaded.`);
-      setTimeout(() => setNotice(null), 2400);
-    } catch (err: any) {
-      setError(err.message || "Failed to load pre-built templates.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const openQuickSend = async (template: Template) => {
+  const openQuickSend = async (template: TemplateListItem) => {
     setQuickSendTemplate(template);
     setSelectedContact(null);
     setContactQuery("");
@@ -427,18 +380,10 @@ export const TemplatesTab: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-[20px] font-extrabold text-white tracking-tight">Templates</h2>
-                <p className="text-[12px] text-white/75">{templates.length} templates available</p>
+                <p className="text-[12px] text-white/75">{visibleTemplates.length} templates available</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleLoadPrebuilt}
-                disabled={isSubmitting}
-                className="group hidden sm:flex items-center justify-center gap-2 bg-white/15 text-white px-3 sm:px-4 py-2.5 rounded-2xl text-[13px] font-bold hover:bg-white/25 active:scale-95 transition-all duration-200 disabled:opacity-60"
-              >
-                {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : <FiPackage className="h-4 w-4" />}
-                <span>Load Pre-built</span>
-              </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -514,30 +459,30 @@ export const TemplatesTab: React.FC = () => {
               ) : sortedTemplates.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <div className="w-16 h-16 mb-4 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center">
-                    {templates.length === 0 ? <FiPackage className="h-8 w-8 text-gray-400" /> : <FiSearch className="h-8 w-8 text-gray-400" />}
+                    <FiSearch className="h-8 w-8 text-gray-400" />
                   </div>
                   <p className="text-[14px] text-gray-500 dark:text-gray-400 font-medium">
-                    {templates.length === 0 ? "No templates available" : "No templates match your filters"}
+                    {visibleTemplates.length === 0 ? "No templates available" : "No templates match your filters"}
                   </p>
-                  {templates.length === 0 && (
-                    <button
-                      onClick={handleLoadPrebuilt}
-                      disabled={isSubmitting}
-                      className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#2b83fa] px-4 py-2.5 text-[13px] font-bold text-white shadow-md shadow-blue-500/20 transition-all hover:bg-[#1d6bd4] disabled:opacity-60"
-                    >
-                      {isSubmitting ? <FiLoader className="h-4 w-4 animate-spin" /> : <FiPackage className="h-4 w-4" />}
-                      Load Pre-built Templates
-                    </button>
-                  )}
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {sortedTemplates.map((template) => (
+                  {sortedTemplates.map((template) => {
+                    const isSelected = selectedPreviewTemplate?.id === template.id;
+                    return (
                     <div
                       key={template.id}
+                      role="button"
+                      tabIndex={0}
                       onMouseEnter={() => setPreviewTemplate(template)}
                       onClick={() => setPreviewTemplate(template)}
-                      className="group flex items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white dark:bg-[#1a1b1e] border border-gray-100 dark:border-white/5 shadow-sm transition-all duration-200 hover:border-gray-200 dark:hover:border-white/10"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setPreviewTemplate(template);
+                        }
+                      }}
+                      className={`group flex cursor-pointer items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white dark:bg-[#1a1b1e] border shadow-sm transition-all duration-200 hover:border-[#2b83fa]/60 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 ${isSelected ? "border-[#2b83fa] shadow-md shadow-blue-500/10" : "border-gray-100 dark:border-white/5"}`}
                     >
                       <div className="w-9 sm:w-11 h-9 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center font-bold text-[13px] sm:text-[14px] flex-shrink-0 bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300">
                         {template.name.charAt(0).toUpperCase()}
@@ -548,6 +493,11 @@ export const TemplatesTab: React.FC = () => {
                           <span className="hidden sm:inline-flex rounded-full bg-[#eef6ff] dark:bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#2b83fa]">
                             {template.category || "General"}
                           </span>
+                          {template.isPrebuilt && (
+                            <span className="hidden sm:inline-flex rounded-full bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">
+                              Pre-built
+                            </span>
+                          )}
                         </div>
                         <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{template.content}</p>
                       </div>
@@ -586,24 +536,27 @@ export const TemplatesTab: React.FC = () => {
                               className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2"
                             >
                               <FiEdit2 className="w-4 h-4" />
-                              Edit
+                              {template.isPrebuilt ? "Customize" : "Edit"}
                             </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeleteConfirmId(template.id);
-                                setOpenMenuId(null);
-                              }}
-                              className="w-full px-3 py-2 text-left text-[13px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2"
-                            >
-                              <FiTrash2 className="w-4 h-4" />
-                              Delete
-                            </button>
+                            {!template.isPrebuilt && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteConfirmId(template.id);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-[13px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2"
+                              >
+                                <FiTrash2 className="w-4 h-4" />
+                                Delete
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
