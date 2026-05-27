@@ -822,8 +822,6 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
 
 
 // ─── Section: Notifications ─────────────────────────────────────────────────
-type NotificationToggleKey = "deliveryReports" | "lowBalanceAlert" | "marketingEmails" | "ghlWorkflowSyncEnabled";
-
 const resolveProfileEmail = (profile?: Partial<AccountProfile> | null): string =>
     profile?.email || profile?.email_address || "";
 
@@ -837,8 +835,17 @@ const NotificationsSection: React.FC = () => {
     const ghlLocationIdFromHook = useGhlLocation();
     const liveProfile = useUserProfileContext();
 
-    const toggle = (key: NotificationToggleKey) =>
-        setForm(prev => ({ ...prev, [key]: !prev[key] }));
+    const toggleLowBalanceEmail = () =>
+        setForm(prev => {
+            const enabled = !prev.lowBalanceAlert;
+            return {
+                ...prev,
+                lowBalanceAlert: enabled,
+                ghlWorkflowSyncEnabled: enabled,
+                deliveryReports: false,
+                marketingEmails: false,
+            };
+        });
 
     useEffect(() => {
         let cancelled = false;
@@ -883,7 +890,8 @@ const NotificationsSection: React.FC = () => {
         return () => { cancelled = true; };
     }, [ghlLocationIdFromHook, liveProfile]);
 
-    const missingWorkflowEmail = form.ghlWorkflowSyncEnabled && !registeredEmail.trim();
+    const lowBalanceEmailEnabled = form.lowBalanceAlert || form.ghlWorkflowSyncEnabled;
+    const missingWorkflowEmail = lowBalanceEmailEnabled && !registeredEmail.trim();
 
     const handleSave = async () => {
         if (missingWorkflowEmail) {
@@ -894,9 +902,23 @@ const NotificationsSection: React.FC = () => {
         setSaving(true);
         setError(null);
         try {
-            const payload = { ...form, alertEmail: registeredEmail };
+            const payload: NotificationSettings = {
+                ...form,
+                deliveryReports: false,
+                marketingEmails: false,
+                lowBalanceAlert: lowBalanceEmailEnabled,
+                ghlWorkflowSyncEnabled: lowBalanceEmailEnabled,
+                alertEmail: registeredEmail,
+            };
             const next = await saveNotificationSettingsRemote(payload);
-            const merged = { ...next, alertEmail: next.alertEmail || registeredEmail };
+            const merged = {
+                ...next,
+                deliveryReports: false,
+                marketingEmails: false,
+                lowBalanceAlert: payload.lowBalanceAlert,
+                ghlWorkflowSyncEnabled: payload.ghlWorkflowSyncEnabled,
+                alertEmail: next.alertEmail || registeredEmail,
+            };
             saveNotificationSettingsLocal(merged);
             setForm(merged);
             setSaved(true);
@@ -907,13 +929,6 @@ const NotificationsSection: React.FC = () => {
             setSaving(false);
         }
     };
-
-    const ROWS: { key: NotificationToggleKey; label: string; desc: string; icon: React.ReactNode }[] = [
-        { key: "deliveryReports", label: "SMS Delivery Reports", desc: "Get notified when messages are delivered or fail.", icon: <FiCheckCircle className="w-4 h-4" /> },
-        { key: "lowBalanceAlert", label: "Low Balance Alert", desc: "Alert when credit balance drops below threshold.", icon: <FiAlertCircle className="w-4 h-4" /> },
-        { key: "ghlWorkflowSyncEnabled", label: "GHL Workflow Email Alerts", desc: "Sync balance alerts to GHL so a workflow can email the registered account owner.", icon: <FiZap className="w-4 h-4" /> },
-        { key: "marketingEmails", label: "Marketing & Updates", desc: "Product news and feature announcements via email.", icon: <FiGlobe className="w-4 h-4" /> },
-    ];
 
     return (
         <div className="space-y-5">
@@ -928,20 +943,18 @@ const NotificationsSection: React.FC = () => {
 
             <Card>
                 <div className="divide-y divide-[#f0f0f0] dark:divide-[#2a2b32]">
-                    {ROWS.map(row => (
-                        <div key={row.key} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
-                            <div className="flex items-start gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa] flex-shrink-0 mt-0.5">
-                                    {row.icon}
-                                </div>
-                                <div>
-                                    <p className="text-[14px] font-semibold text-[#111111] dark:text-[#ececf1]">{row.label}</p>
-                                    <p className="text-[12px] text-[#9aa0a6]">{row.desc}</p>
-                                </div>
+                    <div className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                        <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa] flex-shrink-0 mt-0.5">
+                                <FiZap className="w-4 h-4" />
                             </div>
-                            <Toggle checked={Boolean(form[row.key])} onChange={() => toggle(row.key)} id={`toggle-${row.key}`} />
+                            <div>
+                                <p className="text-[14px] font-semibold text-[#111111] dark:text-[#ececf1]">Low Balance Email Alert</p>
+                                <p className="text-[12px] text-[#9aa0a6]">Email the registered account owner through a GHL workflow when credits drop below the threshold.</p>
+                            </div>
                         </div>
-                    ))}
+                        <Toggle checked={lowBalanceEmailEnabled} onChange={toggleLowBalanceEmail} id="toggle-low-balance-email" />
+                    </div>
                 </div>
             </Card>
 
@@ -968,7 +981,7 @@ const NotificationsSection: React.FC = () => {
                 )}
             </Card>
 
-            {form.lowBalanceAlert && (
+            {lowBalanceEmailEnabled && (
                 <Card>
                     <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] mb-4 uppercase tracking-wider">Low Balance Threshold</h3>
                     <div className="flex items-center gap-4">

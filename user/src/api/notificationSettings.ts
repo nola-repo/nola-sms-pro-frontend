@@ -95,7 +95,14 @@ export const saveNotificationSettings = async (data: NotificationSettings): Prom
       throw new Error(error.message || "Failed to save notification settings.");
     }
 
-    const normalized = normalizeSettings(await res.json());
+    const normalized = {
+      ...data,
+      ...normalizeSettings(await res.json()),
+      deliveryReports: data.deliveryReports,
+      marketingEmails: data.marketingEmails,
+      lowBalanceAlert: data.lowBalanceAlert,
+      ghlWorkflowSyncEnabled: data.ghlWorkflowSyncEnabled,
+    };
     saveLocalNotificationSettings(normalized);
     return normalized;
   } catch (error) {
