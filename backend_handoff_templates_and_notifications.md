@@ -1,5 +1,7 @@
 # Backend Handoff - Backend Scan Follow-up for Templates and GHL Low Balance Emails
 
+> Superseded for low-balance email delivery: use `backend_handoff_central_ghl_low_balance.md` for the current free central NOLA CRM workflow approach. Keep this file only for historical context and template/category notes.
+
 Date: 2026-05-27
 
 Backend scanned: `C:\Users\User\nola-sms-pro-backend`

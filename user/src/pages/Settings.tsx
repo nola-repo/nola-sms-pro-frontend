@@ -895,7 +895,7 @@ const NotificationsSection: React.FC = () => {
 
     const handleSave = async () => {
         if (missingWorkflowEmail) {
-            setError("Add a registered email in Account Details before enabling GHL workflow email alerts.");
+            setError("Add a registered email in Account Details before enabling low balance email alerts.");
             return;
         }
 
@@ -950,7 +950,7 @@ const NotificationsSection: React.FC = () => {
                             </div>
                             <div>
                                 <p className="text-[14px] font-semibold text-[#111111] dark:text-[#ececf1]">Low Balance Email Alert</p>
-                                <p className="text-[12px] text-[#9aa0a6]">Email the registered account owner through a GHL workflow when credits drop below the threshold.</p>
+                                <p className="text-[12px] text-[#9aa0a6]">Email the registered account owner when credits drop below the threshold.</p>
                             </div>
                         </div>
                         <Toggle checked={lowBalanceEmailEnabled} onChange={toggleLowBalanceEmail} id="toggle-low-balance-email" />
@@ -965,8 +965,8 @@ const NotificationsSection: React.FC = () => {
                             <FiBell className="w-4 h-4" />
                         </div>
                         <div>
-                            <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider">Workflow Email Recipient</h3>
-                            <p className="text-[12px] text-[#9aa0a6] mt-1">GHL workflow emails are sent to the registered email in Account Details.</p>
+                            <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider">Email Recipient</h3>
+                            <p className="text-[12px] text-[#9aa0a6] mt-1">Low balance emails are sent to the registered email in Account Details.</p>
                         </div>
                     </div>
                     <div className={`px-3 py-2 rounded-xl border text-[13px] font-semibold ${registeredEmail ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300" : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300"}`}>
@@ -976,7 +976,7 @@ const NotificationsSection: React.FC = () => {
                 {missingWorkflowEmail && (
                     <div className="mt-4 flex items-start gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30">
                         <FiAlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                        <p className="text-[12px] text-amber-700 dark:text-amber-400">Add and save an email in Account Details before enabling GHL workflow email alerts.</p>
+                        <p className="text-[12px] text-amber-700 dark:text-amber-400">Add and save an email in Account Details before enabling low balance email alerts.</p>
                     </div>
                 )}
             </Card>
