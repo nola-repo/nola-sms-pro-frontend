@@ -14,6 +14,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 import { safeStorage } from '../utils/safeStorage';
+import { getSession, clearAuthSession, saveSession } from '../services/authService';
 
 interface LocationContextValue {
   locationId: string;
@@ -174,6 +175,68 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     window.addEventListener('ghl-location-set', handleManual);
     return () => window.removeEventListener('ghl-location-set', handleManual);
   }, [setLocationId]);
+
+  const autoLoginInFlightRef = React.useRef(false);
+
+  // ── Source 4: Silent Sub-Account Auto-Login (Option A) ──────────────────────
+  useEffect(() => {
+    const session = getSession();
+    const hasLocationId = !!locationId && locationId.length > 4;
+
+    const isUnauthenticated = !session;
+    const isMismatch = session && session.role !== 'agency' && session.locationId !== locationId;
+
+    if (hasLocationId && (isUnauthenticated || isMismatch)) {
+      if (autoLoginInFlightRef.current) return;
+      autoLoginInFlightRef.current = true;
+
+      console.log(
+        `[LocationContext] Triggering silent auto-login for location: ${locationId}. Reason: ${
+          isUnauthenticated ? 'Unauthenticated' : 'Session mismatch'
+        }`
+      );
+
+      fetch('/api/auth/ghl_autologin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location_id: locationId }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            if (data.token) {
+              console.log(`[LocationContext] Silent auto-login succeeded for ${locationId}. Saving session and reloading.`);
+              clearAuthSession();
+              saveSession(data);
+              window.location.reload();
+              return;
+            }
+          }
+
+          console.warn(`[LocationContext] Silent auto-login failed for location ${locationId}. Status: ${res.status}`);
+          autoLoginInFlightRef.current = false;
+
+          if (isMismatch) {
+            clearAuthSession();
+            const searchParams = new URLSearchParams(window.location.search);
+            searchParams.set('location_id', locationId);
+            searchParams.set('locationId', locationId);
+            window.location.href = `/login?${searchParams.toString()}`;
+          }
+        })
+        .catch((err) => {
+          console.error('[LocationContext] Silent auto-login error:', err);
+          autoLoginInFlightRef.current = false;
+          if (isMismatch) {
+            clearAuthSession();
+            const searchParams = new URLSearchParams(window.location.search);
+            searchParams.set('location_id', locationId);
+            searchParams.set('locationId', locationId);
+            window.location.href = `/login?${searchParams.toString()}`;
+          }
+        });
+    }
+  }, [locationId]);
 
   return (
     <LocationContext.Provider value={{ locationId, setLocationId }}>
