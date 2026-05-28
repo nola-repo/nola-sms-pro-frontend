@@ -4,16 +4,12 @@
  * Provides the current GHL location_id as React state so all child components
  * re-render automatically whenever the subaccount changes. This is the single
  * source of truth for location_id across the entire user panel.
- *
- * Detection sources (in priority order):
- *  1. URL query/hash params (e.g. ?location_id=xxx) — GHL iframe direct load
- *  2. postMessage from GHL parent frame — fires when GHL switches subaccounts
- *  3. localStorage via getAccountSettings() — persisted fallback
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 import { safeStorage } from '../utils/safeStorage';
+import { getSession, clearAuthSession } from '../services/authService';
 
 interface LocationContextValue {
   locationId: string;
@@ -27,8 +23,6 @@ const LocationContext = createContext<LocationContextValue>({
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useLocationId = () => useContext(LocationContext);
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function extractLocationFromUrl(): string | null {
   const keys = ['location_id', 'locationId', 'location', 'id'];
@@ -174,6 +168,28 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     window.addEventListener('ghl-location-set', handleManual);
     return () => window.removeEventListener('ghl-location-set', handleManual);
   }, [setLocationId]);
+
+  // ── Source 4: Session Location Mismatch Check ─────────────────────────────
+  useEffect(() => {
+    const session = getSession();
+    if (
+      session &&
+      session.role !== 'agency' &&
+      session.locationId &&
+      locationId &&
+      session.locationId !== locationId
+    ) {
+      console.warn(
+        `[LocationContext] Sub-account mismatch detected! Session is for: ${session.locationId}, but loaded: ${locationId}. Clearing session and redirecting.`
+      );
+      clearAuthSession();
+
+      const searchParams = new URLSearchParams(window.location.search);
+      searchParams.set('location_id', locationId);
+      searchParams.set('locationId', locationId);
+      window.location.href = `/login?${searchParams.toString()}`;
+    }
+  }, [locationId]);
 
   return (
     <LocationContext.Provider value={{ locationId, setLocationId }}>
