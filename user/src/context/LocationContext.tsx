@@ -5,18 +5,15 @@
  * re-render automatically whenever the subaccount changes. This is the single
  * source of truth for location_id across the entire user panel.
  *
- * GHL Iframe Auto-Login:
- * When a location mismatch is detected (user navigates to a different GHL
- * sub-account), the context automatically calls POST /api/auth/ghl_autologin
- * with the new locationId. If a NOLA account is linked to that sub-account, a
- * new session is issued silently and the page reloads — no login screen shown.
- * Only if no account is linked (404) does it fall back to /login.
+ * Detection sources (in priority order):
+ *  1. URL query/hash params (e.g. ?location_id=xxx) — GHL iframe direct load
+ *  2. postMessage from GHL parent frame — fires when GHL switches subaccounts
+ *  3. localStorage via getAccountSettings() — persisted fallback
  */
 
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 import { safeStorage } from '../utils/safeStorage';
-import { getSession, clearAuthSession, saveSession, LoginResponse } from '../services/authService';
 
 interface LocationContextValue {
   locationId: string;
@@ -30,6 +27,8 @@ const LocationContext = createContext<LocationContextValue>({
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const useLocationId = () => useContext(LocationContext);
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function extractLocationFromUrl(): string | null {
   const keys = ['location_id', 'locationId', 'location', 'id'];
@@ -176,74 +175,9 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => window.removeEventListener('ghl-location-set', handleManual);
   }, [setLocationId]);
 
-  // ── Source 4: GHL Sub-Account Auto-Login on Location Mismatch ───────────
-  // Uses a ref to prevent concurrent auto-login calls when locationId fires rapidly.
-  const autoLoginInFlightRef = useRef(false);
-
-  useEffect(() => {
-    const session = getSession();
-    if (
-      !session ||
-      session.role === 'agency' ||
-      !session.locationId ||
-      !locationId ||
-      session.locationId === locationId
-    ) {
-      return; // No mismatch — nothing to do
-    }
-
-    if (autoLoginInFlightRef.current) {
-      return; // Already attempting auto-login
-    }
-
-    autoLoginInFlightRef.current = true;
-    console.info(
-      `[LocationContext] Sub-account switch detected: session=${session.locationId}, iframe=${locationId}. Attempting auto-login…`
-    );
-
-    (async () => {
-      try {
-        const res = await fetch('/api/auth/ghl_autologin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ location_id: locationId }),
-        });
-
-        const json = await res.json();
-
-        if (res.ok && json.token) {
-          // Auto-login succeeded — save the new session and reload
-          console.info(
-            `[LocationContext] Auto-login OK for location_id=${locationId}. Reloading…`
-          );
-          clearAuthSession();
-          saveSession(json as LoginResponse);
-          // Reload so all components start fresh with the new session
-          window.location.reload();
-          return;
-        }
-
-        // 404 → no NOLA account linked yet; redirect to login/register
-        console.warn(
-          `[LocationContext] Auto-login failed (${res.status}): ${json.error ?? 'unknown'}. Redirecting to login.`
-        );
-        clearAuthSession();
-        const searchParams = new URLSearchParams(window.location.search);
-        searchParams.set('location_id', locationId);
-        searchParams.set('locationId', locationId);
-        window.location.href = `/login?${searchParams.toString()}`;
-
-      } catch (err) {
-        console.error('[LocationContext] Auto-login network error:', err);
-        autoLoginInFlightRef.current = false;
-      }
-    })();
-  }, [locationId]);
-
   return (
     <LocationContext.Provider value={{ locationId, setLocationId }}>
       {children}
     </LocationContext.Provider>
   );
 };
-
