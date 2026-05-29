@@ -162,20 +162,24 @@ export const Composer: React.FC<ComposerProps> = ({
       
       const preferred = getPreferredSender();
       
-      if (cfg.approved_sender_id) {
-        setApprovedSenderId(cfg.approved_sender_id);
-      }
+      setApprovedSenderId(cfg.approved_sender_id || undefined);
       
       if (cfg.toggle_enabled !== undefined) {
         setToggleEnabled(cfg.toggle_enabled);
       }
       
-      if (preferred) {
+      const systemSender = cfg.system_default_sender || "NOLASMSPro";
+      const preferredIsValid = preferred === systemSender || preferred === cfg.approved_sender_id;
+
+      if (preferred && preferredIsValid) {
         setSenderName(preferred);
       } else if (cfg.approved_sender_id) {
         setSenderName(cfg.approved_sender_id);
-      } else if (cfg.system_default_sender) {
-        setSenderName(cfg.system_default_sender);
+      } else {
+        setSenderName(systemSender);
+        if (preferred && !preferredIsValid) {
+          savePreferredSender(systemSender);
+        }
       }
     });
     return () => { cancelled = true; };

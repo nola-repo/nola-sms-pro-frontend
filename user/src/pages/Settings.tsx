@@ -6,7 +6,7 @@ import {
     FiSave, FiPlus, FiCheck,
     FiGlobe, FiMapPin, FiBriefcase, FiCheckCircle, FiAlertCircle, FiClock,
     FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown, FiDownload,
-    FiCopy, FiExternalLink, FiSettings
+    FiCopy, FiExternalLink, FiSettings, FiShieldOff
 } from "react-icons/fi";
 import { generateMonthlyReport } from "../utils/pdfGenerator";
 import {
@@ -62,6 +62,7 @@ const STATUS_CONFIG = {
     approved: { label: "Approved", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20", icon: <FiCheck className="w-3 h-3" /> },
     pending: { label: "Pending", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20", icon: <FiClock className="w-3 h-3" /> },
     rejected: { label: "Rejected", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20", icon: <FiAlertCircle className="w-3 h-3" /> },
+    revoked: { label: "Revoked", color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-white/10", icon: <FiShieldOff className="w-3 h-3" /> },
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -655,6 +656,15 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                     saveStoredSenderIds(synced);
                 }
             }
+
+            const systemSender = cfg?.system_default_sender || "NOLASMSPro";
+            const validPreferredSenders = new Set<string>([systemSender]);
+            if (cfg?.approved_sender_id) validPreferredSenders.add(cfg.approved_sender_id);
+            const currentPreferred = getPreferredSender();
+            if (currentPreferred && !validPreferredSenders.has(currentPreferred)) {
+                savePreferredSender(systemSender);
+                setPreferredSender(systemSender);
+            }
         });
 
         return () => { cancelled = true; };
@@ -665,7 +675,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
     const freeLimit = 10;
 
     // Build display list: system default + API-fetched requests
-    const displayItems: { id: string; name: string; description: string; status: "approved" | "pending" | "rejected"; color: string; isSystem: boolean }[] = [
+    const displayItems: { id: string; name: string; description: string; status: "approved" | "pending" | "rejected" | "revoked"; color: string; isSystem: boolean; submittedAt?: string; adminNotes?: string; sampleMessage?: string }[] = [
         { id: "system-default", name: systemDefault, description: "System Default (Free Tier)", status: "approved", color: "bg-blue-500", isSystem: true },
     ];
 
@@ -684,15 +694,23 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
     // Add pending/rejected requests
     for (const req of senderRequests) {
         if (req.status === "approved" && config?.approved_sender_id === req.requested_id) continue;
+        const displayStatus = req.status === "approved" && config?.approved_sender_id !== req.requested_id ? "revoked" : req.status;
         displayItems.push({
             id: req.id,
             name: req.requested_id,
-            description: req.purpose || "Sender ID Request",
-            status: req.status,
-            color: req.status === "pending" ? "bg-amber-500" : req.status === "rejected" ? "bg-red-500" : "bg-emerald-500",
+            description: displayStatus === "revoked" ? "Previously approved, not currently active." : req.purpose || "Sender ID Request",
+            status: displayStatus,
+            color: displayStatus === "pending" ? "bg-amber-500" : displayStatus === "rejected" ? "bg-red-500" : displayStatus === "revoked" ? "bg-slate-500" : "bg-emerald-500",
             isSystem: false,
+            submittedAt: req.created_at,
+            adminNotes: req.admin_notes,
+            sampleMessage: req.sample_message,
         });
     }
+
+    const pendingCount = senderRequests.filter(req => req.status === "pending").length;
+    const rejectedCount = senderRequests.filter(req => req.status === "rejected").length;
+    const revokedCount = senderRequests.filter(req => req.status === "revoked").length;
 
     const handleSuccess = (newSender?: StoredSenderId) => {
         if (newSender) {
@@ -719,10 +737,29 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
         <div className="space-y-5">
             <SectionHeader title="Sender IDs" subtitle="Manage and request sender IDs for your account. Only approved IDs can be used for sending." />
 
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Active</p>
+                    <p className="text-[20px] font-black text-[#111111] dark:text-white mt-1">{displayItems.filter(item => item.status === "approved").length}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Pending Review</p>
+                    <p className="text-[20px] font-black text-[#111111] dark:text-white mt-1">{pendingCount}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800/30">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400">Needs Changes</p>
+                    <p className="text-[20px] font-black text-[#111111] dark:text-white mt-1">{rejectedCount}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">Revoked</p>
+                    <p className="text-[20px] font-black text-[#111111] dark:text-white mt-1">{revokedCount}</p>
+                </div>
+            </div>
+
             {/* Sender IDs List */}
             <Card>
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider">Active Sender IDs</h3>
+                    <h3 className="text-[13px] font-bold text-[#37352f] dark:text-[#ececf1] uppercase tracking-wider">Sender ID Status</h3>
                     <button
                         onClick={() => setIsAdding(true)}
                         className="flex items-center gap-1.5 px-3 py-2 text-[12px] font-bold text-[#2b83fa] bg-gradient-to-r from-[#2b83fa]/10 to-[#2b83fa]/5 hover:from-[#2b83fa]/20 hover:to-[#2b83fa]/10 hover:shadow-[0_4px_12px_rgba(43,131,250,0.2)] rounded-xl transition-all"
@@ -778,7 +815,18 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                                                 </span>
                                             )}
                                         </div>
-                                        <span className="text-[11px] text-[#9aa0a6]">{sid.description}</span>
+                                        <div className="space-y-1">
+                                            <p className="text-[11px] text-[#9aa0a6] leading-snug">{sid.description}</p>
+                                            {sid.submittedAt && (
+                                                <p className="text-[10px] text-[#9aa0a6] font-medium">Submitted {sid.submittedAt}</p>
+                                            )}
+                                            {sid.status === "rejected" && sid.adminNotes && (
+                                                <p className="text-[11px] text-red-600 dark:text-red-400 font-medium leading-snug">Admin note: {sid.adminNotes}</p>
+                                            )}
+                                            {sid.status === "revoked" && (
+                                                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium leading-snug">This sender was removed and messages now use your default sender.</p>
+                                            )}
+                                        </div>
                                     </div>
                                     
                                     {/* Action Button */}

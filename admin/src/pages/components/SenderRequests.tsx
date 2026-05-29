@@ -35,9 +35,10 @@ export const AdminSenderRequests: React.FC = () => {
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [showInputKey, setShowInputKey] = useState(false);
-    const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+    const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'revoked'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    const [revokeConfirmId, setRevokeConfirmId] = useState<string | null>(null);
     const { toasts, showToast, dismissToast } = useToast();
 
     const [currentPage, setCurrentPage] = useState(1);
@@ -113,6 +114,14 @@ export const AdminSenderRequests: React.FC = () => {
         }
     };
 
+    const openRequest = (requestId: string) => {
+        const request = requests.find(r => r.id === requestId);
+        setExpandedId(requestId);
+        setRejectNote(request?.admin_notes || '');
+        setApiKeyInput('');
+        setShowInputKey(false);
+    };
+
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
@@ -160,6 +169,7 @@ export const AdminSenderRequests: React.FC = () => {
                     { id: 'pending', label: 'Pending', icon: <FiClock size={12} />, color: 'amber' },
                     { id: 'approved', label: 'Approved', icon: <FiCheck size={12} />, color: 'emerald' },
                     { id: 'rejected', label: 'Rejected', icon: <FiX size={12} />, color: 'red' },
+                    { id: 'revoked', label: 'Revoked', icon: <FiShieldOff size={12} />, color: 'slate' },
                 ].map(pill => {
                     const isActive = filter === pill.id;
                     const count = pill.id === 'all' ? requests.length : requests.filter(r => r.status === pill.id).length;
@@ -169,6 +179,7 @@ export const AdminSenderRequests: React.FC = () => {
                         amber: { active: 'bg-amber-500 text-white shadow-amber-500/25', inactive: 'bg-amber-50/50 dark:bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/10 hover:bg-amber-100/50' },
                         emerald: { active: 'bg-emerald-600 text-white shadow-emerald-500/25', inactive: 'bg-emerald-50/50 dark:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/10 hover:bg-emerald-100/50' },
                         red: { active: 'bg-red-600 text-white shadow-red-500/25', inactive: 'bg-red-50/50 dark:bg-red-500/5 text-red-600 dark:text-red-400 border-red-100 dark:border-red-500/10 hover:bg-red-100/50' },
+                        slate: { active: 'bg-slate-700 text-white shadow-slate-500/25', inactive: 'bg-slate-100/80 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:bg-slate-200/70' },
                     };
 
                     const theme = colorMap[pill.color];
@@ -244,7 +255,7 @@ export const AdminSenderRequests: React.FC = () => {
                                             {/* Row Header */}
                                             <div
                                                 className="flex items-center gap-4 px-4 py-3 bg-[#fafafa] dark:bg-[#111214] cursor-pointer hover:bg-[#f0f0f0] dark:hover:bg-[#161718] transition-colors"
-                                                onClick={() => setExpandedId(req.id)}
+                                                onClick={() => openRequest(req.id)}
                                             >
                                                 <div className="flex items-center gap-3.5 flex-1 min-w-0">
                                                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] shadow-sm flex items-center justify-center text-[12px] font-black text-white flex-shrink-0 font-mono tracking-tighter">
@@ -279,7 +290,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                         </span>
                                                     )}
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); setExpandedId(req.id); }}
+                                                        onClick={(e) => { e.stopPropagation(); openRequest(req.id); }}
                                                         className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-black/5 dark:hover:bg-white/5 transition-all"
                                                         title="View Details"
                                                     >
@@ -287,7 +298,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                     </button>
                                                     {req.status === 'approved' && (
                                                         <button
-                                                            onClick={(e) => { e.stopPropagation(); if (confirm('Are you sure you want to revoke this approved sender? This will clear it from the account immediately.')) doAction('revoked', req.id); }}
+                                                            onClick={(e) => { e.stopPropagation(); setRevokeConfirmId(req.id); }}
                                                             className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-all"
                                                             title="Revoke Sender"
                                                         >
@@ -357,12 +368,17 @@ export const AdminSenderRequests: React.FC = () => {
             {/* Sender Request Modal */}
             {expandedId && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-4xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         {(() => {
                             const req = requests.find(r => r.id === expandedId);
                             if (!req) return null;
                             const isActing = actionLoading?.startsWith(req.id);
                             const associatedAccount = accounts.find(a => a.location_id === req.location_id);
+                            const activeSender = associatedAccount?.approved_sender_id;
+                            const isFormatValid = /^[a-zA-Z0-9]{3,11}$/.test(req.requested_id || '');
+                            const sameNameRequests = requests.filter(r => r.id !== req.id && (r.requested_id || '').toLowerCase() === (req.requested_id || '').toLowerCase());
+                            const approvalReady = isFormatValid && apiKeyInput.trim().length > 0;
+                            const rejectionReady = rejectNote.trim().length >= 8;
                             
                             return (
                                 <>
@@ -376,6 +392,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                 <p className="text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] mt-1 uppercase tracking-wide">
                                                     {associatedAccount?.location_name || req.location_name || 'Unknown Account'}
                                                 </p>
+                                                <p className="text-[11px] text-[#9aa0a6] mt-1">Review request details, then approve with an API key or reject with a customer-facing reason.</p>
                                             </div>
                                         </div>
                                         <button onClick={() => { setExpandedId(null); setShowInputKey(false); }} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
@@ -383,7 +400,7 @@ export const AdminSenderRequests: React.FC = () => {
                                         </button>
                                     </div>
 
-                                    <div className="space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
+                                    <div className="space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar pr-2">
                                         {/* Status & Highlights Banner */}
                                         <div className="grid grid-cols-2 gap-px bg-[#e5e5e5] dark:bg-white/10 rounded-xl overflow-hidden border border-[#e5e5e5] dark:border-white/5">
                                             <div className="bg-[#f7f7f7] dark:bg-[#111214] p-4 flex flex-col">
@@ -452,68 +469,111 @@ export const AdminSenderRequests: React.FC = () => {
                                                     <p className="text-[13px] text-[#111111] dark:text-white italic bg-white dark:bg-[#1a1b1e] p-3 rounded-lg border border-[#e5e5e5] dark:border-white/5">"{req.sample_message}"</p>
                                                 </div>
                                             )}
+
+                                            {req.admin_notes && (
+                                                <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
+                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Admin Note</p>
+                                                    <p className="text-[13px] text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/10 p-3 rounded-lg border border-red-100 dark:border-red-800/30">{req.admin_notes}</p>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* ── Pending: Approve & Activate / Reject ── */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            <div className={`p-3 rounded-xl border ${isFormatValid ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/30' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800/30'}`}>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-[#6e6e73] dark:text-[#9aa0a6]">Format</p>
+                                                <p className={`text-[12px] font-black mt-1 ${isFormatValid ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>{isFormatValid ? 'Valid' : 'Needs Review'}</p>
+                                            </div>
+                                            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30">
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-[#6e6e73] dark:text-[#9aa0a6]">Current Sender</p>
+                                                <p className="text-[12px] font-black mt-1 text-blue-700 dark:text-blue-400 truncate">{activeSender || 'None'}</p>
+                                            </div>
+                                            <div className={`p-3 rounded-xl border ${sameNameRequests.length ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800/30' : 'bg-[#f7f7f7] dark:bg-[#111214] border-[#e5e5e5] dark:border-white/5'}`}>
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-[#6e6e73] dark:text-[#9aa0a6]">Other Requests</p>
+                                                <p className={`text-[12px] font-black mt-1 ${sameNameRequests.length ? 'text-amber-700 dark:text-amber-400' : 'text-[#111111] dark:text-white'}`}>{sameNameRequests.length}</p>
+                                            </div>
+                                        </div>
+
                                         {req.status === 'pending' && (
                                             <div className="space-y-4 pt-4 border-t border-[#e5e5e5] dark:border-white/5">
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <div className="h-6 w-1 bg-[#2b83fa] rounded-full"></div>
-                                                    <h4 className="text-[12px] font-black text-[#111111] dark:text-white uppercase tracking-wider">Admin Review Action</h4>
+                                                    <h4 className="text-[12px] font-black text-[#111111] dark:text-white uppercase tracking-wider">Decision Center</h4>
                                                 </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                    {/* API Key for Approval */}
-                                                    <div>
-                                                    <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Semaphore API Key</label>
-                                                    <div className="relative">
-                                                        <input
-                                                            type={showInputKey ? "text" : "password"}
-                                                            value={apiKeyInput}
-                                                            onChange={e => setApiKeyInput(e.target.value)}
-                                                            placeholder="Enter Semaphore API Key..."
-                                                            className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
-                                                        />
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => setShowInputKey(!showInputKey)}
-                                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                    <div className={`rounded-xl border p-4 ${approvalReady ? 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-800/30 dark:bg-emerald-900/10' : 'border-[#e5e5e5] bg-[#f7f7f7] dark:border-white/10 dark:bg-[#111214]'}`}>
+                                                        <div className="flex items-start gap-3 mb-4">
+                                                            <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                                                                <FiCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                                            </div>
+                                                            <div>
+                                                                <h5 className="text-[13px] font-black text-[#111111] dark:text-white">Approve & Activate</h5>
+                                                                <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] leading-snug mt-1">Adds this Sender ID to the account, stores the API key, revokes older active sender requests, and sends the approval email.</p>
+                                                            </div>
+                                                        </div>
+
+                                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Semaphore API Key</label>
+                                                        <div className="relative">
+                                                            <input
+                                                                type={showInputKey ? "text" : "password"}
+                                                                value={apiKeyInput}
+                                                                onChange={e => setApiKeyInput(e.target.value)}
+                                                                placeholder="Paste API key before approving"
+                                                                className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl bg-white dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 transition-shadow font-mono"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setShowInputKey(!showInputKey)}
+                                                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                                            >
+                                                                {showInputKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                                                            </button>
+                                                        </div>
+                                                        {!isFormatValid && (
+                                                            <p className="mt-2 text-[11px] font-medium text-red-600 dark:text-red-400">Fix the sender format before approving.</p>
+                                                        )}
+                                                        <button
+                                                            disabled={!approvalReady || !!isActing}
+                                                            onClick={() => doAction('approved', req.id, { api_key: apiKeyInput.trim() })}
+                                                            className="mt-4 flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
                                                         >
-                                                            {showInputKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                                                            <FiCheck className="w-4 h-4" />
+                                                            <span>{isActing ? 'Working...' : 'Approve & Notify'}</span>
                                                         </button>
                                                     </div>
-                                                </div>
 
-                                                    {/* Optional Rejection Note */}
-                                                    <div>
-                                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Rejection Note (Optional)</label>
+                                                    <div className={`rounded-xl border p-4 ${rejectionReady ? 'border-red-200 bg-red-50/70 dark:border-red-800/30 dark:bg-red-900/10' : 'border-[#e5e5e5] bg-[#f7f7f7] dark:border-white/10 dark:bg-[#111214]'}`}>
+                                                        <div className="flex items-start gap-3 mb-4">
+                                                            <div className="w-9 h-9 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                                                                <FiX className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                                            </div>
+                                                            <div>
+                                                                <h5 className="text-[13px] font-black text-[#111111] dark:text-white">Reject With Reason</h5>
+                                                                <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] leading-snug mt-1">Saves the note to the request and includes it in the customer rejection email.</p>
+                                                            </div>
+                                                        </div>
+
+                                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Customer-Facing Reason</label>
                                                         <textarea
                                                             value={rejectNote}
                                                             onChange={e => setRejectNote(e.target.value)}
-                                                            rows={2}
-                                                            placeholder="Reason for rejection..."
-                                                            className="w-full px-4 py-2.5 text-[12px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow h-[40px]"
+                                                            rows={4}
+                                                            placeholder="Example: Sender name must match your registered business or brand more clearly."
+                                                            className="w-full px-4 py-3 text-[12px] rounded-xl bg-white dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow"
                                                         />
+                                                        <div className="mt-2 flex items-center justify-between">
+                                                            <p className="text-[11px] text-[#9aa0a6]">Minimum 8 characters.</p>
+                                                            <p className={`text-[11px] font-bold ${rejectionReady ? 'text-red-600 dark:text-red-400' : 'text-[#9aa0a6]'}`}>{rejectNote.trim().length}/8</p>
+                                                        </div>
+                                                        <button
+                                                            disabled={!rejectionReady || !!isActing}
+                                                            onClick={() => doAction('rejected', req.id, { note: rejectNote.trim(), rejection_note: rejectNote.trim() })}
+                                                            className="mt-4 flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[13px] font-bold bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/10 dark:hover:bg-red-900/20 dark:text-red-400 border border-red-200 dark:border-red-800/30 transition-all disabled:opacity-50"
+                                                        >
+                                                            <FiX className="w-4 h-4" />
+                                                            <span>{isActing ? 'Working...' : 'Reject & Notify'}</span>
+                                                        </button>
                                                     </div>
-                                                </div>
-
-                                                {/* Action Buttons - Equal Size */}
-                                                <div className="grid grid-cols-2 gap-3 pt-2">
-                                                    <button
-                                                        disabled={!apiKeyInput.trim() || !!isActing}
-                                                        onClick={() => doAction('approved', req.id, { api_key: apiKeyInput.trim() })}
-                                                        className="flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
-                                                    >
-                                                        <FiCheck className="w-4 h-4" />
-                                                        <span>Approve</span>
-                                                    </button>
-                                                    <button
-                                                        disabled={!!isActing}
-                                                        onClick={() => doAction('rejected', req.id, { rejection_note: rejectNote })}
-                                                        className="flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/10 dark:hover:bg-red-900/20 dark:text-red-400 border border-red-200 dark:border-red-800/30 transition-all disabled:opacity-50"
-                                                    >
-                                                        <FiX className="w-4 h-4" />
-                                                        <span>Reject</span>
-                                                    </button>
                                                 </div>
                                             </div>
                                         )}
@@ -531,7 +591,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                 </div>
                                                 <button
                                                     disabled={!!isActing}
-                                                    onClick={() => { if (confirm('Revoke this approved sender?')) doAction('revoked', req.id); }}
+                                                    onClick={() => setRevokeConfirmId(req.id)}
                                                     className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[13px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 dark:text-amber-400 dark:bg-amber-900/10 dark:hover:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 transition-all"
                                                 >
                                                     <FiShieldOff className="w-4 h-4" />
@@ -540,10 +600,55 @@ export const AdminSenderRequests: React.FC = () => {
                                             </div>
                                         )}
 
+                                        {req.status === 'revoked' && (
+                                            <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                                                <div className="w-8 h-8 rounded-full bg-white dark:bg-[#111214] flex items-center justify-center flex-shrink-0">
+                                                    <FiShieldOff className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                                                </div>
+                                                <p className="text-[13px] text-slate-700 dark:text-slate-300 font-medium leading-snug">
+                                                    Sender ID was revoked. The customer will fall back to the system sender unless another sender is approved.
+                                                </p>
+                                            </div>
+                                        )}
+
                                     </div>
                                 </>
                             );
                         })()}
+                    </div>
+                </div>
+            )}
+
+            {/* Revoke Confirmation Modal */}
+            {revokeConfirmId && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-900/10 flex items-center justify-center mb-4">
+                                <FiShieldOff className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                            </div>
+                            <h3 className="text-[18px] font-bold text-[#111111] dark:text-white mb-2">Revoke Sender ID</h3>
+                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-6 leading-relaxed">
+                                This removes the sender from the customer's active sending options and switches them back to the system sender. The request history stays visible as revoked.
+                            </p>
+                            <div className="flex w-full gap-3">
+                                <button
+                                    onClick={() => setRevokeConfirmId(null)}
+                                    className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-[#6e6e73] bg-[#f7f7f7] hover:bg-[#e5e5e5] dark:text-[#9aa0a6] dark:bg-white/5 dark:hover:bg-white/10 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        doAction('revoked', revokeConfirmId);
+                                        setRevokeConfirmId(null);
+                                    }}
+                                    className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white bg-amber-600 hover:bg-amber-700 transition-colors shadow-sm"
+                                >
+                                    Revoke
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -558,7 +663,7 @@ export const AdminSenderRequests: React.FC = () => {
                             </div>
                             <h3 className="text-[18px] font-bold text-[#111111] dark:text-white mb-2">Delete Request</h3>
                             <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-6">
-                                Are you sure you want to delete this sender request? This action cannot be undone.
+                                This removes the request record. If this sender is active on the customer account, it will also be cleared.
                             </p>
                             <div className="flex w-full gap-3">
                                 <button

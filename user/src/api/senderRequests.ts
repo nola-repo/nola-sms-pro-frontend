@@ -6,9 +6,10 @@ export interface SenderRequest {
     id: string;
     location_id: string;
     requested_id: string;
-    status: "pending" | "approved" | "rejected";
+    status: "pending" | "approved" | "rejected" | "revoked";
     purpose?: string;
     sample_message?: string;
+    admin_notes?: string;
     created_at: string;
 }
 
@@ -43,21 +44,29 @@ export const submitSenderRequest = async (
     sampleMessage: string
 ): Promise<SenderRequest> => {
     const { headers, locationId } = getLocationHeaders();
+    const normalizedId = requestedId.trim().toUpperCase();
 
     const res = await fetch(API_CONFIG.sender_requests, {
         method: "POST",
         headers,
         body: JSON.stringify({
             location_id: locationId,
-            requested_id: requestedId.trim().toUpperCase(),
-            purpose,
-            sample_message: sampleMessage,
+            requested_id: normalizedId,
+            purpose: purpose.trim(),
+            sample_message: sampleMessage.trim(),
         }),
     });
 
     if (!res.ok) {
         const errorText = await res.text();
-        throw new Error(`Failed to submit sender request: ${res.status} - ${errorText}`);
+        let message = "Failed to submit sender request. Please try again.";
+        try {
+            const parsed = JSON.parse(errorText);
+            message = parsed.message || parsed.error || message;
+        } catch {
+            message = errorText || message;
+        }
+        throw new Error(message);
     }
 
     return res.json();
