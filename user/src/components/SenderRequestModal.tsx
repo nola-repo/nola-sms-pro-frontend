@@ -103,13 +103,18 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
     return createPortal(
         <div className="fixed inset-0 z-[100] grid place-items-center p-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose} />
-            <div className="relative w-full max-w-sm bg-white dark:bg-[#18191d] rounded-2xl shadow-2xl p-5 animate-in zoom-in-95 duration-200 overflow-hidden">
-                <div className="flex items-center justify-between mb-5">
+            <div className="relative w-full max-w-md bg-white dark:bg-[#18191d] rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200 overflow-hidden">
+                <div className="flex items-start justify-between mb-5">
                     <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
                             <FiPlus />
                         </div>
-                        <h3 className="text-[17px] font-bold text-[#111111] dark:text-[#ececf1]">Add a Sender Name</h3>
+                        <div>
+                            <h3 className="text-[17px] font-bold text-[#111111] dark:text-[#ececf1]">Add a Sender Name</h3>
+                            <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">
+                                Request a branded SMS sender name for your account.
+                            </p>
+                        </div>
                     </div>
                     <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 transition-colors">
                         <FiX />
@@ -156,6 +161,7 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                                 disabled={isSubmitting}
                                 className="w-full px-4 py-3 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 disabled:opacity-50"
                             />
+                            <p className="mt-1.5 text-[11px] text-[#9aa0a6]">Use 3-11 letters or numbers only. No spaces or symbols.</p>
                         </div>
 
                         <div>
@@ -175,6 +181,7 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                                 disabled={isSubmitting}
                                 className="w-full px-4 py-3 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 resize-none disabled:opacity-50"
                             />
+                            <p className="mt-1.5 text-[11px] text-[#9aa0a6]">Briefly describe the use case, such as reminders, promos, or updates.</p>
                         </div>
 
                         <div>
@@ -194,9 +201,16 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                                 disabled={isSubmitting}
                                 className="w-full px-4 py-3 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 resize-none disabled:opacity-50"
                             />
+                            <p className="mt-1.5 text-[11px] text-[#9aa0a6]">Add one real example your customers may receive.</p>
                         </div>
 
-                        <button type="submit" disabled={isSubmitting} className="w-full flex items-center justify-center gap-2 py-3 bg-[#2b83fa] hover:bg-[#1d6bd4] text-white rounded-xl font-bold text-[13px] transition-all shadow-md shadow-blue-500/20 disabled:opacity-70">
+                        <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
+                            <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-normal text-center font-medium">
+                                <strong>Note:</strong> You will receive an email when this request is received and again when it is approved or needs changes.
+                            </p>
+                        </div>
+
+                        <button type="submit" disabled={isSubmitting} className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[13px] transition-all shadow-md shadow-blue-500/20 disabled:opacity-70">
                             {isSubmitting ? (
                                 <>
                                     <FiLoader className="w-4 h-4 animate-spin" />
