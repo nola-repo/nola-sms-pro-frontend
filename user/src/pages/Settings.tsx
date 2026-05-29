@@ -22,7 +22,7 @@ import {
 } from "../api/notificationSettings";
 import { SenderRequestModal } from "../components/SenderRequestModal";
 import { useGhlLocation } from "../hooks/useGhlLocation";
-import { fetchSenderRequests, fetchAccountSenderConfig, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
+import { fetchSenderRequests, fetchAccountSenderConfig, cancelSenderRequest, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
 import { fetchAccountProfile, getCachedAccountProfile, updateAccountProfile } from "../api/account";
 import type { AccountProfile } from "../api/account";
 import { useUserProfileContext } from "../context/UserProfileContext";
@@ -623,6 +623,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
     const [isLoading, setIsLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(() => Boolean(autoOpenAddModal));
     const [preferredSender, setPreferredSender] = useState<string | null>(getPreferredSender());
+    const [cancellingId, setCancellingId] = useState<string | null>(null);
 
     // Fetch data from API simultaneously to avoid cascading load flashes
     useEffect(() => {
@@ -733,6 +734,20 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
         }, 1500);
     };
 
+    const handleCancelRequest = async (requestId: string) => {
+        if (!window.confirm("Cancel this pending sender request?")) return;
+        setCancellingId(requestId);
+        try {
+            await cancelSenderRequest(requestId, locationId);
+            setSenderRequests(prev => prev.filter(req => req.id !== requestId));
+        } catch (error) {
+            console.error("Failed to cancel sender request:", error);
+            alert(error instanceof Error ? error.message : "Failed to cancel sender request.");
+        } finally {
+            setCancellingId(null);
+        }
+    };
+
     return (
         <div className="space-y-5">
             <SectionHeader title="Sender IDs" subtitle="Manage and request sender IDs for your account. Only approved IDs can be used for sending." />
@@ -830,6 +845,15 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                                     </div>
                                     
                                     {/* Action Button */}
+                                    {sid.status === "pending" && !sid.isSystem && (
+                                        <button
+                                            onClick={() => handleCancelRequest(sid.id)}
+                                            disabled={cancellingId === sid.id}
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity px-3 py-1.5 text-[11px] font-bold text-red-600 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-900/10 dark:hover:bg-red-900/20 rounded-lg whitespace-nowrap disabled:opacity-50"
+                                        >
+                                            {cancellingId === sid.id ? "Cancelling..." : "Cancel Request"}
+                                        </button>
+                                    )}
                                     {sid.status === "approved" && !isDefault && (
                                         <button 
                                             onClick={() => {

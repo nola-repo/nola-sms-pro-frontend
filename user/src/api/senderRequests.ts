@@ -93,6 +93,35 @@ export const fetchSenderRequests = async (explicitLocationId?: string): Promise<
     return Array.isArray(data) ? data : (data.data || []);
 };
 
+export const cancelSenderRequest = async (requestId: string, explicitLocationId?: string): Promise<boolean> => {
+    const { headers, locationId } = getLocationHeaders(explicitLocationId);
+
+    let url = API_CONFIG.sender_requests;
+    if (locationId) {
+        url += `?location_id=${encodeURIComponent(locationId)}`;
+    }
+
+    const res = await fetch(url, {
+        method: "DELETE",
+        headers,
+        body: JSON.stringify({ request_id: requestId }),
+    });
+
+    if (!res.ok) {
+        const errorText = await res.text();
+        let message = "Failed to cancel sender request.";
+        try {
+            const parsed = JSON.parse(errorText);
+            message = parsed.message || parsed.error || message;
+        } catch {
+            message = errorText || message;
+        }
+        throw new Error(message);
+    }
+
+    return true;
+};
+
 /**
  * Fetch the account's sender configuration (approved sender, API key, free usage).
  */

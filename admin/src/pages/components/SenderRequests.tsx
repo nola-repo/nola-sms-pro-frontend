@@ -35,6 +35,7 @@ export const AdminSenderRequests: React.FC = () => {
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [showInputKey, setShowInputKey] = useState(false);
+    const [decisionMode, setDecisionMode] = useState<'approve' | 'reject'>('approve');
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'revoked'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -104,6 +105,7 @@ export const AdminSenderRequests: React.FC = () => {
                 setRejectNote('');
                 setApiKeyInput('');
                 setShowInputKey(false);
+                setDecisionMode('approve');
             } else {
                 showToast(json.message || 'Action failed.', 'error');
             }
@@ -120,6 +122,7 @@ export const AdminSenderRequests: React.FC = () => {
         setRejectNote(request?.admin_notes || '');
         setApiKeyInput('');
         setShowInputKey(false);
+        setDecisionMode('approve');
     };
 
     return (
@@ -368,21 +371,17 @@ export const AdminSenderRequests: React.FC = () => {
             {/* Sender Request Modal */}
             {expandedId && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-4xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-5 w-full max-w-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         {(() => {
                             const req = requests.find(r => r.id === expandedId);
                             if (!req) return null;
                             const isActing = actionLoading?.startsWith(req.id);
                             const associatedAccount = accounts.find(a => a.location_id === req.location_id);
-                            const activeSender = associatedAccount?.approved_sender_id;
                             const isFormatValid = /^[a-zA-Z0-9]{3,11}$/.test(req.requested_id || '');
-                            const sameNameRequests = requests.filter(r => r.id !== req.id && (r.requested_id || '').toLowerCase() === (req.requested_id || '').toLowerCase());
-                            const approvalReady = isFormatValid && apiKeyInput.trim().length > 0;
-                            const rejectionReady = rejectNote.trim().length >= 8;
                             
                             return (
                                 <>
-                                    <div className="flex items-center justify-between mb-5">
+                                    <div className="flex items-center justify-between mb-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/10 flex items-center justify-center">
                                                 <FiSend className="w-5 h-5 text-blue-500" />
@@ -392,66 +391,35 @@ export const AdminSenderRequests: React.FC = () => {
                                                 <p className="text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] mt-1 uppercase tracking-wide">
                                                     {associatedAccount?.location_name || req.location_name || 'Unknown Account'}
                                                 </p>
-                                                <p className="text-[11px] text-[#9aa0a6] mt-1">Review request details, then approve with an API key or reject with a customer-facing reason.</p>
                                             </div>
                                         </div>
-                                        <button onClick={() => { setExpandedId(null); setShowInputKey(false); }} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
+                                        <button onClick={() => { setExpandedId(null); setShowInputKey(false); setDecisionMode('approve'); }} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
                                             <FiX className="w-5 h-5" />
                                         </button>
                                     </div>
 
-                                    <div className="space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar pr-2">
-                                        {/* Status & Highlights Banner */}
-                                        <div className="grid grid-cols-2 gap-px bg-[#e5e5e5] dark:bg-white/10 rounded-xl overflow-hidden border border-[#e5e5e5] dark:border-white/5">
-                                            <div className="bg-[#f7f7f7] dark:bg-[#111214] p-4 flex flex-col">
-                                                <span className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1.5 opacity-70">Sender ID</span>
-                                                <span className="font-black text-[16px] text-[#2b83fa] dark:text-[#4da3ff] font-mono leading-none truncate">{req.requested_id}</span>
-                                            </div>
-                                            <div className="bg-[#f7f7f7] dark:bg-[#111214] p-4 flex flex-col">
-                                                <span className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1.5 opacity-70">Status</span>
-                                                <div className="flex items-center">
-                                                    <StatusBadge status={req.status} />
+                                    <div className="space-y-4 max-h-[72vh] overflow-y-auto custom-scrollbar pr-1">
+                                        <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#111214] p-4">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Requested Sender</p>
+                                                    <p className="font-black text-[18px] text-[#2b83fa] dark:text-[#4da3ff] font-mono truncate">{req.requested_id}</p>
                                                 </div>
+                                                <StatusBadge status={req.status} />
                                             </div>
-                                        </div>
 
-                                        {/* Request Details Grid */}
-                                        <div className="bg-[#f7f7f7] dark:bg-[#111214] rounded-xl p-4 gap-y-4 border border-[#e5e5e5] dark:border-white/5 flex flex-col">
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <div>
-                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Subaccount</p>
-                                                    <div className="flex items-center gap-2 bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5">
-                                                        <div className="w-6 h-6 rounded-full bg-[#f0f0f0] dark:bg-white/5 flex items-center justify-center text-[10px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] flex-shrink-0">
-                                                            {(associatedAccount?.location_name || req.location_name || 'U').substring(0, 2).toUpperCase()}
-                                                        </div>
-                                                        <span className="text-[13px] font-bold text-[#111111] dark:text-white leading-none truncate">{associatedAccount?.location_name || req.location_name || 'Unknown Account'}</span>
-                                                    </div>
-                                                </div>
-                                                {(req.agency_name || req.company_id) && (
-                                                    <div>
-                                                        <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Agency</p>
-                                                        <div className="flex items-center gap-2 bg-purple-50/50 dark:bg-purple-900/5 p-2.5 rounded-lg border border-purple-100 dark:border-purple-800/20">
-                                                            <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
-                                                                <FiUsers className="w-3 h-3 text-purple-600 dark:text-purple-400" />
-                                                            </div>
-                                                            <span className="text-[13px] font-bold text-[#111111] dark:text-white leading-none truncate">{req.agency_name || req.company_id}</span>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-[#e5e5e5] dark:border-white/5">
-                                                <div>
-                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Location ID</p>
-                                                    <p className="text-[12px] font-mono font-medium text-[#111111] dark:text-white truncate bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5" title={req.location_id}>
-                                                        {req.location_id}
-                                                    </p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-4 border-t border-[#e5e5e5] dark:border-white/5">
+                                                <div className="min-w-0">
+                                                    <p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Account</p>
+                                                    <p className="text-[13px] font-bold text-[#111111] dark:text-white truncate">{associatedAccount?.location_name || req.location_name || 'Unknown Account'}</p>
+                                                    <p className="text-[11px] font-mono text-[#6e6e73] dark:text-[#9aa0a6] truncate mt-1" title={req.location_id}>{req.location_id}</p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Submitted On</p>
-                                                    <p className="text-[12px] font-medium text-[#111111] dark:text-white bg-white dark:bg-[#1a1b1e] p-2.5 rounded-lg border border-[#e5e5e5] dark:border-white/5 h-[38px] flex items-center">
-                                                        {req.created_at || 'Unknown'}
-                                                    </p>
+                                                    <p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Submitted</p>
+                                                    <p className="text-[13px] font-medium text-[#111111] dark:text-white">{req.created_at || 'Unknown'}</p>
+                                                    {(req.agency_name || req.company_id) && (
+                                                        <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mt-1">{req.agency_name || req.company_id}</p>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -479,47 +447,44 @@ export const AdminSenderRequests: React.FC = () => {
                                         </div>
 
                                         {/* ── Pending: Approve & Activate / Reject ── */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                            <div className={`p-3 rounded-xl border ${isFormatValid ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/30' : 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-800/30'}`}>
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-[#6e6e73] dark:text-[#9aa0a6]">Format</p>
-                                                <p className={`text-[12px] font-black mt-1 ${isFormatValid ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>{isFormatValid ? 'Valid' : 'Needs Review'}</p>
-                                            </div>
-                                            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/30">
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-[#6e6e73] dark:text-[#9aa0a6]">Current Sender</p>
-                                                <p className="text-[12px] font-black mt-1 text-blue-700 dark:text-blue-400 truncate">{activeSender || 'None'}</p>
-                                            </div>
-                                            <div className={`p-3 rounded-xl border ${sameNameRequests.length ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800/30' : 'bg-[#f7f7f7] dark:bg-[#111214] border-[#e5e5e5] dark:border-white/5'}`}>
-                                                <p className="text-[10px] font-bold uppercase tracking-wider text-[#6e6e73] dark:text-[#9aa0a6]">Other Requests</p>
-                                                <p className={`text-[12px] font-black mt-1 ${sameNameRequests.length ? 'text-amber-700 dark:text-amber-400' : 'text-[#111111] dark:text-white'}`}>{sameNameRequests.length}</p>
-                                            </div>
-                                        </div>
-
                                         {req.status === 'pending' && (
-                                            <div className="space-y-4 pt-4 border-t border-[#e5e5e5] dark:border-white/5">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <div className="h-6 w-1 bg-[#2b83fa] rounded-full"></div>
-                                                    <h4 className="text-[12px] font-black text-[#111111] dark:text-white uppercase tracking-wider">Decision Center</h4>
+                                            <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] p-4 space-y-4">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <h4 className="text-[12px] font-black text-[#111111] dark:text-white uppercase tracking-wider">Decision</h4>
+                                                    {!isFormatValid && (
+                                                        <span className="text-[11px] font-bold text-red-600 dark:text-red-400">Invalid sender format</span>
+                                                    )}
                                                 </div>
-                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                                    <div className={`rounded-xl border p-4 ${approvalReady ? 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-800/30 dark:bg-emerald-900/10' : 'border-[#e5e5e5] bg-[#f7f7f7] dark:border-white/10 dark:bg-[#111214]'}`}>
-                                                        <div className="flex items-start gap-3 mb-4">
-                                                            <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
-                                                                <FiCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                                            </div>
-                                                            <div>
-                                                                <h5 className="text-[13px] font-black text-[#111111] dark:text-white">Approve & Activate</h5>
-                                                                <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] leading-snug mt-1">Adds this Sender ID to the account, stores the API key, revokes older active sender requests, and sends the approval email.</p>
-                                                            </div>
-                                                        </div>
 
-                                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Semaphore API Key</label>
+                                                <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDecisionMode('approve')}
+                                                        className={`flex items-center justify-center gap-2 py-2 rounded-lg text-[12px] font-bold transition-all ${decisionMode === 'approve' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-white dark:hover:bg-white/5'}`}
+                                                    >
+                                                        <FiCheck className="w-3.5 h-3.5" />
+                                                        Approve
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDecisionMode('reject')}
+                                                        className={`flex items-center justify-center gap-2 py-2 rounded-lg text-[12px] font-bold transition-all ${decisionMode === 'reject' ? 'bg-red-500 text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-white dark:hover:bg-white/5'}`}
+                                                    >
+                                                        <FiX className="w-3.5 h-3.5" />
+                                                        Reject
+                                                    </button>
+                                                </div>
+
+                                                {decisionMode === 'approve' ? (
+                                                    <div className="space-y-3">
+                                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Semaphore API Key</label>
                                                         <div className="relative">
                                                             <input
                                                                 type={showInputKey ? "text" : "password"}
                                                                 value={apiKeyInput}
                                                                 onChange={e => setApiKeyInput(e.target.value)}
-                                                                placeholder="Paste API key before approving"
-                                                                className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl bg-white dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 transition-shadow font-mono"
+                                                                placeholder="Required to approve"
+                                                                className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 transition-shadow font-mono"
                                                             />
                                                             <button
                                                                 type="button"
@@ -529,52 +494,35 @@ export const AdminSenderRequests: React.FC = () => {
                                                                 {showInputKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
                                                             </button>
                                                         </div>
-                                                        {!isFormatValid && (
-                                                            <p className="mt-2 text-[11px] font-medium text-red-600 dark:text-red-400">Fix the sender format before approving.</p>
-                                                        )}
                                                         <button
-                                                            disabled={!approvalReady || !!isActing}
+                                                            disabled={!isFormatValid || !apiKeyInput.trim() || !!isActing}
                                                             onClick={() => doAction('approved', req.id, { api_key: apiKeyInput.trim() })}
-                                                            className="mt-4 flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
+                                                            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
                                                         >
                                                             <FiCheck className="w-4 h-4" />
-                                                            <span>{isActing ? 'Working...' : 'Approve & Notify'}</span>
+                                                            <span>{isActing ? 'Working...' : 'Approve Sender'}</span>
                                                         </button>
                                                     </div>
-
-                                                    <div className={`rounded-xl border p-4 ${rejectionReady ? 'border-red-200 bg-red-50/70 dark:border-red-800/30 dark:bg-red-900/10' : 'border-[#e5e5e5] bg-[#f7f7f7] dark:border-white/10 dark:bg-[#111214]'}`}>
-                                                        <div className="flex items-start gap-3 mb-4">
-                                                            <div className="w-9 h-9 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
-                                                                <FiX className="w-4 h-4 text-red-600 dark:text-red-400" />
-                                                            </div>
-                                                            <div>
-                                                                <h5 className="text-[13px] font-black text-[#111111] dark:text-white">Reject With Reason</h5>
-                                                                <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] leading-snug mt-1">Saves the note to the request and includes it in the customer rejection email.</p>
-                                                            </div>
-                                                        </div>
-
-                                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Customer-Facing Reason</label>
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Reason for customer</label>
                                                         <textarea
                                                             value={rejectNote}
                                                             onChange={e => setRejectNote(e.target.value)}
-                                                            rows={4}
-                                                            placeholder="Example: Sender name must match your registered business or brand more clearly."
-                                                            className="w-full px-4 py-3 text-[12px] rounded-xl bg-white dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow"
+                                                            rows={3}
+                                                            placeholder="Example: Sender name does not match your business name."
+                                                            className="w-full px-4 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow"
                                                         />
-                                                        <div className="mt-2 flex items-center justify-between">
-                                                            <p className="text-[11px] text-[#9aa0a6]">Minimum 8 characters.</p>
-                                                            <p className={`text-[11px] font-bold ${rejectionReady ? 'text-red-600 dark:text-red-400' : 'text-[#9aa0a6]'}`}>{rejectNote.trim().length}/8</p>
-                                                        </div>
                                                         <button
-                                                            disabled={!rejectionReady || !!isActing}
+                                                            disabled={!rejectNote.trim() || !!isActing}
                                                             onClick={() => doAction('rejected', req.id, { note: rejectNote.trim(), rejection_note: rejectNote.trim() })}
-                                                            className="mt-4 flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[13px] font-bold bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/10 dark:hover:bg-red-900/20 dark:text-red-400 border border-red-200 dark:border-red-800/30 transition-all disabled:opacity-50"
+                                                            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[13px] font-bold bg-red-500 hover:bg-red-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
                                                         >
                                                             <FiX className="w-4 h-4" />
-                                                            <span>{isActing ? 'Working...' : 'Reject & Notify'}</span>
+                                                            <span>{isActing ? 'Working...' : 'Reject Request'}</span>
                                                         </button>
                                                     </div>
-                                                </div>
+                                                )}
                                             </div>
                                         )}
 
