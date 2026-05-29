@@ -7,7 +7,7 @@ const ADD_SUBACCOUNT_URL =
   'https://marketplace.leadconnectorhq.com/v2/oauth/chooselocation?response_type=code' +
   '&redirect_uri=https%3A%2F%2Fsmspro-api.nolacrm.io%2Foauth%2Fcallback' +
   '&client_id=6999da2b8f278296d95f7274-mmn30t4f' +
-  '&scope=workflows.readonly+conversations%2Fmessage.readonly+conversations.readonly+conversations.write+contacts.readonly+contacts.write+conversations%2Fmessage.write+saas%2Flocation.read+locations.readonly+locations%2Ftags.readonly+locations%2Ftags.write+oauth.write+oauth.readonly' +
+  '&scope=workflows.readonly+conversations%2Fmessage.readonly+conversations.readonly+conversations.write+contacts.readonly+contacts.write+conversations%2Fmessage.write+saas%2Flocation.read+locations.readonly+locations%2Ftags.readonly+locations%2Ftags.write+locations%2FcustomFields.readonly+oauth.write+oauth.readonly' +
   '&version_id=6999da2b8f278296d95f7274';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
@@ -689,7 +689,7 @@ export const Subaccounts = () => {
                             ) : (
                               <div className="flex flex-col items-end gap-1.5">
                                 <a
-                                  href="https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Fsmspro-api.nolacrm.io%2Foauth%2Fcallback&client_id=69d31f33b3071b25dbcc5656-mnqxvt3&scope=workflows.readonly+conversations%2Fmessage.readonly+conversations.readonly+conversations.write+contacts.readonly+contacts.write+conversations%2Fmessage.write+saas%2Flocation.read+locations.readonly+locations%2Ftags.readonly+locations%2Ftags.write&version_id=69d31f33b3071b25dbcc5656"
+                                  href="https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Fsmspro-api.nolacrm.io%2Foauth%2Fcallback&client_id=69d31f33b3071b25dbcc5656-mnqxvt3&scope=workflows.readonly+conversations%2Fmessage.readonly+conversations.readonly+conversations.write+contacts.readonly+contacts.write+conversations%2Fmessage.write+saas%2Flocation.read+locations.readonly+locations%2Ftags.readonly+locations%2Ftags.write+locations%2FcustomFields.readonly&version_id=69d31f33b3071b25dbcc5656"
                                   target="_blank"
                                   rel="noreferrer"
                                   className="px-3 py-1.5 bg-[#2b83fa] hover:bg-[#1d6bd4] text-white text-[11.5px] font-bold inline-flex items-center rounded flex-shrink-0 transition-colors shadow-sm whitespace-nowrap"

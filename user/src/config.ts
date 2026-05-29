@@ -17,7 +17,7 @@ export const GHL_BACKEND_ONBOARDING_URL =
     "https://marketplace.leadconnectorhq.com/v2/oauth/chooselocation?response_type=code" +
     "&redirect_uri=https%3A%2F%2Fsmspro-api.nolacrm.io%2Foauth%2Fcallback" +
     "&client_id=6999da2b8f278296d95f7274-mmn30t4f" +
-    "&scope=workflows.readonly+conversations%2Fmessage.readonly+conversations.readonly+conversations.write+contacts.readonly+contacts.write+conversations%2Fmessage.write+saas%2Flocation.read+locations.readonly+locations%2Ftags.readonly+locations%2Ftags.write+oauth.write+oauth.readonly" +
+    "&scope=workflows.readonly+conversations%2Fmessage.readonly+conversations.readonly+conversations.write+contacts.readonly+contacts.write+conversations%2Fmessage.write+saas%2Flocation.read+locations.readonly+locations%2Ftags.readonly+locations%2Ftags.write+locations%2FcustomFields.readonly+oauth.write+oauth.readonly" +
     "&version_id=6999da2b8f278296d95f7274";
 
 export const GHL_RECONNECT_REQUIRED_STORAGE_KEY = "nola_ghl_reconnect_required";
