@@ -145,6 +145,7 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                             <label className="block text-[11px] font-black text-[#6e6e73] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">
                                 Sender Name <span className="text-red-500">*</span>
                             </label>
+                            <p className="mt-1.5 text-[11px] text-[#9aa0a6]">Use 3-11 letters or numbers only. No spaces or symbols.</p>
                             <input
                                 autoFocus
                                 value={newId}
@@ -159,13 +160,13 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                                 disabled={isSubmitting}
                                 className="w-full px-4 py-3 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 disabled:opacity-50"
                             />
-                            <p className="mt-1.5 text-[11px] text-[#9aa0a6]">Use 3-11 letters or numbers only. No spaces or symbols.</p>
                         </div>
 
                         <div>
                             <label className="block text-[11px] font-black text-[#6e6e73] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">
                                 Business Purpose <span className="text-red-500">*</span>
                             </label>
+                            <p className="mt-1.5 text-[11px] text-[#9aa0a6]">Briefly describe the use case, such as reminders, promos, or updates.</p>
                             <textarea
                                 value={newPurpose}
                                 onChange={e => {
@@ -179,13 +180,13 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                                 disabled={isSubmitting}
                                 className="w-full px-4 py-3 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 resize-none disabled:opacity-50"
                             />
-                            <p className="mt-1.5 text-[11px] text-[#9aa0a6]">Briefly describe the use case, such as reminders, promos, or updates.</p>
                         </div>
 
                         <div>
                             <label className="block text-[11px] font-black text-[#6e6e73] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">
                                 Sample Message <span className="text-red-500">*</span>
                             </label>
+                            <p className="mt-1.5 text-[11px] text-[#9aa0a6]">Add one real example your customers may receive.</p>
                             <textarea
                                 value={newSample}
                                 onChange={e => {
@@ -199,12 +200,11 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                                 disabled={isSubmitting}
                                 className="w-full px-4 py-3 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 resize-none disabled:opacity-50"
                             />
-                            <p className="mt-1.5 text-[11px] text-[#9aa0a6]">Add one real example your customers may receive.</p>
                         </div>
 
                         <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20">
                             <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-normal text-center font-medium">
-                                <strong>Note:</strong> You will receive an email when this request is received and again when it is approved or needs changes.
+                                <strong>Note:</strong> You will receive an email when this request is received and when it is approved or needs changes. This usually takes 2-5 business days.
                             </p>
                         </div>
 
