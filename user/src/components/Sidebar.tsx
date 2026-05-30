@@ -622,23 +622,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {loading ? (
               <SidebarMessagesSkeleton />
             ) : directHistory.length === 0 && bulkHistory.length === 0 ? (
-              <div 
+              <div
                 onClick={() => onTabChange('compose')}
                 className="flex-1 flex flex-col items-center justify-center p-6 text-center cursor-pointer group rounded-2xl border border-dashed border-black/[0.06] dark:border-white/[0.06] hover:border-[#2b83fa]/40 dark:hover:border-[#2b83fa]/30 hover:bg-[#2b83fa]/[0.02] dark:hover:bg-[#2b83fa]/[0.01] transition-all duration-300 mx-2 my-4 relative overflow-hidden"
               >
                 {/* Subtle soft ambient light glow in the background on hover */}
                 <div className="absolute -inset-10 bg-gradient-to-r from-[#2b83fa]/5 via-purple-500/5 to-[#2b83fa]/5 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-                
+
                 {/* Floating animated icon container */}
                 <div className="w-16 h-16 rounded-[22px] bg-gradient-to-tr from-[#2b83fa]/10 to-[#2b83fa]/5 dark:from-[#2b83fa]/15 dark:to-[#2b83fa]/[0.02] flex items-center justify-center mb-4 relative transition-all duration-500 group-hover:scale-110 group-hover:-translate-y-1 shadow-sm group-hover:shadow-md border border-white/50 dark:border-white/5">
                   <div className="absolute inset-0 bg-[#2b83fa]/20 rounded-[22px] blur-xl opacity-30 group-hover:opacity-100 transition-opacity duration-500"></div>
                   <FiPlus className="w-7 h-7 text-[#2b83fa] relative z-10 transition-transform duration-300 group-hover:rotate-90" />
                 </div>
-                
+
                 <h3 className="text-[14px] font-bold text-[#111111] dark:text-white mb-1.5 transition-colors group-hover:text-[#2b83fa] relative z-10">
                   Start a new conversation
                 </h3>
-                
+
                 <p className="text-[11.5px] leading-relaxed text-gray-500 dark:text-gray-400 max-w-[180px] relative z-10">
                   Click here or the <span className="text-[#2b83fa] font-bold group-hover:underline">New Message</span> button above to send your first SMS.
                 </p>
@@ -962,12 +962,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ${isCollapsed ? 'w-10 h-10 justify-center' : 'w-full gap-3 px-3 py-2'}
               text-red-500/80 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400
             `}
-            title="Sign out"
+            title="Log out"
           >
             <div className="transition-transform duration-300 group-hover:-translate-x-0.5">
               <FiLogOut className="h-4 w-4" />
             </div>
-            {!isCollapsed && <span className="font-medium text-[13px]">Sign out</span>}
+            {!isCollapsed && <span className="font-medium text-[13px]">Log out</span>}
           </button>
         )}
       </div>
