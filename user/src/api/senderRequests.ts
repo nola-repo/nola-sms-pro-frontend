@@ -150,7 +150,27 @@ export const fetchAccountSenderConfig = async (explicitLocationId?: string): Pro
         }
         const raw = await res.json();
         const inner = raw.data || raw;
-        return { ...DEFAULT_CONFIG, ...inner };
+        const config: AccountSenderConfig = { ...DEFAULT_CONFIG, ...inner };
+
+        if (config.approved_sender_id) {
+            const requests = await fetchSenderRequests(locationId);
+            const approvedId = config.approved_sender_id.trim().toLowerCase();
+            const stillApproved = requests.some(req =>
+                req.status === "approved" &&
+                req.requested_id.trim().toLowerCase() === approvedId
+            );
+
+            if (!stillApproved) {
+                return {
+                    ...config,
+                    approved_sender_id: null,
+                    nola_pro_api_key: null,
+                    semaphore_api_key: null,
+                };
+            }
+        }
+
+        return config;
     } catch (error) {
         console.error("[fetchAccountSenderConfig] Network error:", error);
         return DEFAULT_CONFIG;

@@ -25,8 +25,6 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
     const [error, setError] = useState<string | null>(null);
 
     const normalizedSenderName = newId.trim().toUpperCase();
-    const purposeLength = newPurpose.trim().length;
-    const sampleLength = newSample.trim().length;
 
     useEffect(() => {
         let timer: ReturnType<typeof setInterval>;
@@ -58,13 +56,13 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
             return;
         }
 
-        if (purposeLength < 12) {
-            setError("Business purpose is required. Please add a little more detail.");
+        if (!newPurpose.trim()) {
+            setError("Business purpose is required.");
             return;
         }
 
-        if (sampleLength < 12) {
-            setError("Sample message is required. Please provide a realistic example.");
+        if (!newSample.trim()) {
+            setError("Sample message is required.");
             return;
         }
 

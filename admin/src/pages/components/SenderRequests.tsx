@@ -35,7 +35,7 @@ export const AdminSenderRequests: React.FC = () => {
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [showInputKey, setShowInputKey] = useState(false);
-    const [decisionMode, setDecisionMode] = useState<'approve' | 'reject'>('approve');
+    const [actionPrompt, setActionPrompt] = useState<{ requestId: string; action: 'approved' | 'rejected' } | null>(null);
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'revoked'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -105,7 +105,7 @@ export const AdminSenderRequests: React.FC = () => {
                 setRejectNote('');
                 setApiKeyInput('');
                 setShowInputKey(false);
-                setDecisionMode('approve');
+                setActionPrompt(null);
             } else {
                 showToast(json.message || 'Action failed.', 'error');
             }
@@ -122,7 +122,7 @@ export const AdminSenderRequests: React.FC = () => {
         setRejectNote(request?.admin_notes || '');
         setApiKeyInput('');
         setShowInputKey(false);
-        setDecisionMode('approve');
+        setActionPrompt(null);
     };
 
     return (
@@ -393,7 +393,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                 </p>
                                             </div>
                                         </div>
-                                        <button onClick={() => { setExpandedId(null); setShowInputKey(false); setDecisionMode('approve'); }} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
+                                        <button onClick={() => { setExpandedId(null); setShowInputKey(false); setActionPrompt(null); }} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
                                             <FiX className="w-5 h-5" />
                                         </button>
                                     </div>
@@ -448,81 +448,38 @@ export const AdminSenderRequests: React.FC = () => {
 
                                         {/* ── Pending: Approve & Activate / Reject ── */}
                                         {req.status === 'pending' && (
-                                            <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] p-4 space-y-4">
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <h4 className="text-[12px] font-black text-[#111111] dark:text-white uppercase tracking-wider">Decision</h4>
-                                                    {!isFormatValid && (
-                                                        <span className="text-[11px] font-bold text-red-600 dark:text-red-400">Invalid sender format</span>
-                                                    )}
-                                                </div>
+                                            <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] p-4 space-y-3">
+                                                {!isFormatValid && (
+                                                    <p className="text-[11px] font-bold text-red-600 dark:text-red-400">Invalid sender format. This request cannot be approved.</p>
+                                                )}
 
-                                                <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5">
+                                                <div className="grid grid-cols-2 gap-3">
                                                     <button
                                                         type="button"
-                                                        onClick={() => setDecisionMode('approve')}
-                                                        className={`flex items-center justify-center gap-2 py-2 rounded-lg text-[12px] font-bold transition-all ${decisionMode === 'approve' ? 'bg-emerald-500 text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-white dark:hover:bg-white/5'}`}
+                                                        disabled={!isFormatValid || !!isActing}
+                                                        onClick={() => {
+                                                            setApiKeyInput('');
+                                                            setShowInputKey(false);
+                                                            setActionPrompt({ requestId: req.id, action: 'approved' });
+                                                        }}
+                                                        className="flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
                                                     >
-                                                        <FiCheck className="w-3.5 h-3.5" />
+                                                        <FiCheck className="w-4 h-4" />
                                                         Approve
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        onClick={() => setDecisionMode('reject')}
-                                                        className={`flex items-center justify-center gap-2 py-2 rounded-lg text-[12px] font-bold transition-all ${decisionMode === 'reject' ? 'bg-red-500 text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-white dark:hover:bg-white/5'}`}
+                                                        disabled={!!isActing}
+                                                        onClick={() => {
+                                                            setRejectNote(req.admin_notes || '');
+                                                            setActionPrompt({ requestId: req.id, action: 'rejected' });
+                                                        }}
+                                                        className="flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-red-500 hover:bg-red-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
                                                     >
-                                                        <FiX className="w-3.5 h-3.5" />
+                                                        <FiX className="w-4 h-4" />
                                                         Reject
                                                     </button>
                                                 </div>
-
-                                                {decisionMode === 'approve' ? (
-                                                    <div className="space-y-3">
-                                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Semaphore API Key</label>
-                                                        <div className="relative">
-                                                            <input
-                                                                type={showInputKey ? "text" : "password"}
-                                                                value={apiKeyInput}
-                                                                onChange={e => setApiKeyInput(e.target.value)}
-                                                                placeholder="Required to approve"
-                                                                className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 transition-shadow font-mono"
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setShowInputKey(!showInputKey)}
-                                                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                                                            >
-                                                                {showInputKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                                                            </button>
-                                                        </div>
-                                                        <button
-                                                            disabled={!isFormatValid || !apiKeyInput.trim() || !!isActing}
-                                                            onClick={() => doAction('approved', req.id, { api_key: apiKeyInput.trim() })}
-                                                            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
-                                                        >
-                                                            <FiCheck className="w-4 h-4" />
-                                                            <span>{isActing ? 'Working...' : 'Approve Sender'}</span>
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-3">
-                                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Reason for customer</label>
-                                                        <textarea
-                                                            value={rejectNote}
-                                                            onChange={e => setRejectNote(e.target.value)}
-                                                            rows={3}
-                                                            placeholder="Example: Sender name does not match your business name."
-                                                            className="w-full px-4 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow"
-                                                        />
-                                                        <button
-                                                            disabled={!rejectNote.trim() || !!isActing}
-                                                            onClick={() => doAction('rejected', req.id, { note: rejectNote.trim(), rejection_note: rejectNote.trim() })}
-                                                            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[13px] font-bold bg-red-500 hover:bg-red-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
-                                                        >
-                                                            <FiX className="w-4 h-4" />
-                                                            <span>{isActing ? 'Working...' : 'Reject Request'}</span>
-                                                        </button>
-                                                    </div>
-                                                )}
                                             </div>
                                         )}
 
@@ -600,6 +557,88 @@ export const AdminSenderRequests: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Approve / Reject Step Modal */}
+            {actionPrompt && (() => {
+                const req = requests.find(r => r.id === actionPrompt.requestId);
+                if (!req) return null;
+                const isApprove = actionPrompt.action === 'approved';
+                const isActing = actionLoading?.startsWith(req.id);
+
+                return (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                            <div className="flex items-center justify-between mb-5">
+                                <div>
+                                    <h3 className="text-[17px] font-bold text-[#111111] dark:text-white">
+                                        {isApprove ? 'Approve Sender ID' : 'Reject Sender ID'}
+                                    </h3>
+                                    <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1 font-mono">{req.requested_id}</p>
+                                </div>
+                                <button
+                                    onClick={() => { setActionPrompt(null); setShowInputKey(false); }}
+                                    className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors"
+                                >
+                                    <FiX className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {isApprove ? (
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Semaphore API Key</label>
+                                        <div className="relative">
+                                            <input
+                                                type={showInputKey ? "text" : "password"}
+                                                value={apiKeyInput}
+                                                onChange={e => setApiKeyInput(e.target.value)}
+                                                placeholder="Required to approve"
+                                                className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 transition-shadow font-mono"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowInputKey(!showInputKey)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                            >
+                                                {showInputKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button
+                                        disabled={!apiKeyInput.trim() || !!isActing}
+                                        onClick={() => doAction('approved', req.id, { api_key: apiKeyInput.trim() })}
+                                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
+                                    >
+                                        <FiCheck className="w-4 h-4" />
+                                        <span>{isActing ? 'Approving...' : 'Proceed to Approve'}</span>
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Customer Note</label>
+                                        <textarea
+                                            value={rejectNote}
+                                            onChange={e => setRejectNote(e.target.value)}
+                                            rows={3}
+                                            placeholder="Reason sent to the customer..."
+                                            className="w-full px-4 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow"
+                                        />
+                                    </div>
+                                    <button
+                                        disabled={!rejectNote.trim() || !!isActing}
+                                        onClick={() => doAction('rejected', req.id, { note: rejectNote.trim(), rejection_note: rejectNote.trim() })}
+                                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-red-500 hover:bg-red-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
+                                    >
+                                        <FiX className="w-4 h-4" />
+                                        <span>{isActing ? 'Rejecting...' : 'Proceed to Reject'}</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Delete Confirmation Modal */}
             {deleteConfirmId && (
