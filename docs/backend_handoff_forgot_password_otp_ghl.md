@@ -1,93 +1,239 @@
-# Backend Handoff - Forgot Password OTP and GoHighLevel (GHL) Workflow Integration
+# Backend Handoff — Forgot Password OTP & GoHighLevel Workflow Integration
 
-This document outlines the changes made to the backend for the OTP-based password reset flow, and explains how to integrate it with a GoHighLevel (GHL) workflow to send the verification code via GHL (SMS/Email) instead of the standard PHP `mail()` function.
+This document is the full backend handoff for the OTP-based password reset flows across **all three portals** (User, Agency, Admin) and explains how to wire up GoHighLevel (GHL) workflow delivery for OTP codes.
 
 ---
 
 ## 1. Backend Code Scan Summary
 
-The backend codebase has been updated with three files that support the secure OTP forgot password flow:
+Three backend files already exist to support the secure OTP forgot-password flow:
 
-1. **`api/auth/forgot_password_otp.php`**:
-   - Accepts a `POST` request with JSON containing `{ "email": "..." }`.
-   - Searches for the email across `admins`, `agency_users`, and `users` collections in Firestore.
-   - If found, generates a secure 6-digit OTP code (`otp_code`), sets an expiration date (`otp_expires` set to +10 minutes), resets `otp_verified` to `false`, and saves them to the Firestore document.
-   - Dispatches a reset verification code email using PHP's standard `mail()`.
-   - Always returns a `200 Success` message (even if the email is not found) to prevent user enumeration security issues.
+| File | Route (via .htaccess) | Purpose |
+| :--- | :--- | :--- |
+| `api/auth/forgot_password_otp.php` | `POST /api/auth/forgot-password-otp` | Accepts `{ email }`, generates a 6-digit OTP, saves it to Firestore with a 10-min TTL, sends email via `mail()` |
+| `api/auth/reset_password_otp.php` | `POST /api/auth/reset-password-otp` | Accepts `{ email, otp, new_password }`, verifies OTP, hashes new password, clears OTP fields |
+| `api/scratch_test_otp.php` | CLI only | Seeds a test user, validates the full OTP reset cycle, cleans up |
 
-2. **`api/auth/reset_password_otp.php`**:
-   - Accepts a `POST` request with JSON containing `{ "email": "...", "otp": "...", "new_password": "..." }`.
-   - Verifies the email, matches the OTP code, and checks that the OTP is not expired or already verified.
-   - Hashes the new password using BCRYPT.
-   - Updates `password_hash` and `hashed_password` (for admin compatibility), resets the OTP fields to `null`, and sets `otp_verified` to `true`.
-   - Returns a success response.
+### Collections Searched
 
-3. **`api/scratch_test_otp.php`**:
-   - A command-line script (`php api/scratch_test_otp.php`) that seeds a test user, generates an OTP, tests invalid and valid password resets, verifies BCRYPT hashes, and cleans up the test documents.
+`forgot_password_otp.php` searches **all three** Firestore collections in order:
+
+1. `admins` — Admin portal users
+2. `agency_users` — Agency portal users
+3. `users` — Sub-account / user portal users
+
+So a single API endpoint covers all three portals.
 
 ---
 
-## 2. GHL Workflow Setup (Delivery via GoHighLevel)
+## 2. Required Route Change — Add `/forgot-password` Page
 
-To send the verification codes through a GoHighLevel workflow (highly recommended for superior deliverability, email customization, and SMS capability), follow this setup guide.
+The current `install-login.php` hides the forgot-password form in the same page (toggling a hidden `<div>`). A new **dedicated page** is needed at the route `/forgot-password`.
+
+### 2.1 Add `.htaccess` Rule
+
+In `/.htaccess`, inside the `<IfModule mod_rewrite.c>` block, **after** the existing `/login` rule (around line 79), add:
+
+```apache
+# ── Forgot Password standalone page ──────────────────────────────────────────
+RewriteRule ^forgot-password/?$ install-forgot-password.php [NC,L,QSA]
+```
+
+Full context diff:
+
+```diff
+ RewriteRule ^register/?$ install-register.php [NC,L,QSA]
+ RewriteRule ^login/?$    install-login.php    [NC,L,QSA]
++RewriteRule ^forgot-password/?$ install-forgot-password.php [NC,L,QSA]
+```
+
+### 2.2 Create `install-forgot-password.php`
+
+Create a new file `install-forgot-password.php` in the repo root. This page handles the **2-step OTP flow** entirely in the browser via `fetch()` calls to the existing API endpoints:
+
+**Step 1** — Enter email → calls `POST /api/auth/forgot-password-otp` → transitions to OTP entry
+
+**Step 2** — Enter 6-digit OTP + new password → calls `POST /api/auth/reset-password-otp` → redirects to `/login?reset_success=1`
+
+The page should:
+- Match the existing design language from `install-login.php` (Poppins font, glassmorphism card, dark background, blue accent `#2b83fa`)
+- Display a "Back to Sign In" link pointing to `/login`
+- Show a countdown timer (10:00) for the OTP expiry
+- Show resend-code functionality (60-second cooldown)
+
+**Key API calls** the JavaScript should make:
+
+```js
+// Step 1: Request OTP
+const res = await fetch('/api/auth/forgot-password-otp', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email })
+});
+
+// Step 2: Reset password
+const res = await fetch('/api/auth/reset-password-otp', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, otp, new_password })
+});
+```
+
+On success, redirect to `/login?reset_success=1` so the success banner already handled in `install-login.php` displays automatically.
+
+### 2.3 Update `install-login.php` — Change Forgot Password Link
+
+In `install-login.php` around line 869, the "Forgot Password?" anchor currently points to `#` (JavaScript toggle). Change it to link directly to the new page:
+
+```diff
+-<a href="#" id="forgot-pw-link" style="...">Forgot Password?</a>
++<a href="/forgot-password" style="...">Forgot Password?</a>
+```
+
+You can also remove the `forgot-form-wrapper` hidden div (lines 885–903) and the JS toggle logic (lines 919–949) since they will no longer be needed.
+
+### 2.4 Add .htaccess API route aliases
+
+Confirm the following routes are mapped in `.htaccess` (they follow the existing catch-all pattern but should be explicitly listed for clarity):
+
+```apache
+RewriteRule ^api/auth/forgot-password-otp/?$ /api/auth/forgot_password_otp.php [NC,L,QSA]
+RewriteRule ^api/auth/reset-password-otp/?$  /api/auth/reset_password_otp.php  [NC,L,QSA]
+```
+
+---
+
+## 3. Portal-Specific Forgot Password Integration
+
+### 3.1 User Portal (`app.nolasmspro.com`)
+
+The User portal redirects unauthenticated `/login` requests directly to the **backend** `install-login.php` page via `RedirectToBackend` in `user/src/App.tsx`. There is no React forgot-password route — the entire login/forgot-password experience is server-rendered PHP.
+
+**Handoff action**: Add the `install-forgot-password.php` file and `.htaccess` rule (Section 2). No React changes needed for the User portal.
+
+---
+
+### 3.2 Agency Portal (`agency.nolasmspro.com`)
+
+The Agency portal has a **fully implemented** React OTP forgot-password flow in `agency/src/pages/AgencyLogin.tsx`. It uses four phases:
+
+| Phase key | Description |
+| :--- | :--- |
+| `credentials` | Email + password sign-in form |
+| `forgot_request` | Enter email to request OTP |
+| `forgot_verify` | Enter 6-digit OTP + new password |
+| `connect_ghl` | GHL Company ID link (post-login) |
+
+The OTP functions are in `agency/src/services/agencyAuthHelper.ts`:
+
+- `requestPasswordOtp(email)` → `POST /api/auth/forgot-password-otp`
+- `resetPasswordWithOtp(email, otp, newPassword)` → `POST /api/auth/reset-password-otp`
+
+**The Agency OTP flow is complete and production-ready. No backend changes are needed for this portal.**
+
+#### Agency Handoff — Add `/forgot-password` Route
+
+The Agency login currently lives entirely at `/login` in the React SPA. To add a dedicated `/forgot-password` route:
+
+1. **Create** `agency/src/pages/AgencyForgotPassword.tsx` as a standalone page that renders only the `forgot_request` → `forgot_verify` phases (reuse the existing form logic from `AgencyLogin.tsx`).
+
+2. **Add a route** in `agency/src/routes.tsx`:
+
+```diff
+ import AgencyLogin from './pages/AgencyLogin.tsx';
++import AgencyForgotPassword from './pages/AgencyForgotPassword.tsx';
+ ...
+ <Route path="/login" element={<AgencyLogin />} />
++<Route path="/forgot-password" element={<AgencyForgotPassword />} />
+```
+
+3. **Update the "Forgot password?" link** in `AgencyLogin.tsx` (currently calls `openForgotPassword()` in-page) to instead navigate:
+
+```diff
+-onClick={openForgotPassword}
++onClick={() => navigate('/forgot-password')}
+```
+
+Or use a React Router `<Link to="/forgot-password">` anchor instead of the button.
+
+---
+
+### 3.3 Admin Portal (`smspro-api.nolacrm.io/admin`)
+
+The Admin portal uses `admin/src/pages/components/AdminLogin.tsx`. The forgot-password OTP flow was added in the previous session — it handles all four phases (`credentials`, `forgot_request`, `forgot_verify`, and `connect_ghl`-equivalent) inside the same component.
+
+**The Admin OTP flow is implemented. No backend changes are needed.**
+
+#### Admin Handoff — Add `/forgot-password` Route
+
+The Admin login is served at `smspro-api.nolacrm.io/login` (backend PHP). Add the same `/forgot-password` dedicated page per Section 2.
+
+The Admin React SPA does not handle `/login` — it redirects to the PHP backend — so no React route changes are needed for the Admin portal.
+
+---
+
+## 4. GHL Workflow Setup — Send OTP via GoHighLevel
+
+To route OTP delivery through a GHL workflow (recommended over plain `mail()` for reliability, branding, and SMS support):
 
 ### Step 1: Create GHL Custom Fields
-In your NOLA Central GHL Location (defined by `NOLA_ALERT_GHL_LOCATION_ID`):
-1. Go to **Settings > Custom Fields**.
-2. Create the following Contact Custom Fields:
+
+In your **NOLA Central GHL Location** (`NOLA_ALERT_GHL_LOCATION_ID`):
+
+1. Go to **Settings → Custom Fields**
+2. Add the following **Contact** custom fields:
 
 | Field Label | Suggested Key | Field Type |
 | :--- | :--- | :--- |
 | **NOLA SMS Alert Type** | `nola_sms_alert_type` | Single Line Text |
 | **NOLA SMS Alert ID** | `nola_sms_alert_id` | Single Line Text |
 | **NOLA SMS OTP Code** | `nola_sms_otp_code` | Single Line Text |
-| **NOLA SMS Alerted At** | `nola_sms_alerted_at` | Date/Time or Text |
+| **NOLA SMS Alerted At** | `nola_sms_alerted_at` | Single Line Text |
 
-### Step 2: Create the GoHighLevel Workflow
-1. Go to **Automation > Workflows** in your GHL account.
-2. Click **Create Workflow** and select **Start from Scratch**.
-3. Name the workflow: `NOLA SMS Pro - Password Reset OTP Delivery`.
+### Step 2: Create the Workflow
 
-### Step 3: Add the Workflow Trigger
-1. Add a trigger and select **Contact Changed**.
-2. Filter the trigger:
-   - **Custom Field**: `NOLA SMS Alert ID`
-   - **Operator**: `has changed`
+1. Go to **Automation → Workflows → Create Workflow → Start from Scratch**
+2. Name: `NOLA SMS Pro - Password Reset OTP Delivery`
 
-### Step 4: Add If/Else Condition
-To prevent this workflow from triggering on other NOLA alerts (like low-balance or sender ID alerts):
-1. Add an **If/Else** action block.
-2. Configure the condition:
-   - **Contact > Custom Fields > NOLA SMS Alert Type** `is` `forgot_password_otp`
-3. Rename this branch to **OTP Request**.
+### Step 3: Trigger
 
-### Step 5: Add Email or SMS Delivery Action
-Under the **OTP Request** branch:
-1. Add a **Send Email** or **Send SMS** action.
-2. In the body of your message, use the custom field tag to print the OTP code. For example:
-   
-   ```text
-   Subject: Your NOLA SMS Pro verification code
-   
-   Hi {{contact.first_name}},
-   
-   Your password reset verification code is:
-   
-   {{contact.nola_sms_otp_code}}
-   
-   This code is valid for 10 minutes. If you did not request a password reset, you can ignore this message.
-   ```
-3. Click **Save Action**.
-4. Set the workflow toggle to **Publish** and click **Save**.
+- **Trigger**: Contact Changed
+- **Filter**: `NOLA SMS Alert ID` → has changed
+
+### Step 4: If/Else Condition
+
+Add an **If/Else** to guard this workflow against other NOLA alerts:
+
+- **Condition**: `Custom Fields > NOLA SMS Alert Type` `is` `forgot_password_otp`
+- Rename the branch to **OTP Request**
+
+### Step 5: Delivery Action
+
+Under the **OTP Request** branch, add a **Send Email** or **Send SMS**:
+
+```
+Subject: Your NOLA SMS Pro verification code
+
+Hi {{contact.first_name}},
+
+Your password reset code is:
+
+{{contact.nola_sms_otp_code}}
+
+This code expires in 10 minutes. If you didn't request a reset, ignore this message.
+```
+
+Publish the workflow when ready.
 
 ---
 
-## 3. Recommended Backend Changes (Handoff for Dev Team)
+## 5. Backend Code Changes for GHL Delivery (Handoff for Dev Team)
 
-Since no backend changes are to be committed at this time, the development team can integrate the GHL sync mechanism into the PHP codebase using the following design guidelines:
+> **No backend changes have been committed.** The following is a reference for the backend developer to wire GHL delivery into the existing OTP flow.
 
-### 1. Update `resolveCentralGhlCustomFieldIds`
-In `api/services/NotificationService.php`, add `nola_sms_otp_code` to the `$requiredKeys` array so the backend maps it to the GHL custom field ID:
+### 5.1 `api/services/NotificationService.php` — Add `nola_sms_otp_code` to Custom Field Resolution
+
+In `resolveCentralGhlCustomFieldIds`, extend `$requiredKeys`:
 
 ```php
 $requiredKeys = [
@@ -101,26 +247,21 @@ $requiredKeys = [
     'nola_sms_source_location_name',
     'nola_sms_requested_sender_id',
     'nola_sms_admin_notes',
-    'nola_sms_otp_code', // Add this key
+    'nola_sms_otp_code', // ← Add this
 ];
 ```
 
-### 2. Implement the GHL Sync Call
-Add the following methods in `api/services/NotificationService.php` to handle OTP delivery:
+### 5.2 Add `notifyForgotPasswordOtp()` Method
 
 ```php
 /**
  * Dispatch OTP code via central GHL workflow.
- *
- * @param \Google\Cloud\Firestore\FirestoreClient $db
- * @param string $email
- * @param string $otp
  */
 public static function notifyForgotPasswordOtp($db, string $email, string $otp): void
 {
     $centralLocationId = getenv('NOLA_ALERT_GHL_LOCATION_ID') ?: '';
     if ($centralLocationId === '') {
-        error_log("[forgot_password_otp] NOLA_ALERT_GHL_LOCATION_ID not set. Skipping GHL delivery.");
+        error_log('[forgot_password_otp] NOLA_ALERT_GHL_LOCATION_ID not set. Skipping GHL delivery.');
         return;
     }
 
@@ -130,36 +271,30 @@ public static function notifyForgotPasswordOtp($db, string $email, string $otp):
 
     try {
         $ghlClient = new \GhlClient($db, $centralLocationId, $centralTokenRegistryId);
-        
-        // 1. Search for contact in central location
+
+        // 1. Find contact by email in central location
         $contactId = null;
-        $searchUrl = '/contacts/?locationId=' . urlencode($centralLocationId) . '&query=' . urlencode($email);
-        $searchResp = $ghlClient->request('GET', $searchUrl);
+        $searchResp = $ghlClient->request('GET', '/contacts/?locationId=' . urlencode($centralLocationId) . '&query=' . urlencode($email));
         if ($searchResp['status'] === 200) {
             $searchData = json_decode($searchResp['body'], true);
-            $contacts = $searchData['contacts'] ?? $searchData['data'] ?? [];
-            if (is_array($contacts)) {
-                foreach ($contacts as $c) {
-                    if (isset($c['email']) && strtolower(trim((string)$c['email'])) === strtolower(trim($email))) {
-                        $contactId = $c['id'];
-                        break;
-                    }
+            foreach ($searchData['contacts'] ?? [] as $c) {
+                if (strtolower(trim($c['email'] ?? '')) === strtolower(trim($email))) {
+                    $contactId = $c['id'];
+                    break;
                 }
             }
         }
 
         // 2. Resolve custom field IDs
         $fieldIdMap = self::resolveCentralGhlCustomFieldIds($db, $ghlClient, $centralLocationId);
-        
-        $now = new \DateTimeImmutable();
-        $timestamp = $now->format('c');
-        $alertId = "otp_{$email}_" . $now->format('YmdHis');
 
+        $now      = new \DateTimeImmutable();
+        $alertId  = 'otp_' . $email . '_' . $now->format('YmdHis');
         $alertFields = [
             'nola_sms_alert_type' => 'forgot_password_otp',
             'nola_sms_alert_id'   => $alertId,
             'nola_sms_otp_code'   => $otp,
-            'nola_sms_alerted_at' => $timestamp,
+            'nola_sms_alerted_at' => $now->format('c'),
         ];
 
         $ghlCustomFields = [];
@@ -178,50 +313,60 @@ public static function notifyForgotPasswordOtp($db, string $email, string $otp):
             'customFields' => $ghlCustomFields,
         ];
 
-        // 3. Upsert
+        // 3. Upsert contact
         if ($contactId) {
             unset($contactPayload['locationId']);
             $ghlClient->request('PUT', "/contacts/{$contactId}", json_encode($contactPayload));
         } else {
             $createResp = $ghlClient->request('POST', '/contacts/', json_encode($contactPayload));
-            if ($createResp['status'] === 200 || $createResp['status'] === 201) {
+            if (in_array($createResp['status'], [200, 201])) {
                 $createData = json_decode($createResp['body'], true);
-                $contactId = $createData['contact']['id'] ?? $createData['id'] ?? null;
+                $contactId  = $createData['contact']['id'] ?? $createData['id'] ?? null;
             }
         }
 
-        // 4. Cycle tag to trigger GHL Workflow
+        // 4. Cycle tag to fire GHL workflow
         if ($contactId) {
             $ghlClient->request('DELETE', "/contacts/{$contactId}/tags", json_encode(['tags' => [$alertTag]]));
-            $ghlClient->request('POST', "/contacts/{$contactId}/tags", json_encode(['tags' => [$alertTag]]));
-            error_log("[forgot_password_otp] Successfully synced OTP contact to GHL: {$contactId}");
+            $ghlClient->request('POST',   "/contacts/{$contactId}/tags", json_encode(['tags' => [$alertTag]]));
+            error_log("[forgot_password_otp] GHL OTP sync succeeded for contact: {$contactId}");
         }
     } catch (\Throwable $e) {
-        error_log("[forgot_password_otp] GHL Contact Bridge sync failed: " . $e->getMessage());
+        error_log('[forgot_password_otp] GHL sync failed: ' . $e->getMessage());
     }
 }
 ```
 
-### 3. Integrate with `forgot_password_otp.php`
-Call the notification function right after saving the OTP into the Firestore user document inside `forgot_password_otp.php`:
+### 5.3 Call from `api/auth/forgot_password_otp.php`
+
+After saving the OTP to Firestore (around line 91), call the notification:
 
 ```php
-// Save OTP info to Firestore document (line ~85)
-$userRef->set([
-    'otp_code' => $otp,
-    'otp_expires' => $expires,
-    'otp_verified' => false,
-    'updated_at' => new \Google\Cloud\Core\Timestamp(new \DateTime()),
-], ['merge' => true]);
+// After $userRef->set([...], ['merge' => true]);
 
-// Trigger GHL OTP Notification
 try {
     require_once __DIR__ . '/../services/NotificationService.php';
     \NotificationService::notifyForgotPasswordOtp($db, $email, $otp);
 } catch (\Throwable $e) {
-    error_log("[forgot_password_otp] GHL Notification Service failed: " . $e->getMessage());
+    error_log('[forgot_password_otp] GHL notification failed: ' . $e->getMessage());
 }
 
-// Fallback direct email delivery (line ~93)
+// The existing @mail() call below acts as a fallback
 @mail($email, $subject, $message, $headers);
 ```
+
+---
+
+## 6. Summary of Backend Dev Tasks
+
+| Task | File(s) | Status |
+| :--- | :--- | :--- |
+| Add `/forgot-password` route | `.htaccess` | ⏳ Handoff |
+| Create `install-forgot-password.php` | `install-forgot-password.php` | ⏳ Handoff |
+| Update "Forgot Password?" link in login page | `install-login.php` line 869 | ⏳ Handoff |
+| Remove legacy hidden forgot form from login page | `install-login.php` lines 885–949 | ⏳ Handoff |
+| Add `nola_sms_otp_code` to NotificationService | `api/services/NotificationService.php` | ⏳ Handoff |
+| Add `notifyForgotPasswordOtp()` method | `api/services/NotificationService.php` | ⏳ Handoff |
+| Call GHL notifier from OTP endpoint | `api/auth/forgot_password_otp.php` | ⏳ Handoff |
+| Create GHL Custom Fields + Workflow in GHL | GHL Admin Panel | ⏳ Handoff |
+| (Optional) Add `/forgot-password` to agency routes | `agency/src/routes.tsx` + new page | ⏳ Handoff |
