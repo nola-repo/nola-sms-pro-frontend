@@ -73,11 +73,6 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
         sessionStorage.setItem('nola_admin_user', username);
         if (token) sessionStorage.setItem('nola_admin_token', token);
         setIsAuthenticated(true);
-        fetch('/api/admin_users.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'record_login', email: username, username }),
-        }).catch(() => {});
     };
 
     const handleLogout = () => {

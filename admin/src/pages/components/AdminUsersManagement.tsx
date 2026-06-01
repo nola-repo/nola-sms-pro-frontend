@@ -49,10 +49,10 @@ export const AdminTeamManagement: React.FC = () => {
         return () => document.removeEventListener('mousedown', handler);
     }, [actionMenuId]);
 
-    const openMenu = (username: string, btn: HTMLButtonElement) => {
+    const openMenu = (email: string, btn: HTMLButtonElement) => {
         const rect = btn.getBoundingClientRect();
         setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-        setActionMenuId(prev => prev === username ? null : username);
+        setActionMenuId(prev => prev === email ? null : email);
     };
 
     const formatLastLogin = (ts: string | null | undefined) => {
@@ -68,37 +68,25 @@ export const AdminTeamManagement: React.FC = () => {
     };
 
     const fetchAdmins = useCallback(async (isInitial = false) => {
+        // Don't fire if there's no active session — avoids 401 spam when logged out
+        const token = sessionStorage.getItem('nola_admin_token');
+        if (!token) {
+            if (isInitial) setLoading(false);
+            return;
+        }
         if (isInitial) setLoading(true);
         setError(null);
         try {
             const res = await fetch(USERS_API, { headers: getAdminAuthHeaders() });
-            if (res.ok) {
-                const json = await res.json();
-                if (json.status === 'success') {
-                    const normalized = (json.data || []).map((a: any) => ({
-                        ...a,
-                        email: a.email || a.username || '',
-                        username: a.username || a.email || ''
-                    }));
-                    setAdmins(normalized);
-                } else setError(json.message || 'Failed to fetch admin users.');
+            const json = await res.json();
+            if (res.ok && json.status === 'success') {
+                setAdmins(json.data || []);
             } else {
-                // Graceful fallback before backend is deployed
-                const mockAdmins = [
-                    { email: 'admin@nolacrm.io', username: 'admin@nolacrm.io', role: 'super_admin', created_at: '2026-03-01', active: true, last_login: '2026-04-15T10:00:00Z' },
-                    { email: 'rae@nolacrm.io', username: 'rae@nolacrm.io', role: 'super_admin', created_at: '2026-03-24', active: true, last_login: '2026-03-30T16:41:24Z' }
-                ];
-                setAdmins(prev => prev.length > 1 ? prev : mockAdmins);
-                if (isInitial) setError('Backend not reachable. Showing local data.');
+                setError(json.message || `Server error (${res.status}). Please try again.`);
             }
             setLastRefreshed(new Date());
         } catch {
-            const mockAdmins = [
-                { email: 'admin@nolacrm.io', username: 'admin@nolacrm.io', role: 'super_admin', created_at: '2026-03-01', active: true, last_login: '2026-04-15T10:00:00Z' },
-                { email: 'rae@nolacrm.io', username: 'rae@nolacrm.io', role: 'super_admin', created_at: '2026-03-24', active: true, last_login: '2026-03-30T16:41:24Z' }
-            ];
-            setAdmins(prev => prev.length > 1 ? prev : mockAdmins);
-            if (isInitial) setError('Network error. Using mock data.');
+            setError('Network error — could not reach the server.');
         } finally { if (isInitial) setLoading(false); }
     }, []);
 
@@ -154,17 +142,14 @@ export const AdminTeamManagement: React.FC = () => {
             const res = await fetch(USERS_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
-                body: JSON.stringify({ action: 'reset_password', username: resetTarget, new_password: resetPassword })
+                body: JSON.stringify({ action: 'reset_password', email: resetTarget, new_password: resetPassword })
             });
-            if (res.ok) {
-                const json = await res.json();
-                if (json.status === 'success') {
-                    toast(`Password for "${resetTarget}" has been reset.`);
-                    setResetTarget(null); setResetPassword('');
-                } else { toast(json.message || 'Failed to reset password.', true); }
-            } else {
-                toast(`Password reset queued (backend pending deployment).`);
+            const json = await res.json();
+            if (res.ok && json.status === 'success') {
+                toast(`Password for "${resetTarget}" has been reset.`);
                 setResetTarget(null); setResetPassword('');
+            } else {
+                toast(json.message || 'Failed to reset password.', true);
             }
         } catch { toast('Network error resetting password.', true); }
         finally { setActionLoading(false); }
@@ -174,48 +159,43 @@ export const AdminTeamManagement: React.FC = () => {
         setActionMenuId(null);
         const newActive = !(admin.active !== false);
         // Optimistic update
-        setAdmins(prev => prev.map(a => a.username === admin.username ? { ...a, active: newActive } : a));
+        setAdmins(prev => prev.map(a => a.email === admin.email ? { ...a, active: newActive } : a));
         try {
             const res = await fetch(USERS_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
-                body: JSON.stringify({ action: 'toggle_status', username: admin.username, active: newActive })
+                body: JSON.stringify({ action: 'toggle_status', email: admin.email, active: newActive })
             });
-            if (res.ok) {
-                const json = await res.json();
-                if (json.status === 'success') {
-                    toast(`${admin.username} is now ${newActive ? 'active' : 'inactive'}.`);
-                    fetchAdmins();
-                } else {
-                    // Revert optimistic update
-                    setAdmins(prev => prev.map(a => a.username === admin.username ? { ...a, active: !newActive } : a));
-                    toast(json.message || 'Failed to toggle status.', true);
-                }
+            const json = await res.json();
+            if (res.ok && json.status === 'success') {
+                toast(`${admin.email} is now ${newActive ? 'active' : 'inactive'}.`);
+                fetchAdmins();
             } else {
-                toast(`Status updated (backend pending deployment).`);
+                // Revert optimistic update
+                setAdmins(prev => prev.map(a => a.email === admin.email ? { ...a, active: !newActive } : a));
+                toast(json.message || 'Failed to toggle status.', true);
             }
         } catch {
-            setAdmins(prev => prev.map(a => a.username === admin.username ? { ...a, active: !newActive } : a));
+            setAdmins(prev => prev.map(a => a.email === admin.email ? { ...a, active: !newActive } : a));
             toast('Network error toggling status.', true);
         }
     };
 
-    const handleDeleteAdmin = async (usernameToDelete: string) => {
-        if (!confirm(`Are you sure you want to delete '${usernameToDelete}'? This cannot be undone.`)) return;
+    const handleDeleteAdmin = async (emailToDelete: string) => {
+        if (!confirm(`Are you sure you want to delete '${emailToDelete}'? This cannot be undone.`)) return;
         setActionLoading(true); setActionMenuId(null);
         try {
             const res = await fetch(USERS_API, {
                 method: 'DELETE',
                 headers: getAdminAuthHeaders(),
-                body: JSON.stringify({ username: usernameToDelete })
+                body: JSON.stringify({ email: emailToDelete })
             });
-            if (res.ok) {
-                const json = await res.json();
-                if (json.status === 'success') { toast(`Admin "${usernameToDelete}" deleted.`); fetchAdmins(); }
-                else toast(json.message || 'Failed to delete admin.', true);
+            const json = await res.json();
+            if (res.ok && json.status === 'success') {
+                toast(`Admin "${emailToDelete}" deleted.`);
+                setAdmins(prev => prev.filter(a => a.email !== emailToDelete));
             } else {
-                toast(`Admin "${usernameToDelete}" deleted (pending backend deployment).`);
-                setAdmins(prev => prev.filter(a => a.username !== usernameToDelete));
+                toast(json.message || 'Failed to delete admin.', true);
             }
         } catch { toast('Network error deleting admin.', true); }
         finally { setActionLoading(false); }
@@ -232,7 +212,7 @@ export const AdminTeamManagement: React.FC = () => {
     };
 
     const filtered = admins.filter(a =>
-        (a.email || a.username)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        a.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         a.role?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -285,11 +265,11 @@ export const AdminTeamManagement: React.FC = () => {
                         ) : filtered.length === 0 ? (
                             <tr><td colSpan={6} className="py-12 text-center"><FiShield className="w-8 h-8 mx-auto mb-2 text-[#d0d0d0] dark:text-[#3a3b3f]" /><p className="text-[13px] text-[#9aa0a6] font-medium">{searchTerm ? 'No admins match your search.' : 'No admin users found.'}</p></td></tr>
                         ) : filtered.map(admin => (
-                            <tr key={admin.email || admin.username} className="group hover:bg-[#f7f7f7] dark:hover:bg-[#151618] transition-all duration-200">
+                            <tr key={admin.email} className="group hover:bg-[#f7f7f7] dark:hover:bg-[#151618] transition-all duration-200">
                                 <td className="py-4 pl-4 rounded-l-xl">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">{(admin.email || admin.username)?.charAt(0).toUpperCase()}</div>
-                                        <span className="font-bold text-[14px] text-[#111111] dark:text-white">{admin.email || admin.username}</span>
+                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">{admin.email?.charAt(0).toUpperCase()}</div>
+                                        <span className="font-bold text-[14px] text-[#111111] dark:text-white">{admin.email}</span>
                                     </div>
                                 </td>
                                 <td className="py-4">{getRoleBadge(admin.role)}</td>
@@ -307,7 +287,7 @@ export const AdminTeamManagement: React.FC = () => {
                                 </td>
                                 <td className="py-4 pr-4 text-right rounded-r-xl">
                                     <button
-                                        onClick={e => openMenu(admin.email || admin.username, e.currentTarget)}
+                                        onClick={e => openMenu(admin.email, e.currentTarget)}
                                         className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
                                     >
                                         <FiMoreVertical className="w-4 h-4" />
@@ -327,12 +307,12 @@ export const AdminTeamManagement: React.FC = () => {
                     className="w-48 bg-white dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-100"
                 >
                     {(() => {
-                        const admin = admins.find(a => (a.email || a.username) === actionMenuId);
+                        const admin = admins.find(a => a.email === actionMenuId);
                         if (!admin) return null;
                         return (
                             <>
                                 <button
-                                    onClick={() => { setResetTarget(admin.email || admin.username); setResetPassword(''); setActionMenuId(null); }}
+                                    onClick={() => { setResetTarget(admin.email); setResetPassword(''); setActionMenuId(null); }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white transition-colors text-left"
                                 >
                                     <FiKey className="w-3.5 h-3.5" /> Reset Password
@@ -346,7 +326,7 @@ export const AdminTeamManagement: React.FC = () => {
                                 </button>
                                 <div className="border-t border-[#f0f0f0] dark:border-white/5" />
                                 <button
-                                    onClick={() => handleDeleteAdmin(admin.email || admin.username)}
+                                    onClick={() => handleDeleteAdmin(admin.email)}
                                     disabled={actionLoading}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left disabled:opacity-50"
                                 >
