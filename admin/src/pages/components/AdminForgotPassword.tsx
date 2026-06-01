@@ -17,11 +17,7 @@ const formatCountdown = (seconds: number) => {
   return `${mins}:${secs}`;
 };
 
-const STEP_LABELS: Record<ForgotView, string> = {
-  forgot_request:         'Step 1 of 3',
-  forgot_verify:          'Step 2 of 3',
-  forgot_change_password: 'Step 3 of 3',
-};
+
 
 export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMode, toggleDarkMode }) => {
   const [view, setView] = useState<ForgotView>('forgot_request');
@@ -192,16 +188,7 @@ export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMo
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] opacity-20 dark:opacity-10 pointer-events-none" style={{ background: primaryColor }} />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] opacity-20 dark:opacity-10 pointer-events-none" style={{ background: primaryColor }} />
 
-      {/* Progress dots */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-50">
-        {(['forgot_request', 'forgot_verify', 'forgot_change_password'] as ForgotView[]).map((v, i) => {
-          const steps: ForgotView[] = ['forgot_request', 'forgot_verify', 'forgot_change_password'];
-          const currentIdx = steps.indexOf(view);
-          return (
-            <div key={v} className={`h-1.5 rounded-full transition-all duration-500 ${view === v ? 'w-6 bg-[#2b83fa]' : i < currentIdx ? 'w-3 bg-[#2b83fa]/40' : 'w-3 bg-gray-300 dark:bg-white/10'}`} />
-          );
-        })}
-      </div>
+
 
       {/* Theme toggle */}
       {toggleDarkMode && (
@@ -219,7 +206,7 @@ export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMo
         {/* ── Step 1: Enter email ── */}
         {view === 'forgot_request' && (
           <div className="animate-in fade-in duration-300">
-            <span className="block text-center text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4">{STEP_LABELS.forgot_request}</span>
+
             <div className="flex flex-col items-center mb-8">
               <img src={defaultLogo} alt="NOLA SMS Pro" className="h-[60px] object-contain mb-4" />
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight">Forgot password?</h1>
@@ -259,7 +246,7 @@ export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMo
         {/* ── Step 2: Enter OTP ── */}
         {view === 'forgot_verify' && (
           <div className="animate-in fade-in duration-300">
-            <span className="block text-center text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4">{STEP_LABELS.forgot_verify}</span>
+
             <div className="flex flex-col items-center mb-8">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
                 <FiShield className="w-6 h-6 text-white" />
@@ -331,7 +318,7 @@ export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMo
         {/* ── Step 3: New password ── */}
         {view === 'forgot_change_password' && (
           <div className="animate-in fade-in duration-300">
-            <span className="block text-center text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4">{STEP_LABELS.forgot_change_password}</span>
+
             <div className="flex flex-col items-center mb-8">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
                 <FiLock className="w-6 h-6 text-white" />

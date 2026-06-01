@@ -16,11 +16,7 @@ const formatCountdown = (seconds: number) => {
 
 type ForgotPhase = 'forgot_request' | 'forgot_verify' | 'forgot_change_password';
 
-const STEP_LABELS: Record<ForgotPhase, string> = {
-  forgot_request:        'Step 1 of 3',
-  forgot_verify:         'Step 2 of 3',
-  forgot_change_password:'Step 3 of 3',
-};
+
 
 const AgencyForgotPassword: React.FC = () => {
   const { darkMode, toggleDarkMode } = useAgency();
@@ -189,11 +185,7 @@ const AgencyForgotPassword: React.FC = () => {
     </motion.div>
   ) : null;
 
-  const StepBadge = ({ phase }: { phase: ForgotPhase }) => (
-    <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 block text-center">
-      {STEP_LABELS[phase]}
-    </span>
-  );
+
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-x-hidden bg-gray-50 dark:bg-[#0a0a0b] px-4 py-8 transition-colors duration-300">
@@ -214,19 +206,14 @@ const AgencyForgotPassword: React.FC = () => {
         )}
       </button>
 
-      {/* Progress dots */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-50">
-        {(['forgot_request', 'forgot_verify', 'forgot_change_password'] as ForgotPhase[]).map((p, i) => (
-          <div key={p} className={`h-1.5 rounded-full transition-all duration-500 ${phase === p ? 'w-6 bg-[#2b83fa]' : i < (['forgot_request', 'forgot_verify', 'forgot_change_password'] as ForgotPhase[]).indexOf(phase) ? 'w-3 bg-[#2b83fa]/40' : 'w-3 bg-gray-300 dark:bg-white/10'}`} />
-        ))}
-      </div>
+
 
       <AnimatePresence mode="wait">
 
         {/* ── Step 1: Enter email ── */}
         {phase === 'forgot_request' && (
           <Card motionKey="forgot_request">
-            <StepBadge phase="forgot_request" />
+
             <div className="flex flex-col items-center mb-8">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
                 <FiMail className="w-6 h-6 text-white" />
@@ -274,7 +261,7 @@ const AgencyForgotPassword: React.FC = () => {
         {/* ── Step 2: Enter OTP ── */}
         {phase === 'forgot_verify' && (
           <Card motionKey="forgot_verify">
-            <StepBadge phase="forgot_verify" />
+
             <div className="flex flex-col items-center mb-8">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
                 <FiShield className="w-6 h-6 text-white" />
@@ -347,7 +334,7 @@ const AgencyForgotPassword: React.FC = () => {
         {/* ── Step 3: New password ── */}
         {phase === 'forgot_change_password' && (
           <Card motionKey="forgot_change_password">
-            <StepBadge phase="forgot_change_password" />
+
             <div className="flex flex-col items-center mb-8">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
                 <FiLock className="w-6 h-6 text-white" />

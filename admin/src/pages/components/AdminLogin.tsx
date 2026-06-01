@@ -18,11 +18,7 @@ const formatCountdown = (seconds: number) => {
   return `${mins}:${secs}`;
 };
 
-const STEP_LABELS: Record<Exclude<AdminLoginView, 'login'>, string> = {
-  forgot_request:         'Step 1 of 3',
-  forgot_verify:          'Step 2 of 3',
-  forgot_change_password: 'Step 3 of 3',
-};
+
 
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggleDarkMode }) => {
   const [view, setView] = useState<AdminLoginView>('login');
@@ -292,18 +288,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
         </button>
       )}
 
-      {/* Progress dots for forgot steps */}
-      {view !== 'login' && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-50">
-          {(['forgot_request', 'forgot_verify', 'forgot_change_password'] as AdminLoginView[]).map((v, i) => {
-            const steps: AdminLoginView[] = ['forgot_request', 'forgot_verify', 'forgot_change_password'];
-            const currentIdx = steps.indexOf(view);
-            return (
-              <div key={v} className={`h-1.5 rounded-full transition-all duration-500 ${view === v ? 'w-6 bg-[#2b83fa]' : i < currentIdx ? 'w-3 bg-[#2b83fa]/40' : 'w-3 bg-gray-300 dark:bg-white/10'}`} />
-            );
-          })}
-        </div>
-      )}
+
 
       <div className="w-full max-w-md p-8 md:p-10 rounded-3xl bg-white/70 dark:bg-[#1a1b1e]/70 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] z-10 animate-in zoom-in-95 fade-in duration-300">
         
@@ -331,7 +316,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
 
         {view === 'forgot_request' ? (
           <form onSubmit={handleRequestOtp} className="space-y-5 animate-in fade-in duration-300">
-            <span className="block text-center text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">{STEP_LABELS.forgot_request}</span>
+
             <p className="text-[13px] text-gray-500 dark:text-gray-400 text-center mb-4">
               Enter the email address linked to your Admin account and we'll send you a verification code.
             </p>
@@ -368,7 +353,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
           </form>
         ) : view === 'forgot_verify' ? (
           <form onSubmit={handleOtpContinue} className="space-y-4 animate-in fade-in duration-300">
-            <span className="block text-center text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">{STEP_LABELS.forgot_verify}</span>
+
             <div className="flex flex-col items-center mb-6">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
                 <FiShield className="w-6 h-6 text-white" />
@@ -435,7 +420,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
           </form>
         ) : view === 'forgot_change_password' ? (
           <form onSubmit={handleResetPassword} className="space-y-4 animate-in fade-in duration-300">
-            <span className="block text-center text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">{STEP_LABELS.forgot_change_password}</span>
+
             <div className="flex flex-col items-center mb-6">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
                 <FiLock className="w-6 h-6 text-white" />
