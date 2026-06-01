@@ -7,12 +7,14 @@ import { Billing } from './pages/Billing.tsx';
 import { Subscription } from './pages/Subscription.tsx';
 import { AgencyProtectedRoute } from './components/auth/AgencyProtectedRoute.tsx';
 import AgencyLogin from './pages/AgencyLogin.tsx';
+import AgencyForgotPassword from './pages/AgencyForgotPassword.tsx';
 import AgencyOAuthCallback from './pages/AgencyOAuthCallback.tsx';
 import AgencyRegisterFromInstall from './pages/AgencyRegisterFromInstall.tsx';
 
 export const AppRoutes = () => (
   <Routes>
     <Route path="/login"                 element={<AgencyLogin />} />
+    <Route path="/forgot-password"       element={<AgencyForgotPassword />} />
     <Route path="/oauth/callback"        element={<AgencyOAuthCallback />} />
     <Route path="/register-from-install" element={<AgencyRegisterFromInstall />} />
 

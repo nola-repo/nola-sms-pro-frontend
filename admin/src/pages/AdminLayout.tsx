@@ -4,6 +4,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX, FiBriefcase } from 'react-icons/fi';
 
 import { AdminLogin } from './components/AdminLogin';
+import { AdminForgotPassword } from './components/AdminForgotPassword';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AdminSenderRequests } from './components/SenderRequests';
 import { AdminAccounts } from './components/AdminAccounts';
@@ -89,7 +90,12 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
     };
 
     if (!isAuthenticated) {
-        return <AdminLogin onLogin={handleLogin} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />;
+        return (
+            <Routes>
+                <Route path="/forgot-password" element={<AdminForgotPassword darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+                <Route path="*" element={<AdminLogin onLogin={handleLogin} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+            </Routes>
+        );
     }
 
     const page = PAGE_TITLES[pathname] ?? PAGE_TITLES['/dashboard'];

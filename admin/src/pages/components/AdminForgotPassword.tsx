@@ -1,22 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { FiEye, FiEyeOff, FiAlertTriangle, FiClock, FiRefreshCw, FiCheckCircle } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
+import { FiEye, FiEyeOff, FiAlertTriangle, FiClock, FiRefreshCw, FiArrowLeft } from 'react-icons/fi';
 // @ts-ignore
 import defaultLogo from '../../assets/NOLA SMS PRO Logo.png';
 
-interface AdminLoginProps {
-  onLogin: (username: string, token?: string) => void;
+interface AdminForgotPasswordProps {
   darkMode?: boolean;
   toggleDarkMode?: () => void;
 }
 
-export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggleDarkMode }) => {
-  const [view, setView] = useState<'login' | 'forgot_request' | 'forgot_verify'>('login');
-  
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPw, setShowPw] = useState(false);
-  
+const formatCountdown = (seconds: number) => {
+  const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const secs = (seconds % 60).toString().padStart(2, '0');
+  return `${mins}:${secs}`;
+};
+
+export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMode, toggleDarkMode }) => {
+  const [view, setView] = useState<'forgot_request' | 'forgot_verify'>('forgot_request');
+  const navigate = useNavigate();
+
   const [forgotEmail, setForgotEmail] = useState('');
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(''));
   const [newPassword, setNewPassword] = useState('');
@@ -25,22 +27,12 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [expiresIn, setExpiresIn] = useState(600);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [forgotSuccessMessage, setForgotSuccessMessage] = useState<string | null>(null);
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const primaryColor = '#3b82f6';
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    if (location.state?.forgotSuccessMessage) {
-      setForgotSuccessMessage(location.state.forgotSuccessMessage);
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-  }, [location, navigate]);
 
   useEffect(() => {
     if (view !== 'forgot_verify') return;
@@ -53,44 +45,12 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
     return () => window.clearInterval(timer);
   }, [view]);
 
-  const formatCountdown = (seconds: number) => {
-    const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const secs = (seconds % 60).toString().padStart(2, '0');
-    return `${mins}:${secs}`;
-  };
-
   const resetOtpForm = () => {
     setOtpDigits(Array(6).fill(''));
     setNewPassword('');
     setConfirmPassword('');
     setShowNewPw(false);
     setShowConfirmPw(false);
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-        const res = await fetch('/api/admin_auth.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        const json = await res.json();
-        
-        if (res.ok && json.status === 'success') {
-            const adminToken = json.token ?? json.admin_token ?? json.access_token ?? json.jwt ?? undefined;
-            onLogin(username, adminToken);
-        } else {
-            setError(json.message || 'Incorrect username or password.');
-        }
-    } catch (err) {
-        setError('Connection error. Please check your backend.');
-    } finally {
-        setLoading(false);
-    }
   };
 
   const handleRequestOtp = async (e: React.FormEvent) => {
@@ -224,9 +184,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
       if (!res.ok) {
         throw new Error(json.error ?? json.message ?? 'Could not reset password.');
       }
-      setForgotSuccessMessage('Password updated. Sign in with your new password.');
       resetOtpForm();
-      setView('login');
+      navigate('/login', { state: { forgotSuccessMessage: 'Password updated. Sign in with your new password.' } });
     } catch (err: any) {
       setError(err.message || 'Could not reset password.');
     } finally {
@@ -265,7 +224,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
           <img src={defaultLogo} alt="NOLA SMS Pro" className="h-[72px] object-contain mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight">Admin Portal</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-             {view === 'login' ? 'Sign in to management dashboard' : 'Reset your password'}
+             Reset your password
           </p>
         </div>
 
@@ -273,13 +232,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
           <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2 animate-in slide-in-from-top-2 fade-in">
             <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
             {error}
-          </div>
-        )}
-
-        {forgotSuccessMessage && (
-          <div className="mb-6 p-4 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 text-sm border border-emerald-100 dark:border-emerald-500/20 flex items-start gap-2 animate-in slide-in-from-top-2 fade-in">
-            <FiCheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            {forgotSuccessMessage}
           </div>
         )}
 
@@ -317,14 +269,14 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
               </button>
               <button
                 type="button"
-                onClick={() => { setView('login'); setError(null); }}
+                onClick={() => navigate('/login')}
                 className="w-full py-3 text-[14px] font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
               >
                 Cancel
               </button>
             </div>
           </form>
-        ) : view === 'forgot_verify' ? (
+        ) : (
           <form onSubmit={handleResetPassword} className="space-y-4 animate-in fade-in duration-300">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Email Address</label>
@@ -444,80 +396,12 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
               <button
                 type="button"
                 onClick={() => { setView('forgot_request'); setError(null); }}
-                className="w-full py-2 text-[12px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors underline underline-offset-2"
+                className="inline-flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors underline underline-offset-2 justify-center"
               >
+                <FiArrowLeft className="w-3.5 h-3.5" />
                 Change email
               </button>
             </div>
-          </form>
-        ) : (
-          <form onSubmit={handleLogin} className="space-y-5 animate-in fade-in duration-300">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Username</label>
-              <input
-                type="text"
-                autoFocus
-                required
-                value={username}
-                onChange={(e) => { setUsername(e.target.value); if (error) setError(null); }}
-                className="w-full px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
-                style={{ '--tw-ring-color': primaryColor } as any}
-                placeholder="e.g. admin"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5 ml-1 pr-1">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
-                <button 
-                  type="button" 
-                  onClick={() => { navigate('/forgot-password'); }}
-                  className="text-xs font-medium hover:underline transition-all" 
-                  style={{ color: primaryColor }}
-                >
-                  Forgot password?
-                </button>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPw ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); if (error) setError(null); }}
-                  className="w-full px-4 py-3.5 pr-11 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
-                  style={{ '--tw-ring-color': primaryColor } as any}
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPw(p => !p)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                  tabIndex={-1}
-                >
-                  {showPw ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || !username.trim() || !password.trim()}
-              className="w-full py-3.5 px-4 mt-2 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] active:scale-[0.98]"
-              style={{ background: 'linear-gradient(135deg, #1d6bd4 0%, #2b83fa 50%, #1d6bd4 100%)', backgroundSize: '200% 200%' }}
-            >
-              <span className="relative z-10 flex items-center">
-                {loading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Signing in...
-                  </>
-                ) : 'Log In'}
-              </span>
-            </button>
-            
           </form>
         )}
 

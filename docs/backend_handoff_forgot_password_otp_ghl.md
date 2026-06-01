@@ -131,44 +131,21 @@ The OTP functions are in `agency/src/services/agencyAuthHelper.ts`:
 
 **The Agency OTP flow is complete and production-ready. No backend changes are needed for this portal.**
 
-#### Agency Handoff — Add `/forgot-password` Route
+#### Agency Portal — `/forgot-password` Route (Implemented)
 
-The Agency login currently lives entirely at `/login` in the React SPA. To add a dedicated `/forgot-password` route:
-
-1. **Create** `agency/src/pages/AgencyForgotPassword.tsx` as a standalone page that renders only the `forgot_request` → `forgot_verify` phases (reuse the existing form logic from `AgencyLogin.tsx`).
-
-2. **Add a route** in `agency/src/routes.tsx`:
-
-```diff
- import AgencyLogin from './pages/AgencyLogin.tsx';
-+import AgencyForgotPassword from './pages/AgencyForgotPassword.tsx';
- ...
- <Route path="/login" element={<AgencyLogin />} />
-+<Route path="/forgot-password" element={<AgencyForgotPassword />} />
-```
-
-3. **Update the "Forgot password?" link** in `AgencyLogin.tsx` (currently calls `openForgotPassword()` in-page) to instead navigate:
-
-```diff
--onClick={openForgotPassword}
-+onClick={() => navigate('/forgot-password')}
-```
-
-Or use a React Router `<Link to="/forgot-password">` anchor instead of the button.
+The Agency portal has a dedicated `/forgot-password` route handled by the new `AgencyForgotPassword.tsx` component.
+- Clicking "Forgot password?" in `AgencyLogin.tsx` navigates to `/forgot-password`.
+- The route is registered in `routes.tsx` mapping to `AgencyForgotPassword.tsx`.
+- On success, it redirects to `/login` passing the reset success state.
 
 ---
 
 ### 3.3 Admin Portal (`smspro-api.nolacrm.io/admin`)
 
-The Admin portal uses `admin/src/pages/components/AdminLogin.tsx`. The forgot-password OTP flow was added in the previous session — it handles all four phases (`credentials`, `forgot_request`, `forgot_verify`, and `connect_ghl`-equivalent) inside the same component.
-
-**The Admin OTP flow is implemented. No backend changes are needed.**
-
-#### Admin Handoff — Add `/forgot-password` Route
-
-The Admin login is served at `smspro-api.nolacrm.io/login` (backend PHP). Add the same `/forgot-password` dedicated page per Section 2.
-
-The Admin React SPA does not handle `/login` — it redirects to the PHP backend — so no React route changes are needed for the Admin portal.
+The Admin portal has a dedicated `/forgot-password` route handled by the new `AdminForgotPassword.tsx` component.
+- In `AdminLayout.tsx`, if the user is unauthenticated, any request to `/forgot-password` is routed to `AdminForgotPassword`, and all other routes match to `AdminLogin`.
+- Clicking "Forgot password?" in `AdminLogin.tsx` navigates to `/forgot-password`.
+- On success, it redirects to `/login` passing the reset success state.
 
 ---
 
@@ -369,4 +346,4 @@ try {
 | Add `notifyForgotPasswordOtp()` method | `api/services/NotificationService.php` | ⏳ Handoff |
 | Call GHL notifier from OTP endpoint | `api/auth/forgot_password_otp.php` | ⏳ Handoff |
 | Create GHL Custom Fields + Workflow in GHL | GHL Admin Panel | ⏳ Handoff |
-| (Optional) Add `/forgot-password` to agency routes | `agency/src/routes.tsx` + new page | ⏳ Handoff |
+| Add `/forgot-password` to agency and admin routes | `agency/` + `admin/` frontend code | Done (Frontend Implemented) |
