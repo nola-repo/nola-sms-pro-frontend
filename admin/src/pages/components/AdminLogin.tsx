@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FiEye, FiEyeOff, FiAlertTriangle, FiClock, FiRefreshCw, FiCheckCircle } from 'react-icons/fi';
+import { FiEye, FiEyeOff, FiAlertTriangle, FiClock, FiRefreshCw, FiCheckCircle, FiShield, FiLock, FiArrowRight } from 'react-icons/fi';
 // @ts-ignore
 import defaultLogo from '../../assets/NOLA SMS PRO Logo.png';
 
@@ -10,33 +10,57 @@ interface AdminLoginProps {
   toggleDarkMode?: () => void;
 }
 
+type AdminLoginView = 'login' | 'forgot_request' | 'forgot_verify' | 'forgot_change_password';
+
+const formatCountdown = (seconds: number) => {
+  const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const secs = (seconds % 60).toString().padStart(2, '0');
+  return `${mins}:${secs}`;
+};
+
+const STEP_LABELS: Record<Exclude<AdminLoginView, 'login'>, string> = {
+  forgot_request:         'Step 1 of 3',
+  forgot_verify:          'Step 2 of 3',
+  forgot_change_password: 'Step 3 of 3',
+};
+
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggleDarkMode }) => {
-  const [view, setView] = useState<'login' | 'forgot_request' | 'forgot_verify'>('login');
+  const [view, setView] = useState<AdminLoginView>('login');
   
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [showPw, setShowPw] = useState(false);
+  const [showPw, setShowPw]     = useState(false);
   
+  // Step 1
   const [forgotEmail, setForgotEmail] = useState('');
-  const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(''));
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showNewPw, setShowNewPw] = useState(false);
-  const [showConfirmPw, setShowConfirmPw] = useState(false);
-  const [expiresIn, setExpiresIn] = useState(600);
+  
+  // Step 2
+  const [otpDigits, setOtpDigits]           = useState<string[]>(Array(6).fill(''));
+  const [expiresIn, setExpiresIn]           = useState(600);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [forgotSuccessMessage, setForgotSuccessMessage] = useState<string | null>(null);
+  const [verifiedOtp, setVerifiedOtp]       = useState('');
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
   
+  // Step 3
+  const [newPassword, setNewPassword]         = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPw, setShowNewPw]             = useState(false);
+  const [showConfirmPw, setShowConfirmPw]     = useState(false);
+
+  const [forgotSuccessMessage, setForgotSuccessMessage] = useState<string | null>(null);
+  
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
 
   const primaryColor = '#3b82f6';
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    if (location.state?.forgotSuccessMessage) {
+    if (location.state?.resetSuccess) {
+      setForgotSuccessMessage(location.state.resetSuccess);
+      navigate(location.pathname, { replace: true, state: {} });
+    } else if (location.state?.forgotSuccessMessage) {
       setForgotSuccessMessage(location.state.forgotSuccessMessage);
       navigate(location.pathname, { replace: true, state: {} });
     }
@@ -52,12 +76,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
 
     return () => window.clearInterval(timer);
   }, [view]);
-
-  const formatCountdown = (seconds: number) => {
-    const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const secs = (seconds % 60).toString().padStart(2, '0');
-    return `${mins}:${secs}`;
-  };
 
   const resetOtpForm = () => {
     setOtpDigits(Array(6).fill(''));
@@ -93,6 +111,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
     }
   };
 
+  // ── Step 1: Request OTP ────────────────────────────────────────────────────
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedEmail = forgotEmail.trim().toLowerCase();
@@ -114,7 +133,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
         throw new Error(json.error ?? json.message ?? 'Could not send verification code.');
       }
       setForgotEmail(trimmedEmail);
-      resetOtpForm();
+      setOtpDigits(Array(6).fill(''));
+      setVerifiedOtp('');
       setExpiresIn(600);
       setResendCooldown(60);
       setView('forgot_verify');
@@ -141,7 +161,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
       if (!res.ok) {
         throw new Error(json.error ?? json.message ?? 'Could not send verification code.');
       }
-      resetOtpForm();
+      setOtpDigits(Array(6).fill(''));
+      setVerifiedOtp('');
       setExpiresIn(600);
       setResendCooldown(60);
       window.setTimeout(() => otpRefs.current[0]?.focus(), 120);
@@ -152,6 +173,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
     }
   };
 
+  // ── Step 2: OTP input helpers ──────────────────────────────────────────────
   const handleOtpChange = (index: number, value: string) => {
     const digits = value.replace(/\D/g, '');
     const next = [...otpDigits];
@@ -191,18 +213,24 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
     handleOtpChange(index, pasted);
   };
 
-  const handleResetPassword = async (e: React.FormEvent) => {
+  // Step 2 → Step 3: Validate OTP, store it, advance
+  const handleOtpContinue = (e: React.FormEvent) => {
     e.preventDefault();
     const otp = otpDigits.join('');
+    if (otp.length !== 6) { setError('Enter the 6-digit verification code.'); return; }
+    if (expiresIn <= 0)   { setError('OTP code has expired. Please resend a new code.'); return; }
+    setVerifiedOtp(otp);
+    setError(null);
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowNewPw(false);
+    setShowConfirmPw(false);
+    setView('forgot_change_password');
+  };
 
-    if (otp.length !== 6) {
-      setError('Enter the 6-digit verification code.');
-      return;
-    }
-    if (expiresIn <= 0) {
-      setError('OTP code has expired. Please resend a new code.');
-      return;
-    }
+  // ── Step 3: Reset password ─────────────────────────────────────────────────
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (newPassword.length < 8) {
       setError('Password must be at least 8 characters long.');
       return;
@@ -218,7 +246,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
       const res = await fetch('/api/auth/reset_password_otp.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotEmail, otp, new_password: newPassword }),
+        body: JSON.stringify({ email: forgotEmail, otp: verifiedOtp, new_password: newPassword }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -229,6 +257,11 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
       setView('login');
     } catch (err: any) {
       setError(err.message || 'Could not reset password.');
+      if ((err.message || '').toLowerCase().includes('otp') || (err.message || '').toLowerCase().includes('expired')) {
+        setVerifiedOtp('');
+        setOtpDigits(Array(6).fill(''));
+        setView('forgot_verify');
+      }
     } finally {
       setLoading(false);
     }
@@ -259,12 +292,25 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
         </button>
       )}
 
+      {/* Progress dots for forgot steps */}
+      {view !== 'login' && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-50">
+          {(['forgot_request', 'forgot_verify', 'forgot_change_password'] as AdminLoginView[]).map((v, i) => {
+            const steps: AdminLoginView[] = ['forgot_request', 'forgot_verify', 'forgot_change_password'];
+            const currentIdx = steps.indexOf(view);
+            return (
+              <div key={v} className={`h-1.5 rounded-full transition-all duration-500 ${view === v ? 'w-6 bg-[#2b83fa]' : i < currentIdx ? 'w-3 bg-[#2b83fa]/40' : 'w-3 bg-gray-300 dark:bg-white/10'}`} />
+            );
+          })}
+        </div>
+      )}
+
       <div className="w-full max-w-md p-8 md:p-10 rounded-3xl bg-white/70 dark:bg-[#1a1b1e]/70 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] z-10 animate-in zoom-in-95 fade-in duration-300">
         
         <div className="flex flex-col items-center mb-8">
           <img src={defaultLogo} alt="NOLA SMS Pro" className="h-[72px] object-contain mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight">Admin Portal</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
              {view === 'login' ? 'Sign in to management dashboard' : 'Reset your password'}
           </p>
         </div>
@@ -285,16 +331,14 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
 
         {view === 'forgot_request' ? (
           <form onSubmit={handleRequestOtp} className="space-y-5 animate-in fade-in duration-300">
+            <span className="block text-center text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">{STEP_LABELS.forgot_request}</span>
             <p className="text-[13px] text-gray-500 dark:text-gray-400 text-center mb-4">
               Enter the email address linked to your Admin account and we'll send you a verification code.
             </p>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Email Address</label>
               <input
-                type="email"
-                autoFocus
-                required
-                value={forgotEmail}
+                type="email" autoFocus required value={forgotEmail}
                 onChange={(e) => { setForgotEmail(e.target.value); if (error) setError(null); }}
                 className="w-full px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
                 style={{ '--tw-ring-color': primaryColor } as any}
@@ -304,8 +348,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
 
             <div className="flex flex-col gap-3 pt-4">
               <button
-                type="submit"
-                disabled={!forgotEmail.trim() || loading}
+                type="submit" disabled={!forgotEmail.trim() || loading}
                 className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center transition-all bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] active:scale-[0.98]"
               >
                 {loading ? (
@@ -316,8 +359,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
                 ) : 'Send Verification Code'}
               </button>
               <button
-                type="button"
-                onClick={() => { setView('login'); setError(null); }}
+                type="button" onClick={() => { setView('login'); setError(null); }}
                 className="w-full py-3 text-[14px] font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
               >
                 Cancel
@@ -325,15 +367,15 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
             </div>
           </form>
         ) : view === 'forgot_verify' ? (
-          <form onSubmit={handleResetPassword} className="space-y-4 animate-in fade-in duration-300">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Email Address</label>
-              <input
-                type="email"
-                readOnly
-                value={forgotEmail}
-                className="w-full px-4 py-3 rounded-xl bg-gray-100/80 dark:bg-black/30 border border-transparent dark:border-white/5 text-gray-500 dark:text-gray-400 focus:outline-none"
-              />
+          <form onSubmit={handleOtpContinue} className="space-y-4 animate-in fade-in duration-300">
+            <span className="block text-center text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">{STEP_LABELS.forgot_verify}</span>
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
+                <FiShield className="w-6 h-6 text-white" />
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center leading-relaxed">
+                We sent a 6-digit code to <span className="font-semibold text-gray-700 dark:text-gray-200">{forgotEmail}</span>
+              </p>
             </div>
 
             <div>
@@ -349,10 +391,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
                   <input
                     key={index}
                     ref={(el) => { otpRefs.current[index] = el; }}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
+                    type="text" inputMode="numeric" pattern="[0-9]*" maxLength={1}
                     value={digit}
                     onChange={(e) => handleOtpChange(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
@@ -369,9 +408,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
                   {resendCooldown > 0 ? `Resend in ${formatCountdown(resendCooldown)}` : 'Need another code?'}
                 </span>
                 <button
-                  type="button"
-                  onClick={handleResendOtp}
-                  disabled={resendCooldown > 0 || loading}
+                  type="button" onClick={handleResendOtp} disabled={resendCooldown > 0 || loading}
                   className="inline-flex items-center gap-1.5 font-semibold text-[#2b83fa] hover:text-[#1d6bd4] disabled:text-gray-300 dark:disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
                 >
                   <FiRefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -380,24 +417,48 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
               </div>
             </div>
 
+            <div className="flex flex-col gap-3 pt-4">
+              <button
+                type="submit" disabled={otpDigits.join('').length !== 6 || expiresIn <= 0}
+                className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] active:scale-[0.98]"
+              >
+                <FiArrowRight className="w-4 h-4" />
+                Continue
+              </button>
+              <button
+                type="button" onClick={() => { setView('forgot_request'); setError(null); }}
+                className="w-full py-2 text-[12px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors underline underline-offset-2 text-center"
+              >
+                Change email
+              </button>
+            </div>
+          </form>
+        ) : view === 'forgot_change_password' ? (
+          <form onSubmit={handleResetPassword} className="space-y-4 animate-in fade-in duration-300">
+            <span className="block text-center text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">{STEP_LABELS.forgot_change_password}</span>
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
+                <FiLock className="w-6 h-6 text-white" />
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center leading-relaxed">
+                Choose a strong password for your Admin account.
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">New Password</label>
               <div className="relative">
                 <input
-                  type={showNewPw ? 'text' : 'password'}
-                  required
-                  minLength={8}
+                  type={showNewPw ? 'text' : 'password'} required minLength={8} autoFocus
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e) => { setNewPassword(e.target.value); if (error) setError(null); }}
                   className="w-full px-4 py-3.5 pr-11 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
                   style={{ '--tw-ring-color': primaryColor } as any}
                   placeholder="At least 8 characters"
                 />
                 <button
-                  type="button"
-                  onClick={() => setShowNewPw(p => !p)}
+                  type="button" onClick={() => setShowNewPw(p => !p)} tabIndex={-1}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                  tabIndex={-1}
                 >
                   {showNewPw ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
                 </button>
@@ -408,45 +469,39 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Confirm New Password</label>
               <div className="relative">
                 <input
-                  type={showConfirmPw ? 'text' : 'password'}
-                  required
-                  minLength={8}
+                  type={showConfirmPw ? 'text' : 'password'} required minLength={8}
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => { setConfirmPassword(e.target.value); if (error) setError(null); }}
                   className="w-full px-4 py-3.5 pr-11 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
                   style={{ '--tw-ring-color': primaryColor } as any}
                   placeholder="Re-enter password"
                 />
                 <button
-                  type="button"
-                  onClick={() => setShowConfirmPw(p => !p)}
+                  type="button" onClick={() => setShowConfirmPw(p => !p)} tabIndex={-1}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                  tabIndex={-1}
                 >
                   {showConfirmPw ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 pt-2">
+            <div className="flex flex-col gap-3 pt-4">
               <button
-                type="submit"
-                disabled={loading || expiresIn <= 0}
-                className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center transition-all bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] active:scale-[0.98]"
+                type="submit" disabled={loading || !newPassword || !confirmPassword}
+                className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] active:scale-[0.98]"
               >
                 {loading ? (
                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                    </svg>
-                ) : 'Reset Password'}
+                ) : <><FiCheckCircle className="w-4 h-4" /> Reset Password</>}
               </button>
               <button
-                type="button"
-                onClick={() => { setView('forgot_request'); setError(null); }}
-                className="w-full py-2 text-[12px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors underline underline-offset-2"
+                type="button" onClick={() => { setView('forgot_verify'); setError(null); }}
+                className="w-full py-2 text-[12px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors underline underline-offset-2 text-center"
               >
-                Change email
+                Back to code entry
               </button>
             </div>
           </form>
@@ -455,10 +510,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Username</label>
               <input
-                type="text"
-                autoFocus
-                required
-                value={username}
+                type="text" autoFocus required value={username}
                 onChange={(e) => { setUsername(e.target.value); if (error) setError(null); }}
                 className="w-full px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
                 style={{ '--tw-ring-color': primaryColor } as any}
@@ -480,17 +532,14 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
               </div>
               <div className="relative">
                 <input
-                  type={showPw ? 'text' : 'password'}
-                  required
-                  value={password}
+                  type={showPw ? 'text' : 'password'} required value={password}
                   onChange={(e) => { setPassword(e.target.value); if (error) setError(null); }}
                   className="w-full px-4 py-3.5 pr-11 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
                   style={{ '--tw-ring-color': primaryColor } as any}
                   placeholder="••••••••"
                 />
                 <button
-                  type="button"
-                  onClick={() => setShowPw(p => !p)}
+                  type="button" onClick={() => setShowPw(p => !p)}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                   tabIndex={-1}
                 >
@@ -500,8 +549,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
             </div>
 
             <button
-              type="submit"
-              disabled={loading || !username.trim() || !password.trim()}
+              type="submit" disabled={loading || !username.trim() || !password.trim()}
               className="w-full py-3.5 px-4 mt-2 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] active:scale-[0.98]"
               style={{ background: 'linear-gradient(135deg, #1d6bd4 0%, #2b83fa 50%, #1d6bd4 100%)', backgroundSize: '200% 200%' }}
             >
@@ -517,7 +565,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
                 ) : 'Log In'}
               </span>
             </button>
-            
           </form>
         )}
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { FiEye, FiEyeOff, FiAlertTriangle, FiArrowLeft, FiMail, FiLock, FiClock, FiRefreshCw, FiCheckCircle } from 'react-icons/fi';
+import { FiEye, FiEyeOff, FiAlertTriangle, FiArrowLeft, FiMail, FiLock, FiShield, FiClock, FiRefreshCw, FiCheckCircle, FiArrowRight } from 'react-icons/fi';
 import { requestPasswordOtp, resetPasswordWithOtp } from '../services/agencyAuthHelper';
 import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
 import { useAgency } from '../context/AgencyContext.tsx';
@@ -14,46 +14,51 @@ const formatCountdown = (seconds: number) => {
   return `${mins}:${secs}`;
 };
 
+type ForgotPhase = 'forgot_request' | 'forgot_verify' | 'forgot_change_password';
+
+const STEP_LABELS: Record<ForgotPhase, string> = {
+  forgot_request:        'Step 1 of 3',
+  forgot_verify:         'Step 2 of 3',
+  forgot_change_password:'Step 3 of 3',
+};
+
 const AgencyForgotPassword: React.FC = () => {
   const { darkMode, toggleDarkMode } = useAgency();
-  const [phase, setPhase]           = useState<'forgot_request' | 'forgot_verify'>('forgot_request');
-  const [error, setError]           = useState<string | null>(null);
+  const [phase, setPhase] = useState<ForgotPhase>('forgot_request');
+  const [error, setError] = useState<string | null>(null);
 
-  // OTP password reset
-  const [resetEmail, setResetEmail]               = useState('');
-  const [otpDigits, setOtpDigits]                 = useState<string[]>(Array(6).fill(''));
-  const [newPassword, setNewPassword]             = useState('');
-  const [confirmPassword, setConfirmPassword]     = useState('');
-  const [showNewPw, setShowNewPw]                 = useState(false);
-  const [showConfirmPw, setShowConfirmPw]         = useState(false);
-  const [resetLoading, setResetLoading]           = useState(false);
-  const [expiresIn, setExpiresIn]                 = useState(600);
-  const [resendCooldown, setResendCooldown]       = useState(0);
+  // Step 1
+  const [resetEmail, setResetEmail] = useState('');
+
+  // Step 2
+  const [otpDigits, setOtpDigits]       = useState<string[]>(Array(6).fill(''));
+  const [expiresIn, setExpiresIn]       = useState(600);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [verifiedOtp, setVerifiedOtp]   = useState('');
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
-  const { toasts, showToast, dismissToast } = useToast();
 
-  const navigate = useNavigate();
+  // Step 3
+  const [newPassword, setNewPassword]         = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPw, setShowNewPw]             = useState(false);
+  const [showConfirmPw, setShowConfirmPw]     = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const { toasts, showToast, dismissToast } = useToast();
+  const navigate    = useNavigate();
   const primaryColor = '#3b82f6';
 
+  // Countdown timer (only active in step 2)
   useEffect(() => {
     if (phase !== 'forgot_verify') return;
-
     const timer = window.setInterval(() => {
       setExpiresIn(prev => Math.max(0, prev - 1));
       setResendCooldown(prev => Math.max(0, prev - 1));
     }, 1000);
-
     return () => window.clearInterval(timer);
   }, [phase]);
 
-  const resetOtpForm = () => {
-    setOtpDigits(Array(6).fill(''));
-    setNewPassword('');
-    setConfirmPassword('');
-    setShowNewPw(false);
-    setShowConfirmPw(false);
-  };
-
+  // ── Step 1: Request OTP ────────────────────────────────────────────────────
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedEmail = resetEmail.trim().toLowerCase();
@@ -61,13 +66,13 @@ const AgencyForgotPassword: React.FC = () => {
       setError('Please enter a valid email address.');
       return;
     }
-
-    setResetLoading(true);
+    setLoading(true);
     setError(null);
     try {
       await requestPasswordOtp(trimmedEmail);
       setResetEmail(trimmedEmail);
-      resetOtpForm();
+      setOtpDigits(Array(6).fill(''));
+      setVerifiedOtp('');
       setExpiresIn(600);
       setResendCooldown(60);
       setPhase('forgot_verify');
@@ -76,18 +81,18 @@ const AgencyForgotPassword: React.FC = () => {
     } catch (err: any) {
       setError(err.message || 'Could not send verification code.');
     } finally {
-      setResetLoading(false);
+      setLoading(false);
     }
   };
 
   const handleResendOtp = async () => {
-    if (resendCooldown > 0 || resetLoading) return;
-
-    setResetLoading(true);
+    if (resendCooldown > 0 || loading) return;
+    setLoading(true);
     setError(null);
     try {
       await requestPasswordOtp(resetEmail);
-      resetOtpForm();
+      setOtpDigits(Array(6).fill(''));
+      setVerifiedOtp('');
       setExpiresIn(600);
       setResendCooldown(60);
       showToast('New verification code sent.', 'success');
@@ -95,88 +100,105 @@ const AgencyForgotPassword: React.FC = () => {
     } catch (err: any) {
       setError(err.message || 'Could not resend verification code.');
     } finally {
-      setResetLoading(false);
+      setLoading(false);
     }
   };
 
+  // ── Step 2: OTP input helpers ──────────────────────────────────────────────
   const handleOtpChange = (index: number, value: string) => {
     const digits = value.replace(/\D/g, '');
     const next = [...otpDigits];
-
-    if (!digits) {
-      next[index] = '';
-      setOtpDigits(next);
-      return;
-    }
-
-    digits.slice(0, 6 - index).split('').forEach((digit, offset) => {
-      next[index + offset] = digit;
-    });
+    if (!digits) { next[index] = ''; setOtpDigits(next); return; }
+    digits.slice(0, 6 - index).split('').forEach((d, off) => { next[index + off] = d; });
     setOtpDigits(next);
-
-    const focusIndex = Math.min(index + digits.length, 5);
-    otpRefs.current[focusIndex]?.focus();
+    otpRefs.current[Math.min(index + digits.length, 5)]?.focus();
   };
 
   const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus();
-    }
-    if (e.key === 'ArrowLeft' && index > 0) {
-      otpRefs.current[index - 1]?.focus();
-    }
-    if (e.key === 'ArrowRight' && index < 5) {
-      otpRefs.current[index + 1]?.focus();
-    }
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) otpRefs.current[index - 1]?.focus();
+    if (e.key === 'ArrowLeft'  && index > 0) otpRefs.current[index - 1]?.focus();
+    if (e.key === 'ArrowRight' && index < 5) otpRefs.current[index + 1]?.focus();
   };
 
   const handleOtpPaste = (index: number, e: React.ClipboardEvent<HTMLInputElement>) => {
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6 - index);
     if (!pasted) return;
-
     e.preventDefault();
     handleOtpChange(index, pasted);
   };
 
-  const handleResetPassword = async (e: React.FormEvent) => {
+  // Step 2 → Step 3: Validate OTP, store it, advance
+  const handleOtpContinue = (e: React.FormEvent) => {
     e.preventDefault();
     const otp = otpDigits.join('');
+    if (otp.length !== 6) { setError('Enter the 6-digit verification code.'); return; }
+    if (expiresIn <= 0)   { setError('OTP code has expired. Please resend a new code.'); return; }
+    setVerifiedOtp(otp);
+    setError(null);
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowNewPw(false);
+    setShowConfirmPw(false);
+    setPhase('forgot_change_password');
+  };
 
-    if (otp.length !== 6) {
-      setError('Enter the 6-digit verification code.');
-      return;
-    }
-    if (expiresIn <= 0) {
-      setError('OTP code has expired. Please resend a new code.');
-      return;
-    }
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
+  // ── Step 3: Reset password ─────────────────────────────────────────────────
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 8)       { setError('Password must be at least 8 characters long.'); return; }
+    if (newPassword !== confirmPassword) { setError('Passwords do not match.'); return; }
 
-    setResetLoading(true);
+    setLoading(true);
     setError(null);
     try {
-      await resetPasswordWithOtp(resetEmail, otp, newPassword);
-      // Pass the success state to /login route so it displays there!
+      await resetPasswordWithOtp(resetEmail, verifiedOtp, newPassword);
       navigate('/login', { state: { resetSuccess: 'Password updated. Sign in with your new password.' } });
     } catch (err: any) {
+      // OTP may have been rejected by server; send back to OTP step
       setError(err.message || 'Could not reset password.');
+      if ((err.message || '').toLowerCase().includes('otp') || (err.message || '').toLowerCase().includes('expired')) {
+        setVerifiedOtp('');
+        setOtpDigits(Array(6).fill(''));
+        setPhase('forgot_verify');
+      }
     } finally {
-      setResetLoading(false);
+      setLoading(false);
     }
   };
+
+  // ── Shared UI helpers ──────────────────────────────────────────────────────
+  const Card = ({ children, motionKey }: { children: React.ReactNode; motionKey: string }) => (
+    <motion.div
+      key={motionKey}
+      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96, y: -6 }}
+      transition={{ duration: 0.32, ease: 'easeOut' }}
+      className="w-full max-w-md p-8 md:p-10 rounded-3xl bg-white/70 dark:bg-[#1a1b1e]/70 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] z-10"
+    >
+      {children}
+    </motion.div>
+  );
+
+  const ErrorBanner = () => error ? (
+    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+      className="mb-5 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2"
+    >
+      <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+      {error}
+    </motion.div>
+  ) : null;
+
+  const StepBadge = ({ phase }: { phase: ForgotPhase }) => (
+    <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 block text-center">
+      {STEP_LABELS[phase]}
+    </span>
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-x-hidden bg-gray-50 dark:bg-[#0a0a0b] px-4 py-8 transition-colors duration-300">
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Background blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] opacity-20 dark:opacity-10 pointer-events-none" style={{ background: primaryColor }} />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] opacity-20 dark:opacity-10 pointer-events-none" style={{ background: primaryColor }} />
 
@@ -186,211 +208,173 @@ const AgencyForgotPassword: React.FC = () => {
         className="absolute top-6 right-6 p-2.5 rounded-xl bg-white/50 dark:bg-black/50 backdrop-blur-md border border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 shadow-sm hover:bg-white dark:hover:bg-white/10 transition-all z-50"
       >
         {darkMode ? (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
         ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-          </svg>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
         )}
       </button>
 
+      {/* Progress dots */}
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-50">
+        {(['forgot_request', 'forgot_verify', 'forgot_change_password'] as ForgotPhase[]).map((p, i) => (
+          <div key={p} className={`h-1.5 rounded-full transition-all duration-500 ${phase === p ? 'w-6 bg-[#2b83fa]' : i < (['forgot_request', 'forgot_verify', 'forgot_change_password'] as ForgotPhase[]).indexOf(phase) ? 'w-3 bg-[#2b83fa]/40' : 'w-3 bg-gray-300 dark:bg-white/10'}`} />
+        ))}
+      </div>
+
       <AnimatePresence mode="wait">
-        {/* Forgot password request */}
+
+        {/* ── Step 1: Enter email ── */}
         {phase === 'forgot_request' && (
-          <motion.div
-            key="forgot_request"
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -6 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-            className="w-full max-w-md p-8 md:p-10 rounded-3xl bg-white/70 dark:bg-[#1a1b1e]/70 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] z-10"
-          >
+          <Card motionKey="forgot_request">
+            <StepBadge phase="forgot_request" />
             <div className="flex flex-col items-center mb-8">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
                 <FiMail className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight text-center">
-                Send verification code
-              </h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight text-center">Forgot password?</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center leading-relaxed">
-                Enter the email linked to your Agency account.
+                Enter your Agency email and we'll send a verification code.
               </p>
             </div>
 
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2"
-              >
-                <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                {error}
-              </motion.div>
-            )}
+            <ErrorBanner />
 
             <form onSubmit={handleRequestOtp} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Email Address</label>
                 <input
-                  type="email"
-                  required
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
+                  type="email" required autoFocus value={resetEmail}
+                  onChange={(e) => { setResetEmail(e.target.value); if (error) setError(null); }}
                   className="w-full px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
                   style={{ '--tw-ring-color': primaryColor } as any}
-                  placeholder="you@company.com"
-                  autoComplete="email"
+                  placeholder="you@company.com" autoComplete="email"
                 />
               </div>
 
               <button
-                type="submit"
-                disabled={resetLoading || !resetEmail.trim()}
-                className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden group btn-new-message"
+                type="submit" disabled={loading || !resetEmail.trim()}
+                className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 btn-new-message"
               >
-                <span className="relative z-10 flex items-center gap-2">
-                  {resetLoading ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Sending code...
-                    </>
-                  ) : (
-                    <>
-                      <FiMail className="w-4 h-4" />
-                      Send Verification Code
-                    </>
-                  )}
-                </span>
+                {loading ? (
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                ) : <><FiMail className="w-4 h-4" /> Send Verification Code</>}
               </button>
             </form>
 
             <div className="mt-5 text-center">
-              <button
-                type="button"
-                onClick={() => navigate('/login')}
+              <button type="button" onClick={() => navigate('/login')}
                 className="inline-flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors underline underline-offset-2"
               >
-                <FiArrowLeft className="w-3.5 h-3.5" />
-                Back to sign in
+                <FiArrowLeft className="w-3.5 h-3.5" /> Back to sign in
               </button>
             </div>
-          </motion.div>
+          </Card>
         )}
 
-        {/* Forgot password verify */}
+        {/* ── Step 2: Enter OTP ── */}
         {phase === 'forgot_verify' && (
-          <motion.div
-            key="forgot_verify"
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -6 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-            className="w-full max-w-md p-8 md:p-10 rounded-3xl bg-white/70 dark:bg-[#1a1b1e]/70 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] z-10"
-          >
+          <Card motionKey="forgot_verify">
+            <StepBadge phase="forgot_verify" />
             <div className="flex flex-col items-center mb-8">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
-                <FiLock className="w-6 h-6 text-white" />
+                <FiShield className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight text-center">
-                Reset password
-              </h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight text-center">Enter verification code</h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center leading-relaxed">
-                Check your inbox for the 6-digit code.
+                We sent a 6-digit code to <span className="font-semibold text-gray-700 dark:text-gray-200">{resetEmail}</span>
               </p>
             </div>
 
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-5 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2"
-              >
-                <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                {error}
-              </motion.div>
-            )}
+            <ErrorBanner />
 
-            <form onSubmit={handleResetPassword} className="space-y-4">
+            <form onSubmit={handleOtpContinue} className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Email Address</label>
-                <input
-                  type="email"
-                  readOnly
-                  value={resetEmail}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-100/80 dark:bg-black/30 border border-transparent dark:border-white/5 text-gray-500 dark:text-gray-400 focus:outline-none"
-                  autoComplete="email"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2 ml-1 pr-1">
-                  <label className="mb-0 block text-sm font-medium text-gray-700 dark:text-gray-300">Verification Code</label>
+                <div className="flex items-center justify-between mb-3 ml-1 pr-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Verification Code</label>
                   <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${expiresIn <= 0 ? 'text-red-500 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>
                     <FiClock className="w-3.5 h-3.5" />
                     {formatCountdown(expiresIn)}
                   </span>
                 </div>
-                <div className="grid grid-cols-6 gap-2">
+                <div className="grid grid-cols-6 gap-2.5">
                   {otpDigits.map((digit, index) => (
                     <input
                       key={index}
                       ref={(el) => { otpRefs.current[index] = el; }}
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={1}
+                      type="text" inputMode="numeric" pattern="[0-9]*" maxLength={1}
                       value={digit}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
                       onPaste={(e) => handleOtpPaste(index, e)}
                       autoComplete={index === 0 ? 'one-time-code' : 'off'}
                       aria-label={`Verification digit ${index + 1}`}
-                      className="aspect-square w-full rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-center text-lg font-bold text-gray-900 dark:text-white focus:outline-none transition-all"
-                      style={{ '--tw-ring-color': primaryColor } as any}
+                      className="aspect-square w-full rounded-xl bg-gray-100 dark:bg-black/40 border-2 border-transparent dark:border-white/5 focus:border-[#2b83fa] dark:focus:border-[#2b83fa] text-center text-xl font-bold text-gray-900 dark:text-white focus:outline-none transition-all"
                     />
                   ))}
                 </div>
-                <div className="mt-2 flex items-center justify-between gap-3 text-xs">
+                <div className="mt-3 flex items-center justify-between gap-3 text-xs">
                   <span className="text-gray-400 dark:text-gray-500">
-                    {resendCooldown > 0 ? `Resend in ${formatCountdown(resendCooldown)}` : 'Need another code?'}
+                    {resendCooldown > 0 ? `Resend in ${formatCountdown(resendCooldown)}` : 'Didn\'t receive a code?'}
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleResendOtp}
-                    disabled={resendCooldown > 0 || resetLoading}
+                  <button type="button" onClick={handleResendOtp} disabled={resendCooldown > 0 || loading}
                     className="inline-flex items-center gap-1.5 font-semibold text-[#2b83fa] hover:text-[#1d6bd4] disabled:text-gray-300 dark:disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
                   >
-                    <FiRefreshCw className={`w-3.5 h-3.5 ${resetLoading ? 'animate-spin' : ''}`} />
+                    <FiRefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                     Resend Code
                   </button>
                 </div>
               </div>
 
+              <button
+                type="submit" disabled={otpDigits.join('').length !== 6 || expiresIn <= 0}
+                className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 btn-new-message"
+              >
+                <FiArrowRight className="w-4 h-4" />
+                Continue
+              </button>
+            </form>
+
+            <div className="mt-5 text-center">
+              <button type="button" onClick={() => { setPhase('forgot_request'); setError(null); }}
+                className="inline-flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors underline underline-offset-2"
+              >
+                <FiArrowLeft className="w-3.5 h-3.5" /> Change email
+              </button>
+            </div>
+          </Card>
+        )}
+
+        {/* ── Step 3: New password ── */}
+        {phase === 'forgot_change_password' && (
+          <Card motionKey="forgot_change_password">
+            <StepBadge phase="forgot_change_password" />
+            <div className="flex flex-col items-center mb-8">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20">
+                <FiLock className="w-6 h-6 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 tracking-tight text-center">Set new password</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center leading-relaxed">
+                Choose a strong password for your account.
+              </p>
+            </div>
+
+            <ErrorBanner />
+
+            <form onSubmit={handleResetPassword} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">New Password</label>
                 <div className="relative">
                   <input
-                    type={showNewPw ? 'text' : 'password'}
-                    required
-                    minLength={8}
+                    type={showNewPw ? 'text' : 'password'} required minLength={8} autoFocus
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                    onChange={(e) => { setNewPassword(e.target.value); if (error) setError(null); }}
                     className="w-full px-4 py-3.5 pr-11 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
                     style={{ '--tw-ring-color': primaryColor } as any}
-                    placeholder="At least 8 characters"
-                    autoComplete="new-password"
+                    placeholder="At least 8 characters" autoComplete="new-password"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPw(p => !p)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                    tabIndex={-1}
-                    aria-label="Toggle new password visibility"
+                  <button type="button" onClick={() => setShowNewPw(p => !p)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors" tabIndex={-1}
+                    aria-label="Toggle password visibility"
                   >
                     {showNewPw ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
                   </button>
@@ -401,22 +385,16 @@ const AgencyForgotPassword: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Confirm New Password</label>
                 <div className="relative">
                   <input
-                    type={showConfirmPw ? 'text' : 'password'}
-                    required
-                    minLength={8}
+                    type={showConfirmPw ? 'text' : 'password'} required minLength={8}
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => { setConfirmPassword(e.target.value); if (error) setError(null); }}
                     className="w-full px-4 py-3.5 pr-11 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
                     style={{ '--tw-ring-color': primaryColor } as any}
-                    placeholder="Re-enter password"
-                    autoComplete="new-password"
+                    placeholder="Re-enter password" autoComplete="new-password"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPw(p => !p)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                    tabIndex={-1}
-                    aria-label="Toggle confirmation password visibility"
+                  <button type="button" onClick={() => setShowConfirmPw(p => !p)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors" tabIndex={-1}
+                    aria-label="Toggle confirm password visibility"
                   >
                     {showConfirmPw ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
                   </button>
@@ -424,41 +402,25 @@ const AgencyForgotPassword: React.FC = () => {
               </div>
 
               <button
-                type="submit"
-                disabled={resetLoading || expiresIn <= 0}
-                className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden group btn-new-message"
+                type="submit" disabled={loading || !newPassword || !confirmPassword}
+                className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 btn-new-message"
               >
-                <span className="relative z-10 flex items-center gap-2">
-                  {resetLoading ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Resetting...
-                    </>
-                  ) : (
-                    <>
-                      <FiCheckCircle className="w-4 h-4" />
-                      Reset Password
-                    </>
-                  )}
-                </span>
+                {loading ? (
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                ) : <><FiCheckCircle className="w-4 h-4" /> Reset Password</>}
               </button>
             </form>
 
             <div className="mt-5 text-center">
-              <button
-                type="button"
-                onClick={() => { setPhase('forgot_request'); setError(null); }}
+              <button type="button" onClick={() => { setPhase('forgot_verify'); setError(null); }}
                 className="inline-flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors underline underline-offset-2"
               >
-                <FiArrowLeft className="w-3.5 h-3.5" />
-                Change email
+                <FiArrowLeft className="w-3.5 h-3.5" /> Back to code entry
               </button>
             </div>
-          </motion.div>
+          </Card>
         )}
+
       </AnimatePresence>
     </div>
   );
