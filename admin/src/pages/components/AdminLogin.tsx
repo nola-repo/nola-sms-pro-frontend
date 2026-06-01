@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FiEye, FiEyeOff, FiAlertTriangle, FiCheck } from 'react-icons/fi';
+import React, { useState, useEffect, useRef } from 'react';
+import { FiEye, FiEyeOff, FiAlertTriangle, FiClock, FiRefreshCw, FiCheckCircle } from 'react-icons/fi';
 // @ts-ignore
 import defaultLogo from '../../assets/NOLA SMS PRO Logo.png';
 
@@ -10,19 +10,52 @@ interface AdminLoginProps {
 }
 
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggleDarkMode }) => {
-  const [view, setView] = useState<'login' | 'forgot'>('login');
+  const [view, setView] = useState<'login' | 'forgot_request' | 'forgot_verify'>('login');
   
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   
-  const [forgotUsername, setForgotUsername] = useState('');
-  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(''));
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
+  const [expiresIn, setExpiresIn] = useState(600);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [forgotSuccessMessage, setForgotSuccessMessage] = useState<string | null>(null);
+  const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const primaryColor = '#3b82f6';
+
+  useEffect(() => {
+    if (view !== 'forgot_verify') return;
+
+    const timer = window.setInterval(() => {
+      setExpiresIn(prev => Math.max(0, prev - 1));
+      setResendCooldown(prev => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [view]);
+
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const secs = (seconds % 60).toString().padStart(2, '0');
+    return `${mins}:${secs}`;
+  };
+
+  const resetOtpForm = () => {
+    setOtpDigits(Array(6).fill(''));
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowNewPw(false);
+    setShowConfirmPw(false);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,22 +83,145 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
     }
   };
 
-  const handleForgotSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setLoading(true);
-      setError(null);
-      try {
-          await fetch('/api/admin_forgot_password.php', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ username: forgotUsername })
-          });
-          setForgotSuccess(true);
-      } catch (err) {
-          setForgotSuccess(true);
-      } finally {
-          setLoading(false);
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedEmail = forgotEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/auth/forgot_password_otp.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error ?? json.message ?? 'Could not send verification code.');
       }
+      setForgotEmail(trimmedEmail);
+      resetOtpForm();
+      setExpiresIn(600);
+      setResendCooldown(60);
+      setView('forgot_verify');
+      window.setTimeout(() => otpRefs.current[0]?.focus(), 120);
+    } catch (err: any) {
+      setError(err.message || 'Could not send verification code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || loading) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/auth/forgot_password_otp.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error ?? json.message ?? 'Could not send verification code.');
+      }
+      resetOtpForm();
+      setExpiresIn(600);
+      setResendCooldown(60);
+      window.setTimeout(() => otpRefs.current[0]?.focus(), 120);
+    } catch (err: any) {
+      setError(err.message || 'Could not resend verification code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    const digits = value.replace(/\D/g, '');
+    const next = [...otpDigits];
+
+    if (!digits) {
+      next[index] = '';
+      setOtpDigits(next);
+      return;
+    }
+
+    digits.slice(0, 6 - index).split('').forEach((digit, offset) => {
+      next[index + offset] = digit;
+    });
+    setOtpDigits(next);
+
+    const focusIndex = Math.min(index + digits.length, 5);
+    otpRefs.current[focusIndex]?.focus();
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+    if (e.key === 'ArrowLeft' && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+    if (e.key === 'ArrowRight' && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (index: number, e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6 - index);
+    if (!pasted) return;
+
+    e.preventDefault();
+    handleOtpChange(index, pasted);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const otp = otpDigits.join('');
+
+    if (otp.length !== 6) {
+      setError('Enter the 6-digit verification code.');
+      return;
+    }
+    if (expiresIn <= 0) {
+      setError('OTP code has expired. Please resend a new code.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/auth/reset_password_otp.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail, otp, new_password: newPassword }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error ?? json.message ?? 'Could not reset password.');
+      }
+      setForgotSuccessMessage('Password updated. Sign in with your new password.');
+      resetOtpForm();
+      setView('login');
+    } catch (err: any) {
+      setError(err.message || 'Could not reset password.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -110,66 +266,179 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
           </div>
         )}
 
-        {view === 'forgot' ? (
-          <form onSubmit={handleForgotSubmit} className="space-y-5 animate-in fade-in duration-300">
-            {forgotSuccess ? (
-                <div className="flex flex-col items-center gap-4 text-center">
-                    <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                        <FiCheck className="w-6 h-6 text-emerald-400" />
-                    </div>
-                    <p className="text-[14px] text-gray-600 dark:text-gray-400">
-                        If an admin with that identifier exists, a secure password reset link has been dispatched to the registered email address.
-                    </p>
-                    <button
-                        type="button"
-                        onClick={() => { setView('login'); setForgotSuccess(false); setForgotUsername(''); }}
-                        className="mt-4 text-[14px] font-bold text-[#2b83fa] hover:text-[#1d6bd4] transition-colors"
-                    >
-                        Back to Log In
-                    </button>
-                </div>
-            ) : (
-                <>
-                  <p className="text-[13px] text-gray-500 dark:text-gray-400 text-center mb-4">
-                      Enter your admin username or email and we'll send you a link to reset your password.
-                  </p>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Username or Email</label>
-                    <input
-                      type="text"
-                      autoFocus
-                      required
-                      value={forgotUsername}
-                      onChange={(e) => { setForgotUsername(e.target.value); if (error) setError(null); }}
-                      className="w-full px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
-                      style={{ '--tw-ring-color': primaryColor } as any}
-                      placeholder="e.g. admin"
-                    />
-                  </div>
+        {forgotSuccessMessage && (
+          <div className="mb-6 p-4 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 text-sm border border-emerald-100 dark:border-emerald-500/20 flex items-start gap-2 animate-in slide-in-from-top-2 fade-in">
+            <FiCheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            {forgotSuccessMessage}
+          </div>
+        )}
 
-                  <div className="flex flex-col gap-3 pt-4">
-                      <button
-                          type="submit"
-                          disabled={!forgotUsername.trim() || loading}
-                          className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center transition-all bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] active:scale-[0.98]"
-                      >
-                          {loading ? (
-                             <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                             </svg>
-                          ) : 'Send Reset Link'}
-                      </button>
-                      <button
-                          type="button"
-                          onClick={() => { setView('login'); setError(null); }}
-                          className="w-full py-3 text-[14px] font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
-                      >
-                          Cancel
-                      </button>
-                  </div>
-                </>
-            )}
+        {view === 'forgot_request' ? (
+          <form onSubmit={handleRequestOtp} className="space-y-5 animate-in fade-in duration-300">
+            <p className="text-[13px] text-gray-500 dark:text-gray-400 text-center mb-4">
+              Enter the email address linked to your Admin account and we'll send you a verification code.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Email Address</label>
+              <input
+                type="email"
+                autoFocus
+                required
+                value={forgotEmail}
+                onChange={(e) => { setForgotEmail(e.target.value); if (error) setError(null); }}
+                className="w-full px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
+                style={{ '--tw-ring-color': primaryColor } as any}
+                placeholder="you@company.com"
+              />
+            </div>
+
+            <div className="flex flex-col gap-3 pt-4">
+              <button
+                type="submit"
+                disabled={!forgotEmail.trim() || loading}
+                className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center transition-all bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] active:scale-[0.98]"
+              >
+                {loading ? (
+                   <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                   </svg>
+                ) : 'Send Verification Code'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setView('login'); setError(null); }}
+                className="w-full py-3 text-[14px] font-bold text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : view === 'forgot_verify' ? (
+          <form onSubmit={handleResetPassword} className="space-y-4 animate-in fade-in duration-300">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Email Address</label>
+              <input
+                type="email"
+                readOnly
+                value={forgotEmail}
+                className="w-full px-4 py-3 rounded-xl bg-gray-100/80 dark:bg-black/30 border border-transparent dark:border-white/5 text-gray-500 dark:text-gray-400 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2 ml-1 pr-1">
+                <label className="mb-0 block text-sm font-medium text-gray-700 dark:text-gray-300">Verification Code</label>
+                <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${expiresIn <= 0 ? 'text-red-500 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                  <FiClock className="w-3.5 h-3.5" />
+                  {formatCountdown(expiresIn)}
+                </span>
+              </div>
+              <div className="grid grid-cols-6 gap-2">
+                {otpDigits.map((digit, index) => (
+                  <input
+                    key={index}
+                    ref={(el) => { otpRefs.current[index] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleOtpChange(index, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                    onPaste={(e) => handleOtpPaste(index, e)}
+                    autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                    aria-label={`Verification digit ${index + 1}`}
+                    className="aspect-square w-full rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-center text-lg font-bold text-gray-900 dark:text-white focus:outline-none transition-all"
+                    style={{ '--tw-ring-color': primaryColor } as any}
+                  />
+                ))}
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 text-xs">
+                <span className="text-gray-400 dark:text-gray-500">
+                  {resendCooldown > 0 ? `Resend in ${formatCountdown(resendCooldown)}` : 'Need another code?'}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resendCooldown > 0 || loading}
+                  className="inline-flex items-center gap-1.5 font-semibold text-[#2b83fa] hover:text-[#1d6bd4] disabled:text-gray-300 dark:disabled:text-gray-600 disabled:cursor-not-allowed transition-colors"
+                >
+                  <FiRefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  Resend Code
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">New Password</label>
+              <div className="relative">
+                <input
+                  type={showNewPw ? 'text' : 'password'}
+                  required
+                  minLength={8}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-3.5 pr-11 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
+                  style={{ '--tw-ring-color': primaryColor } as any}
+                  placeholder="At least 8 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPw(p => !p)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showNewPw ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Confirm New Password</label>
+              <div className="relative">
+                <input
+                  type={showConfirmPw ? 'text' : 'password'}
+                  required
+                  minLength={8}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-3.5 pr-11 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
+                  style={{ '--tw-ring-color': primaryColor } as any}
+                  placeholder="Re-enter password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPw(p => !p)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showConfirmPw ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={loading || expiresIn <= 0}
+                className="w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center transition-all bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] active:scale-[0.98]"
+              >
+                {loading ? (
+                   <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                   </svg>
+                ) : 'Reset Password'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setView('forgot_request'); setError(null); }}
+                className="w-full py-2 text-[12px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors underline underline-offset-2"
+              >
+                Change email
+              </button>
+            </div>
           </form>
         ) : (
           <form onSubmit={handleLogin} className="space-y-5 animate-in fade-in duration-300">
@@ -192,7 +461,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
                 <button 
                   type="button" 
-                  onClick={() => { setView('forgot'); setError(null); }}
+                  onClick={() => { setView('forgot_request'); setError(null); setForgotSuccessMessage(null); }}
                   className="text-xs font-medium hover:underline transition-all" 
                   style={{ color: primaryColor }}
                 >
