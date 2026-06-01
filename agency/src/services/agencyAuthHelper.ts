@@ -274,3 +274,31 @@ export const login = async (email: string, password: string): Promise<any> => {
 
   return json;
 };
+
+export const requestPasswordOtp = async (email: string): Promise<{ status: string; message: string }> => {
+  const res = await fetch('/api/auth/forgot_password_otp.php', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ email }),
+  });
+
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? json.message ?? 'Could not send verification code.');
+  return json;
+};
+
+export const resetPasswordWithOtp = async (
+  email: string,
+  otp: string,
+  newPassword: string,
+): Promise<{ status: string; message: string }> => {
+  const res = await fetch('/api/auth/reset_password_otp.php', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ email, otp, new_password: newPassword }),
+  });
+
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? json.message ?? 'Could not reset password.');
+  return json;
+};
