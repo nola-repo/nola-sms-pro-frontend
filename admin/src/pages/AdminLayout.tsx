@@ -76,7 +76,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
         fetch('/api/admin_users.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'record_login', username }),
+            body: JSON.stringify({ action: 'record_login', email: username, username }),
         }).catch(() => {});
     };
 

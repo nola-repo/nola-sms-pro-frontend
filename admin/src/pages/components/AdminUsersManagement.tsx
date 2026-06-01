@@ -31,7 +31,7 @@ export const AdminTeamManagement: React.FC = () => {
     const [resetPassword, setResetPassword] = useState('');
     const [showResetPw, setShowResetPw] = useState(false);
 
-    const [newUsername, setNewUsername] = useState('');
+    const [newEmail, setNewEmail] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [newRole, setNewRole] = useState('support');
     const [actionLoading, setActionLoading] = useState(false);
@@ -74,13 +74,19 @@ export const AdminTeamManagement: React.FC = () => {
             const res = await fetch(USERS_API, { headers: getAdminAuthHeaders() });
             if (res.ok) {
                 const json = await res.json();
-                if (json.status === 'success') setAdmins(json.data || []);
-                else setError(json.message || 'Failed to fetch admin users.');
+                if (json.status === 'success') {
+                    const normalized = (json.data || []).map((a: any) => ({
+                        ...a,
+                        email: a.email || a.username || '',
+                        username: a.username || a.email || ''
+                    }));
+                    setAdmins(normalized);
+                } else setError(json.message || 'Failed to fetch admin users.');
             } else {
                 // Graceful fallback before backend is deployed
                 const mockAdmins = [
-                    { username: 'admin', role: 'super_admin', created_at: '2026-03-01', active: true, last_login: '2026-04-15T10:00:00Z' },
-                    { username: 'admin_rae', role: 'super_admin', created_at: '2026-03-24', active: true, last_login: '2026-03-30T16:41:24Z' }
+                    { email: 'admin@nolacrm.io', username: 'admin@nolacrm.io', role: 'super_admin', created_at: '2026-03-01', active: true, last_login: '2026-04-15T10:00:00Z' },
+                    { email: 'rae@nolacrm.io', username: 'rae@nolacrm.io', role: 'super_admin', created_at: '2026-03-24', active: true, last_login: '2026-03-30T16:41:24Z' }
                 ];
                 setAdmins(prev => prev.length > 1 ? prev : mockAdmins);
                 if (isInitial) setError('Backend not reachable. Showing local data.');
@@ -88,8 +94,8 @@ export const AdminTeamManagement: React.FC = () => {
             setLastRefreshed(new Date());
         } catch {
             const mockAdmins = [
-                { username: 'admin', role: 'super_admin', created_at: '2026-03-01', active: true, last_login: '2026-04-15T10:00:00Z' },
-                { username: 'admin_rae', role: 'super_admin', created_at: '2026-03-24', active: true, last_login: '2026-03-30T16:41:24Z' }
+                { email: 'admin@nolacrm.io', username: 'admin@nolacrm.io', role: 'super_admin', created_at: '2026-03-01', active: true, last_login: '2026-04-15T10:00:00Z' },
+                { email: 'rae@nolacrm.io', username: 'rae@nolacrm.io', role: 'super_admin', created_at: '2026-03-24', active: true, last_login: '2026-03-30T16:41:24Z' }
             ];
             setAdmins(prev => prev.length > 1 ? prev : mockAdmins);
             if (isInitial) setError('Network error. Using mock data.');
@@ -108,27 +114,33 @@ export const AdminTeamManagement: React.FC = () => {
 
     const handleCreateAdmin = async (e: React.FormEvent) => {
         e.preventDefault();
+        const trimmedEmail = newEmail.trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+            toast('Please enter a valid email address.', true);
+            return;
+        }
+
         setActionLoading(true);
         try {
             const res = await fetch(USERS_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
-                body: JSON.stringify({ action: 'create', username: newUsername, password: newPassword, role: newRole })
+                body: JSON.stringify({ action: 'create', email: trimmedEmail, username: trimmedEmail, password: newPassword, role: newRole })
             });
             if (res.ok) {
                 const json = await res.json();
                 if (json.status === 'success') {
                     toast('Admin user created successfully.');
                     setShowCreateModal(false);
-                    setNewUsername(''); setNewPassword(''); setNewRole('support');
+                    setNewEmail(''); setNewPassword(''); setNewRole('support');
                     fetchAdmins();
                 } else { toast(json.message || 'Failed to create admin.', true); }
             } else {
                 // Optimistic mock when backend not yet deployed
                 toast('Admin user created (pending backend deployment).');
-                setAdmins(prev => [...prev, { username: newUsername, role: newRole, created_at: new Date().toISOString().split('T')[0], active: true, last_login: null }]);
+                setAdmins(prev => [...prev, { email: trimmedEmail, username: trimmedEmail, role: newRole, created_at: new Date().toISOString().split('T')[0], active: true, last_login: null }]);
                 setShowCreateModal(false);
-                setNewUsername(''); setNewPassword(''); setNewRole('support');
+                setNewEmail(''); setNewPassword(''); setNewRole('support');
             }
         } catch { toast('Network error creating admin.', true); }
         finally { setActionLoading(false); }
@@ -220,7 +232,7 @@ export const AdminTeamManagement: React.FC = () => {
     };
 
     const filtered = admins.filter(a =>
-        a.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a.email || a.username)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         a.role?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -249,7 +261,7 @@ export const AdminTeamManagement: React.FC = () => {
             {/* Search */}
             <div className="relative mb-5">
                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5" />
-                <input type="text" placeholder="Search by username or role..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                <input type="text" placeholder="Search by email or role..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                     className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all font-medium"
                 />
                 {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"><FiX className="w-3 h-3" /></button>}
@@ -259,7 +271,7 @@ export const AdminTeamManagement: React.FC = () => {
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="border-b-2 border-[#e5e5e5] dark:border-white/10 text-[11px] font-black text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-widest">
-                            <th className="pb-3 pl-4">Username</th>
+                            <th className="pb-3 pl-4">Email Address</th>
                             <th className="pb-3">Role</th>
                             <th className="pb-3">Status</th>
                             <th className="pb-3">Created</th>
@@ -273,11 +285,11 @@ export const AdminTeamManagement: React.FC = () => {
                         ) : filtered.length === 0 ? (
                             <tr><td colSpan={6} className="py-12 text-center"><FiShield className="w-8 h-8 mx-auto mb-2 text-[#d0d0d0] dark:text-[#3a3b3f]" /><p className="text-[13px] text-[#9aa0a6] font-medium">{searchTerm ? 'No admins match your search.' : 'No admin users found.'}</p></td></tr>
                         ) : filtered.map(admin => (
-                            <tr key={admin.username} className="group hover:bg-[#f7f7f7] dark:hover:bg-[#151618] transition-all duration-200">
+                            <tr key={admin.email || admin.username} className="group hover:bg-[#f7f7f7] dark:hover:bg-[#151618] transition-all duration-200">
                                 <td className="py-4 pl-4 rounded-l-xl">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">{admin.username?.charAt(0).toUpperCase()}</div>
-                                        <span className="font-bold text-[14px] text-[#111111] dark:text-white">{admin.username}</span>
+                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">{(admin.email || admin.username)?.charAt(0).toUpperCase()}</div>
+                                        <span className="font-bold text-[14px] text-[#111111] dark:text-white">{admin.email || admin.username}</span>
                                     </div>
                                 </td>
                                 <td className="py-4">{getRoleBadge(admin.role)}</td>
@@ -295,7 +307,7 @@ export const AdminTeamManagement: React.FC = () => {
                                 </td>
                                 <td className="py-4 pr-4 text-right rounded-r-xl">
                                     <button
-                                        onClick={e => openMenu(admin.username, e.currentTarget)}
+                                        onClick={e => openMenu(admin.email || admin.username, e.currentTarget)}
                                         className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
                                     >
                                         <FiMoreVertical className="w-4 h-4" />
@@ -315,12 +327,12 @@ export const AdminTeamManagement: React.FC = () => {
                     className="w-48 bg-white dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-100"
                 >
                     {(() => {
-                        const admin = admins.find(a => a.username === actionMenuId);
+                        const admin = admins.find(a => (a.email || a.username) === actionMenuId);
                         if (!admin) return null;
                         return (
                             <>
                                 <button
-                                    onClick={() => { setResetTarget(admin.username); setResetPassword(''); setActionMenuId(null); }}
+                                    onClick={() => { setResetTarget(admin.email || admin.username); setResetPassword(''); setActionMenuId(null); }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white transition-colors text-left"
                                 >
                                     <FiKey className="w-3.5 h-3.5" /> Reset Password
@@ -334,7 +346,7 @@ export const AdminTeamManagement: React.FC = () => {
                                 </button>
                                 <div className="border-t border-[#f0f0f0] dark:border-white/5" />
                                 <button
-                                    onClick={() => handleDeleteAdmin(admin.username)}
+                                    onClick={() => handleDeleteAdmin(admin.email || admin.username)}
                                     disabled={actionLoading}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left disabled:opacity-50"
                                 >
@@ -402,8 +414,8 @@ export const AdminTeamManagement: React.FC = () => {
                         </div>
                         <form onSubmit={handleCreateAdmin} className="space-y-4">
                             <div>
-                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Username</label>
-                                <input required value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="e.g. nola_admin"
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Email Address</label>
+                                <input required type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="you@company.com"
                                     className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" />
                             </div>
                             <div>
@@ -421,7 +433,7 @@ export const AdminTeamManagement: React.FC = () => {
                                 </select>
                             </div>
                             <div className="pt-2">
-                                <button type="submit" disabled={actionLoading || !newUsername.trim() || !newPassword.trim()}
+                                <button type="submit" disabled={actionLoading || !newEmail.trim() || !newPassword.trim()}
                                     className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-[14px] font-bold text-[14px] transition-all shadow-md active:scale-[0.98] disabled:opacity-50">
                                     {actionLoading ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : 'Create Account'}
                                 </button>

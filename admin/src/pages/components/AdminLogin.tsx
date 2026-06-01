@@ -23,7 +23,7 @@ const formatCountdown = (seconds: number) => {
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggleDarkMode }) => {
   const [view, setView] = useState<AdminLoginView>('login');
   
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw]     = useState(false);
   
@@ -83,6 +83,12 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -90,15 +96,15 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
         const res = await fetch('/api/admin_auth.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ email: trimmedEmail, username: trimmedEmail, password })
         });
         const json = await res.json();
         
         if (res.ok && json.status === 'success') {
             const adminToken = json.token ?? json.admin_token ?? json.access_token ?? json.jwt ?? undefined;
-            onLogin(username, adminToken);
+            onLogin(trimmedEmail, adminToken);
         } else {
-            setError(json.message || 'Incorrect username or password.');
+            setError(json.message || 'Incorrect email or password.');
         }
     } catch (err) {
         setError('Connection error. Please check your backend.');
@@ -493,13 +499,14 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
         ) : (
           <form onSubmit={handleLogin} className="space-y-5 animate-in fade-in duration-300">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Username</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1">Email Address</label>
               <input
-                type="text" autoFocus required value={username}
-                onChange={(e) => { setUsername(e.target.value); if (error) setError(null); }}
+                type="email" autoFocus required value={email}
+                onChange={(e) => { setEmail(e.target.value); if (error) setError(null); }}
                 className="w-full px-4 py-3.5 rounded-xl bg-gray-100 dark:bg-black/40 border border-transparent dark:border-white/5 focus:border-transparent focus:ring-2 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition-all"
                 style={{ '--tw-ring-color': primaryColor } as any}
-                placeholder="e.g. admin"
+                placeholder="you@company.com"
+                autoComplete="email"
               />
             </div>
 
@@ -534,7 +541,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
             </div>
 
             <button
-              type="submit" disabled={loading || !username.trim() || !password.trim()}
+              type="submit" disabled={loading || !email.trim() || !password.trim()}
               className="w-full py-3.5 px-4 mt-2 rounded-xl text-white font-bold shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#1a1b1e] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center relative overflow-hidden bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] active:scale-[0.98]"
               style={{ background: 'linear-gradient(135deg, #1d6bd4 0%, #2b83fa 50%, #1d6bd4 100%)', backgroundSize: '200% 200%' }}
             >
