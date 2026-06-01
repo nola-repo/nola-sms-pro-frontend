@@ -175,12 +175,7 @@ export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMo
     }
   };
 
-  const ErrorBanner = () => error ? (
-    <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2 animate-in slide-in-from-top-2 fade-in">
-      <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-      {error}
-    </div>
-  ) : null;
+
 
   return (
     <div className={`min-h-screen flex items-center justify-center relative overflow-hidden bg-gray-50 dark:bg-[#0a0a0b] transition-colors duration-300 ${darkMode ? 'dark' : ''}`}>
@@ -213,7 +208,12 @@ export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMo
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Enter your Admin email to receive a verification code.</p>
             </div>
 
-            <ErrorBanner />
+            {error && (
+              <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2 animate-in slide-in-from-top-2 fade-in">
+                <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleRequestOtp} className="space-y-5">
               <div>
@@ -257,7 +257,12 @@ export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMo
               </p>
             </div>
 
-            <ErrorBanner />
+            {error && (
+              <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2 animate-in slide-in-from-top-2 fade-in">
+                <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleOtpContinue} className="space-y-6">
               <div>
@@ -327,7 +332,12 @@ export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMo
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Choose a strong password for your Admin account.</p>
             </div>
 
-            <ErrorBanner />
+            {error && (
+              <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2 animate-in slide-in-from-top-2 fade-in">
+                <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div>

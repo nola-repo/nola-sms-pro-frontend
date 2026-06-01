@@ -18,6 +18,19 @@ type ForgotPhase = 'forgot_request' | 'forgot_verify' | 'forgot_change_password'
 
 
 
+const Card: React.FC<{ children: React.ReactNode; motionKey: string }> = ({ children, motionKey }) => (
+  <motion.div
+    key={motionKey}
+    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+    animate={{ opacity: 1, scale: 1, y: 0 }}
+    exit={{ opacity: 0, scale: 0.96, y: -6 }}
+    transition={{ duration: 0.32, ease: 'easeOut' }}
+    className="w-full max-w-md p-8 md:p-10 rounded-3xl bg-white/70 dark:bg-[#1a1b1e]/70 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] z-10"
+  >
+    {children}
+  </motion.div>
+);
+
 const AgencyForgotPassword: React.FC = () => {
   const { darkMode, toggleDarkMode } = useAgency();
   const [phase, setPhase] = useState<ForgotPhase>('forgot_request');
@@ -162,28 +175,7 @@ const AgencyForgotPassword: React.FC = () => {
     }
   };
 
-  // ── Shared UI helpers ──────────────────────────────────────────────────────
-  const Card = ({ children, motionKey }: { children: React.ReactNode; motionKey: string }) => (
-    <motion.div
-      key={motionKey}
-      initial={{ opacity: 0, scale: 0.95, y: 10 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.96, y: -6 }}
-      transition={{ duration: 0.32, ease: 'easeOut' }}
-      className="w-full max-w-md p-8 md:p-10 rounded-3xl bg-white/70 dark:bg-[#1a1b1e]/70 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] z-10"
-    >
-      {children}
-    </motion.div>
-  );
 
-  const ErrorBanner = () => error ? (
-    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-      className="mb-5 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2"
-    >
-      <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-      {error}
-    </motion.div>
-  ) : null;
 
 
 
@@ -224,7 +216,16 @@ const AgencyForgotPassword: React.FC = () => {
               </p>
             </div>
 
-            <ErrorBanner />
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-5 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2"
+              >
+                <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                {error}
+              </motion.div>
+            )}
 
             <form onSubmit={handleRequestOtp} className="space-y-5">
               <div>
@@ -272,7 +273,16 @@ const AgencyForgotPassword: React.FC = () => {
               </p>
             </div>
 
-            <ErrorBanner />
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-5 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2"
+              >
+                <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                {error}
+              </motion.div>
+            )}
 
             <form onSubmit={handleOtpContinue} className="space-y-6">
               <div>
@@ -345,7 +355,16 @@ const AgencyForgotPassword: React.FC = () => {
               </p>
             </div>
 
-            <ErrorBanner />
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-5 p-4 rounded-xl bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-sm border border-red-100 dark:border-red-500/20 flex items-start gap-2"
+              >
+                <FiAlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                {error}
+              </motion.div>
+            )}
 
             <form onSubmit={handleResetPassword} className="space-y-5">
               <div>
