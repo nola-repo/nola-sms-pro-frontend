@@ -124,11 +124,8 @@ export const AdminTeamManagement: React.FC = () => {
                     fetchAdmins();
                 } else { toast(json.message || 'Failed to create admin.', true); }
             } else {
-                // Optimistic mock when backend not yet deployed
-                toast('Admin user created (pending backend deployment).');
-                setAdmins(prev => [...prev, { email: trimmedEmail, username: trimmedEmail, role: newRole, created_at: new Date().toISOString().split('T')[0], active: true, last_login: null }]);
-                setShowCreateModal(false);
-                setNewEmail(''); setNewPassword(''); setNewRole('support');
+                const json = await res.json().catch(() => ({}));
+                toast(json.message || `Failed to create admin (HTTP ${res.status}).`, true);
             }
         } catch { toast('Network error creating admin.', true); }
         finally { setActionLoading(false); }
@@ -255,15 +252,14 @@ export const AdminTeamManagement: React.FC = () => {
                             <th className="pb-3">Role</th>
                             <th className="pb-3">Status</th>
                             <th className="pb-3">Created</th>
-                            <th className="pb-3">Last Login</th>
                             <th className="pb-3 text-right pr-4">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/5 text-[14px]">
                         {loading ? (
-                            <tr><td colSpan={6} className="py-8 text-center"><div className="flex items-center justify-center gap-2 text-[#9aa0a6] text-[13px]"><FiRefreshCw className="w-4 h-4 animate-spin" /> Loading admins...</div></td></tr>
+                            <tr><td colSpan={5} className="py-8 text-center"><div className="flex items-center justify-center gap-2 text-[#9aa0a6] text-[13px]"><FiRefreshCw className="w-4 h-4 animate-spin" /> Loading admins...</div></td></tr>
                         ) : filtered.length === 0 ? (
-                            <tr><td colSpan={6} className="py-12 text-center"><FiShield className="w-8 h-8 mx-auto mb-2 text-[#d0d0d0] dark:text-[#3a3b3f]" /><p className="text-[13px] text-[#9aa0a6] font-medium">{searchTerm ? 'No admins match your search.' : 'No admin users found.'}</p></td></tr>
+                            <tr><td colSpan={5} className="py-12 text-center"><FiShield className="w-8 h-8 mx-auto mb-2 text-[#d0d0d0] dark:text-[#3a3b3f]" /><p className="text-[13px] text-[#9aa0a6] font-medium">{searchTerm ? 'No admins match your search.' : 'No admin users found.'}</p></td></tr>
                         ) : filtered.map(admin => (
                             <tr key={admin.email} className="group hover:bg-[#f7f7f7] dark:hover:bg-[#151618] transition-all duration-200">
                                 <td className="py-4 pl-4 rounded-l-xl">
@@ -281,9 +277,6 @@ export const AdminTeamManagement: React.FC = () => {
                                 </td>
                                 <td className="py-4 font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
                                     {admin.created_at ? new Date(admin.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                                </td>
-                                <td className="py-4 font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
-                                    {formatLastLogin(admin.last_login)}
                                 </td>
                                 <td className="py-4 pr-4 text-right rounded-r-xl">
                                     <button
