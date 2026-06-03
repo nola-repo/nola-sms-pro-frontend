@@ -214,6 +214,13 @@ export const sendSms = async (
       };
     }
 
+    if (data?.output?.success === false) {
+      return {
+        success: false,
+        message: data.execution_log || data.message || "SMS gateway did not accept the message",
+      };
+    }
+
     // Extract message IDs from various possible response formats
     let extractedMessageIds: string[] = [];
     if (data.output?.message_ids) {
@@ -224,6 +231,13 @@ export const sendSms = async (
         .filter(Boolean);
     } else if (data.message_id) {
       extractedMessageIds = [String(data.message_id)];
+    }
+
+    if (extractedMessageIds.length === 0) {
+      return {
+        success: false,
+        message: data.execution_log || "SMS gateway did not return a message ID",
+      };
     }
 
     return {

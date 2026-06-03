@@ -270,6 +270,12 @@ export const Composer: React.FC<ComposerProps> = ({
   } = usePhoneMessages(historyPhoneNumber);
 
   const [useRawLogView, setUseRawLogView] = useState(false);
+  const shouldUseRawLogFallback =
+    !useRawLogView &&
+    !!historyPhoneNumber &&
+    !historyLoading &&
+    conversationMessages.length === 0 &&
+    phoneLogMessages.length > 0;
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -1249,7 +1255,7 @@ export const Composer: React.FC<ComposerProps> = ({
             </div>
           ) : historyLoading && !useRawLogView && conversationMessages.length === 0 ? (
             <MessageHistorySkeleton />
-          ) : !useRawLogView && conversationMessages.length === 0 ? (
+          ) : !useRawLogView && !shouldUseRawLogFallback && conversationMessages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center">
               {isNewMessage && !lottieError ? (
                 <DotLottieReact
@@ -1275,12 +1281,12 @@ export const Composer: React.FC<ComposerProps> = ({
                   : (composeMode === "bulk" ? "Select contacts to send a synchronized update across your network." : "Type a message below to start a new professional conversation.")}
               </p>
             </div>
-          ) : useRawLogView ? (
+          ) : (useRawLogView || shouldUseRawLogFallback) ? (
             <div className="space-y-1 max-w-4xl mx-auto w-full mt-auto">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
-                    Raw outbound log view
+                    {shouldUseRawLogFallback ? "Synced from outbound log" : "Raw outbound log view"}
                   </span>
                   {phoneLogLoading && (
                     <span className="text-[11px] text-gray-400 flex items-center gap-1">
@@ -1288,14 +1294,16 @@ export const Composer: React.FC<ComposerProps> = ({
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={() => {
-                    setUseRawLogView(false);
-                  }}
-                  className="text-[11px] font-semibold text-[#2b83fa] hover:text-[#1d6bd4]"
-                >
-                  Back to conversation view
-                </button>
+                {useRawLogView && (
+                  <button
+                    onClick={() => {
+                      setUseRawLogView(false);
+                    }}
+                    className="text-[11px] font-semibold text-[#2b83fa] hover:text-[#1d6bd4]"
+                  >
+                    Back to conversation view
+                  </button>
+                )}
               </div>
               {phoneLogError && (
                 <div className="mb-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-700/40 text-[12px] text-amber-800 dark:text-amber-300">
