@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FiPlus, FiSearch, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiDownload, FiTrendingUp } from "react-icons/fi";
+import { FiPlus, FiSearch, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiDownload } from "react-icons/fi";
 import type { Contact } from "../types/Contact";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -65,32 +65,6 @@ const createDaySeries = (anchorDate: Date, days = 7): TrendPoint[] => {
 
 const getSeriesTotal = (series: TrendPoint[]) =>
     series.reduce((sum, point) => sum + point.value, 0);
-
-const buildFallbackSeries = (series: TrendPoint[], fallbackTotal: number): TrendPoint[] => {
-    if (getSeriesTotal(series) > 0 || fallbackTotal <= 0) return series;
-
-    const weights = [0.42, 0.75, 0.58, 1.05, 0.82, 1.35, 1.1, 0.68, 0.95, 0.72, 1.2, 0.88, 1.48, 1.05];
-    const activeWeights = weights.slice(-series.length);
-    const weightTotal = activeWeights.reduce((sum, weight) => sum + weight, 0);
-    const targetTotal = Math.max(1, Math.round(fallbackTotal));
-    const values = activeWeights.map((weight) => Math.floor((targetTotal * weight) / weightTotal));
-    const orderedIndexes = activeWeights
-        .map((weight, index) => ({ weight, index }))
-        .sort((a, b) => b.weight - a.weight)
-        .map((item) => item.index);
-    let remaining = targetTotal - values.reduce((sum, value) => sum + value, 0);
-    let cursor = 0;
-    while (remaining > 0) {
-        values[orderedIndexes[cursor % orderedIndexes.length]] += 1;
-        remaining -= 1;
-        cursor += 1;
-    }
-
-    return series.map((point, index) => ({
-        ...point,
-        value: values[index],
-    }));
-};
 
 const getProfileColor = (name: string): string => {
     if (!name) return 'hsl(217, 91%, 60%)';
@@ -391,9 +365,6 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
     const sentToday = creditStatus?.stats?.sent_today ?? 0;
     const creditsUsedMonth = creditStatus?.stats?.credits_used_month ?? 0;
     const lastActivityAt = conversations[0]?.last_message_at || conversations[0]?.updated_at;
-    const lastActivityLabel = lastActivityAt
-        ? new Date(lastActivityAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-        : "No messages yet";
     const trendStartDate = new Date(trendAnchor);
     trendStartDate.setDate(trendAnchor.getDate() - 13);
     const trendStartKey = dayKey(trendStartDate);
@@ -419,47 +390,78 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
             creditUsageSeries[index].value += Math.abs(log.amount || 0);
         }
     });
-    const sentMetricSeries = buildFallbackSeries(recentActivitySeries, sentToday);
-    const creditMetricSeries = buildFallbackSeries(creditUsageSeries, creditsUsedMonth);
-    const latestMetricSeries = buildFallbackSeries(recentActivitySeries, lastActivityAt ? Math.max(1, conversations.length) : 0);
+    const sentTodaySeries = createDaySeries(trendAnchor, 14);
+    sentTodaySeries[sentTodaySeries.length - 1].value = sentToday;
+    const sentMetricSeries = sentTodaySeries;
+    const creditMetricSeries = creditUsageSeries;
+    const latestMetricSeries = recentActivitySeries;
     const sentTrendTotal = getSeriesTotal(sentMetricSeries);
     const creditTrendTotal = getSeriesTotal(creditMetricSeries);
-    const sentTrendLabel = `${sentTrendTotal.toLocaleString()} ${sentTrendTotal === 1 ? 'message' : 'messages'} in 14 days`;
-    const creditTrendLabel = `${creditTrendTotal.toLocaleString()} ${creditTrendTotal === 1 ? 'credit' : 'credits'} tracked`;
-    const renderMiniBars = (series: TrendPoint[], color: string, isLoading: boolean) => {
+    const latestTrendTotal = getSeriesTotal(latestMetricSeries);
+    const latestActivityDate = lastActivityAt ? new Date(lastActivityAt) : null;
+    const latestActivityValue = latestActivityDate
+        ? latestActivityDate.toLocaleDateString([], { month: 'short', day: 'numeric' })
+        : 'No activity';
+    const latestActivityTime = latestActivityDate
+        ? latestActivityDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : 'Start a conversation';
+    const latestActivityCaption = lastActivityAt
+        ? `${latestTrendTotal.toLocaleString()} ${latestTrendTotal === 1 ? 'conversation update' : 'conversation updates'} in 14 days`
+        : 'No conversation updates yet';
+    const renderMiniBars = (series: TrendPoint[], color: string, isLoading: boolean, unitLabel: string) => {
+        const totalValue = getSeriesTotal(series);
         const maxValue = Math.max(1, ...series.map((point) => point.value));
+        const startLabel = series[0]?.label || '';
+        const endLabel = series[series.length - 1]?.label || '';
 
         if (isLoading) {
             return (
-                <div className="h-12 flex items-end gap-1.5">
-                    {[36, 58, 44, 72, 52, 84, 64].map((height, index) => (
-                        <div
-                            key={`bar-skeleton-${index}`}
-                            className="flex-1 rounded-t-md bg-[#edf0f3] dark:bg-white/10 skeleton-gleam"
-                            style={{ height: `${height}%` }}
-                        />
-                    ))}
+                <div>
+                    <div className="h-14 flex items-end gap-1.5">
+                        {[36, 58, 44, 72, 52, 84, 64].map((height, index) => (
+                            <div
+                                key={`bar-skeleton-${index}`}
+                                className="flex-1 rounded-t-md bg-[#edf0f3] dark:bg-white/10 skeleton-gleam"
+                                style={{ height: `${height}%` }}
+                            />
+                        ))}
+                    </div>
+                    <div className="mt-2 h-3 w-full rounded-full bg-[#edf0f3] dark:bg-white/10 skeleton-gleam" />
                 </div>
             );
         }
 
         return (
-            <div className="h-12 flex items-end gap-1.5">
-                {series.map((point) => {
-                    const height = point.value === 0 ? 14 : Math.max(20, Math.round((point.value / maxValue) * 100));
-                    return (
-                        <div
-                            key={point.key}
-                            className="flex-1 rounded-t-md transition-all duration-300"
-                            title={`${point.label}: ${point.value.toLocaleString()}`}
-                            style={{
-                                height: `${height}%`,
-                                backgroundColor: point.value === 0 ? "rgba(154,160,166,0.18)" : color,
-                                opacity: point.value === 0 ? 1 : 0.9,
-                            }}
-                        />
-                    );
-                })}
+            <div>
+                <div className="relative h-14 flex items-end gap-1.5" aria-label={`14 day ${unitLabel} trend`}>
+                    <div className="absolute inset-x-0 bottom-0 h-px bg-slate-200 dark:bg-white/10" />
+                    {series.map((point) => {
+                        const height = point.value === 0 ? 10 : Math.max(28, Math.round((point.value / maxValue) * 100));
+                        return (
+                            <div
+                                key={point.key}
+                                className="group/bar relative z-10 flex-1 rounded-t-[5px] transition-all duration-300 hover:opacity-100 hover:scale-y-105 origin-bottom"
+                                title={`${point.label}: ${point.value.toLocaleString()} ${unitLabel}`}
+                                style={{
+                                    height: `${height}%`,
+                                    backgroundColor: point.value === 0 ? "rgba(148,163,184,0.18)" : color,
+                                    opacity: point.value === 0 ? 1 : 0.98,
+                                    boxShadow: point.value === 0 ? "none" : `0 0 0 1px ${color}1f`,
+                                }}
+                            />
+                        );
+                    })}
+                    {totalValue === 0 && (
+                        <span className="absolute inset-x-0 top-4 text-center text-[11px] font-bold text-slate-400 dark:text-slate-500">
+                            No recent data
+                        </span>
+                    )}
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-wide text-[#94a3b8] dark:text-[#697386]">
+                    <span>{startLabel}</span>
+                    <span>14-day trend</span>
+                    <span>{endLabel}</span>
+                </div>
             </div>
         );
     };
@@ -699,45 +701,88 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                     value: sentToday.toLocaleString(),
                                     accent: '#ef4444',
                                     series: sentMetricSeries,
-                                    note: sentTrendLabel,
+                                    note: 'Messages sent today',
+                                    badge: `${sentTrendTotal.toLocaleString()} in 14 days`,
+                                    chartUnit: 'messages',
+                                    chartCaption: sentToday > 0 ? 'Today is the final bar' : 'No messages sent today',
+                                    onClick: () => onTabChange('compose'),
                                 },
                                 {
                                     label: 'Credits Used This Month',
                                     value: creditsUsedMonth.toLocaleString(),
                                     accent: '#8b5cf6',
                                     series: creditMetricSeries,
-                                    note: creditTrendLabel,
+                                    note: 'Credits used this month',
+                                    badge: creditTrendTotal > 0 ? `${creditTrendTotal.toLocaleString()} in 14 days` : 'No recent log',
+                                    chartUnit: 'credits',
+                                    chartCaption: creditTrendTotal > 0 ? 'Recent usage from credit logs' : 'Monthly total shown above',
+                                    onClick: () => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } })),
                                 },
                                 {
                                     label: 'Latest Activity',
-                                    value: lastActivityLabel,
+                                    value: latestActivityValue,
                                     accent: '#10b981',
                                     series: latestMetricSeries,
-                                    note: lastActivityAt ? 'Recent interaction' : 'No active conversations',
+                                    note: latestActivityTime,
+                                    badge: lastActivityAt ? 'Open latest' : 'No updates',
+                                    chartUnit: 'updates',
+                                    chartCaption: latestActivityCaption,
+                                    onClick: () => {
+                                        if (conversations[0]) handleRecentClick(conversations[0]);
+                                    },
                                 },
                             ].map((item, idx) => (
-                                <div key={idx} className="p-6 flex flex-col justify-between">
+                                <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={item.onClick}
+                                    className="p-6 flex flex-col justify-between text-left transition-colors hover:bg-black/[0.025] dark:hover:bg-white/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/50"
+                                >
                                     <div>
-                                        <p className="text-[12px] font-bold text-[#64748b] dark:text-[#91a0b8] mb-1">{item.label}</p>
-                                        <div className="flex items-center gap-3">
+                                        <div className="mb-3 flex items-center justify-between gap-3">
+                                            <p className="text-[12px] font-black uppercase tracking-[0.08em] text-[#475569] dark:text-[#a9bdd8]">{item.label}</p>
+                                            {!loading && (
+                                                <span
+                                                    className="h-2.5 w-2.5 rounded-full shadow-sm"
+                                                    style={{ backgroundColor: item.accent, boxShadow: `0 0 0 4px ${item.accent}1f` }}
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
                                             {loading ? (
-                                                <div className="h-8 w-20 bg-gray-100 dark:bg-white/5 animate-pulse rounded-lg" />
+                                                <div className="h-8 w-28 bg-gray-100 dark:bg-white/5 animate-pulse rounded-lg" />
                                             ) : (
-                                                <h2 className="text-2xl font-black text-[#111111] dark:text-white truncate" title={item.value}>
-                                                    {item.value}
-                                                </h2>
+                                                <div className="flex items-end gap-2 min-w-0">
+                                                    <h2 className="text-[28px] leading-none font-black text-[#111111] dark:text-white break-words" title={item.value}>
+                                                        {item.value}
+                                                    </h2>
+                                                    <span
+                                                        className="mb-0.5 rounded-full px-2 py-1 text-[10px] font-black leading-none"
+                                                        style={{
+                                                            color: item.accent,
+                                                            backgroundColor: `${item.accent}18`,
+                                                        }}
+                                                    >
+                                                        {item.badge}
+                                                    </span>
+                                                </div>
                                             )}
                                             {!loading && (
-                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-0.5" style={{ backgroundColor: `${item.accent}15`, color: item.accent }}>
-                                                    {item.note} <FiTrendingUp className="w-3 h-3" />
-                                                </span>
+                                                <p className="text-[12px] font-semibold leading-snug text-[#64748b] dark:text-[#9aa7bb]">
+                                                    {item.note}
+                                                </p>
                                             )}
                                         </div>
                                     </div>
-                                    <div className="mt-6">
-                                        {renderMiniBars(item.series, item.accent, loading)}
+                                    <div className="mt-6 rounded-2xl bg-[#f8fafc] px-3 py-3 ring-1 ring-black/[0.03] dark:bg-black/15 dark:ring-white/[0.04]">
+                                        {renderMiniBars(item.series, item.accent, loading, item.chartUnit)}
+                                        {!loading && (
+                                            <p className="mt-2 text-[11px] font-semibold text-[#64748b] dark:text-[#8b95a7]">
+                                                {item.chartCaption}
+                                            </p>
+                                        )}
                                     </div>
-                                </div>
+                                </button>
                             ))}
                         </div>
                     </div>
