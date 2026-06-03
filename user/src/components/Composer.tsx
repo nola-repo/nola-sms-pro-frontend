@@ -569,11 +569,6 @@ export const Composer: React.FC<ComposerProps> = ({
   const totalEstimatedSms = composeMode === "bulk" && isNewMessage
     ? smsSegments * bulkSelectedContacts.length
     : smsSegments;
-  const hasSendingMessages = useMemo(
-    () => [...conversationMessages, ...phoneLogMessages].some((msg) => msg.status === "sending"),
-    [conversationMessages, phoneLogMessages]
-  );
-
   const handleSend = async () => {
     if (loading) return;
     // Guard to ensure only ONE toast fires per send action
@@ -1667,12 +1662,6 @@ export const Composer: React.FC<ComposerProps> = ({
                   Your agency has restricted SMS sending out of this account. Manual messages and workflow automations are currently blocked. Please contact your agency to re-enable messaging.
                 </p>
               </div>
-            </div>
-          )}
-          {(loading || hasSendingMessages) && (
-            <div className="mb-2 flex items-center justify-end gap-2 px-2 text-[11px] font-bold uppercase tracking-wider text-[#667085] dark:text-[#a7adba]">
-              <FiLoader className="h-3 w-3 animate-spin text-[#2b83fa]" />
-              Sending message
             </div>
           )}
           <div className="bg-white/[0.96] dark:bg-[#17191f]/[0.96] rounded-[24px] border border-[#d8e1ec] dark:border-white/10 shadow-[0_20px_55px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_64px_rgba(0,0,0,0.48)] p-2.5 transition-all focus-within:ring-2 focus-within:ring-[#2b83fa]/25 dark:focus-within:ring-[#2b83fa]/20 relative z-20">
