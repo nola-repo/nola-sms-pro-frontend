@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { FiCreditCard, FiRefreshCw, FiZap, FiPlus, FiGift } from "react-icons/fi";
 import { fetchCreditStatus, type CreditStatus } from "../api/credits";
 import { useLocationId } from "../context/LocationContext";
+import { doc, collection, query, where, onSnapshot } from "firebase/firestore";
+import { signInAnonymously } from "firebase/auth";
+import { db, auth } from "../services/firebaseConfig";
 
 interface CreditBadgeProps {
     tone?: "default" | "onBlue";
@@ -30,16 +33,69 @@ export const CreditBadge = ({ tone = "default" }: CreditBadgeProps) => {
     };
 
     useEffect(() => {
+        if (!locationId) return;
+
         fetchStatus();
-        const interval = setInterval(fetchStatus, 5 * 60 * 1000);
+
+        let unsubscribeUser: (() => void) | null = null;
+        let unsubscribeInt: (() => void) | null = null;
+
+        const setupListeners = async () => {
+            try {
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                }
+
+                const docId = 'ghl_' + locationId.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+                // 1. Listen to integrations document for fallback balance & trial counts
+                unsubscribeInt = onSnapshot(doc(db, 'integrations', docId), (snapshot) => {
+                    if (snapshot.exists()) {
+                        const data = snapshot.data();
+                        setStatus(prev => {
+                            if (!prev) return prev;
+                            return {
+                                ...prev,
+                                credit_balance: data.credit_balance !== undefined ? Number(data.credit_balance) : prev.credit_balance,
+                                free_usage_count: data.free_usage_count !== undefined ? Number(data.free_usage_count) : prev.free_usage_count,
+                                free_credits_total: data.free_credits_total !== undefined ? Number(data.free_credits_total) : prev.free_credits_total,
+                            };
+                        });
+                    }
+                });
+
+                // 2. Listen to users document for primary credit_balance
+                const userQuery = query(collection(db, 'users'), where('active_location_id', '==', locationId));
+                unsubscribeUser = onSnapshot(userQuery, (snapshot) => {
+                    if (!snapshot.empty) {
+                        const userData = snapshot.docs[0].data();
+                        if (userData.credit_balance !== undefined) {
+                            setStatus(prev => {
+                                if (!prev) return prev;
+                                return {
+                                    ...prev,
+                                    credit_balance: Number(userData.credit_balance),
+                                };
+                            });
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error("Firestore balance listener setup failed:", err);
+            }
+        };
+
+        setupListeners();
+
         window.addEventListener('sms-sent', fetchStatus);
         window.addEventListener('bulk-message-sent', fetchStatus);
+
         return () => {
-            clearInterval(interval);
+            if (unsubscribeUser) unsubscribeUser();
+            if (unsubscribeInt) unsubscribeInt();
             window.removeEventListener('sms-sent', fetchStatus);
             window.removeEventListener('bulk-message-sent', fetchStatus);
         };
-    // Re-fetch whenever the active subaccount changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [locationId]);
 

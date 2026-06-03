@@ -9,6 +9,9 @@ import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 import { useToast } from '../hooks/useToast.ts';
 import { ToastContainer } from '../components/ui/ToastContainer.tsx';
+import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
+import { db, auth } from '../services/firebaseConfig';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const AGENCY_ID = 'O0YXPGWM9ep2l37dgxAo';
@@ -513,6 +516,72 @@ export const Billing: React.FC = () => {
     fetchSubaccounts();
     return () => { mountedRef.current = false; };
   }, [fetchWallet, fetchRequests, fetchSubaccounts]);
+
+  useEffect(() => {
+    if (!effectiveAgencyId) return;
+
+    let unsubscribeWallet: (() => void) | null = null;
+    let unsubscribeUser: (() => void) | null = null;
+
+    const setupListeners = async () => {
+      try {
+        if (!auth.currentUser) {
+          await signInAnonymously(auth);
+        }
+
+        unsubscribeWallet = onSnapshot(doc(db, 'agency_wallet', effectiveAgencyId), (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            const cleanData: Record<string, any> = {};
+            Object.keys(data).forEach(k => {
+              cleanData[k.trim()] = data[k];
+            });
+
+            setWallet(prev => {
+              const newBalance = cleanData.balance !== undefined ? Number(cleanData.balance) : (prev?.balance ?? 0);
+              return {
+                balance: newBalance,
+                auto_recharge_enabled: cleanData.auto_recharge_enabled !== undefined ? !!cleanData.auto_recharge_enabled : (prev?.auto_recharge_enabled ?? false),
+                auto_recharge_amount: cleanData.auto_recharge_amount !== undefined ? Number(cleanData.auto_recharge_amount) : (prev?.auto_recharge_amount ?? 500),
+                auto_recharge_threshold: cleanData.auto_recharge_threshold !== undefined ? Number(cleanData.auto_recharge_threshold) : (prev?.auto_recharge_threshold ?? 100),
+                enforce_master_balance_lock: cleanData.enforce_master_balance_lock !== undefined ? !!cleanData.enforce_master_balance_lock : (prev?.enforce_master_balance_lock ?? false),
+              };
+            });
+
+            if (cleanData.auto_recharge_enabled !== undefined) setArEnabled(!!cleanData.auto_recharge_enabled);
+            if (cleanData.auto_recharge_amount !== undefined) setArAmount(Number(cleanData.auto_recharge_amount));
+            if (cleanData.auto_recharge_threshold !== undefined) setArThreshold(Number(cleanData.auto_recharge_threshold));
+            if (cleanData.enforce_master_balance_lock !== undefined) setMasterLock(!!cleanData.enforce_master_balance_lock);
+          }
+        });
+
+        const userQuery = query(collection(db, 'agency_users'), where('company_id', '==', effectiveAgencyId));
+        unsubscribeUser = onSnapshot(userQuery, (snapshot) => {
+          if (!snapshot.empty) {
+            const userData = snapshot.docs[0].data();
+            if (userData.balance !== undefined) {
+              setWallet(prev => {
+                if (!prev) return { balance: Number(userData.balance), auto_recharge_enabled: false, auto_recharge_amount: 500, auto_recharge_threshold: 100, enforce_master_balance_lock: false };
+                return {
+                  ...prev,
+                  balance: Number(userData.balance),
+                };
+              });
+            }
+          }
+        });
+      } catch (err) {
+        console.error("Firestore agency wallet listener setup failed:", err);
+      }
+    };
+
+    setupListeners();
+
+    return () => {
+      if (unsubscribeWallet) unsubscribeWallet();
+      if (unsubscribeUser) unsubscribeUser();
+    };
+  }, [effectiveAgencyId]);
 
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 

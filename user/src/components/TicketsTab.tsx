@@ -1,17 +1,8 @@
 import React from "react";
 import { FiMessageSquare } from "react-icons/fi";
 import { useLocationId } from "../context/LocationContext";
+import { useUserProfile } from "../hooks/useUserProfile";
 import { safeStorage } from "../utils/safeStorage";
-
-const getCachedProfile = () => {
-    try {
-        const authProfile = JSON.parse(safeStorage.getItem('nola_auth_user') || 'null');
-        const userProfile = JSON.parse(safeStorage.getItem('nola_user') || 'null');
-        return { ...(userProfile || {}), ...(authProfile || {}) };
-    } catch {
-        return {};
-    }
-};
 
 const formatPhoneForForm = (value?: string | null) => {
     const digits = (value || '').replace(/\D/g, '');
@@ -23,6 +14,7 @@ const formatPhoneForForm = (value?: string | null) => {
 
 export const TicketsTab: React.FC = () => {
     const { locationId } = useLocationId();
+    const profile = useUserProfile();
     
     // DEVELOPER NOTE: Replace the base URL below with your actual GHL Funnel URL
     const BASE_URL = "https://api.nolacrm.io/widget/form/Nt1MWKmO93qOlvJWzZzk"; 
@@ -30,19 +22,18 @@ export const TicketsTab: React.FC = () => {
     // Generate the dynamic URL with pre-fill parameters
     const getFunnelUrl = () => {
         try {
-            const profile = getCachedProfile();
             const params = new URLSearchParams();
+            const userProfile = profile || {};
             const fullName =
-                profile.full_name ||
-                profile.name ||
-                [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim();
-            const firstName = profile.firstName || fullName.split(' ')[0] || '';
-            const lastName = profile.lastName || fullName.split(' ').slice(1).join(' ');
-            const resolvedPhone = formatPhoneForForm(profile.phone || profile.phone_number);
+                userProfile.name ||
+                [userProfile.firstName, userProfile.lastName].filter(Boolean).join(' ').trim();
+            const firstName = userProfile.firstName || fullName.split(' ')[0] || '';
+            const lastName = userProfile.lastName || fullName.split(' ').slice(1).join(' ');
+            const resolvedPhone = formatPhoneForForm(userProfile.phone);
             const resolvedLocationId =
                 locationId ||
-                profile.location_id ||
-                profile.active_location_id ||
+                userProfile.location_id ||
+                userProfile.active_location_id ||
                 safeStorage.getItem('nola_location_id') ||
                 '';
             
@@ -52,13 +43,14 @@ export const TicketsTab: React.FC = () => {
             }
             if (firstName) params.set('first_name', firstName);
             if (lastName) params.set('last_name', lastName);
-            if (profile.email) params.set('email', profile.email);
+            if (userProfile.email) params.set('email', userProfile.email);
             if (resolvedPhone) params.set('phone', resolvedPhone);
             if (resolvedLocationId) {
                 params.set('location_id', resolvedLocationId);
                 params.set('locationId', resolvedLocationId);
                 params.set('ghl_location_id', resolvedLocationId);
                 params.set('app_location_id', resolvedLocationId);
+                params.set('nola_sms_source_location_id', resolvedLocationId);
             }
 
             const queryString = params.toString();

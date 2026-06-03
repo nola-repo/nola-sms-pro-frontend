@@ -4,6 +4,8 @@ import { fetchContacts } from "../api/contacts";
 import { sendSms } from "../api/sms";
 import type { Template } from "../types/Template";
 import type { Contact } from "../types/Contact";
+import { useLocationId } from "../context/LocationContext";
+import { safeStorage } from "../utils/safeStorage";
 import {
   FiAlertCircle,
   FiCheck,
@@ -161,6 +163,7 @@ const PhonePreview: React.FC<{ template?: TemplateListItem | Template | Pick<Tem
 );
 
 export const TemplatesTab: React.FC = () => {
+  const { locationId } = useLocationId();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
@@ -220,9 +223,24 @@ export const TemplatesTab: React.FC = () => {
     }
   };
 
+  // Load templates and pre-load contacts on mount
   useEffect(() => {
     loadTemplates();
-  }, []);
+
+    const loadContactsData = async () => {
+      setContactsLoading(true);
+      try {
+        const data = await fetchContacts(locationId || undefined);
+        setContacts(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to pre-load contacts in TemplatesTab:", err);
+      } finally {
+        setContactsLoading(false);
+      }
+    };
+
+    loadContactsData();
+  }, [locationId]);
 
   const visibleTemplates = useMemo<TemplateListItem[]>(() => {
     const savedNames = new Set(templates.map((template) => template.name.trim().toLowerCase()));
@@ -321,20 +339,23 @@ export const TemplatesTab: React.FC = () => {
     }
   };
 
-  const openQuickSend = async (template: TemplateListItem) => {
+  const openQuickSend = (template: TemplateListItem) => {
     setQuickSendTemplate(template);
     setSelectedContact(null);
     setContactQuery("");
     setQuickError(null);
-    if (contacts.length === 0) {
-      setContactsLoading(true);
+
+    // Retrieve active contact from storage and pre-select it
+    const saved = safeStorage.getItem('nola_active_contact');
+    if (saved) {
       try {
-        setContacts(await fetchContacts());
-      } catch (err) {
-        console.error(err);
-        setQuickError("Failed to load contacts.");
-      } finally {
-        setContactsLoading(false);
+        const activeContact = JSON.parse(saved) as Contact;
+        if (activeContact && (activeContact.id || activeContact.phone)) {
+          const match = contacts.find(c => c.id === activeContact.id || c.phone === activeContact.phone);
+          setSelectedContact(match || activeContact);
+        }
+      } catch (e) {
+        console.error("Failed to parse active contact from storage", e);
       }
     }
   };
@@ -699,8 +720,19 @@ export const TemplatesTab: React.FC = () => {
                 <div>
                   <label className="block text-[12px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">Contact</label>
                   <input
+                    autoFocus
                     value={contactQuery}
                     onChange={(e) => setContactQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (selectedContact) {
+                          handleQuickSend();
+                        } else if (filteredContacts.length > 0) {
+                          setSelectedContact(filteredContacts[0]);
+                        }
+                      }
+                    }}
                     placeholder="Search by name, phone, or email..."
                     className="w-full px-4 py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 focus:border-[#2b83fa] transition-all"
                   />
@@ -765,6 +797,21 @@ export const TemplatesTab: React.FC = () => {
                 {isSubmitting ? <FiLoader className="h-5 w-5 animate-spin" /> : "Delete"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+      {/* Full-screen Sending Overlay */}
+      {quickSending && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="flex flex-col items-center p-8 bg-white dark:bg-[#1e1f23] rounded-3xl border border-white/10 shadow-2xl max-w-sm w-full mx-4 text-center animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center text-[#2b83fa] mb-4 animate-bounce">
+              <FiLoader className="w-8 h-8 animate-spin" />
+            </div>
+            <h4 className="text-[16px] font-extrabold text-[#111111] dark:text-white mb-2">Sending Message...</h4>
+            <p className="text-[13px] text-gray-500 dark:text-gray-400">
+              Sending <strong className="text-[#2b83fa]">{quickSendTemplate?.name}</strong> to <strong className="text-gray-800 dark:text-[#ececf1]">{selectedContact?.name}</strong>
+            </p>
           </div>
         </div>
       )}

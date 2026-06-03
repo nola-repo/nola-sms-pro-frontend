@@ -2,6 +2,9 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { fetchContacts } from "../api/contacts";
 import { fetchConversations, renameConversation, deleteConversation, normalizePHNumber } from "../api/sms";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { signInAnonymously } from "firebase/auth";
+import { db, auth } from "../services/firebaseConfig";
 import { deleteContact as deleteContactBackend } from "../api/contacts";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem } from "../types/Sms";
@@ -135,181 +138,221 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const deletedIds = getDeletedContactIds();
       const filtered = data.filter(c => !deletedIds.includes(c.id));
       setContacts(filtered);
-
-      // Load conversations from server
-      try {
-        const conversations = await fetchConversations(locationId || undefined);
-
-        // Build a phone -> name lookup map from freshly-fetched contacts (not stale state)
-        const contactMap = new Map<string, string>();
-        data.forEach(c => {
-          contactMap.set(c.phone, c.name);
-          const cleaned = c.phone.replace(/\D/g, "");
-          if (cleaned) {
-            contactMap.set(cleaned, c.name);
-            // Also map +63 variants for GHL phone format matching
-            if (cleaned.startsWith('0')) contactMap.set('+63' + cleaned.slice(1), c.name);
-            if (cleaned.startsWith('9')) contactMap.set('+63' + cleaned, c.name);
-          }
-        });
-
-        // Handle Direct Conversations
-        const directConvs = conversations.filter(c => c.type === 'direct' || !c.type);
-
-        // Deduplicate conversations by phone number (merge legacy and scoped UI items)
-        const dedupedDirectConvs = new Map<string, Contact>();
-
-        directConvs.forEach(conv => {
-          const phone = extractPhoneFromDirectConversationId(conv.id) || conv.id;
-          const cleanPhone = phone.replace(/\D/g, "");
-          // Resolve name: prefer contact name, then server metadata (only if it's a real name, not a phone number), then phone
-          const isPhoneNumber = (s: string) => /^[\d+\-() ]+$/.test(s);
-          const contactName = contactMap.get(phone) || contactMap.get(cleanPhone) || contactMap.get('+63' + cleanPhone);
-          let serverName = conv.name && !isPhoneNumber(conv.name) ? conv.name : null;
-
-          // Scrub accidental conversation IDs (e.g. "Name locationId_conv_09XX") from the server name
-          if (serverName && serverName.includes('_conv_')) {
-            let cleanName = serverName.split('_conv_')[0].trim();
-            // Remove the 20-character location ID if it's at the end
-            cleanName = cleanName.replace(/\b[a-zA-Z0-9]{20}\b$/, '').trim();
-            serverName = cleanName || null;
-          }
-
-          const name = contactName || serverName || phone;
-
-          const item: Contact = {
-            id: conv.id,
-            name: name,
-            phone: phone,
-            lastMessage: conv.last_message,
-            lastSentAt: conv.last_message_at || conv.updated_at || undefined
-          };
-
-          if (dedupedDirectConvs.has(phone)) {
-            const existing = dedupedDirectConvs.get(phone)!;
-            const existingIsScoped = existing.id.includes('_conv_');
-            const newIsScoped = conv.id.includes('_conv_');
-
-            if (newIsScoped && !existingIsScoped) {
-              // Prefer scoped ID over unscoped legacy ID
-              dedupedDirectConvs.set(phone, item);
-            } else if (!newIsScoped && existingIsScoped) {
-              // Keep existing scoped ID
-            } else {
-              // Both scoped or both unscoped, keep newest message
-              const newTime = new Date(item.lastSentAt || 0).getTime();
-              const existingTime = new Date(existing.lastSentAt || 0).getTime();
-              if (newTime > existingTime) {
-                dedupedDirectConvs.set(phone, item);
-              }
-            }
-          } else {
-            dedupedDirectConvs.set(phone, item);
-          }
-        });
-
-        const historyContacts: Contact[] = Array.from(dedupedDirectConvs.values()).sort((a, b) => {
-          const timeA = new Date(a.lastSentAt || 0).getTime();
-          const timeB = new Date(b.lastSentAt || 0).getTime();
-          return timeB - timeA;
-        });
-        setDirectHistory(historyContacts);
-
-        // 1. Initial server-side only
-        const mergedBulk = new Map<string, BulkMessageHistoryItem>();
-
-        // 2. Map server conversations to BulkMessageHistoryItem
-        conversations
-          .filter(c => c.type === 'bulk' || c.type === 'group')
-          .forEach(conv => {
-            const batchId = extractBatchIdFromGroupConversationId(conv.id) || conv.id.replace(/^group_/, '');
-            const key = batchId;
-            const existing = mergedBulk.get(key);
-
-            // Resolve recipient names from contact list if not present
-            let recipientNames = existing?.recipientNames || [];
-            if (recipientNames.length === 0 && conv.members.length > 0) {
-              recipientNames = conv.members.map(phone => {
-                const clean = phone.replace(/\D/g, "");
-                return contactMap.get(phone) || contactMap.get(clean) || phone;
-              });
-            }
-
-            const item: BulkMessageHistoryItem = {
-              id: existing?.id || `bulk-db-${batchId}`,
-              message: conv.last_message || existing?.message || '',
-              recipientCount: conv.members.length,
-              recipientNames: recipientNames,
-              recipientNumbers: conv.members,
-              recipientKey: existing?.recipientKey || batchId,
-              customName: conv.name || existing?.customName, // Prioritize server-side renamed group
-              timestamp: conv.last_message_at || conv.updated_at || existing?.timestamp || new Date().toISOString(),
-              status: existing?.status || 'sent',
-              batchId,
-              fromDatabase: true,
-              locationId: conv.location_id, // Ensure location_id is used from the conversation object
-            };
-            mergedBulk.set(key, item);
-          });
-
-        const combined = Array.from(mergedBulk.values())
-          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        setBulkHistory(combined);
-
-        // Detect new messages and notify the Composer for immediate refresh
-        const prevTracker = lastMessageTracker.current;
-        const newTracker = new Map<string, string>();
-
-        // Track direct conversations
-        historyContacts.forEach(c => {
-          if (c.lastMessage) newTracker.set(c.id, c.lastMessage);
-        });
-        // Track bulk conversations
-        combined.forEach(b => {
-          const convId = b.batchId ? `group_${b.batchId}` : b.id;
-          if (b.message) newTracker.set(convId, b.message);
-        });
-
-        // Compare and dispatch events for changed conversations
-        if (prevTracker.size > 0) {
-          newTracker.forEach((msg, convId) => {
-            const prev = prevTracker.get(convId);
-            if (prev !== undefined && prev !== msg) {
-              // This conversation has a new message
-              window.dispatchEvent(new CustomEvent('conversation-updated', {
-                detail: { conversationId: convId }
-              }));
-            }
-          });
-          // Also fire for brand-new conversations not in prev tracker
-          newTracker.forEach((_msg, convId) => {
-            if (!prevTracker.has(convId)) {
-              window.dispatchEvent(new CustomEvent('conversation-updated', {
-                detail: { conversationId: convId }
-              }));
-            }
-          });
-        }
-        lastMessageTracker.current = newTracker;
-      } catch (err) {
-        console.error('Error loading history:', err);
-      }
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoading(false);
     }
   }, [locationId]);
 
   useEffect(() => {
     loadContacts();
-    // Real-time polling: refresh history and contacts every 15 seconds
+    // Refresh contacts list every 60 seconds (since they don't change that fast)
     const interval = setInterval(() => {
       loadContacts();
-    }, 15000);
+    }, 60000);
 
     return () => clearInterval(interval);
   }, [loadContacts]);
+
+  useEffect(() => {
+    if (!locationId) return;
+
+    let unsubscribe: (() => void) | undefined;
+
+    const setupConversationsListener = async () => {
+      try {
+        if (!auth.currentUser) {
+          await signInAnonymously(auth);
+        }
+
+        const q = query(
+          collection(db, 'conversations'),
+          where('location_id', '==', locationId)
+        );
+
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          const docRows = snapshot.docs.map(doc => {
+            const d = doc.data();
+            return {
+              id: doc.id,
+              location_id: d.location_id ?? null,
+              type: d.type ?? null,
+              members: d.members ?? [],
+              name: d.name ?? null,
+              last_message: d.last_message ?? null,
+              last_message_at: d.last_message_at ? (typeof d.last_message_at.toDate === 'function' ? d.last_message_at.toDate().toISOString() : d.last_message_at) : null,
+              updated_at: d.updated_at ? (typeof d.updated_at.toDate === 'function' ? d.updated_at.toDate().toISOString() : d.updated_at) : null,
+              ghl_contact_id: d.ghl_contact_id ?? null,
+            };
+          });
+
+          // Build a phone -> name lookup map from freshly-fetched contacts (not stale state)
+          const contactMap = new Map<string, string>();
+          contacts.forEach(c => {
+            contactMap.set(c.phone, c.name);
+            const cleaned = c.phone.replace(/\D/g, "");
+            if (cleaned) {
+              contactMap.set(cleaned, c.name);
+              // Also map +63 variants for GHL phone format matching
+              if (cleaned.startsWith('0')) contactMap.set('+63' + cleaned.slice(1), c.name);
+              if (cleaned.startsWith('9')) contactMap.set('+63' + cleaned, c.name);
+            }
+          });
+
+          // Handle Direct Conversations
+          const directConvs = docRows.filter(c => c.type === 'direct' || !c.type);
+
+          // Deduplicate conversations by phone number (merge legacy and scoped UI items)
+          const dedupedDirectConvs = new Map<string, Contact>();
+
+          directConvs.forEach(conv => {
+            const phone = extractPhoneFromDirectConversationId(conv.id) || conv.id;
+            const cleanPhone = phone.replace(/\D/g, "");
+            // Resolve name: prefer contact name, then server metadata (only if it's a real name, not a phone number), then phone
+            const isPhoneNumber = (s: string) => /^[\d+\-() ]+$/.test(s);
+            const contactName = contactMap.get(phone) || contactMap.get(cleanPhone) || contactMap.get('+63' + cleanPhone);
+            let serverName = conv.name && !isPhoneNumber(conv.name) ? conv.name : null;
+
+            // Scrub accidental conversation IDs (e.g. "Name locationId_conv_09XX") from the server name
+            if (serverName && serverName.includes('_conv_')) {
+              let cleanName = serverName.split('_conv_')[0].trim();
+              // Remove the 20-character location ID if it's at the end
+              cleanName = cleanName.replace(/\b[a-zA-Z0-9]{20}\b$/, '').trim();
+              serverName = cleanName || null;
+            }
+
+            const name = contactName || serverName || phone;
+
+            const item: Contact = {
+              id: conv.id,
+              name: name,
+              phone: phone,
+              lastMessage: conv.last_message,
+              lastSentAt: conv.last_message_at || conv.updated_at || undefined
+            };
+
+            if (dedupedDirectConvs.has(phone)) {
+              const existing = dedupedDirectConvs.get(phone)!;
+              const existingIsScoped = existing.id.includes('_conv_');
+              const newIsScoped = conv.id.includes('_conv_');
+
+              if (newIsScoped && !existingIsScoped) {
+                // Prefer scoped ID over unscoped legacy ID
+                dedupedDirectConvs.set(phone, item);
+              } else if (!newIsScoped && existingIsScoped) {
+                // Keep existing scoped ID
+              } else {
+                // Both scoped or both unscoped, keep newest message
+                const newTime = new Date(item.lastSentAt || 0).getTime();
+                const existingTime = new Date(existing.lastSentAt || 0).getTime();
+                if (newTime > existingTime) {
+                  dedupedDirectConvs.set(phone, item);
+                }
+              }
+            } else {
+              dedupedDirectConvs.set(phone, item);
+            }
+          });
+
+          const historyContacts: Contact[] = Array.from(dedupedDirectConvs.values()).sort((a, b) => {
+            const timeA = new Date(a.lastSentAt || 0).getTime();
+            const timeB = new Date(b.lastSentAt || 0).getTime();
+            return timeB - timeA;
+          });
+          setDirectHistory(historyContacts);
+
+          // 1. Initial server-side only
+          const mergedBulk = new Map<string, BulkMessageHistoryItem>();
+
+          // 2. Map server conversations to BulkMessageHistoryItem
+          docRows
+            .filter(c => c.type === 'bulk' || c.type === 'group')
+            .forEach(conv => {
+              const batchId = extractBatchIdFromGroupConversationId(conv.id) || conv.id.replace(/^group_/, '');
+              const key = batchId;
+              const existing = mergedBulk.get(key);
+
+              // Resolve recipient names from contact list if not present
+              let recipientNames = existing?.recipientNames || [];
+              if (recipientNames.length === 0 && conv.members.length > 0) {
+                recipientNames = conv.members.map(phone => {
+                  const clean = phone.replace(/\D/g, "");
+                  return contactMap.get(phone) || contactMap.get(clean) || phone;
+                });
+              }
+
+              const item: BulkMessageHistoryItem = {
+                id: existing?.id || `bulk-db-${batchId}`,
+                message: conv.last_message || existing?.message || '',
+                recipientCount: conv.members.length,
+                recipientNames: recipientNames,
+                recipientNumbers: conv.members,
+                recipientKey: existing?.recipientKey || batchId,
+                customName: conv.name || existing?.customName, // Prioritize server-side renamed group
+                timestamp: conv.last_message_at || conv.updated_at || existing?.timestamp || new Date().toISOString(),
+                status: existing?.status || 'sent',
+                batchId,
+                fromDatabase: true,
+                locationId: conv.location_id, // Ensure location_id is used from the conversation object
+              };
+              mergedBulk.set(key, item);
+            });
+
+          const combined = Array.from(mergedBulk.values())
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          setBulkHistory(combined);
+
+          // Detect new messages and notify the Composer for immediate refresh
+          const prevTracker = lastMessageTracker.current;
+          const newTracker = new Map<string, string>();
+
+          // Track direct conversations
+          historyContacts.forEach(c => {
+            if (c.lastMessage) newTracker.set(c.id, c.lastMessage);
+          });
+          // Track bulk conversations
+          combined.forEach(b => {
+            const convId = b.batchId ? `group_${b.batchId}` : b.id;
+            if (b.message) newTracker.set(convId, b.message);
+          });
+
+          // Compare and dispatch events for changed conversations
+          if (prevTracker.size > 0) {
+            newTracker.forEach((msg, convId) => {
+              const prev = prevTracker.get(convId);
+              if (prev !== undefined && prev !== msg) {
+                // This conversation has a new message
+                window.dispatchEvent(new CustomEvent('conversation-updated', {
+                  detail: { conversationId: convId }
+                }));
+              }
+            });
+            // Also fire for brand-new conversations not in prev tracker
+            newTracker.forEach((_msg, convId) => {
+              if (!prevTracker.has(convId)) {
+                window.dispatchEvent(new CustomEvent('conversation-updated', {
+                  detail: { conversationId: convId }
+                }));
+              }
+            });
+          }
+          lastMessageTracker.current = newTracker;
+          setLoading(false);
+        }, (err) => {
+          console.error("Firestore conversations snapshot error:", err);
+          setLoading(false);
+        });
+      } catch (err) {
+        console.error("Firestore setup error in Sidebar:", err);
+        setLoading(false);
+      }
+    };
+
+    setupConversationsListener();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [locationId, contacts]);
 
   // Close menu when clicking outside
   useEffect(() => {
