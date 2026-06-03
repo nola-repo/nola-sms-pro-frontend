@@ -811,69 +811,76 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
 
                     {/* Recent Activity Column */}
                     <div>
-                        <div className="flex items-center justify-between mb-5 h-8">
-                            <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                                Recent Activity
-                            </h3>
-                            {conversations.length > 3 && (
-                                <button
-                                    onClick={() => setShowAllActivity(true)}
-                                    className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                                >
-                                    See All
-                                </button>
-                            )}
-                        </div>
+                        <AnimatedContent delay={0.4} distance={50} direction="vertical">
+                            <div className="flex items-center justify-between mb-5 h-8">
+                                <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
+                                    Recent Activity
+                                </h3>
+                                {conversations.length > 3 && (
+                                    <button
+                                        onClick={() => setShowAllActivity(true)}
+                                        className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                    >
+                                        See All
+                                    </button>
+                                )}
+                            </div>
+                        </AnimatedContent>
                         
                         <div className="flex flex-col gap-3">
                             {loading && conversations.length === 0 ? (
-                                [1, 2, 3].map((i) => (
-                                    <div key={`skel-${i}`} className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center justify-between">
-                                        <div className="flex items-center gap-3 w-full">
-                                            <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse flex-shrink-0" />
-                                            <div className="space-y-2 w-full max-w-[150px]">
-                                                <div className="h-3 w-3/4 bg-gray-100 dark:bg-gray-800 animate-pulse rounded" />
-                                                <div className="h-2 w-full bg-gray-50 dark:bg-gray-900 animate-pulse rounded opacity-60" />
+                                [1, 2, 3].map((i, idx) => (
+                                    <AnimatedContent key={`skel-${i}`} delay={0.45 + idx * 0.05} distance={30} direction="vertical">
+                                        <div className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center justify-between">
+                                            <div className="flex items-center gap-3 w-full">
+                                                <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse flex-shrink-0" />
+                                                <div className="space-y-2 w-full max-w-[150px]">
+                                                    <div className="h-3 w-3/4 bg-gray-100 dark:bg-gray-800 animate-pulse rounded" />
+                                                    <div className="h-2 w-full bg-gray-50 dark:bg-gray-900 animate-pulse rounded opacity-60" />
+                                                </div>
                                             </div>
+                                            <div className="w-16 h-3 bg-gray-50 dark:bg-gray-900 animate-pulse rounded opacity-60" />
                                         </div>
-                                        <div className="w-16 h-3 bg-gray-50 dark:bg-gray-900 animate-pulse rounded opacity-60" />
-                                    </div>
+                                    </AnimatedContent>
                                 ))
                             ) : conversations.length > 0 ? (
-                                conversations.slice(0, 3).map((conv) => (
-                                    <button
-                                        key={conv.id}
-                                        onClick={() => handleRecentClick(conv)}
-                                        className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:border-[#2b83fa]/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left flex items-center justify-between group"
-                                    >
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold shadow-sm transition-transform duration-300 group-hover:rotate-12 ${conv.type === 'bulk' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa]'}`}>
-                                                {conv.type === 'bulk' ? <FiUsers size={18} /> : (() => { const dn = getDisplayName(conv); return dn ? dn.charAt(0).toUpperCase() : <FiUser size={18} />; })()}
+                                conversations.slice(0, 3).map((conv, idx) => (
+                                    <AnimatedContent key={conv.id} delay={0.45 + idx * 0.05} distance={30} direction="vertical">
+                                        <button
+                                            onClick={() => handleRecentClick(conv)}
+                                            className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:border-[#2b83fa]/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left flex items-center justify-between group"
+                                        >
+                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold shadow-sm transition-transform duration-300 group-hover:rotate-12 ${conv.type === 'bulk' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa]'}`}>
+                                                    {conv.type === 'bulk' ? <FiUsers size={18} /> : (() => { const dn = getDisplayName(conv); return dn ? dn.charAt(0).toUpperCase() : <FiUser size={18} />; })()}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px] truncate">
+                                                        {getDisplayName(conv)}
+                                                    </h4>
+                                                    <p className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate max-w-[200px] font-medium">
+                                                        {conv.last_message || "No messages yet"}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div className="min-w-0">
-                                                <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px] truncate">
-                                                    {getDisplayName(conv)}
-                                                </h4>
-                                                <p className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate max-w-[200px] font-medium">
-                                                    {conv.last_message || "No messages yet"}
-                                                </p>
+                                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                                <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                                                    <FiClock size={10} />
+                                                    {conv.last_message_at ? new Date(conv.last_message_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "--"}
+                                                </div>
+                                                <div className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa] text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    View
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                            <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
-                                                <FiClock size={10} />
-                                                {conv.last_message_at ? new Date(conv.last_message_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "--"}
-                                            </div>
-                                            <div className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa] text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-                                                View
-                                            </div>
-                                        </div>
-                                    </button>
+                                        </button>
+                                    </AnimatedContent>
                                 ))
                             ) : (
-                                <div className="p-10 text-center rounded-3xl border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
-                                    <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No recent activity found.</p>
-                                </div>
+                                <AnimatedContent delay={0.45} distance={30} direction="vertical">
+                                    <div className="p-10 text-center rounded-3xl border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
+                                        <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No recent activity found.</p>
+                                    </div>
+                                </AnimatedContent>
                             )}
                         </div>
                     </div>
