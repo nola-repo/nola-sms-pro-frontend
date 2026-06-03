@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { fetchSmsLogs } from "../api/sms";
+import { fetchSmsLogs, normalizePHNumber } from "../api/sms";
 import type { Message, SmsLog } from "../types/Sms";
 import { useLocationId } from "../context/LocationContext";
-
-const POLL_INTERVAL = 5000; // 5 seconds
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { signInAnonymously } from "firebase/auth";
+import { db, auth } from "../services/firebaseConfig";
 
 export const useMessages = (phoneNumber: string | undefined) => {
     const { locationId } = useLocationId();
@@ -12,20 +13,26 @@ export const useMessages = (phoneNumber: string | undefined) => {
     const [error, setError] = useState<string | null>(null);
     const isInitialLoad = useRef(true);
 
-    const formatLogToMessage = (log: SmsLog): Message => {
+    const formatLogToMessage = useCallback((log: SmsLog): Message => {
         let date: Date;
         if (!log.date_created) {
             date = new Date();
         } else if (typeof log.date_created === 'string') {
             date = new Date(log.date_created);
-        } else if (typeof log.date_created === 'object' && '_seconds' in log.date_created) {
-            date = new Date((log.date_created as any)._seconds * 1000);
+        } else if (typeof log.date_created === 'object' && log.date_created !== null) {
+            if ('toDate' in log.date_created && typeof (log.date_created as any).toDate === 'function') {
+                date = (log.date_created as any).toDate();
+            } else if ('_seconds' in log.date_created) {
+                date = new Date((log.date_created as any)._seconds * 1000);
+            } else {
+                date = new Date();
+            }
         } else {
             date = new Date();
         }
 
         return {
-            id: log.message_id || `msg-${Date.now()}`,
+            id: log.message_id || `msg-${Date.now()}-${Math.random()}`,
             text: log.message || '',
             timestamp: date,
             senderName: log.sender_id || 'NOLASMSPro',
@@ -44,7 +51,24 @@ export const useMessages = (phoneNumber: string | undefined) => {
             })(),
             errorReason: log.error_reason,
         };
-    };
+    }, []);
+
+    const processAndMergeLogs = useCallback((logs: SmsLog[]) => {
+        const formattedMessages = logs.map(formatLogToMessage);
+        formattedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+        // Preserve in-flight optimistic "temp-" messages not yet confirmed from API
+        setMessages(prev => {
+            const tempOnly = prev.filter(msg =>
+                msg.id.startsWith('temp-') &&
+                !formattedMessages.some(apiMsg =>
+                    apiMsg.text === msg.text &&
+                    Math.abs(apiMsg.timestamp.getTime() - msg.timestamp.getTime()) < 60000
+                )
+            );
+            return [...formattedMessages, ...tempOnly];
+        });
+    }, [formatLogToMessage]);
 
     const fetchHistory = useCallback(async (showLoading = true) => {
         if (!phoneNumber) {
@@ -57,27 +81,14 @@ export const useMessages = (phoneNumber: string | undefined) => {
 
         try {
             const logs = await fetchSmsLogs(phoneNumber, locationId || undefined);
-            const formattedMessages = logs.map(formatLogToMessage);
-            formattedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-            // Preserve in-flight optimistic "temp-" messages not yet confirmed from API
-            setMessages(prev => {
-                const tempOnly = prev.filter(msg =>
-                    msg.id.startsWith('temp-') &&
-                    !formattedMessages.some(apiMsg =>
-                        apiMsg.text === msg.text &&
-                        Math.abs(apiMsg.timestamp.getTime() - msg.timestamp.getTime()) < 60000
-                    )
-                );
-                return [...formattedMessages, ...tempOnly];
-            });
+            processAndMergeLogs(logs);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to load history");
         } finally {
             setLoading(false);
             isInitialLoad.current = false;
         }
-    }, [phoneNumber, locationId]);
+    }, [phoneNumber, locationId, processAndMergeLogs]);
 
     // Initial fetch — clear messages when phone number changes
     useEffect(() => {
@@ -86,12 +97,64 @@ export const useMessages = (phoneNumber: string | undefined) => {
         fetchHistory(true);
     }, [fetchHistory]);
 
-    // Background polling every 5 seconds
+    // Real-time Firestore subscription on sms_logs collection
     useEffect(() => {
-        if (!phoneNumber) return;
-        const interval = setInterval(() => fetchHistory(false), POLL_INTERVAL);
-        return () => clearInterval(interval);
-    }, [phoneNumber, fetchHistory]);
+        if (!phoneNumber || !locationId) return;
+
+        let unsubscribe: (() => void) | undefined;
+
+        const setupListener = async () => {
+            try {
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                }
+
+                const formattedNumber = normalizePHNumber(phoneNumber);
+                if (!formattedNumber) {
+                    setMessages([]);
+                    return;
+                }
+
+                const q = query(
+                    collection(db, 'sms_logs'),
+                    where('location_id', '==', locationId),
+                    where('numbers', 'array-contains', formattedNumber)
+                );
+
+                unsubscribe = onSnapshot(q, (snapshot) => {
+                    const logs = snapshot.docs.map(doc => {
+                        const d = doc.data();
+                        return {
+                            id: doc.id,
+                            message_id: doc.id,
+                            numbers: d.numbers ?? [],
+                            message: d.message ?? '',
+                            sender_id: d.sender_id ?? 'NOLASMSPro',
+                            status: d.status ?? 'Sending',
+                            date_created: d.date_created ?? null,
+                            source: d.source ?? 'semaphore',
+                            batch_id: d.batch_id ?? null,
+                            recipient_key: d.recipient_key ?? null,
+                            credits_used: d.credits_used ?? 0,
+                            conversation_id: d.conversation_id ?? null,
+                            error_reason: d.error_reason ?? null,
+                        } as SmsLog;
+                    });
+                    processAndMergeLogs(logs);
+                }, (err) => {
+                    console.error("[useMessages] Firestore subscription error:", err);
+                });
+            } catch (err) {
+                console.error("[useMessages] Firestore setup error:", err);
+            }
+        };
+
+        setupListener();
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
+    }, [phoneNumber, locationId, processAndMergeLogs]);
 
     const addOptimisticMessage = (text: string, senderName: string): string => {
         const id = `temp-${Date.now()}`;

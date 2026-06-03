@@ -7,8 +7,9 @@ import { getSubaccounts } from '../services/api.ts';
 import SplitText from '../components/SplitText.tsx';
 import FadeContent from '../components/FadeContent.tsx';
 import AnimatedContent from '../components/AnimatedContent.tsx';
-
-const POLL_MS = 10000;
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
+import { db, auth } from '../services/firebaseConfig.ts';
 
 export const Dashboard = () => {
   const { agencyId } = useAgency();
@@ -37,8 +38,59 @@ export const Dashboard = () => {
 
   useEffect(() => {
     fetchData();
-    const id = setInterval(fetchData, POLL_MS);
-    return () => clearInterval(id);
+  }, [agencyId]);
+
+  useEffect(() => {
+    if (!agencyId) return;
+
+    let unsubscribe: (() => void) | undefined;
+
+    const setup = async () => {
+      try {
+        if (!auth.currentUser) await signInAnonymously(auth);
+
+        const q = query(
+          collection(db, 'ghl_tokens'),
+          where('companyId', '==', agencyId)
+        );
+
+        unsubscribe = onSnapshot(
+          q,
+          (snapshot) => {
+            const liveStates = new Map<string, { toggle_enabled: boolean; attempt_count: number; rate_limit: number; toggle_activation_count: number }>();
+            snapshot.docs.forEach(doc => {
+              const d = doc.data();
+              const id = d.location_id ?? doc.id;
+              liveStates.set(id, {
+                toggle_enabled: typeof d.toggle_enabled === 'boolean' ? d.toggle_enabled : true,
+                attempt_count:  Number(d.attempt_count ?? 0),
+                rate_limit: Number(d.rate_limit ?? 5),
+                toggle_activation_count: Number(d.toggle_activation_count ?? 0),
+              });
+            });
+
+            setSubaccounts(prev =>
+              prev.map(s => {
+                const live = liveStates.get(s.location_id);
+                return live ? { ...s, ...live } : s;
+              })
+            );
+            setLastRefreshed(new Date());
+          },
+          (err) => {
+            console.error('[Dashboard] onSnapshot error:', err);
+          }
+        );
+      } catch (err: any) {
+        console.error('[Dashboard] Firebase setup error:', err);
+      }
+    };
+
+    setup();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [agencyId]);
 
   const total   = subaccounts.length;
@@ -285,7 +337,7 @@ export const Dashboard = () => {
                             <div className="flex items-center gap-3">
                               <span className="text-[13.5px] font-bold text-gray-500 dark:text-gray-400">{s.rate_limit.toLocaleString()}</span>
                               {isAtLimit ? (
-                                <span className="bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-[10px] font-black uppercase tracking-widest px-2-5 py-1 rounded-full">Blocked</span>
+                                <span className="bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">Blocked</span>
                               ) : isNearLimit ? (
                                 <span className="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full">Warning</span>
                               ) : null}
@@ -321,7 +373,7 @@ export const Dashboard = () => {
                                     className={`w-7 h-7 rounded-lg text-[12px] font-bold flex items-center justify-center transition-all ${
                                         currentPage === page
                                             ? 'bg-[#2b83fa] text-white shadow-sm ring-1 ring-[#2b83fa]/50'
-                                            : 'text-gray-500 hover:text-[#111111] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a]'
+                                             : 'text-gray-500 hover:text-[#111111] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10 bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a]'
                                     }`}
                                 >
                                     {page}
@@ -366,4 +418,3 @@ export const Dashboard = () => {
     </AgencyLayout>
   );
 };
-
