@@ -135,7 +135,7 @@ const interpolateTemplate = (content: string, contact: Contact | null = MOCK_CON
 };
 
 const PhonePreview: React.FC<{ template?: TemplateListItem | Template | Pick<Template, "name" | "content" | "category">; contact?: Contact | null }> = ({ template, contact }) => (
-  <div className="rounded-[28px] border-4 border-[#2b83fa] bg-[#2b83fa] p-2 shadow-xl shadow-blue-500/20">
+  <div className="rounded-[28px] border border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-white/5 p-1.5 shadow-sm">
     <div className="rounded-[22px] bg-[#f7f8fb] dark:bg-[#111318] p-4 min-h-[360px] flex flex-col">
       <div className="flex items-center justify-center gap-2 pb-3 border-b border-gray-200 dark:border-white/10">
         <FiSmartphone className="w-4 h-4 text-[#2b83fa]" />
