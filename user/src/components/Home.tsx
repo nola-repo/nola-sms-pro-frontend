@@ -115,6 +115,21 @@ const isUsableLocationName = (value?: string | null): value is string =>
 const getProfileLocationId = (profile?: { location_id?: string | null; active_location_id?: string | null } | null): string =>
     profile?.location_id || profile?.active_location_id || "";
 
+const dashboardCardSkeletonClass = "skeleton-gleam bg-white/60 dark:bg-white/15";
+
+const DashboardCardSkeleton = ({ valueWidth = "w-20" }: { valueWidth?: string }) => (
+    <div className="relative z-10 flex h-full min-h-[128px] flex-col justify-between">
+        <div>
+            <div className={`mb-4 h-10 w-10 rounded-xl ${dashboardCardSkeletonClass}`} />
+            <div className={`h-3 w-32 rounded-full ${dashboardCardSkeletonClass}`} />
+        </div>
+        <div className="mt-8 flex items-end gap-3">
+            <div className={`h-10 ${valueWidth} rounded-lg ${dashboardCardSkeletonClass}`} />
+            <div className={`mb-1 h-5 w-20 rounded-full ${dashboardCardSkeletonClass}`} />
+        </div>
+    </div>
+);
+
 const profileMatchesLocation = (
     profile: { location_id?: string | null; active_location_id?: string | null } | null | undefined,
     locationId: string
@@ -562,38 +577,44 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                             const trialLeft    = trialTotal - trialUsed;
                             return (
                                 <div className="p-6 rounded-[24px] bg-gradient-to-br from-[#e0f2fe] via-[#60a5fa] to-[#06b6d4] dark:from-[#3b82f6] dark:via-[#2584d5] dark:to-[#14a3a1] shadow-xl shadow-blue-500/20 hover:shadow-blue-500/30 transition-all group overflow-hidden relative h-full border border-white/70 dark:border-blue-200/20">
-                                    <button
-                                        onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }))}
-                                        className="group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-blue-700 text-white shadow-[0_10px_24px_rgba(29,78,216,0.32)] ring-1 ring-white/45 hover:bg-blue-800 hover:shadow-[0_14px_30px_rgba(29,78,216,0.42)] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300 dark:bg-blue-500 dark:text-white dark:ring-white/30 dark:shadow-black/25 dark:hover:bg-blue-400 dark:focus-visible:ring-offset-blue-900 transition-all"
-                                        aria-label="Open credits"
-                                        title="Open credits"
-                                    >
-                                        <FiPlus className="h-[18px] w-[18px] stroke-[2.4] transition-transform duration-200 group-hover/action:rotate-90" />
-                                    </button>
                                     <div className="absolute inset-0 bg-white/10 dark:bg-white/[0.05] pointer-events-none" />
                                     <div className="absolute bottom-0 right-0 p-4 opacity-[0.13] dark:opacity-[0.16] group-hover:scale-110 transition-transform duration-500 text-blue-900 dark:text-blue-100">
                                         <FiCreditCard className="w-24 h-24" />
                                     </div>
-                                    <div className="relative z-10 flex flex-col h-full justify-between">
-                                        <div>
-                                            <div className="w-10 h-10 rounded-xl bg-white/70 dark:bg-white/[0.14] flex items-center justify-center text-blue-700 dark:text-blue-50 mb-4 shadow-sm shadow-blue-900/10 ring-1 ring-white/40 dark:ring-white/10">
-                                                <FiCreditCard className="h-5 w-5" />
+                                    {loading ? (
+                                        <DashboardCardSkeleton valueWidth="w-24" />
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }))}
+                                                className="group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-blue-700 text-white shadow-[0_10px_24px_rgba(29,78,216,0.32)] ring-1 ring-white/45 hover:bg-blue-800 hover:shadow-[0_14px_30px_rgba(29,78,216,0.42)] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300 dark:bg-blue-500 dark:text-white dark:ring-white/30 dark:shadow-black/25 dark:hover:bg-blue-400 dark:focus-visible:ring-offset-blue-900 transition-all"
+                                                aria-label="Open credits"
+                                                title="Open credits"
+                                            >
+                                                <FiPlus className="h-[18px] w-[18px] stroke-[2.4] transition-transform duration-200 group-hover/action:rotate-90" />
+                                            </button>
+                                            <div className="relative z-10 flex flex-col h-full justify-between">
+                                                <div>
+                                                    <div className="w-10 h-10 rounded-xl bg-white/70 dark:bg-white/[0.14] flex items-center justify-center text-blue-700 dark:text-blue-50 mb-4 shadow-sm shadow-blue-900/10 ring-1 ring-white/40 dark:ring-white/10">
+                                                        <FiCreditCard className="h-5 w-5" />
+                                                    </div>
+                                                    <p className="text-[12px] font-bold text-blue-950/70 dark:text-blue-50/80 uppercase tracking-widest mb-1">
+                                                        Available Credits
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-3 mt-4">
+                                                    <h2 className="text-3xl sm:text-4xl font-black text-[#082f49] dark:text-white leading-none">
+                                                        {balance.toLocaleString()}
+                                                    </h2>
+                                                    {isTrialActive && (
+                                                        <span className="text-[10px] font-bold bg-white/75 dark:bg-white/[0.16] text-blue-800 dark:text-blue-50 px-2.5 py-0.5 rounded-full whitespace-nowrap ring-1 ring-white/50 dark:ring-white/10">
+                                                            {trialLeft} Free Trial
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <p className="text-[12px] font-bold text-blue-950/70 dark:text-blue-50/80 uppercase tracking-widest mb-1">
-                                                Available Credits
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-3 mt-4">
-                                            <h2 className="text-3xl sm:text-4xl font-black text-[#082f49] dark:text-white leading-none">
-                                                {loading ? <span className="inline-block w-16 h-10 bg-blue-500/20 animate-pulse rounded-lg" /> : balance.toLocaleString()}
-                                            </h2>
-                                            {isTrialActive && !loading && (
-                                                <span className="text-[10px] font-bold bg-white/75 dark:bg-white/[0.16] text-blue-800 dark:text-blue-50 px-2.5 py-0.5 rounded-full whitespace-nowrap ring-1 ring-white/50 dark:ring-white/10">
-                                                    {trialLeft} Free Trial
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
+                                        </>
+                                    )}
                                 </div>
                             );
                         })()}
@@ -601,57 +622,69 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
 
                     <AnimatedContent delay={0.2} distance={50} direction="vertical">
                         <div className="p-6 rounded-[24px] bg-gradient-to-br from-[#fae8ff] via-[#c084fc] to-[#7c3aed] dark:from-[#8b5cf6] dark:via-[#7c3aed] dark:to-[#5b5ce2] shadow-xl shadow-purple-500/20 hover:shadow-purple-500/30 transition-all group overflow-hidden relative h-full border border-white/70 dark:border-purple-200/20">
-                            <button
-                                onClick={() => onTabChange('compose')}
-                                className="group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-purple-700 text-white shadow-[0_10px_24px_rgba(109,40,217,0.32)] ring-1 ring-white/45 hover:bg-purple-800 hover:shadow-[0_14px_30px_rgba(109,40,217,0.42)] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-violet-300 dark:bg-purple-500 dark:text-white dark:ring-white/30 dark:shadow-black/25 dark:hover:bg-purple-400 dark:focus-visible:ring-offset-purple-900 transition-all"
-                                aria-label="New message"
-                                title="New message"
-                            >
-                                <FiPlus className="h-[18px] w-[18px] stroke-[2.4] transition-transform duration-200 group-hover/action:rotate-90" />
-                            </button>
                             <div className="absolute inset-0 bg-white/10 dark:bg-white/[0.05] pointer-events-none" />
                             <div className="absolute bottom-0 right-0 p-4 opacity-[0.13] dark:opacity-[0.16] group-hover:scale-110 transition-transform duration-500 text-purple-900 dark:text-purple-100">
                                 <FiMessageSquare className="w-24 h-24" />
                             </div>
-                            <div className="relative z-10 flex flex-col h-full justify-between">
-                                <div>
-                                    <div className="w-10 h-10 rounded-xl bg-white/70 dark:bg-white/[0.14] flex items-center justify-center text-purple-700 dark:text-purple-50 mb-4 shadow-sm shadow-purple-900/10 ring-1 ring-white/40 dark:ring-white/10">
-                                        <FiMessageSquare className="h-5 w-5" />
+                            {loading ? (
+                                <DashboardCardSkeleton />
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => onTabChange('compose')}
+                                        className="group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-purple-700 text-white shadow-[0_10px_24px_rgba(109,40,217,0.32)] ring-1 ring-white/45 hover:bg-purple-800 hover:shadow-[0_14px_30px_rgba(109,40,217,0.42)] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-violet-300 dark:bg-purple-500 dark:text-white dark:ring-white/30 dark:shadow-black/25 dark:hover:bg-purple-400 dark:focus-visible:ring-offset-purple-900 transition-all"
+                                        aria-label="New message"
+                                        title="New message"
+                                    >
+                                        <FiPlus className="h-[18px] w-[18px] stroke-[2.4] transition-transform duration-200 group-hover/action:rotate-90" />
+                                    </button>
+                                    <div className="relative z-10 flex flex-col h-full justify-between">
+                                        <div>
+                                            <div className="w-10 h-10 rounded-xl bg-white/70 dark:bg-white/[0.14] flex items-center justify-center text-purple-700 dark:text-purple-50 mb-4 shadow-sm shadow-purple-900/10 ring-1 ring-white/40 dark:ring-white/10">
+                                                <FiMessageSquare className="h-5 w-5" />
+                                            </div>
+                                            <p className="text-[12px] font-bold text-purple-950/70 dark:text-purple-50/80 uppercase tracking-widest mb-1">Total Conversations</p>
+                                        </div>
+                                        <h2 className="text-3xl sm:text-4xl font-black text-[#3b0764] dark:text-white leading-none mt-4">
+                                            {conversations.length}
+                                        </h2>
                                     </div>
-                                    <p className="text-[12px] font-bold text-purple-950/70 dark:text-purple-50/80 uppercase tracking-widest mb-1">Total Conversations</p>
-                                </div>
-                                <h2 className="text-3xl sm:text-4xl font-black text-[#3b0764] dark:text-white leading-none mt-4">
-                                    {loading ? <span className="inline-block w-12 h-10 bg-purple-500/20 animate-pulse rounded-lg" /> : conversations.length}
-                                </h2>
-                            </div>
+                                </>
+                            )}
                         </div>
                     </AnimatedContent>
 
                     <AnimatedContent delay={0.3} distance={50} direction="vertical">
                         <div className="p-6 rounded-[24px] bg-gradient-to-br from-[#dcfce7] via-[#86efac] to-[#2dd4bf] dark:from-[#10b981] dark:via-[#0ea56f] dark:to-[#0d9488] shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all group overflow-hidden relative h-full border border-white/70 dark:border-emerald-200/20">
-                            <button
-                                onClick={onCreateContact}
-                                className="group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-700 text-white shadow-[0_10px_24px_rgba(4,120,87,0.32)] ring-1 ring-white/45 hover:bg-emerald-800 hover:shadow-[0_14px_30px_rgba(4,120,87,0.42)] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-300 dark:bg-emerald-500 dark:text-white dark:ring-white/30 dark:shadow-black/25 dark:hover:bg-emerald-400 dark:focus-visible:ring-offset-emerald-900 transition-all"
-                                aria-label="Add contact"
-                                title="Add contact"
-                            >
-                                <FiPlus className="h-[18px] w-[18px] stroke-[2.4] transition-transform duration-200 group-hover/action:rotate-90" />
-                            </button>
                             <div className="absolute inset-0 bg-white/10 dark:bg-white/[0.05] pointer-events-none" />
                             <div className="absolute bottom-0 right-0 p-4 opacity-[0.13] dark:opacity-[0.16] group-hover:scale-110 transition-transform duration-500 text-emerald-900 dark:text-emerald-100">
                                 <FiUsers className="w-24 h-24" />
                             </div>
-                            <div className="relative z-10 flex flex-col h-full justify-between">
-                                <div>
-                                    <div className="w-10 h-10 rounded-xl bg-white/70 dark:bg-white/[0.14] flex items-center justify-center text-emerald-700 dark:text-emerald-50 mb-4 shadow-sm shadow-emerald-900/10 ring-1 ring-white/40 dark:ring-white/10">
-                                        <FiUsers className="h-5 w-5" />
+                            {loading ? (
+                                <DashboardCardSkeleton />
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={onCreateContact}
+                                        className="group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-700 text-white shadow-[0_10px_24px_rgba(4,120,87,0.32)] ring-1 ring-white/45 hover:bg-emerald-800 hover:shadow-[0_14px_30px_rgba(4,120,87,0.42)] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-300 dark:bg-emerald-500 dark:text-white dark:ring-white/30 dark:shadow-black/25 dark:hover:bg-emerald-400 dark:focus-visible:ring-offset-emerald-900 transition-all"
+                                        aria-label="Add contact"
+                                        title="Add contact"
+                                    >
+                                        <FiPlus className="h-[18px] w-[18px] stroke-[2.4] transition-transform duration-200 group-hover/action:rotate-90" />
+                                    </button>
+                                    <div className="relative z-10 flex flex-col h-full justify-between">
+                                        <div>
+                                            <div className="w-10 h-10 rounded-xl bg-white/70 dark:bg-white/[0.14] flex items-center justify-center text-emerald-700 dark:text-emerald-50 mb-4 shadow-sm shadow-emerald-900/10 ring-1 ring-white/40 dark:ring-white/10">
+                                                <FiUsers className="h-5 w-5" />
+                                            </div>
+                                            <p className="text-[12px] font-bold text-emerald-950/70 dark:text-emerald-50/80 uppercase tracking-widest mb-1">Total Contacts</p>
+                                        </div>
+                                        <h2 className="text-3xl sm:text-4xl font-black text-[#022c22] dark:text-white leading-none mt-4">
+                                            {contactsCount}
+                                        </h2>
                                     </div>
-                                    <p className="text-[12px] font-bold text-emerald-950/70 dark:text-emerald-50/80 uppercase tracking-widest mb-1">Total Contacts</p>
-                                </div>
-                                <h2 className="text-3xl sm:text-4xl font-black text-[#022c22] dark:text-white leading-none mt-4">
-                                    {loading ? <span className="inline-block w-12 h-10 bg-emerald-500/20 animate-pulse rounded-lg" /> : contactsCount}
-                                </h2>
-                            </div>
+                                </>
+                            )}
                         </div>
                     </AnimatedContent>
                 </div>
@@ -778,76 +811,69 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
 
                     {/* Recent Activity Column */}
                     <div>
-                        <AnimatedContent delay={0.6} distance={50} direction="vertical">
-                            <div className="flex items-center justify-between mb-5 h-8">
-                                <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                                    Recent Activity
-                                </h3>
-                                {conversations.length > 3 && (
-                                    <button
-                                        onClick={() => setShowAllActivity(true)}
-                                        className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                                    >
-                                        See All
-                                    </button>
-                                )}
-                            </div>
-                        </AnimatedContent>
+                        <div className="flex items-center justify-between mb-5 h-8">
+                            <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
+                                Recent Activity
+                            </h3>
+                            {conversations.length > 3 && (
+                                <button
+                                    onClick={() => setShowAllActivity(true)}
+                                    className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                >
+                                    See All
+                                </button>
+                            )}
+                        </div>
                         
                         <div className="flex flex-col gap-3">
                             {loading && conversations.length === 0 ? (
-                                [1, 2, 3].map((i, idx) => (
-                                    <AnimatedContent key={`skel-${i}`} delay={0.6 + idx * 0.05} distance={15} direction="vertical">
-                                        <div className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center justify-between">
-                                            <div className="flex items-center gap-3 w-full">
-                                                <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse flex-shrink-0" />
-                                                <div className="space-y-2 w-full max-w-[150px]">
-                                                    <div className="h-3 w-3/4 bg-gray-100 dark:bg-gray-800 animate-pulse rounded" />
-                                                    <div className="h-2 w-full bg-gray-50 dark:bg-gray-900 animate-pulse rounded opacity-60" />
-                                                </div>
+                                [1, 2, 3].map((i) => (
+                                    <div key={`skel-${i}`} className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] flex items-center justify-between">
+                                        <div className="flex items-center gap-3 w-full">
+                                            <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse flex-shrink-0" />
+                                            <div className="space-y-2 w-full max-w-[150px]">
+                                                <div className="h-3 w-3/4 bg-gray-100 dark:bg-gray-800 animate-pulse rounded" />
+                                                <div className="h-2 w-full bg-gray-50 dark:bg-gray-900 animate-pulse rounded opacity-60" />
                                             </div>
-                                            <div className="w-16 h-3 bg-gray-50 dark:bg-gray-900 animate-pulse rounded opacity-60" />
                                         </div>
-                                    </AnimatedContent>
+                                        <div className="w-16 h-3 bg-gray-50 dark:bg-gray-900 animate-pulse rounded opacity-60" />
+                                    </div>
                                 ))
                             ) : conversations.length > 0 ? (
-                                conversations.slice(0, 3).map((conv, idx) => (
-                                    <AnimatedContent key={conv.id} delay={0.6 + idx * 0.05} distance={15} direction="vertical">
-                                        <button
-                                            onClick={() => handleRecentClick(conv)}
-                                            className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:border-[#2b83fa]/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left flex items-center justify-between group"
-                                        >
-                                            <div className="flex items-center gap-3 overflow-hidden">
-                                                <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold shadow-sm transition-transform duration-300 group-hover:rotate-12 ${conv.type === 'bulk' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa]'}`}>
-                                                    {conv.type === 'bulk' ? <FiUsers size={18} /> : (() => { const dn = getDisplayName(conv); return dn ? dn.charAt(0).toUpperCase() : <FiUser size={18} />; })()}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px] truncate">
-                                                        {getDisplayName(conv)}
-                                                    </h4>
-                                                    <p className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate max-w-[200px] font-medium">
-                                                        {conv.last_message || "No messages yet"}
-                                                    </p>
-                                                </div>
+                                conversations.slice(0, 3).map((conv) => (
+                                    <button
+                                        key={conv.id}
+                                        onClick={() => handleRecentClick(conv)}
+                                        className="w-full h-[80px] p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:border-[#2b83fa]/20 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left flex items-center justify-between group"
+                                    >
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold shadow-sm transition-transform duration-300 group-hover:rotate-12 ${conv.type === 'bulk' ? 'bg-gradient-to-br from-purple-500 to-indigo-600' : 'bg-gradient-to-br from-[#2b83fa] to-[#60a5fa]'}`}>
+                                                {conv.type === 'bulk' ? <FiUsers size={18} /> : (() => { const dn = getDisplayName(conv); return dn ? dn.charAt(0).toUpperCase() : <FiUser size={18} />; })()}
                                             </div>
-                                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                                <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
-                                                    <FiClock size={10} />
-                                                    {conv.last_message_at ? new Date(conv.last_message_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "--"}
-                                                </div>
-                                                <div className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa] text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    View
-                                                </div>
+                                            <div className="min-w-0">
+                                                <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px] truncate">
+                                                    {getDisplayName(conv)}
+                                                </h4>
+                                                <p className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate max-w-[200px] font-medium">
+                                                    {conv.last_message || "No messages yet"}
+                                                </p>
                                             </div>
-                                        </button>
-                                    </AnimatedContent>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                            <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                                                <FiClock size={10} />
+                                                {conv.last_message_at ? new Date(conv.last_message_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "--"}
+                                            </div>
+                                            <div className="px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa] text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                                                View
+                                            </div>
+                                        </div>
+                                    </button>
                                 ))
                             ) : (
-                                <AnimatedContent delay={0.65} distance={15} direction="vertical">
-                                    <div className="p-10 text-center rounded-3xl border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
-                                        <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No recent activity found.</p>
-                                    </div>
-                                </AnimatedContent>
+                                <div className="p-10 text-center rounded-3xl border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
+                                    <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No recent activity found.</p>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -880,10 +906,19 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3">
                             {loading ? (
                                 [...Array(4)].map((_, idx) => (
-                                    <div key={`tx-skel-${idx}`} className="h-[80px] rounded-[20px] bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent shadow-sm animate-pulse" />
+                                    <div key={`tx-skel-${idx}`} className="h-[80px] flex items-center gap-4 p-4 rounded-[20px] bg-[#f7f7f7] dark:bg-[#0d0e10] border border-transparent shadow-sm">
+                                        <div className="w-10 h-10 rounded-full bg-gray-200/70 dark:bg-white/10 skeleton-gleam flex-shrink-0" />
+                                        <div className="flex-1 min-w-0 space-y-2">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div className="h-3.5 w-44 max-w-[55%] rounded-full bg-gray-200/70 dark:bg-white/10 skeleton-gleam" />
+                                                <div className="h-3 w-24 rounded-full bg-gray-200/70 dark:bg-white/10 skeleton-gleam" />
+                                            </div>
+                                            <div className="h-3 w-32 rounded-full bg-gray-200/70 dark:bg-white/10 skeleton-gleam" />
+                                        </div>
+                                    </div>
                                 ))
                             ) : transactions.length > 0 ? (
                                 transactions.slice(0, 4).map((tx: HomeCreditTransaction, idx) => {
@@ -920,7 +955,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                     );
                                 })
                             ) : (
-                                <div className="lg:col-span-2 p-8 text-center rounded-[20px] border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
+                                <div className="p-8 text-center rounded-[20px] border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
                                     <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No recent transactions found.</p>
                                 </div>
                             )}

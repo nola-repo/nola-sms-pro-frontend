@@ -569,6 +569,10 @@ export const Composer: React.FC<ComposerProps> = ({
   const totalEstimatedSms = composeMode === "bulk" && isNewMessage
     ? smsSegments * bulkSelectedContacts.length
     : smsSegments;
+  const hasSendingMessages = useMemo(
+    () => [...conversationMessages, ...phoneLogMessages].some((msg) => msg.status === "sending"),
+    [conversationMessages, phoneLogMessages]
+  );
 
   const handleSend = async () => {
     if (loading) return;
@@ -606,8 +610,14 @@ export const Composer: React.FC<ComposerProps> = ({
         if (recipients.length === 1) {
           // Optimistic update for single message
           const optimisticText = interpolateMessage(messageText, { name: recipients[0].name, phone: recipients[0].phone });
-          const tempId = addOptimisticMessage(optimisticText, senderName);
           const shouldPromoteDraftConversation = !activeContact && !activeBulkMessage && !!onSelectContact;
+          const optimisticConversationId = shouldPromoteDraftConversation
+            ? buildDirectConversationId(
+                recipients[0].phone,
+                locationId || getAccountSettings().ghlLocationId || null
+              ) || undefined
+            : conversationId;
+          const tempId = addOptimisticMessage(optimisticText, senderName, optimisticConversationId);
           if (shouldPromoteDraftConversation) {
             onSelectContact(recipients[0]);
           }
@@ -794,6 +804,20 @@ export const Composer: React.FC<ComposerProps> = ({
     });
   };
 
+  const toggleMessageDetails = (id: string, isExpanded: boolean, shouldRevealBottom = false) => {
+    setExpandedMessageId(isExpanded ? null : id);
+    if (!isExpanded && shouldRevealBottom) {
+      setTimeout(scrollToBottom, 80);
+    }
+  };
+
+  const renderSendingStatus = () => (
+    <div className="mt-1 flex items-center justify-end gap-1 px-1 text-[10px] font-bold uppercase tracking-wider text-[#2b83fa] dark:text-[#8bbcff]">
+      <FiLoader className="h-2.5 w-2.5 animate-spin" />
+      Sending
+    </div>
+  );
+
   const showBulkDetails = (
     id: string,
     text: string,
@@ -815,11 +839,11 @@ export const Composer: React.FC<ComposerProps> = ({
   const composeWidthClass = "max-w-4xl mx-auto w-full";
   const dateSeparatorClass = "px-3 py-1.5 rounded-full bg-white/[0.85] dark:bg-white/[0.07] border border-[#dce4ee] dark:border-white/10 text-[11px] font-bold text-[#667085] dark:text-[#b8bdc7]";
   const messageContainerClass = "max-w-[78%] sm:max-w-[620px] flex flex-col items-end group mb-0.5 cursor-pointer";
-  const outboundBubbleClass = "bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] text-white px-4 py-3 ring-1 ring-white/25 transition-colors";
-  const bubbleOptionsButtonClass = "absolute -left-9 bottom-1 flex h-7 w-7 items-center justify-center rounded-full border border-[#d6e0eb] dark:border-white/10 bg-white/[0.9] dark:bg-[#17191f]/90 text-[#667085] dark:text-[#a7adba] opacity-0 pointer-events-auto transition-all group-hover:opacity-100 hover:opacity-100 focus-visible:opacity-100 hover:text-[#1d6bd4] dark:hover:text-[#8bbcff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/30";
+  const outboundBubbleClass = "bg-gradient-to-r from-[#1d6bd4] via-[#2b83fa] to-[#2563eb] text-white px-4 py-3 ring-1 ring-white/25 transition-colors";
+  const bubbleOptionsButtonClass = "absolute -left-9 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-[#d6e0eb] dark:border-white/10 bg-white/[0.9] dark:bg-[#17191f]/90 text-[#667085] dark:text-[#a7adba] opacity-0 pointer-events-auto transition-all group-hover:opacity-100 hover:opacity-100 focus-visible:opacity-100 hover:text-[#1d6bd4] dark:hover:text-[#8bbcff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/30";
 
   return (
-    <div className="flex flex-col h-full bg-[radial-gradient(circle_at_19%_39%,rgba(191,219,254,0.42)_0%,rgba(219,234,254,0.24)_20%,rgba(248,250,252,0)_42%),radial-gradient(circle_at_82%_48%,rgba(191,219,254,0.44)_0%,rgba(219,234,254,0.25)_22%,rgba(248,250,252,0)_45%),linear-gradient(180deg,#f8fafc_0%,#f3f6fb_100%)] dark:bg-[radial-gradient(circle_at_19%_39%,rgba(43,131,250,0.10)_0%,rgba(37,99,235,0.06)_22%,rgba(12,13,16,0)_46%),radial-gradient(circle_at_82%_48%,rgba(43,131,250,0.09)_0%,rgba(37,99,235,0.055)_24%,rgba(12,13,16,0)_48%),linear-gradient(180deg,#121419_0%,#0c0d10_100%)] relative overflow-hidden transition-colors duration-300">
+    <div className="flex flex-col h-full bg-[#f8fafc] dark:bg-[#0c0d10] relative overflow-hidden transition-colors duration-300">
       {/* 1. Header & Recipient Area (Sticky) */}
       <div className="flex-shrink-0 z-30 rounded-b-[26px] bg-gradient-to-r from-[#1d6bd4] via-[#2b83fa] to-[#2563eb] border-b border-blue-200/30 shadow-[0_10px_28px_rgba(37,99,235,0.16)]">
         {activePhoneNumber ? (
@@ -1327,7 +1351,7 @@ export const Composer: React.FC<ComposerProps> = ({
                       )}
                       <div
                         className={messageContainerClass}
-                        onClick={() => setExpandedMessageId(isExpanded ? null : msg.id)}
+                        onClick={() => toggleMessageDetails(msg.id, isExpanded, index === phoneLogMessages.length - 1)}
                       >
                         <div className="relative flex items-end justify-end">
                           <button
@@ -1382,6 +1406,7 @@ export const Composer: React.FC<ComposerProps> = ({
                             </span>
                           </div>
                         </div>
+                        {!isExpanded && msg.status === "sending" && renderSendingStatus()}
                       </div>
                     </div>
                   );
@@ -1481,7 +1506,7 @@ export const Composer: React.FC<ComposerProps> = ({
 
                         <div
                           className={messageContainerClass}
-                          onClick={() => setExpandedMessageId(isExpanded ? null : grp.id)}
+                          onClick={() => toggleMessageDetails(grp.id, isExpanded, index === renderGroups.length - 1)}
                         >
                           <div className="relative flex items-end justify-end">
                             <button
@@ -1561,7 +1586,7 @@ export const Composer: React.FC<ComposerProps> = ({
                       )}
                       <div
                         className={messageContainerClass}
-                        onClick={() => setExpandedMessageId(isExpanded ? null : msg.id)}
+                        onClick={() => toggleMessageDetails(msg.id, isExpanded, index === sourceMessages.length - 1)}
                       >
                         <div className="relative flex items-end justify-end">
                           <button
@@ -1601,6 +1626,7 @@ export const Composer: React.FC<ComposerProps> = ({
                             )}
                           </div>
                         </div>
+                        {!isExpanded && msg.status === "sending" && renderSendingStatus()}
                       </div>
                     </div>
                   );
@@ -1641,6 +1667,12 @@ export const Composer: React.FC<ComposerProps> = ({
                   Your agency has restricted SMS sending out of this account. Manual messages and workflow automations are currently blocked. Please contact your agency to re-enable messaging.
                 </p>
               </div>
+            </div>
+          )}
+          {(loading || hasSendingMessages) && (
+            <div className="mb-2 flex items-center justify-end gap-2 px-2 text-[11px] font-bold uppercase tracking-wider text-[#667085] dark:text-[#a7adba]">
+              <FiLoader className="h-3 w-3 animate-spin text-[#2b83fa]" />
+              Sending message
             </div>
           )}
           <div className="bg-white/[0.96] dark:bg-[#17191f]/[0.96] rounded-[24px] border border-[#d8e1ec] dark:border-white/10 shadow-[0_20px_55px_rgba(15,23,42,0.12)] dark:shadow-[0_24px_64px_rgba(0,0,0,0.48)] p-2.5 transition-all focus-within:ring-2 focus-within:ring-[#2b83fa]/25 dark:focus-within:ring-[#2b83fa]/20 relative z-20">

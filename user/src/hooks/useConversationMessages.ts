@@ -11,6 +11,12 @@ const SKELETON_DELAY_MS = 160;
 
 const messageHistoryCache = new Map<string, { messages: Message[]; fetchedAt: number }>();
 
+const buildMessageHistoryCacheKey = (
+    locationId: string | undefined,
+    conversationId: string | undefined,
+    recipientKey?: string
+) => conversationId ? `${locationId || "global"}::${conversationId}::${recipientKey || "all"}` : "";
+
 /** Parse a Firestore timestamp (string, native Timestamp, or _seconds object) to a JS Date */
 const parseFirestoreDate = (raw: unknown): Date => {
     if (!raw) return new Date();
@@ -44,9 +50,15 @@ export const useConversationMessages = (conversationId: string | undefined, reci
     const skeletonTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const requestSeq = useRef(0);
     const cacheKey = useMemo(
-        () => conversationId ? `${locationId || "global"}::${conversationId}::${recipientKey || "all"}` : "",
+        () => buildMessageHistoryCacheKey(locationId || undefined, conversationId, recipientKey),
         [conversationId, locationId, recipientKey]
     );
+    const cacheKeyRef = useRef(cacheKey);
+    const optimisticMessageTargets = useRef(new Map<string, string>());
+
+    useEffect(() => {
+        cacheKeyRef.current = cacheKey;
+    }, [cacheKey]);
 
     const processAndMergeMessages = useCallback((rows: any[]) => {
         // Sort oldest → newest for chronological display
@@ -297,7 +309,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         return () => window.removeEventListener('conversation-updated', handleConversationUpdated);
     }, [conversationId, fetchHistory]);
 
-    const addOptimisticMessage = (text: string, senderName: string): string => {
+    const addOptimisticMessage = (text: string, senderName: string, targetConversationId?: string): string => {
         const id = `temp-${Date.now()}`;
         const newMsg: Message = {
             id,
@@ -306,10 +318,33 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             senderName,
             status: "sending",
         };
+
+        const targetCacheKey = buildMessageHistoryCacheKey(
+            locationId || undefined,
+            targetConversationId || conversationId,
+            recipientKey
+        );
+
+        const currentCacheKey = cacheKeyRef.current;
+
+        if (targetCacheKey && targetCacheKey !== currentCacheKey) {
+            const cached = messageHistoryCache.get(targetCacheKey)?.messages || [];
+            const nextMessages = [...cached, newMsg].sort(
+                (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+            );
+            messageHistoryCache.set(targetCacheKey, { messages: nextMessages, fetchedAt: Date.now() });
+            optimisticMessageTargets.current.set(id, targetCacheKey);
+            return id;
+        }
+
+        if (targetCacheKey) {
+            optimisticMessageTargets.current.set(id, targetCacheKey);
+        }
+
         setMessages((prev) => {
             const nextMessages = [...prev, newMsg];
-            if (cacheKey) {
-                messageHistoryCache.set(cacheKey, { messages: nextMessages, fetchedAt: Date.now() });
+            if (currentCacheKey) {
+                messageHistoryCache.set(currentCacheKey, { messages: nextMessages, fetchedAt: Date.now() });
             }
             return nextMessages;
         });
@@ -322,17 +357,36 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         realId?: string,
         errorReason?: string
     ) => {
+        const targetCacheKey = optimisticMessageTargets.current.get(tempId);
+        const currentCacheKey = cacheKeyRef.current;
+
+        if (targetCacheKey && targetCacheKey !== currentCacheKey) {
+            const cached = messageHistoryCache.get(targetCacheKey)?.messages || [];
+            const nextMessages = cached.map((m) =>
+                m.id === tempId || (realId && m.id === realId)
+                    ? { ...m, status, id: realId || m.id, errorReason }
+                    : m
+            );
+            messageHistoryCache.set(targetCacheKey, { messages: nextMessages, fetchedAt: Date.now() });
+            if (realId) optimisticMessageTargets.current.set(realId, targetCacheKey);
+            return;
+        }
+
         setMessages((prev) => {
             const nextMessages = prev.map((m) =>
                 m.id === tempId || (realId && m.id === realId)
                     ? { ...m, status, id: realId || m.id, errorReason }
                     : m
             );
-            if (cacheKey) {
-                messageHistoryCache.set(cacheKey, { messages: nextMessages, fetchedAt: Date.now() });
+            if (currentCacheKey) {
+                messageHistoryCache.set(currentCacheKey, { messages: nextMessages, fetchedAt: Date.now() });
             }
             return nextMessages;
         });
+
+        if (realId && targetCacheKey) {
+            optimisticMessageTargets.current.set(realId, targetCacheKey);
+        }
     };
 
     return {
