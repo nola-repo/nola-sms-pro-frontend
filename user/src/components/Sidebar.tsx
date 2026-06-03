@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { fetchContacts } from "../api/contacts";
-import { fetchConversations, renameConversation, deleteConversation, normalizePHNumber } from "../api/sms";
+import { renameConversation, deleteConversation, normalizePHNumber } from "../api/sms";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
 import { db, auth } from "../services/firebaseConfig";
@@ -274,7 +274,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               // Resolve recipient names from contact list if not present
               let recipientNames = existing?.recipientNames || [];
               if (recipientNames.length === 0 && conv.members.length > 0) {
-                recipientNames = conv.members.map(phone => {
+                recipientNames = conv.members.map((phone: string) => {
                   const clean = phone.replace(/\D/g, "");
                   return contactMap.get(phone) || contactMap.get(clean) || phone;
                 });

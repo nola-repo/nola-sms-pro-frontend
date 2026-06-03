@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { fetchMessagesByConversationId, ConversationMessagesError } from "../api/sms";
 import type { Message } from "../types/Sms";
 import { useLocationId } from "../context/LocationContext";
-import { collection, query, where, onSnapshot, Timestamp } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
 import { db, auth } from "../services/firebaseConfig";
 

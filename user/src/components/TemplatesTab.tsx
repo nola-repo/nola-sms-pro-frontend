@@ -496,14 +496,14 @@ export const TemplatesTab: React.FC = () => {
                       role="button"
                       tabIndex={0}
                       onMouseEnter={() => setPreviewTemplate(template)}
-                      onClick={() => setPreviewTemplate(template)}
+                      onClick={() => openQuickSend(template)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          setPreviewTemplate(template);
+                          openQuickSend(template);
                         }
                       }}
-                      className={`group flex cursor-pointer items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white dark:bg-[#1a1b1e] border shadow-sm transition-all duration-200 hover:border-[#2b83fa]/60 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 ${isSelected ? "border-[#2b83fa] shadow-md shadow-blue-500/10" : "border-gray-100 dark:border-white/5"}`}
+                      className={`group flex cursor-pointer items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white dark:bg-[#1a1b1e] border shadow-sm transition-all duration-200 hover:border-gray-300 dark:hover:border-white/20 hover:shadow-md focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-white/20 ${isSelected ? "border-gray-400 dark:border-white/30 shadow-sm" : "border-gray-100 dark:border-white/5"}`}
                     >
                       <div className="w-9 sm:w-11 h-9 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center font-bold text-[13px] sm:text-[14px] flex-shrink-0 bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300">
                         {template.name.charAt(0).toUpperCase()}
@@ -800,7 +800,6 @@ export const TemplatesTab: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
       {/* Full-screen Sending Overlay */}
       {quickSending && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">

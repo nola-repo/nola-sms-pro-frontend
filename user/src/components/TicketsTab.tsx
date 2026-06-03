@@ -1,7 +1,7 @@
 import React from "react";
 import { FiMessageSquare } from "react-icons/fi";
 import { useLocationId } from "../context/LocationContext";
-import { useUserProfile } from "../hooks/useUserProfile";
+import { useUserProfile, UserProfile } from "../hooks/useUserProfile";
 import { safeStorage } from "../utils/safeStorage";
 
 const formatPhoneForForm = (value?: string | null) => {
@@ -23,7 +23,8 @@ export const TicketsTab: React.FC = () => {
     const getFunnelUrl = () => {
         try {
             const params = new URLSearchParams();
-            const userProfile = profile || {};
+            const userProfile: Partial<UserProfile> = profile || {};
+
             const fullName =
                 userProfile.name ||
                 [userProfile.firstName, userProfile.lastName].filter(Boolean).join(' ').trim();
