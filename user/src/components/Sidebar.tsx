@@ -87,6 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile
 }) => {
   const { locationId } = useLocationId();
+  const resolvedLocationId = locationId || getAccountSettings().ghlLocationId || '';
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [directHistory, setDirectHistory] = useState<Contact[]>([]);
   const [bulkHistory, setBulkHistory] = useState<BulkMessageHistoryItem[]>([]);
@@ -103,6 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const touchStartY = useRef<number>(0);
   const contactsListRef = useRef<HTMLDivElement>(null);
+  const contactsRef = useRef<Contact[]>([]);
   // Track last_message per conversation to detect new messages and notify the Composer
   const lastMessageTracker = useRef<Map<string, string>>(new Map());
   const [onboardingDone, setOnboardingDone] = useState(
@@ -123,6 +125,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    contactsRef.current = contacts;
+  }, [contacts]);
+
   const handleLogout = () => {
     setShowLogoutConfirm(true);
   };
@@ -134,14 +140,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const loadContacts = useCallback(async () => {
     try {
-      const data = await fetchContacts(locationId || undefined);
+      const data = await fetchContacts(resolvedLocationId || undefined);
       const deletedIds = getDeletedContactIds();
       const filtered = data.filter(c => !deletedIds.includes(c.id));
       setContacts(filtered);
+      contactsRef.current = filtered;
     } catch (e) {
       console.error(e);
     }
-  }, [locationId]);
+  }, [resolvedLocationId]);
 
   useEffect(() => {
     loadContacts();
@@ -154,7 +161,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [loadContacts]);
 
   useEffect(() => {
-    if (!locationId) return;
+    if (!resolvedLocationId) {
+      setDirectHistory([]);
+      setBulkHistory([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
 
     let unsubscribe: (() => void) | undefined;
 
@@ -166,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         const q = query(
           collection(db, 'conversations'),
-          where('location_id', '==', locationId)
+          where('location_id', '==', resolvedLocationId)
         );
 
         unsubscribe = onSnapshot(q, (snapshot) => {
@@ -187,7 +201,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           // Build a phone -> name lookup map from freshly-fetched contacts (not stale state)
           const contactMap = new Map<string, string>();
-          contacts.forEach(c => {
+          contactsRef.current.forEach(c => {
             contactMap.set(c.phone, c.name);
             const cleaned = c.phone.replace(/\D/g, "");
             if (cleaned) {
@@ -352,7 +366,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [locationId, contacts]);
+  }, [resolvedLocationId]);
 
   // Close menu when clicking outside
   useEffect(() => {
