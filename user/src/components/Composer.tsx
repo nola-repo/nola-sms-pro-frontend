@@ -777,6 +777,7 @@ export const Composer: React.FC<ComposerProps> = ({
           // NEW bulk SMS sending (creating new conversation)
           const phones = recipients.map(c => c.phone);
           const recipientKey = getRecipientKey(phones);
+          const generatedBatchId = `batch-${Date.now()}`;
 
           // Add optimistic messages to each recipient's individual conversation thread
           const tempIds: Record<string, string> = {};
@@ -791,72 +792,114 @@ export const Composer: React.FC<ComposerProps> = ({
             tempIds[r.phone] = tempId;
           });
 
+          // Define item for navigation immediately with status 'sending'
+          const effectiveLocationId = locationId || getAccountSettings().ghlLocationId || undefined;
+          const bulkItemForNav: BulkMessageHistoryItem = {
+            id: `bulk-db-${generatedBatchId}`,
+            message: messageText,
+            recipientCount: recipients.length,
+            recipientNames: recipients.map(r => getResolvedContactName(r)),
+            recipientNumbers: recipients.map(r => r.phone),
+            recipientKey: recipientKey,
+            timestamp: new Date().toISOString(),
+            status: 'sending',
+            batchId: generatedBatchId,
+            fromDatabase: true,
+            locationId: effectiveLocationId
+          };
+          const groupConversationId = effectiveLocationId
+            ? `${effectiveLocationId}_group_${generatedBatchId}`
+            : `group_${generatedBatchId}`;
+          const groupTempId = addOptimisticMessage(messageText, senderName, groupConversationId);
+
+          saveBulkMessage(bulkItemForNav);
+          window.dispatchEvent(new CustomEvent('nola-bulk-message-created', {
+            detail: bulkItemForNav
+          }));
+
+          // First, navigate to bulk message view immediately (this sets activeBulkMessage in Dashboard)
+          if (onSelectBulkMessage) {
+            onSelectBulkMessage(bulkItemForNav);
+          }
+
           setSendingProgress({ current: 0, total: recipients.length });
 
-          const { results, batchId } = await sendBulkSms(
-            phones,
-            messageText,
-            senderName,
-            recipients,
-            recipientKey,
-            undefined,
-            undefined,
-            (current, total, result) => {
-              setSendingProgress({ current, total });
-              const phone = result.number;
-              const tempId = phone ? tempIds[phone] : undefined;
-              if (tempId) {
-                const messageIds = result.messageIds || [];
-                updateMessageStatus(tempId, result.success ? 'sent' : 'failed', messageIds[0], result.success ? undefined : result.message);
+          // Fire-and-forget sending process in background
+          (async () => {
+            try {
+              const { results } = await sendBulkSms(
+                phones,
+                messageText,
+                senderName,
+                recipients,
+                recipientKey,
+                generatedBatchId,
+                currentTags,
+                (current, total, result) => {
+                  setSendingProgress({ current, total });
+                  const phone = result.number;
+                  const tempId = phone ? tempIds[phone] : undefined;
+                  if (tempId) {
+                    const messageIds = result.messageIds || [];
+                    updateMessageStatus(tempId, result.success ? 'sent' : 'failed', messageIds[0], result.success ? undefined : result.message);
+                  }
+                }
+              );
+              const successCount = results.filter(r => r.success).length;
+              const failedCount = recipients.length - successCount;
+
+              if (groupTempId) {
+                updateMessageStatus(groupTempId, successCount > 0 ? 'sent' : 'failed');
               }
+
+              if (successCount > 0) {
+                const successMsg = failedCount > 0
+                  ? `Sent ${successCount}/${recipients.length} — ${failedCount} failed`
+                  : `Sent all ${recipients.length} messages successfully!`;
+                guardedToast(failedCount > 0 ? "error" : "success", successMsg);
+                window.dispatchEvent(new Event('sms-sent'));
+
+                const updatedBulkItem: BulkMessageHistoryItem = {
+                  ...bulkItemForNav,
+                  status: 'sent'
+                };
+                saveBulkMessage(updatedBulkItem);
+                window.dispatchEvent(new CustomEvent('nola-bulk-message-created', {
+                  detail: updatedBulkItem
+                }));
+
+                // Refresh after navigation to fetch from Firestore
+                setTimeout(() => refresh(), 2000);
+              } else {
+                guardedToast("error", "Failed to send bulk messages");
+                const updatedBulkItem: BulkMessageHistoryItem = {
+                  ...bulkItemForNav,
+                  status: 'failed'
+                };
+                saveBulkMessage(updatedBulkItem);
+                window.dispatchEvent(new CustomEvent('nola-bulk-message-created', {
+                  detail: updatedBulkItem
+                }));
+              }
+            } catch (err) {
+              if (groupTempId) {
+                updateMessageStatus(groupTempId, 'failed');
+              }
+              const updatedBulkItem: BulkMessageHistoryItem = {
+                ...bulkItemForNav,
+                status: 'failed'
+              };
+              saveBulkMessage(updatedBulkItem);
+              window.dispatchEvent(new CustomEvent('nola-bulk-message-created', {
+                detail: updatedBulkItem
+              }));
+              if (!toastShown) {
+                showToast("error", err instanceof Error ? err.message : "Failed to send bulk messages");
+              }
+            } finally {
+              setSendingProgress(null);
             }
-          );
-          const successCount = results.filter(r => r.success).length;
-          const failedCount = recipients.length - successCount;
-
-          if (successCount > 0) {
-            const successMsg = failedCount > 0
-              ? `Sent ${successCount}/${recipients.length} — ${failedCount} failed`
-              : `Sent all ${recipients.length} messages successfully!`;
-            guardedToast(failedCount > 0 ? "error" : "success", successMsg);
-            window.dispatchEvent(new Event('sms-sent'));
-
-            // Define item for navigation, but don't save to localStorage
-            const effectiveLocationId = locationId || getAccountSettings().ghlLocationId || undefined;
-            const bulkItemForNav: BulkMessageHistoryItem = {
-              id: `bulk-db-${batchId}`,
-              message: messageText,
-              recipientCount: recipients.length,
-              recipientNames: recipients.map(r => getResolvedContactName(r)),
-              recipientNumbers: recipients.map(r => r.phone),
-              recipientKey: recipientKey,
-              timestamp: new Date().toISOString(),
-              status: 'sent',
-              batchId: batchId,
-              fromDatabase: true,
-              locationId: effectiveLocationId
-            };
-            const groupConversationId = effectiveLocationId
-              ? `${effectiveLocationId}_group_${batchId}`
-              : `group_${batchId}`;
-            addOptimisticMessage(messageText, senderName, groupConversationId);
-
-            saveBulkMessage(bulkItemForNav);
-            window.dispatchEvent(new CustomEvent('nola-bulk-message-created', {
-              detail: bulkItemForNav
-            }));
-
-            // First, navigate to bulk message view (this sets activeBulkMessage in Dashboard)
-            if (onSelectBulkMessage) {
-              onSelectBulkMessage(bulkItemForNav);
-            }
-
-            // Refresh after navigation to fetch from Firestore
-            setTimeout(() => refresh(), 2000);
-          } else {
-            guardedToast("error", "Failed to send bulk messages");
-          }
-          setSendingProgress(null);
+          })();
         }
         // toast already shown via guardedToast() in each branch above
       } catch (error) {
@@ -1334,7 +1377,7 @@ export const Composer: React.FC<ComposerProps> = ({
       {/* 2. Message History Area */}
       <div
         ref={msgAreaRef}
-        className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 space-y-1 flex flex-col custom-scrollbar"
+        className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2 space-y-1 flex flex-col custom-scrollbar"
         onScroll={handleScroll}
         onTouchStart={(e) => { touchStartYMsg.current = e.touches[0].clientY; }}
         onTouchEnd={async (e) => {
@@ -1347,7 +1390,7 @@ export const Composer: React.FC<ComposerProps> = ({
           }
         }}
       >
-        <div className={`${composeWidthClass} min-h-full flex flex-col pb-4`}>
+        <div className={`${composeWidthClass} min-h-full flex flex-col pb-1`}>
           {/* Pull-to-refresh spinner */}
           {isPullRefreshing && (
             <div className="flex justify-center items-center py-2">
@@ -1782,11 +1825,11 @@ export const Composer: React.FC<ComposerProps> = ({
               })()}
             </div>
           )}
+          <div ref={messagesEndRef} className="h-1 w-full flex-shrink-0" />
         </div>
-        <div ref={messagesEndRef} className="h-4 w-full flex-shrink-0" />
       </div>
       {/* 3. Floating Input Card Area */}
-      <div className="px-4 sm:px-6 lg:px-8 pb-5 pt-3 z-20 relative bg-gradient-to-t from-[#f2f6fb] via-[#f2f6fb]/95 to-transparent dark:from-[#0c0d10] dark:via-[#0c0d10]/95">
+      <div className="px-4 sm:px-6 lg:px-8 pb-4 pt-1 z-20 relative bg-gradient-to-t from-[#f2f6fb] via-[#f2f6fb]/95 to-transparent dark:from-[#0c0d10] dark:via-[#0c0d10]/95">
         {/* Scroll to bottom floating button */}
         <div
           className={`absolute -top-10 left-1/2 -translate-x-1/2 z-10 transition-all duration-300 ${
