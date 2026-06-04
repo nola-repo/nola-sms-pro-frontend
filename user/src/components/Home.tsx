@@ -18,6 +18,7 @@ import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversati
 import { useLocationId } from "../context/LocationContext";
 import { useUserProfileContext } from "../context/UserProfileContext";
 import { safeStorage } from "../utils/safeStorage";
+import { buildContactNameLookup, isPhoneLike, resolveContactNameByPhone, toProperCase } from "../utils/contactDisplay";
 import type { ViewTab } from "./Sidebar";
 
 interface HomeProps {
@@ -251,33 +252,20 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         }
     }, [loading]);
 
-    const toProperCase = (name: string): string => {
-        return name.replace(/\b\w/g, (char) => char.toUpperCase());
-    };
-
     const handleAnimationComplete = () => {};
 
-    const isPhoneLike = (s: string): boolean => /^[\d+\-() ]+$/.test(s);
+    const contactNameLookup = buildContactNameLookup(contacts);
 
     const getDisplayName = (conv: Conversation): string => {
         const phone =
             extractPhoneFromDirectConversationId(conv.id) ||
             extractBatchIdFromGroupConversationId(conv.id) ||
             conv.id.replace(/^conv_/, '').replace(/^group_/, '');
-        const cleanPhone = phone.replace(/\D/g, "");
         
         // Always try contacts first for direct conversations
         if (conv.type !== 'bulk') {
-            const contact = contacts.find((c: Contact) => {
-                const cp = c.phone.replace(/\D/g, "");
-                return c.phone === phone || cp === cleanPhone
-                    || (cleanPhone.startsWith('0') && cp === '63' + cleanPhone.slice(1))
-                    || (cleanPhone.startsWith('0') && cp === '+63' + cleanPhone.slice(1))
-                    || (cleanPhone.startsWith('09') && cp === cleanPhone.slice(1))
-                    || (cp.length >= 10 && cleanPhone.length >= 10 && cp.slice(-10) === cleanPhone.slice(-10))
-                    || (cp.length >= 9 && cleanPhone.length >= 9 && cp.slice(-9) === cleanPhone.slice(-9));
-            });
-            if (contact) return toProperCase(contact.name);
+            const contactName = resolveContactNameByPhone(contactNameLookup, phone);
+            if (contactName) return toProperCase(contactName);
         }
 
         // Use conv.name only if it's a real name (not a phone number)
@@ -287,12 +275,8 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
             // For bulk, try resolving member names
             if (conv.members && conv.members.length > 0) {
                 const memberNames = conv.members.slice(0, 3).map(m => {
-                    const cm = m.replace(/\D/g, "");
-                    const c = contacts.find((ct: Contact) => {
-                        const ctp = ct.phone.replace(/\D/g, "");
-                        return ct.phone === m || ctp === cm;
-                    });
-                    return c ? toProperCase(c.name) : null;
+                    const contactName = resolveContactNameByPhone(contactNameLookup, m);
+                    return contactName ? toProperCase(contactName) : null;
                 }).filter(Boolean);
                 if (memberNames.length > 0) {
                     const extra = conv.members.length - memberNames.length;

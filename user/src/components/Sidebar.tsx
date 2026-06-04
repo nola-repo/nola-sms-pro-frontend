@@ -15,6 +15,7 @@ import { logout } from "../services/authService";
 import GlareHover from "./GlareHover";
 import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
 import { getAccountSettings } from "../utils/settingsStorage";
+import { buildContactNameLookup, isPhoneLike, resolveContactNameByPhone, toProperCase } from "../utils/contactDisplay";
 import { useLocationId } from "../context/LocationContext";
 import faviconLogo from "../assets/FAV ICON - NOLA SMS PRO.png";
 
@@ -178,22 +179,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   useEffect(() => {
-    // Build a phone -> name lookup map from reactive contacts list
-    const contactMap = new Map<string, string>();
-    contacts.forEach(c => {
-      const phone = asText(c.phone);
-      const name = asText(c.name);
-      if (!phone) return;
-
-      contactMap.set(phone, name);
-      const cleaned = phone.replace(/\D/g, "");
-      if (cleaned) {
-        contactMap.set(cleaned, name);
-        // Map last 10 and last 9 digits as key fallbacks for robust matching
-        if (cleaned.length >= 10) contactMap.set(cleaned.slice(-10), name);
-        if (cleaned.length >= 9) contactMap.set(cleaned.slice(-9), name);
-      }
-    });
+    const contactMap = buildContactNameLookup(contacts);
 
     // Handle Direct Conversations
     const directConvs = conversations.filter(c => c.type === 'direct' || !c.type);
@@ -204,14 +190,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     directConvs.forEach(conv => {
       const convId = asText(conv.id);
       const phone = extractPhoneFromDirectConversationId(convId) || convId;
-      const cleanPhone = phone.replace(/\D/g, "");
       // Resolve name: prefer contact name (including digit suffix match), then server metadata, then phone
-      const isPhoneNumber = (s: string) => /^[\d+\-() ]+$/.test(s);
-      const contactName = contactMap.get(phone) || 
-                          contactMap.get(cleanPhone) || 
-                          (cleanPhone.length >= 10 ? contactMap.get(cleanPhone.slice(-10)) : undefined) ||
-                          (cleanPhone.length >= 9 ? contactMap.get(cleanPhone.slice(-9)) : undefined);
-      let serverName = conv.name && !isPhoneNumber(asText(conv.name)) ? asText(conv.name) : null;
+      const contactName = resolveContactNameByPhone(contactMap, phone);
+      let serverName = conv.name && !isPhoneLike(asText(conv.name)) ? asText(conv.name) : null;
 
       // Scrub accidental conversation IDs (e.g. "Name locationId_conv_09XX") from the server name
       if (serverName && serverName.includes('_conv_')) {
@@ -278,11 +259,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         let recipientNames = existing?.recipientNames || [];
         if (recipientNames.length === 0 && members.length > 0) {
           recipientNames = members.map((phone) => {
-            const clean = phone.replace(/\D/g, "");
-            return contactMap.get(phone) || contactMap.get(clean) || 
-                   (clean.length >= 10 ? contactMap.get(clean.slice(-10)) : undefined) ||
-                   (clean.length >= 9 ? contactMap.get(clean.slice(-9)) : undefined) ||
-                   phone;
+            return resolveContactNameByPhone(contactMap, phone) || phone;
           });
         }
 
@@ -531,10 +508,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const cancelDeleteContact = () => setDeletingContact(null);
 
   const getBulkDisplayName = (item: BulkMessageHistoryItem): string => {
-    const toProperCase = (name: string): string => {
-      return name.replace(/\b\w/g, (char) => char.toUpperCase());
-    };
-
     // Avoid showing auto-generated batch IDs as the "name"
     if (item.customName) {
       const looksLikeBatchId = /^batch[-_]\d+$/i.test(item.customName) || /^batch[-_]/i.test(item.customName);
@@ -547,11 +520,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return extra > 0 ? `${shown.join(", ")} +${extra}` : shown.join(", ");
     }
     return `${item.recipientCount} recipient${item.recipientCount !== 1 ? 's' : ''}`;
-  };
-
-  // Convert name to proper case (title case)
-  const toProperCase = (name: string): string => {
-    return name.replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
   const navItems = [

@@ -20,6 +20,7 @@ import { getAccountSettings, getPreferredSender, savePreferredSender } from "../
 import { fetchAccountSenderConfig } from "../api/senderRequests";
 import { buildDirectConversationId } from "../utils/conversationId";
 import { estimateSmsSegments } from "../utils/smsSegments";
+import { buildContactNameLookup, isPhoneLike, resolveContactNameByPhone } from "../utils/contactDisplay";
 
 interface ComposerProps {
   selectedContacts: Contact[];
@@ -217,32 +218,17 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   const contactMap = useMemo(() => {
-    const map = new Map<string, string>();
-    allContacts.forEach(c => {
-      const name = toProperCase(c.name);
-      const phone = c.phone || "";
-      const cleaned = phone.replace(/\D/g, "");
-      if (cleaned) {
-        map.set(cleaned, name);
-        if (cleaned.length >= 10) map.set(cleaned.slice(-10), name);
-        if (cleaned.length >= 9) map.set(cleaned.slice(-9), name);
-      }
-    });
-    return map;
+    return buildContactNameLookup(allContacts);
   }, [allContacts]);
 
   const getResolvedContactName = useCallback((contact: Contact | undefined | null): string => {
     if (!contact) return "";
     const name = contact.name || "";
-    const isPhoneNumber = (s: string) => /^[\d+\-() ]+$/.test(s);
-    if (name && !isPhoneNumber(name)) {
+    if (name && !isPhoneLike(name)) {
       return name;
     }
     const phone = contact.phone || name;
-    const clean = phone.replace(/\D/g, "");
-    const matched = contactMap.get(phone) || contactMap.get(clean) || 
-                    (clean.length >= 10 ? contactMap.get(clean.slice(-10)) : undefined) ||
-                    (clean.length >= 9 ? contactMap.get(clean.slice(-9)) : undefined);
+    const matched = resolveContactNameByPhone(contactMap, phone);
     return matched || phone || name;
   }, [contactMap]);
 
@@ -1043,12 +1029,7 @@ export const Composer: React.FC<ComposerProps> = ({
                     const numbers = activeBulkMessage.recipientNumbers || [];
                     const names = (numbers.length > 0 ? numbers : (activeBulkMessage.recipientNames || []))
                       .map(numOrName => {
-                        const clean = numOrName.replace(/\D/g, "");
-                        return contactMap.get(numOrName) || 
-                               contactMap.get(clean) || 
-                               (clean.length >= 10 ? contactMap.get(clean.slice(-10)) : undefined) ||
-                               (clean.length >= 9 ? contactMap.get(clean.slice(-9)) : undefined) ||
-                               numOrName;
+                        return resolveContactNameByPhone(contactMap, numOrName) || numOrName;
                       }).filter(Boolean);
                     if (names.length > 0) {
                       return (
