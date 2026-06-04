@@ -398,20 +398,22 @@ export const fetchMessagesByConversationId = async (
     headers["X-GHL-Location-ID"] = locationId;
   }
 
-  const getBulkConversationCandidates = () => {
+  const bulkBatchId = (() => {
     const scopedIdx = conversationId.lastIndexOf("_group_");
-    const batchId = scopedIdx !== -1
+    return scopedIdx !== -1
       ? conversationId.slice(scopedIdx + "_group_".length)
       : conversationId.startsWith("group_")
         ? conversationId.slice("group_".length)
         : "";
+  })();
 
-    if (!batchId) return [conversationId];
+  const getBulkConversationCandidates = () => {
+    if (!bulkBatchId) return [conversationId];
 
     const candidates = [
       conversationId,
-      `group_${batchId}`,
-      locationId ? `${locationId}_group_${batchId}` : "",
+      `group_${bulkBatchId}`,
+      locationId ? `${locationId}_group_${bulkBatchId}` : "",
     ].filter(Boolean);
 
     return Array.from(new Set(candidates));
@@ -518,6 +520,23 @@ export const fetchMessagesByConversationId = async (
 
   if (!fetchedSuccessfully && lastError) {
     throw lastError;
+  }
+
+  if (rows.length === 0 && bulkBatchId) {
+    const batchRows = await fetchBatchMessages(bulkBatchId);
+    rows = batchRows.map((log, index) => ({
+      id: log.message_id || `${bulkBatchId}-${index}`,
+      conversation_id: conversationId,
+      number: log.number || log.numbers?.[0] || "",
+      message: log.message || "",
+      direction: log.direction || 'outbound',
+      sender_id: log.sender_id || "NOLASMSPro",
+      status: log.status || "sent",
+      batch_id: log.batch_id || bulkBatchId,
+      created_at: log.date_created || null,
+      location_id: log.location_id,
+      error_reason: log.error_reason,
+    }));
   }
 
   const currentLocationId = locationId || accountSettings.ghlLocationId || null;

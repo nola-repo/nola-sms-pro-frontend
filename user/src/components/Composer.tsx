@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { fetchContacts } from "../api/contacts";
 import { fetchTemplates } from "../api/templates";
 import { sendSms, sendBulkSms, interpolateMessage, checkMessageStatus, type SenderId } from "../api/sms";
-import { getRecipientKey } from "../utils/storage";
+import { getRecipientKey, saveBulkMessage } from "../utils/storage";
 import type { BulkMessageHistoryItem, Message } from "../types/Sms";
 import type { Contact } from "../types/Contact";
 import type { Template } from "../types/Template";
@@ -603,7 +603,6 @@ export const Composer: React.FC<ComposerProps> = ({
     return [];
   };
 
-  const currentRecipients = getActiveRecipients();
   const totalEstimatedSms = composeMode === "bulk" && isNewMessage
     ? smsSegments * bulkSelectedContacts.length
     : smsSegments;
@@ -820,8 +819,10 @@ export const Composer: React.FC<ComposerProps> = ({
               ? `Sent ${successCount}/${recipients.length} — ${failedCount} failed`
               : `Sent all ${recipients.length} messages successfully!`;
             guardedToast(failedCount > 0 ? "error" : "success", successMsg);
+            window.dispatchEvent(new Event('sms-sent'));
 
             // Define item for navigation, but don't save to localStorage
+            const effectiveLocationId = locationId || getAccountSettings().ghlLocationId || undefined;
             const bulkItemForNav: BulkMessageHistoryItem = {
               id: `bulk-db-${batchId}`,
               message: messageText,
@@ -832,8 +833,18 @@ export const Composer: React.FC<ComposerProps> = ({
               timestamp: new Date().toISOString(),
               status: 'sent',
               batchId: batchId,
-              fromDatabase: true
+              fromDatabase: true,
+              locationId: effectiveLocationId
             };
+            const groupConversationId = effectiveLocationId
+              ? `${effectiveLocationId}_group_${batchId}`
+              : `group_${batchId}`;
+            addOptimisticMessage(messageText, senderName, groupConversationId);
+
+            saveBulkMessage(bulkItemForNav);
+            window.dispatchEvent(new CustomEvent('nola-bulk-message-created', {
+              detail: bulkItemForNav
+            }));
 
             // First, navigate to bulk message view (this sets activeBulkMessage in Dashboard)
             if (onSelectBulkMessage) {
@@ -2014,15 +2025,6 @@ export const Composer: React.FC<ComposerProps> = ({
               </div>
             </div>
           </div>
-
-          {!isNewMessage && currentRecipients.length > 0 && (
-            <div className="mt-3 flex items-center gap-2 px-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-              <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 font-mono tracking-tight capitalize">
-                To: {currentRecipients.map(c => getResolvedContactName(c)).join(', ')}
-              </p>
-            </div>
-          )}
 
           {/* Send disabled reason note */}
           {showDisabledReason && (

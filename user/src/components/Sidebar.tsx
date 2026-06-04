@@ -8,7 +8,7 @@ import { db, auth } from "../services/firebaseConfig";
 import { deleteContact as deleteContactBackend } from "../api/contacts";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
-import { renameBulkMessage, deleteBulkMessage, deleteContact as deleteContactLocal, getDeletedContactIds } from "../utils/storage";
+import { renameBulkMessage, deleteBulkMessage, deleteContact as deleteContactLocal, getDeletedContactIds, getBulkMessageHistory } from "../utils/storage";
 import { TbLayoutSidebarLeftCollapse, TbLayoutSidebarRightCollapse } from "react-icons/tb";
 import { FiBookOpen, FiUsers, FiChevronDown, FiEdit2, FiTrash2, FiMoreVertical, FiHome, FiPlus, FiX, FiLogOut, FiMessageSquare } from "react-icons/fi";
 import { logout } from "../services/authService";
@@ -103,6 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [directHistory, setDirectHistory] = useState<Contact[]>([]);
   const [bulkHistory, setBulkHistory] = useState<BulkMessageHistoryItem[]>([]);
+  const [localBulkHistory, setLocalBulkHistory] = useState<BulkMessageHistoryItem[]>(() => getBulkMessageHistory());
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [directMessagesExpanded, setDirectMessagesExpanded] = useState(true);
   const [bulkMessagesExpanded, setBulkMessagesExpanded] = useState(true);
@@ -242,10 +243,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     });
     setDirectHistory(historyContacts);
 
-    // 1. Initial server-side only
     const mergedBulk = new Map<string, BulkMessageHistoryItem>();
 
-    // 2. Map server conversations to BulkMessageHistoryItem
+    localBulkHistory.forEach(item => {
+      const key = item.batchId || item.recipientKey || item.id;
+      if (!key) return;
+      mergedBulk.set(key, item);
+    });
+
+    // Map server conversations to BulkMessageHistoryItem. Server rows replace
+    // locally-created rows for the same batch once the backend catches up.
     conversations
       .filter(c => c.type === 'bulk' || c.type === 'group')
       .forEach(conv => {
@@ -319,7 +326,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
       });
     }
     lastMessageTracker.current = newTracker;
-  }, [conversations, contacts]);
+  }, [conversations, contacts, localBulkHistory]);
+
+  useEffect(() => {
+    const handleBulkMessageCreated = (event: Event) => {
+      const item = (event as CustomEvent<BulkMessageHistoryItem>).detail;
+      if (!item) return;
+
+      setLocalBulkHistory(prev => {
+        const key = item.batchId || item.recipientKey || item.id;
+        const withoutDuplicate = prev.filter(existing =>
+          (existing.batchId || existing.recipientKey || existing.id) !== key
+        );
+        return [item, ...withoutDuplicate].slice(0, 50);
+      });
+    };
+
+    window.addEventListener('nola-bulk-message-created', handleBulkMessageCreated);
+    return () => window.removeEventListener('nola-bulk-message-created', handleBulkMessageCreated);
+  }, []);
 
   useEffect(() => {
     if (!resolvedLocationId) {
@@ -331,6 +356,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
 
     setLoading(true);
+    setLocalBulkHistory(getBulkMessageHistory());
 
     let unsubscribe: (() => void) | undefined;
 
@@ -424,6 +450,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       // 3. Update UI
       setBulkHistory(prev => prev.map(item => item.id === editingBulkId ? { ...item, customName: editingBulkName } : item));
+      setLocalBulkHistory(prev => prev.map(item => item.id === editingBulkId ? { ...item, customName: editingBulkName } : item));
       // Refresh list from server to ensure sync
       loadContacts();
     }
@@ -457,6 +484,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     // 3. Update UI
     setBulkHistory(prev => prev.filter(item => item.id !== deletingBulkId));
+    setLocalBulkHistory(prev => prev.filter(item => item.id !== deletingBulkId));
     loadContacts();
     setDeletingBulkId(null);
   };
