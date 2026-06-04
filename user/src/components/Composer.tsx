@@ -475,6 +475,7 @@ export const Composer: React.FC<ComposerProps> = ({
   const handleSelectBulkContact = (contact: Contact) => {
     if (composeMode === "single") {
       setBulkSelectedContacts([contact]);
+      setIsPickerOpen(false);
     } else {
       if (!bulkSelectedContacts.find(c => c.id === contact.id)) {
         setBulkSelectedContacts(prev => [...prev, contact]);
@@ -1173,12 +1174,12 @@ export const Composer: React.FC<ComposerProps> = ({
                       return (
                         <span
                           key={contact.id}
-                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-semibold transition-all
+                          className={`flex min-w-0 max-w-[220px] flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-bold shadow-sm ring-1 transition-all
                             ${isFocused
-                              ? 'bg-[#2b83fa] text-white shadow-md scale-105'
+                              ? 'bg-[#1d6bd4] text-white ring-white/45 shadow-md scale-105'
                               : isBulkActive
-                                ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/20 border border-[#2b83fa]/20 text-[#2b83fa] hover:bg-[#2b83fa]/20 cursor-pointer'
-                                : 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/20 border border-[#2b83fa]/20 text-[#2b83fa]'
+                                ? 'bg-white text-[#155fbe] ring-[#9cc7ff]/70 hover:bg-[#eef6ff] cursor-pointer dark:bg-white/95 dark:text-[#155fbe]'
+                                : 'bg-white text-[#155fbe] ring-[#9cc7ff]/70 dark:bg-white/95 dark:text-[#155fbe]'
                             }
                           `}
                           onClick={(e) => {
@@ -1189,11 +1190,12 @@ export const Composer: React.FC<ComposerProps> = ({
                           }}
                           title={isBulkActive ? (isFocused ? "Clear Filter" : "Filter history for this contact") : ""}
                         >
-                          {toProperCase(getResolvedContactName(contact))}
+                          <span className="min-w-0 truncate">{toProperCase(getResolvedContactName(contact))}</span>
                           {!isBulkActive && (
                             <button
                               onClick={(e) => handleRemoveBulkContact(contact.id, e)}
-                              className="hover:text-red-500 transition-colors"
+                              className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-red-500 transition-colors hover:bg-red-50 hover:text-red-600"
+                              aria-label={`Remove ${getResolvedContactName(contact)}`}
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
