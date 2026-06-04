@@ -227,7 +227,7 @@ export const sendSms = async (
       extractedMessageIds = data.output.message_ids;
     } else if (Array.isArray(data.response)) {
       extractedMessageIds = data.response
-        .map((r: any) => r.message_id ? String(r.message_id) : null)
+        .map((r: { message_id?: unknown }) => r.message_id ? String(r.message_id) : null)
         .filter(Boolean);
     } else if (data.message_id) {
       extractedMessageIds = [String(data.message_id)];
@@ -398,63 +398,130 @@ export const fetchMessagesByConversationId = async (
     headers["X-GHL-Location-ID"] = locationId;
   }
 
-  let url = `${API_CONFIG.messages}?conversation_id=${encodeURIComponent(
-    conversationId
-  )}&limit=${limit}`;
-  if (locationId) {
-    url += `&location_id=${encodeURIComponent(locationId)}`;
+  const getBulkConversationCandidates = () => {
+    const scopedIdx = conversationId.lastIndexOf("_group_");
+    const batchId = scopedIdx !== -1
+      ? conversationId.slice(scopedIdx + "_group_".length)
+      : conversationId.startsWith("group_")
+        ? conversationId.slice("group_".length)
+        : "";
+
+    if (!batchId) return [conversationId];
+
+    const candidates = [
+      conversationId,
+      `group_${batchId}`,
+      locationId ? `${locationId}_group_${batchId}` : "",
+    ].filter(Boolean);
+
+    return Array.from(new Set(candidates));
+  };
+
+  const conversationCandidates = getBulkConversationCandidates();
+
+  const buildMessagesUrl = (candidateId: string) => {
+    let url = `${API_CONFIG.messages}?conversation_id=${encodeURIComponent(
+      candidateId
+    )}&limit=${limit}`;
+    if (locationId) {
+      url += `&location_id=${encodeURIComponent(locationId)}`;
+    }
+
+    if (recipientKey) {
+      url += `&recipient_key=${encodeURIComponent(recipientKey)}`;
+    }
+
+    return url;
+  };
+
+  const fetchCandidate = async (candidateId: string) => {
+    let res: Response;
+    try {
+      res = await fetch(buildMessagesUrl(candidateId), { headers });
+    } catch (err) {
+      devLog.error("[fetchMessagesByConversationId] Network error:", err);
+      throw new ConversationMessagesError(
+        "Network error while fetching conversation messages",
+        undefined,
+        err
+      );
+    }
+
+    let rawBody: string | null = null;
+    let parsedBody: unknown = null;
+
+    try {
+      rawBody = await res.text();
+      parsedBody = rawBody ? JSON.parse(rawBody) : null;
+    } catch (err) {
+      // If JSON parsing fails we still want to surface some diagnostics
+      devLog.error("[fetchMessagesByConversationId] Failed to parse JSON:", err);
+    }
+
+    if (!res.ok) {
+      const status = res.status;
+      const parsedRecord =
+        parsedBody && typeof parsedBody === "object" && !Array.isArray(parsedBody)
+          ? parsedBody as Record<string, unknown>
+          : null;
+      const backendError = parsedRecord?.error || parsedRecord?.error_message;
+      const backendDetail = parsedRecord?.message || parsedRecord?.details;
+      // Prefer detailed message when "error" is generic.
+      const backendMessage =
+        (backendError && backendDetail && backendError === "Failed to fetch messages"
+          ? backendDetail
+          : (backendError || backendDetail)) || rawBody || "";
+      const message = `Failed to fetch conversation messages: ${status}${
+        backendMessage ? ` - ${backendMessage}` : ""
+      }`;
+      devLog.error("[fetchMessagesByConversationId] Error response:", {
+        status,
+        backendMessage,
+        conversationId: candidateId,
+      });
+      throw new ConversationMessagesError(message, status, parsedBody ?? rawBody);
+    }
+
+    if (Array.isArray(parsedBody)) {
+      return parsedBody as FirestoreMessage[];
+    }
+
+    if (parsedBody && typeof parsedBody === "object") {
+      const data = (parsedBody as Record<string, unknown>).data;
+      return Array.isArray(data) ? data as FirestoreMessage[] : [];
+    }
+
+    return [];
+  };
+
+  let rows: FirestoreMessage[] = [];
+  let lastError: unknown = null;
+  let fetchedSuccessfully = false;
+
+  for (const candidateId of conversationCandidates) {
+    try {
+      rows = await fetchCandidate(candidateId);
+      fetchedSuccessfully = true;
+      if (rows.length > 0 || candidateId === conversationCandidates[conversationCandidates.length - 1]) {
+        break;
+      }
+    } catch (err) {
+      lastError = err;
+      if (candidateId === conversationCandidates[conversationCandidates.length - 1]) {
+        if (!fetchedSuccessfully) {
+          throw err;
+        }
+        break;
+      }
+    }
   }
 
-  // If recipientKey is provided, we're isolating a single user's history within a bulk campaign
-  if (recipientKey) {
-    url += `&recipient_key=${encodeURIComponent(recipientKey)}`;
+  if (!fetchedSuccessfully && lastError) {
+    throw lastError;
   }
 
-  let res: Response;
-  try {
-    res = await fetch(url, { headers });
-  } catch (err) {
-    devLog.error("[fetchMessagesByConversationId] Network error:", err);
-    throw new ConversationMessagesError(
-      "Network error while fetching conversation messages",
-      undefined,
-      err
-    );
-  }
-
-  let rawBody: string | null = null;
-  let parsedBody: any = null;
-
-  try {
-    rawBody = await res.text();
-    parsedBody = rawBody ? JSON.parse(rawBody) : null;
-  } catch (err) {
-    // If JSON parsing fails we still want to surface some diagnostics
-    devLog.error("[fetchMessagesByConversationId] Failed to parse JSON:", err);
-  }
-
-  if (!res.ok) {
-    const status = res.status;
-    const backendError = parsedBody && (parsedBody.error || parsedBody.error_message);
-    const backendDetail = parsedBody && (parsedBody.message || parsedBody.details);
-    // Prefer detailed message when "error" is generic.
-    const backendMessage =
-      (backendError && backendDetail && backendError === "Failed to fetch messages"
-        ? backendDetail
-        : (backendError || backendDetail)) || rawBody || "";
-    const message = `Failed to fetch conversation messages: ${status}${
-      backendMessage ? ` - ${backendMessage}` : ""
-    }`;
-    devLog.error("[fetchMessagesByConversationId] Error response:", {
-      status,
-      backendMessage,
-    });
-    throw new ConversationMessagesError(message, status, parsedBody ?? rawBody);
-  }
-
-  const data = parsedBody ?? {};
-  const rows = (data.data || data || []) as FirestoreMessage[];
-  const currentLocationId = accountSettings.ghlLocationId || null;
+  const currentLocationId = locationId || accountSettings.ghlLocationId || null;
+  const acceptedConversationIds = new Set(conversationCandidates);
 
   // Ensure we only show messages that truly belong to this conversation_id
   // Fallback to legacy unscoped `conv_` IDs for old messages until backend updates are complete.
@@ -465,7 +532,7 @@ export const fetchMessagesByConversationId = async (
       return false;
     }
 
-    if (row.conversation_id === conversationId) return true;
+    if (acceptedConversationIds.has(row.conversation_id)) return true;
     
     // Extract phone from scoped ID to match legacy unscoped ID
     let legacyDirectId = null;
@@ -622,21 +689,34 @@ export const fetchAllBulkMessages = async (explicitLocationId?: string): Promise
     const resData = await res.json();
 
     // Handle both array and { data: [...] } format
-    const messages = Array.isArray(resData) ? resData : (resData.data || []);
+    type BulkCampaignResponse = {
+      batch_id?: string;
+      message?: string;
+      recipientCount?: number;
+      recipientNumbers?: string[];
+      timestamp?: string;
+      status?: string;
+      location_id?: string;
+    };
+
+    const messages = (Array.isArray(resData) ? resData : (resData.data || [])) as BulkCampaignResponse[];
 
     // Convert to BulkMessageHistoryItem format
-    return messages.map((item: any) => ({
-      id: `bulk-db-${item.batch_id}`,
-      message: item.message || '',
-      recipientCount: item.recipientCount || 0,
-      recipientNumbers: item.recipientNumbers || [],
-      recipientKey: item.batch_id,
-      timestamp: item.timestamp || new Date().toISOString(),
-      status: item.status || 'sent',
-      batchId: item.batch_id,
-      fromDatabase: true,
-      locationId: item.location_id,
-    }));
+    return messages.map((item) => {
+      const batchId = item.batch_id || "";
+      return {
+        id: `bulk-db-${batchId}`,
+        message: item.message || '',
+        recipientCount: item.recipientCount || 0,
+        recipientNumbers: item.recipientNumbers || [],
+        recipientKey: batchId,
+        timestamp: item.timestamp || new Date().toISOString(),
+        status: item.status || 'sent',
+        batchId,
+        fromDatabase: true,
+        locationId: item.location_id,
+      };
+    });
   } catch (error) {
     devLog.error("[fetchAllBulkMessages] Error:", error);
     return [];
