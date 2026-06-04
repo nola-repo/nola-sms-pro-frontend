@@ -754,7 +754,10 @@ export const Composer: React.FC<ComposerProps> = ({
               }
             );
             const successCount = results.filter(r => r.success).length;
-            const failedCount = recipients.length - successCount;
+            // Use results.length (deduplicated unique phones) as the denominator so that
+            // contacts sharing the same phone number don't inflate the "failed" count.
+            const sentTotal = results.length;
+            const failedCount = sentTotal - successCount;
 
             if (groupTempId) {
               updateMessageStatus(groupTempId, successCount > 0 ? 'sent' : 'failed');
@@ -762,8 +765,8 @@ export const Composer: React.FC<ComposerProps> = ({
 
             if (successCount > 0) {
               const successMsg = failedCount > 0
-                ? `Sent ${successCount}/${recipients.length} — ${failedCount} failed`
-                : `Sent all ${recipients.length} messages successfully!`;
+                ? `Sent ${successCount}/${sentTotal} — ${failedCount} failed`
+                : `Sent all ${sentTotal} messages successfully!`;
               guardedToast(failedCount > 0 ? "error" : "success", successMsg);
 
               // Refresh to show new messages in the conversation
@@ -846,7 +849,9 @@ export const Composer: React.FC<ComposerProps> = ({
                 }
               );
               const successCount = results.filter(r => r.success).length;
-              const failedCount = recipients.length - successCount;
+              // Use deduplicated result count to avoid false "failed" for duplicate phone numbers
+              const sentTotal = results.length;
+              const failedCount = sentTotal - successCount;
 
               if (groupTempId) {
                 updateMessageStatus(groupTempId, successCount > 0 ? 'sent' : 'failed');
@@ -854,8 +859,8 @@ export const Composer: React.FC<ComposerProps> = ({
 
               if (successCount > 0) {
                 const successMsg = failedCount > 0
-                  ? `Sent ${successCount}/${recipients.length} — ${failedCount} failed`
-                  : `Sent all ${recipients.length} messages successfully!`;
+                  ? `Sent ${successCount}/${sentTotal} — ${failedCount} failed`
+                  : `Sent all ${sentTotal} messages successfully!`;
                 guardedToast(failedCount > 0 ? "error" : "success", successMsg);
                 window.dispatchEvent(new Event('sms-sent'));
 
@@ -1649,8 +1654,9 @@ export const Composer: React.FC<ComposerProps> = ({
                     }
                   }
 
-                  // Render groups newest → oldest (chat-like)
-                  const renderGroups = groups.slice().sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+                  // Render groups oldest → newest so that scrollToBottom always
+                  // reveals the most recent message at the bottom (matches chat UX).
+                  const renderGroups = groups.slice().sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
                   return renderGroups.map((grp, index) => {
                     const date = grp.timestamp;
@@ -1729,7 +1735,10 @@ export const Composer: React.FC<ComposerProps> = ({
                             </div>
                           </div>
 
-                          {!isExpanded && (
+                          {/* Only show the inline status badge when there is still work in-flight
+                              or failures to call attention to. Hiding it for fully-sent messages
+                              removes the persistent extra space that made bubbles look "floating". */}
+                          {!isExpanded && (campaignStats.sending > 0 || campaignStats.failed > 0) && (
                             <div className="mt-1 px-1">
                               <StatusBadgeSummary stats={campaignStats} minimal />
                             </div>
