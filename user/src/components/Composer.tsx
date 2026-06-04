@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 
 import { fetchContacts } from "../api/contacts";
 import { fetchTemplates } from "../api/templates";
@@ -215,6 +215,36 @@ export const Composer: React.FC<ComposerProps> = ({
   const toProperCase = (name: string): string => {
     return name.replace(/\b\w/g, (char) => char.toUpperCase());
   };
+
+  const contactMap = useMemo(() => {
+    const map = new Map<string, string>();
+    allContacts.forEach(c => {
+      const name = toProperCase(c.name);
+      const phone = c.phone || "";
+      const cleaned = phone.replace(/\D/g, "");
+      if (cleaned) {
+        map.set(cleaned, name);
+        if (cleaned.length >= 10) map.set(cleaned.slice(-10), name);
+        if (cleaned.length >= 9) map.set(cleaned.slice(-9), name);
+      }
+    });
+    return map;
+  }, [allContacts]);
+
+  const getResolvedContactName = useCallback((contact: Contact | undefined | null): string => {
+    if (!contact) return "";
+    const name = contact.name || "";
+    const isPhoneNumber = (s: string) => /^[\d+\-() ]+$/.test(s);
+    if (name && !isPhoneNumber(name)) {
+      return name;
+    }
+    const phone = contact.phone || name;
+    const clean = phone.replace(/\D/g, "");
+    const matched = contactMap.get(phone) || contactMap.get(clean) || 
+                    (clean.length >= 10 ? contactMap.get(clean.slice(-10)) : undefined) ||
+                    (clean.length >= 9 ? contactMap.get(clean.slice(-9)) : undefined);
+    return matched || phone || name;
+  }, [contactMap]);
 
   const activePhoneNumber = useMemo(() => {
     if (activeContact) return activeContact.phone;
@@ -628,7 +658,8 @@ export const Composer: React.FC<ComposerProps> = ({
           // Single message or appending to existing bulk conversation
           if (recipients.length === 1) {
             // Optimistic update for single message
-            const optimisticText = interpolateMessage(messageText, { name: recipients[0].name, phone: recipients[0].phone });
+            const resolvedRecipientName = getResolvedContactName(recipients[0]);
+            const optimisticText = interpolateMessage(messageText, { name: resolvedRecipientName, phone: recipients[0].phone });
             const shouldPromoteDraftConversation = !activeContact && !activeBulkMessage && !!onSelectContact;
             const optimisticConversationId = shouldPromoteDraftConversation
               ? buildDirectConversationId(
@@ -640,7 +671,7 @@ export const Composer: React.FC<ComposerProps> = ({
             if (shouldPromoteDraftConversation) {
               onSelectContact(recipients[0]);
             }
-            const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, recipients[0].name, undefined, recipients[0].ghl_contact_id, currentTags, recipients[0].email);
+            const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, resolvedRecipientName, undefined, recipients[0].ghl_contact_id, currentTags, recipients[0].email);
 
             if (smsResult.success) {
               const messageIds = smsResult.messageIds || [];
@@ -703,7 +734,8 @@ export const Composer: React.FC<ComposerProps> = ({
                 r.phone,
                 locationId || getAccountSettings().ghlLocationId || null
               ) || undefined;
-              const personalizedText = interpolateMessage(messageText, { name: r.name, phone: r.phone, email: r.email });
+              const resolvedName = getResolvedContactName(r);
+              const personalizedText = interpolateMessage(messageText, { name: resolvedName, phone: r.phone, email: r.email });
               const tempId = addOptimisticMessage(personalizedText, senderName, optConvId);
               tempIds[r.phone] = tempId;
             });
@@ -767,7 +799,8 @@ export const Composer: React.FC<ComposerProps> = ({
               r.phone,
               locationId || getAccountSettings().ghlLocationId || null
             ) || undefined;
-            const personalizedText = interpolateMessage(messageText, { name: r.name, phone: r.phone, email: r.email });
+            const resolvedName = getResolvedContactName(r);
+            const personalizedText = interpolateMessage(messageText, { name: resolvedName, phone: r.phone, email: r.email });
             const tempId = addOptimisticMessage(personalizedText, senderName, optConvId);
             tempIds[r.phone] = tempId;
           });
@@ -806,7 +839,7 @@ export const Composer: React.FC<ComposerProps> = ({
               id: `bulk-db-${batchId}`,
               message: messageText,
               recipientCount: recipients.length,
-              recipientNames: recipients.map(r => r.name),
+              recipientNames: recipients.map(r => getResolvedContactName(r)),
               recipientNumbers: recipients.map(r => r.phone),
               recipientKey: recipientKey,
               timestamp: new Date().toISOString(),
@@ -957,11 +990,11 @@ export const Composer: React.FC<ComposerProps> = ({
                 <FiMenu className="h-5 w-5" />
               </button>
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 flex-shrink-0 flex items-center justify-center text-white font-black text-base sm:text-lg shadow-lg shadow-blue-950/20 ring-1 ring-white/35">
-                {(activeContact?.name || selectedContacts[0]?.name || "?").charAt(0).toUpperCase()}
+                {(getResolvedContactName(activeContact || selectedContacts[0]) || "?").charAt(0).toUpperCase()}
               </div>
               <div className="flex flex-col min-w-0">
                 <h2 className="text-[15px] sm:text-[17px] font-black text-white leading-tight tracking-tight truncate">
-                  {toProperCase(activeContact?.name || selectedContacts[0]?.name || '')}
+                  {toProperCase(getResolvedContactName(activeContact || selectedContacts[0]))}
                 </h2>
                 <span className="text-[12px] sm:text-[13px] text-white/75 font-semibold truncate">
                   {activePhoneNumber}
@@ -1007,7 +1040,16 @@ export const Composer: React.FC<ComposerProps> = ({
 
                     if (usableCustom) return usableCustom;
 
-                    const names = (activeBulkMessage.recipientNames || []).filter(Boolean);
+                    const numbers = activeBulkMessage.recipientNumbers || [];
+                    const names = (numbers.length > 0 ? numbers : (activeBulkMessage.recipientNames || []))
+                      .map(numOrName => {
+                        const clean = numOrName.replace(/\D/g, "");
+                        return contactMap.get(numOrName) || 
+                               contactMap.get(clean) || 
+                               (clean.length >= 10 ? contactMap.get(clean.slice(-10)) : undefined) ||
+                               (clean.length >= 9 ? contactMap.get(clean.slice(-9)) : undefined) ||
+                               numOrName;
+                      }).filter(Boolean);
                     if (names.length > 0) {
                       return (
                         names.slice(0, 3).join(", ") +
@@ -1068,9 +1110,9 @@ export const Composer: React.FC<ComposerProps> = ({
                     {composeMode === 'bulk' && bulkSelectedContacts.length > 0 ? (
                       (() => {
                         const count = bulkSelectedContacts.length;
-                        if (count === 1) return `To: ${toProperCase(bulkSelectedContacts[0].name)}`;
-                        if (count === 2) return `To: ${toProperCase(bulkSelectedContacts[0].name)}, ${toProperCase(bulkSelectedContacts[1].name)}`;
-                        return `To: ${toProperCase(bulkSelectedContacts[0].name)}, ${toProperCase(bulkSelectedContacts[1].name)} +${count - 2} more`;
+                        if (count === 1) return `To: ${toProperCase(getResolvedContactName(bulkSelectedContacts[0]))}`;
+                        if (count === 2) return `To: ${toProperCase(getResolvedContactName(bulkSelectedContacts[0]))}, ${toProperCase(getResolvedContactName(bulkSelectedContacts[1]))}`;
+                        return `To: ${toProperCase(getResolvedContactName(bulkSelectedContacts[0]))}, ${toProperCase(getResolvedContactName(bulkSelectedContacts[1]))} +${count - 2} more`;
                       })()
                     ) : (
                       "New Message"
@@ -1166,7 +1208,7 @@ export const Composer: React.FC<ComposerProps> = ({
                           }}
                           title={isBulkActive ? (isFocused ? "Clear Filter" : "Filter history for this contact") : ""}
                         >
-                          {toProperCase(contact.name)}
+                          {toProperCase(getResolvedContactName(contact))}
                           {!isBulkActive && (
                             <button
                               onClick={(e) => handleRemoveBulkContact(contact.id, e)}
@@ -1248,14 +1290,15 @@ export const Composer: React.FC<ComposerProps> = ({
                                 <div className="flex items-center gap-3 min-w-0">
                                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold ${isSelected ? "bg-[#2b83fa] text-white" : "bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400"}`}>
                                     {(() => {
-                                      const parts = contact.name.split(' ').filter(p => p.length > 0);
+                                      const resolvedName = getResolvedContactName(contact);
+                                      const parts = resolvedName.split(' ').filter(p => p.length > 0);
                                       const first = parts[0]?.charAt(0) || '';
                                       const last = parts.length > 1 ? parts[parts.length - 1]?.charAt(0) || '' : '';
                                       return (first + last).toUpperCase() || '?';
                                     })()}
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="font-semibold text-[13px] text-[#111111] dark:text-[#ececf1] truncate">{toProperCase(contact.name)}</p>
+                                    <p className="font-semibold text-[13px] text-[#111111] dark:text-[#ececf1] truncate">{toProperCase(getResolvedContactName(contact))}</p>
                                     <p className="text-[11px] text-gray-500 truncate">{contact.phone}</p>
                                   </div>
                                 </div>
@@ -1993,7 +2036,7 @@ export const Composer: React.FC<ComposerProps> = ({
             <div className="mt-3 flex items-center gap-2 px-2">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
               <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 font-mono tracking-tight capitalize">
-                To: {currentRecipients.map(c => c.name).join(', ')}
+                To: {currentRecipients.map(c => getResolvedContactName(c)).join(', ')}
               </p>
             </div>
           )}

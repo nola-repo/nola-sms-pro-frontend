@@ -271,8 +271,11 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
             const contact = contacts.find((c: Contact) => {
                 const cp = c.phone.replace(/\D/g, "");
                 return c.phone === phone || cp === cleanPhone
+                    || (cleanPhone.startsWith('0') && cp === '63' + cleanPhone.slice(1))
                     || (cleanPhone.startsWith('0') && cp === '+63' + cleanPhone.slice(1))
-                    || (cleanPhone.startsWith('09') && cp === cleanPhone.slice(1));
+                    || (cleanPhone.startsWith('09') && cp === cleanPhone.slice(1))
+                    || (cp.length >= 10 && cleanPhone.length >= 10 && cp.slice(-10) === cleanPhone.slice(-10))
+                    || (cp.length >= 9 && cleanPhone.length >= 9 && cp.slice(-9) === cleanPhone.slice(-9));
             });
             if (contact) return toProperCase(contact.name);
         }

@@ -102,6 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [directHistory, setDirectHistory] = useState<Contact[]>([]);
   const [bulkHistory, setBulkHistory] = useState<BulkMessageHistoryItem[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [directMessagesExpanded, setDirectMessagesExpanded] = useState(true);
   const [bulkMessagesExpanded, setBulkMessagesExpanded] = useState(true);
   const [editingBulkId, setEditingBulkId] = useState<string | null>(null);
@@ -172,9 +173,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [loadContacts]);
 
   const applyConversationRows = useCallback((docRows: Conversation[]) => {
-    // Build a phone -> name lookup map from freshly-fetched contacts (not stale state)
+    setConversations(docRows);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    // Build a phone -> name lookup map from reactive contacts list
     const contactMap = new Map<string, string>();
-    contactsRef.current.forEach(c => {
+    contacts.forEach(c => {
       const phone = asText(c.phone);
       const name = asText(c.name);
       if (!phone) return;
@@ -183,14 +189,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const cleaned = phone.replace(/\D/g, "");
       if (cleaned) {
         contactMap.set(cleaned, name);
-        // Also map +63 variants for GHL phone format matching
-        if (cleaned.startsWith('0')) contactMap.set('+63' + cleaned.slice(1), name);
-        if (cleaned.startsWith('9')) contactMap.set('+63' + cleaned, name);
+        // Map last 10 and last 9 digits as key fallbacks for robust matching
+        if (cleaned.length >= 10) contactMap.set(cleaned.slice(-10), name);
+        if (cleaned.length >= 9) contactMap.set(cleaned.slice(-9), name);
       }
     });
 
     // Handle Direct Conversations
-    const directConvs = docRows.filter(c => c.type === 'direct' || !c.type);
+    const directConvs = conversations.filter(c => c.type === 'direct' || !c.type);
 
     // Deduplicate conversations by phone number (merge legacy and scoped UI items)
     const dedupedDirectConvs = new Map<string, Contact>();
@@ -199,9 +205,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const convId = asText(conv.id);
       const phone = extractPhoneFromDirectConversationId(convId) || convId;
       const cleanPhone = phone.replace(/\D/g, "");
-      // Resolve name: prefer contact name, then server metadata (only if it's a real name, not a phone number), then phone
+      // Resolve name: prefer contact name (including digit suffix match), then server metadata, then phone
       const isPhoneNumber = (s: string) => /^[\d+\-() ]+$/.test(s);
-      const contactName = contactMap.get(phone) || contactMap.get(cleanPhone) || contactMap.get('+63' + cleanPhone);
+      const contactName = contactMap.get(phone) || 
+                          contactMap.get(cleanPhone) || 
+                          (cleanPhone.length >= 10 ? contactMap.get(cleanPhone.slice(-10)) : undefined) ||
+                          (cleanPhone.length >= 9 ? contactMap.get(cleanPhone.slice(-9)) : undefined);
       let serverName = conv.name && !isPhoneNumber(asText(conv.name)) ? asText(conv.name) : null;
 
       // Scrub accidental conversation IDs (e.g. "Name locationId_conv_09XX") from the server name
@@ -256,7 +265,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const mergedBulk = new Map<string, BulkMessageHistoryItem>();
 
     // 2. Map server conversations to BulkMessageHistoryItem
-    docRows
+    conversations
       .filter(c => c.type === 'bulk' || c.type === 'group')
       .forEach(conv => {
         const convId = asText(conv.id);
@@ -270,7 +279,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         if (recipientNames.length === 0 && members.length > 0) {
           recipientNames = members.map((phone) => {
             const clean = phone.replace(/\D/g, "");
-            return contactMap.get(phone) || contactMap.get(clean) || phone;
+            return contactMap.get(phone) || contactMap.get(clean) || 
+                   (clean.length >= 10 ? contactMap.get(clean.slice(-10)) : undefined) ||
+                   (clean.length >= 9 ? contactMap.get(clean.slice(-9)) : undefined) ||
+                   phone;
           });
         }
 
@@ -330,13 +342,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       });
     }
     lastMessageTracker.current = newTracker;
-    setLoading(false);
-  }, []);
+  }, [conversations, contacts]);
 
   useEffect(() => {
     if (!resolvedLocationId) {
       setDirectHistory([]);
       setBulkHistory([]);
+      setConversations([]);
       setLoading(false);
       return;
     }
