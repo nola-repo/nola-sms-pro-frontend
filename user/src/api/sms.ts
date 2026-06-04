@@ -295,7 +295,8 @@ export const sendBulkSms = async (
   _contacts: { phone: string, name: string, email?: string, ghl_contact_id?: string }[] = [],
   recipientKey?: string,
   existingBatchId?: string,
-  tagsToApply?: string[]
+  tagsToApply?: string[],
+  onProgress?: (current: number, total: number, result: SendSmsResponse) => void
 ): Promise<{ results: SendSmsResponse[], batchId: string }> => {
   // Normalize and validate all phone numbers up front
   const normalizedNumbers: string[] = [];
@@ -326,19 +327,26 @@ export const sendBulkSms = async (
   const results: SendSmsResponse[] = [];
 
   // Sequentially send SMS so that we can pass the ghl_contact_id per recipient for full bidirectional sync
+  let current = 0;
   for (const phone of normalizedNumbers) {
     // Find corresponding contact to extract ghl_contact_id
     const contact = _contacts.find(c => normalizePHNumber(c.phone) === phone) || { phone, name: undefined, email: undefined, ghl_contact_id: undefined };
+    let res: SendSmsResponse;
     try {
-      const res = await sendSms(phone, message, senderName, batchId, contact.name, recipientKey, contact.ghl_contact_id, tagsToApply, contact.email);
+      res = await sendSms(phone, message, senderName, batchId, contact.name, recipientKey, contact.ghl_contact_id, tagsToApply, contact.email);
       results.push({ ...res, number: phone });
     } catch (error) {
       devLog.error(`[sendBulkSms] Error sending to ${phone}:`, error);
-      results.push({
+      res = {
         success: false,
         number: phone,
         message: error instanceof Error ? error.message : "Bulk SMS piece failed",
-      });
+      };
+      results.push(res);
+    }
+    current++;
+    if (onProgress) {
+      onProgress(current, normalizedNumbers.length, res);
     }
   }
 

@@ -143,7 +143,7 @@ export const Composer: React.FC<ComposerProps> = ({
   darkMode
 }) => {
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [sendingProgress, setSendingProgress] = useState<{current: number; total: number} | null>(null);
   const { locationId } = useLocationId();
   const [senderName, setSenderName] = useState<SenderId>("NOLASMSPro");
   const [approvedSenderId, setApprovedSenderId] = useState<string | undefined>(undefined);
@@ -410,6 +410,21 @@ export const Composer: React.FC<ComposerProps> = ({
     fetchContacts(locationId || undefined).then(setAllContacts).catch(console.error);
   }, [locationId]);
 
+  // Pre-warm template cache on mount/location change
+  useEffect(() => {
+    const prewarm = async () => {
+      if (locationId) {
+        try {
+          const templates = await fetchTemplates(locationId, false);
+          setTemplateOptions(templates);
+        } catch (err) {
+          console.warn("Background template cache pre-warming failed:", err);
+        }
+      }
+    };
+    prewarm();
+  }, [locationId]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -515,7 +530,7 @@ export const Composer: React.FC<ComposerProps> = ({
     if (nextOpen && templateOptions.length === 0 && !templatesLoading) {
       setTemplatesLoading(true);
       try {
-        setTemplateOptions(await fetchTemplates());
+        setTemplateOptions(await fetchTemplates(locationId || undefined));
       } catch (error) {
         console.error("Failed to load templates:", error);
         showToast("error", "Failed to load templates.");
@@ -575,9 +590,8 @@ export const Composer: React.FC<ComposerProps> = ({
   const totalEstimatedSms = composeMode === "bulk" && isNewMessage
     ? smsSegments * bulkSelectedContacts.length
     : smsSegments;
-  const handleSend = async () => {
-    if (loading) return;
-    // Guard to ensure only ONE toast fires per send action
+  const handleSend = () => {
+    // Guard to ensure only one toast fires per send action
     let toastShown = false;
     const guardedToast = (severity: "success" | "error", msg: string) => {
       toastShown = true;
@@ -596,144 +610,230 @@ export const Composer: React.FC<ComposerProps> = ({
       return;
     }
 
-    setLoading(true);
+    // Snapshot inputs and clear the compose area immediately so the user
+    // can start typing/sending the next message right away.
     const messageText = message;
     const currentTags = [...selectedTagsToApply];
     setMessage("");
     setSelectedTagsToApply([]);
 
-    try {
-      // Check if we're viewing an existing bulk message conversation
-      const isExistingBulkConversation = activeBulkMessage && recipients.length > 1;
+    // Fire-and-forget: kick off the async work in the background.
+    // The button is NOT disabled while the API call is in-flight.
+    (async () => {
+      try {
+        // Check if we're viewing an existing bulk message conversation
+        const isExistingBulkConversation = activeBulkMessage && recipients.length > 1;
 
-      if (recipients.length === 1 || isExistingBulkConversation) {
-        // Single message or appending to existing bulk conversation
-        if (recipients.length === 1) {
-          // Optimistic update for single message
-          const optimisticText = interpolateMessage(messageText, { name: recipients[0].name, phone: recipients[0].phone });
-          const shouldPromoteDraftConversation = !activeContact && !activeBulkMessage && !!onSelectContact;
-          const optimisticConversationId = shouldPromoteDraftConversation
-            ? buildDirectConversationId(
-                recipients[0].phone,
-                locationId || getAccountSettings().ghlLocationId || null
-              ) || undefined
-            : conversationId;
-          const tempId = addOptimisticMessage(optimisticText, senderName, optimisticConversationId);
-          if (shouldPromoteDraftConversation) {
-            onSelectContact(recipients[0]);
-          }
-          const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, recipients[0].name, undefined, recipients[0].ghl_contact_id, currentTags, recipients[0].email);
+        if (recipients.length === 1 || isExistingBulkConversation) {
+          // Single message or appending to existing bulk conversation
+          if (recipients.length === 1) {
+            // Optimistic update for single message
+            const optimisticText = interpolateMessage(messageText, { name: recipients[0].name, phone: recipients[0].phone });
+            const shouldPromoteDraftConversation = !activeContact && !activeBulkMessage && !!onSelectContact;
+            const optimisticConversationId = shouldPromoteDraftConversation
+              ? buildDirectConversationId(
+                  recipients[0].phone,
+                  locationId || getAccountSettings().ghlLocationId || null
+                ) || undefined
+              : conversationId;
+            const tempId = addOptimisticMessage(optimisticText, senderName, optimisticConversationId);
+            if (shouldPromoteDraftConversation) {
+              onSelectContact(recipients[0]);
+            }
+            const smsResult = await sendSms(recipients[0].phone, messageText, senderName, undefined, recipients[0].name, undefined, recipients[0].ghl_contact_id, currentTags, recipients[0].email);
 
-          if (smsResult.success) {
-            const messageIds = smsResult.messageIds || [];
-            if (messageIds.length > 0) {
-              updateMessageStatus(tempId, 'sending', messageIds[0]);
+            if (smsResult.success) {
+              const messageIds = smsResult.messageIds || [];
+              if (messageIds.length > 0) {
+                updateMessageStatus(tempId, 'sending', messageIds[0]);
+              } else {
+                updateMessageStatus(tempId, 'sending');
+              }
+              guardedToast("success", smsResult.message || "Message sent successfully!");
+
+              // Dispatch event to refresh credit balance
+              window.dispatchEvent(new Event('sms-sent'));
+
+              // Re-fetch from database after a short delay to get the stored message
+              setTimeout(() => refresh(), 2000);
+
+              // Real-time status polling: check Semaphore for actual delivery status
+              // within seconds rather than waiting for the 5-min cron.
+              if (messageIds.length > 0) {
+                let attempts = 0;
+                const maxAttempts = 30; // ~60s total
+                const pollStatus = async () => {
+                  attempts++;
+                  const statusMap = await checkMessageStatus(messageIds);
+                  const allResolved = messageIds.every(id => {
+                    const s = (statusMap[id] || '').toLowerCase();
+                    return s === 'sent' || s === 'failed' || s === 'success';
+                  });
+
+                  // Refresh messages to show DB-persisted status
+                  if (allResolved || attempts >= maxAttempts) {
+                    refresh();
+                  } else {
+                    setTimeout(pollStatus, 2000);
+                  }
+                };
+                setTimeout(pollStatus, 2000);
+              }
+
+              // Navigate to contact view if not already there
+              if (activeContact || shouldPromoteDraftConversation) {
+                // Already viewing contact, just refresh
+              } else if (onSelectContact && recipients[0]) {
+                setTimeout(() => onSelectContact(recipients[0]), 500);
+              }
             } else {
-              updateMessageStatus(tempId, 'sending');
-            }
-            guardedToast("success", smsResult.message || "Message sent successfully!");
-
-            // Dispatch event to refresh credit balance
-            window.dispatchEvent(new Event('sms-sent'));
-
-            // Re-fetch from database after a short delay to get the stored message
-            setTimeout(() => refresh(), 2000);
-
-            // Real-time status polling: check Semaphore for actual delivery status
-            // within seconds rather than waiting for the 5-min cron.
-            if (messageIds.length > 0) {
-              let attempts = 0;
-              const maxAttempts = 30; // ~60s total
-              const pollStatus = async () => {
-                attempts++;
-                const statusMap = await checkMessageStatus(messageIds);
-                const allResolved = messageIds.every(id => {
-                  const s = (statusMap[id] || '').toLowerCase();
-                  return s === 'sent' || s === 'failed' || s === 'success';
-                });
-
-                // Refresh messages to show DB-persisted status
-                if (allResolved || attempts >= maxAttempts) {
-                  refresh();
-                } else {
-                  setTimeout(pollStatus, 2000);
-                }
-              };
-              setTimeout(pollStatus, 2000);
-            }
-
-            // Navigate to contact view if not already there
-            if (activeContact || shouldPromoteDraftConversation) {
-              // Already viewing contact, just refresh
-            } else if (onSelectContact && recipients[0]) {
-              setTimeout(() => onSelectContact(recipients[0]), 500);
+              updateMessageStatus(tempId, 'failed', undefined, smsResult.message || "Failed to send message");
+              guardedToast("error", smsResult.message || "Failed to send message");
             }
           } else {
-            updateMessageStatus(tempId, 'failed', undefined, smsResult.message || "Failed to send message");
-            guardedToast("error", smsResult.message || "Failed to send message");
+            // Sending to existing bulk conversation - use existing recipientKey
+            const phones = recipients.map(c => c.phone);
+            const recipientKey = activeBulkMessage?.recipientKey || getRecipientKey(phones);
+            const batchId = activeBulkMessage?.batchId; // Use existing batchId to keep in same conversation
+
+            // Add optimistic messages to each recipient's individual conversation thread
+            const tempIds: Record<string, string> = {};
+            recipients.forEach(r => {
+              const optConvId = buildDirectConversationId(
+                r.phone,
+                locationId || getAccountSettings().ghlLocationId || null
+              ) || undefined;
+              const personalizedText = interpolateMessage(messageText, { name: r.name, phone: r.phone, email: r.email });
+              const tempId = addOptimisticMessage(personalizedText, senderName, optConvId);
+              tempIds[r.phone] = tempId;
+            });
+
+            // Add a single optimistic message in the current bulk conversation (if viewing it)
+            let groupTempId: string | undefined = undefined;
+            if (activeBulkMessage) {
+              groupTempId = addOptimisticMessage(messageText, senderName, conversationId);
+            }
+
+            setSendingProgress({ current: 0, total: recipients.length });
+
+            // Send bulk SMS - if we have an existing batchId, it will add to that conversation
+            const { results } = await sendBulkSms(
+              phones,
+              messageText,
+              senderName,
+              recipients,
+              recipientKey,
+              batchId,
+              currentTags,
+              (current, total, result) => {
+                setSendingProgress({ current, total });
+                const phone = result.number;
+                const tempId = phone ? tempIds[phone] : undefined;
+                if (tempId) {
+                  const messageIds = result.messageIds || [];
+                  updateMessageStatus(tempId, result.success ? 'sent' : 'failed', messageIds[0], result.success ? undefined : result.message);
+                }
+              }
+            );
+            const successCount = results.filter(r => r.success).length;
+            const failedCount = recipients.length - successCount;
+
+            if (groupTempId) {
+              updateMessageStatus(groupTempId, successCount > 0 ? 'sent' : 'failed');
+            }
+
+            if (successCount > 0) {
+              const successMsg = failedCount > 0
+                ? `Sent ${successCount}/${recipients.length} — ${failedCount} failed`
+                : `Sent all ${recipients.length} messages successfully!`;
+              guardedToast(failedCount > 0 ? "error" : "success", successMsg);
+
+              // Refresh to show new messages in the conversation
+              setTimeout(() => refresh(), 2000);
+            } else {
+              guardedToast("error", "Failed to send bulk messages");
+            }
+            setSendingProgress(null);
           }
         } else {
-          // Sending to existing bulk conversation - use existing recipientKey
+          // NEW bulk SMS sending (creating new conversation)
           const phones = recipients.map(c => c.phone);
-          const recipientKey = activeBulkMessage?.recipientKey || getRecipientKey(phones);
-          const batchId = activeBulkMessage?.batchId; // Use existing batchId to keep in same conversation
+          const recipientKey = getRecipientKey(phones);
 
-          // Send bulk SMS - if we have an existing batchId, it will add to that conversation
-          const { results } = await sendBulkSms(phones, messageText, senderName, recipients, recipientKey, batchId, currentTags);
+          // Add optimistic messages to each recipient's individual conversation thread
+          const tempIds: Record<string, string> = {};
+          recipients.forEach(r => {
+            const optConvId = buildDirectConversationId(
+              r.phone,
+              locationId || getAccountSettings().ghlLocationId || null
+            ) || undefined;
+            const personalizedText = interpolateMessage(messageText, { name: r.name, phone: r.phone, email: r.email });
+            const tempId = addOptimisticMessage(personalizedText, senderName, optConvId);
+            tempIds[r.phone] = tempId;
+          });
+
+          setSendingProgress({ current: 0, total: recipients.length });
+
+          const { results, batchId } = await sendBulkSms(
+            phones,
+            messageText,
+            senderName,
+            recipients,
+            recipientKey,
+            undefined,
+            undefined,
+            (current, total, result) => {
+              setSendingProgress({ current, total });
+              const phone = result.number;
+              const tempId = phone ? tempIds[phone] : undefined;
+              if (tempId) {
+                const messageIds = result.messageIds || [];
+                updateMessageStatus(tempId, result.success ? 'sent' : 'failed', messageIds[0], result.success ? undefined : result.message);
+              }
+            }
+          );
           const successCount = results.filter(r => r.success).length;
+          const failedCount = recipients.length - successCount;
 
           if (successCount > 0) {
-            guardedToast("success", `Sent ${successCount} of ${recipients.length} messages`);
+            const successMsg = failedCount > 0
+              ? `Sent ${successCount}/${recipients.length} — ${failedCount} failed`
+              : `Sent all ${recipients.length} messages successfully!`;
+            guardedToast(failedCount > 0 ? "error" : "success", successMsg);
 
-            // Refresh to show new messages in the conversation
+            // Define item for navigation, but don't save to localStorage
+            const bulkItemForNav: BulkMessageHistoryItem = {
+              id: `bulk-db-${batchId}`,
+              message: messageText,
+              recipientCount: recipients.length,
+              recipientNames: recipients.map(r => r.name),
+              recipientNumbers: recipients.map(r => r.phone),
+              recipientKey: recipientKey,
+              timestamp: new Date().toISOString(),
+              status: 'sent',
+              batchId: batchId,
+              fromDatabase: true
+            };
+
+            // First, navigate to bulk message view (this sets activeBulkMessage in Dashboard)
+            if (onSelectBulkMessage) {
+              onSelectBulkMessage(bulkItemForNav);
+            }
+
+            // Refresh after navigation to fetch from Firestore
             setTimeout(() => refresh(), 2000);
           } else {
             guardedToast("error", "Failed to send bulk messages");
           }
+          setSendingProgress(null);
         }
-      } else {
-        // NEW bulk SMS sending (creating new conversation)
-        const phones = recipients.map(c => c.phone);
-        const recipientKey = getRecipientKey(phones);
-        const { results, batchId } = await sendBulkSms(phones, messageText, senderName, recipients, recipientKey);
-        const successCount = results.filter(r => r.success).length;
-
-        if (successCount > 0) {
-          guardedToast("success", `Sent ${successCount} of ${recipients.length} messages`);
-
-          // Define item for navigation, but don't save to localStorage
-          const bulkItemForNav: BulkMessageHistoryItem = {
-            id: `bulk-db-${batchId}`,
-            message: messageText,
-            recipientCount: recipients.length,
-            recipientNames: recipients.map(r => r.name),
-            recipientNumbers: recipients.map(r => r.phone),
-            recipientKey: recipientKey,
-            timestamp: new Date().toISOString(),
-            status: 'sent',
-            batchId: batchId,
-            fromDatabase: true
-          };
-
-          // First, navigate to bulk message view (this sets activeBulkMessage in Dashboard)
-          if (onSelectBulkMessage) {
-            onSelectBulkMessage(bulkItemForNav);
-          }
-
-          // Refresh after navigation to fetch from Firestore
-          setTimeout(() => refresh(), 2000);
-        } else {
-          guardedToast("error", "Failed to send bulk messages");
+        // toast already shown via guardedToast() in each branch above
+      } catch (error) {
+        if (!toastShown) {
+          showToast("error", error instanceof Error ? error.message : "Failed to send message");
         }
       }
-      // toast already shown via guardedToast() in each branch above
-    } catch (error) {
-      if (!toastShown) {
-        showToast("error", error instanceof Error ? error.message : "Failed to send message");
-      }
-    } finally {
-      setLoading(false);
-    }
+    })();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -746,7 +846,6 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   const getSendButtonText = () => {
-    if (loading) return "";
     // When viewing an existing bulk message conversation, allow sending
     if (activeBulkMessage) {
       return "Send";
@@ -763,7 +862,7 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   const isSendDisabled = () => {
-    if (loading || !message || !toggleEnabled) return true;
+    if (!message || !toggleEnabled) return true;
     // Allow sending when viewing an existing conversation
     if (activeBulkMessage || activeContact) {
       return false;
@@ -775,7 +874,6 @@ export const Composer: React.FC<ComposerProps> = ({
 
   const getSendDisabledReason = (): string => {
     if (!toggleEnabled) return "SMS sending is disabled for this account";
-    if (loading) return "Sending in progress...";
     if (!message) return "Enter a message to send";
     // Allow sending when viewing an existing conversation
     if (activeBulkMessage || activeContact) {
@@ -812,12 +910,12 @@ export const Composer: React.FC<ComposerProps> = ({
     }
   };
 
-  const renderSendingStatus = () => (
-    <div className="mt-1 flex items-center justify-end gap-1 px-1 text-[10px] font-bold uppercase tracking-wider text-[#2b83fa] dark:text-[#8bbcff]">
-      <FiLoader className="h-2.5 w-2.5 animate-spin" />
-      Sending
-    </div>
-  );
+  // const renderSendingStatus = () => (
+  //   <div className="mt-1 flex items-center justify-end gap-1 px-1 text-[10px] font-bold uppercase tracking-wider text-[#2b83fa] dark:text-[#8bbcff]">
+  //     <FiLoader className="h-2.5 w-2.5 animate-spin" />
+  //     Sending
+  //   </div>
+  // );
 
   const showBulkDetails = (
     id: string,
@@ -1402,14 +1500,19 @@ export const Composer: React.FC<ComposerProps> = ({
                               }`}
                             >
                               {msg.status === 'sending'
-                                ? <FiLoader className="animate-spin inline mb-0.5" size={10} />
+                                ? <FiLoader className="animate-spin inline mb-0.5 mr-1" size={10} />
                                 : msg.status === 'sent'
-                                ? <FiCheck className="inline mb-0.5" size={10} />
-                                : <FiAlertCircle size={10} className="inline mb-0.5" />} {msg.status}
+                                ? <FiCheck className="inline mb-0.5 mr-1" size={10} />
+                                : <FiAlertCircle size={10} className="inline mb-0.5 mr-1" />}
+                              {msg.status === 'sending' ? 'Sending…' : msg.status === 'sent' ? 'Sent' : 'Failed'}
                             </span>
                           </div>
                         </div>
-                        {!isExpanded && msg.status === "sending" && renderSendingStatus()}
+                        {!isExpanded && msg.status === "sending" && (
+                          <div className="mt-1 flex items-center justify-end px-1">
+                            <FiLoader className="h-3 w-3 animate-spin text-gray-400 dark:text-gray-500" />
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -1620,7 +1723,8 @@ export const Composer: React.FC<ComposerProps> = ({
                             </span>
                             <span className="text-[10px] text-gray-400">•</span>
                             <span className={`text-[10px] font-bold capitalize tracking-wider ${msg.status === 'sent' ? 'text-green-500' : msg.status === 'failed' ? 'text-red-500' : 'text-gray-400'}`}>
-                              {msg.status === 'sending' ? <FiLoader className="animate-spin inline mb-0.5" size={10} /> : msg.status === 'sent' ? <FiCheck className="inline mb-0.5" size={10} /> : <FiAlertCircle size={10} className="inline mb-0.5 animate-pulse" />} {msg.status}
+                              {msg.status === 'sending' ? <FiLoader className="animate-spin inline mb-0.5 mr-1" size={10} /> : msg.status === 'sent' ? <FiCheck className="inline mb-0.5 mr-1" size={10} /> : <FiAlertCircle size={10} className="inline mb-0.5 mr-1 animate-pulse" />}
+                              {msg.status === 'sending' ? 'Sending…' : msg.status === 'sent' ? 'Sent' : 'Failed'}
                             </span>
                             {msg.status === 'failed' && msg.errorReason && (
                               <span className="text-[10px] text-red-400 font-medium truncate max-w-[160px]" title={msg.errorReason}>
@@ -1629,7 +1733,11 @@ export const Composer: React.FC<ComposerProps> = ({
                             )}
                           </div>
                         </div>
-                        {!isExpanded && msg.status === "sending" && renderSendingStatus()}
+                        {!isExpanded && msg.status === "sending" && (
+                          <div className="mt-1 flex items-center justify-end px-1">
+                            <FiLoader className="h-3 w-3 animate-spin text-gray-400 dark:text-gray-500" />
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -1684,6 +1792,28 @@ export const Composer: React.FC<ComposerProps> = ({
                 rows={1}
                 style={{ height: 'auto', minHeight: '58px' }}
               />
+
+              {/* Contextual hints for new message flow */}
+              {isNewMessage && (bulkSelectedContacts.length === 0 || !message) && (
+                <div className="flex items-center gap-2 px-4 py-2 flex-wrap">
+                  {bulkSelectedContacts.length === 0 && (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 rounded-full px-2.5 py-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      {composeMode === "bulk" ? "Select at least one contact to send to" : "Enter a phone number or select a contact"}
+                    </span>
+                  )}
+                  {!message && (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-full px-2.5 py-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      Type a message to send
+                    </span>
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center justify-between gap-3 px-3 pt-2.5 pb-1.5 border-t border-[#edf1f6] dark:border-white/[0.08]">
                 <div className="flex items-center gap-1.5 min-w-0">
@@ -1826,9 +1956,9 @@ export const Composer: React.FC<ComposerProps> = ({
                     `}
                     title={isSendDisabled() ? getSendDisabledReason() : undefined}
                   >
-                    {loading ? (
+                    {sendingProgress ? (
                       <ShinyText
-                        text="Sending..."
+                        text={`Sending ${sendingProgress.current}/${sendingProgress.total}...`}
                         speed={2}
                         color="#ffffff"
                         shineColor="#ffffff"

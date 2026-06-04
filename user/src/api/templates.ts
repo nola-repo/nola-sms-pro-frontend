@@ -1,17 +1,19 @@
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
 import type { Template } from "../types/Template";
+import { getCachedTemplates, setCachedTemplates, invalidateTemplateCache } from "../utils/templateCache";
 
 const API_URL = API_CONFIG.templates;
 const DEFAULT_CATEGORY = "General";
 
-const getHeaders = () => {
+const getHeaders = (explicitLocationId?: string) => {
   const accountSettings = getAccountSettings();
+  const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (accountSettings.ghlLocationId) {
-    headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+  if (locationId) {
+    headers['X-GHL-Location-ID'] = locationId;
   }
   return headers;
 };
@@ -49,47 +51,67 @@ const unwrapTemplate = (payload: any): Template => {
   return normalizeTemplate(raw);
 };
 
-export const fetchTemplates = async (): Promise<Template[]> => {
-  try {
-    const accountSettings = getAccountSettings();
-    if (!accountSettings.ghlLocationId) return [];
+export const fetchTemplates = async (explicitLocationId?: string, forceRefresh = false): Promise<Template[]> => {
+  const accountSettings = getAccountSettings();
+  const locationId = explicitLocationId || accountSettings.ghlLocationId || undefined;
+  if (!locationId) return [];
 
-    const res = await fetch(API_URL, { headers: getHeaders() });
+  if (!forceRefresh) {
+    const cached = getCachedTemplates(locationId);
+    if (cached) return cached;
+  }
+
+  try {
+    let url = API_URL;
+    if (locationId) {
+      url += `?location_id=${encodeURIComponent(locationId)}`;
+    }
+
+    const res = await fetch(url, { headers: getHeaders(locationId) });
     
     // Handle mock mode for when backend doesn't exist yet
     if (res.status === 404) {
       console.warn('NOLA SMS: Templates backend not available yet (404)');
       // Return mock data for UI testing if the user is testing the UI before backend is ready
       const mockStr = localStorage.getItem('nola_mock_templates');
-      return mockStr ? JSON.parse(mockStr) : [];
+      const result = mockStr ? JSON.parse(mockStr) : [];
+      setCachedTemplates(locationId, result);
+      return result;
     }
     
     if (!res.ok) {
       throw new Error(`Error fetching templates: ${res.statusText}`);
     }
-    return unwrapTemplateList(await res.json());
+    const result = unwrapTemplateList(await res.json());
+    setCachedTemplates(locationId, result);
+    return result;
   } catch (error) {
     console.error('Failed to fetch templates:', error);
     const mockStr = localStorage.getItem('nola_mock_templates');
-    return mockStr ? JSON.parse(mockStr) : [];
+    const result = mockStr ? JSON.parse(mockStr) : [];
+    setCachedTemplates(locationId, result);
+    return result;
   }
 };
 
 export const createTemplate = async (name: string, content: string, category: string = DEFAULT_CATEGORY): Promise<Template> => {
+  const activeLocationId = getAccountSettings().ghlLocationId || undefined;
   try {
     const res = await fetch(API_URL, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(activeLocationId),
       body: JSON.stringify({ name, content, category }),
     });
     
+    invalidateTemplateCache(activeLocationId);
+
     if (res.status === 404) {
       // Mock logic for local testing before backend is ready
       const mockStr = localStorage.getItem('nola_mock_templates');
       const templates: Template[] = mockStr ? JSON.parse(mockStr) : [];
       const newTemp: Template = {
         id: `mock-${Date.now()}`,
-        location_id: getAccountSettings().ghlLocationId || '',
+        location_id: activeLocationId || '',
         name,
         content,
         category,
@@ -107,13 +129,14 @@ export const createTemplate = async (name: string, content: string, category: st
     }
     return unwrapTemplate(await res.json());
   } catch (error: any) {
+    invalidateTemplateCache(activeLocationId);
     // Mock logic fallback
     if (error.message === 'Failed to fetch') {
       const mockStr = localStorage.getItem('nola_mock_templates');
       const templates: Template[] = mockStr ? JSON.parse(mockStr) : [];
       const newTemp: Template = {
         id: `mock-${Date.now()}`,
-        location_id: getAccountSettings().ghlLocationId || '',
+        location_id: activeLocationId || '',
         name,
         content,
         category,
@@ -129,13 +152,16 @@ export const createTemplate = async (name: string, content: string, category: st
 };
 
 export const updateTemplate = async (id: string, name: string, content: string, category: string = DEFAULT_CATEGORY): Promise<Template> => {
+  const activeLocationId = getAccountSettings().ghlLocationId || undefined;
   try {
     const res = await fetch(API_URL, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: getHeaders(activeLocationId),
       body: JSON.stringify({ id, name, content, category }),
     });
     
+    invalidateTemplateCache(activeLocationId);
+
     if (res.status === 404) {
       const mockStr = localStorage.getItem('nola_mock_templates');
       let templates: Template[] = mockStr ? JSON.parse(mockStr) : [];
@@ -158,6 +184,7 @@ export const updateTemplate = async (id: string, name: string, content: string, 
     }
     return unwrapTemplate(await res.json());
   } catch (error: any) {
+    invalidateTemplateCache(activeLocationId);
     // Mock logic fallback
     if (error.message === 'Failed to fetch') {
       const mockStr = localStorage.getItem('nola_mock_templates');
@@ -179,12 +206,15 @@ export const updateTemplate = async (id: string, name: string, content: string, 
 };
 
 export const deleteTemplate = async (id: string): Promise<void> => {
+  const activeLocationId = getAccountSettings().ghlLocationId || undefined;
   try {
     const res = await fetch(`${API_URL}?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: getHeaders(activeLocationId),
     });
     
+    invalidateTemplateCache(activeLocationId);
+
     if (res.status === 404) {
       const mockStr = localStorage.getItem('nola_mock_templates');
       let templates: Template[] = mockStr ? JSON.parse(mockStr) : [];
@@ -198,6 +228,7 @@ export const deleteTemplate = async (id: string): Promise<void> => {
       throw new Error(error.message || 'Failed to delete template');
     }
   } catch (error: any) {
+    invalidateTemplateCache(activeLocationId);
     // Mock logic fallback
     if (error.message === 'Failed to fetch') {
       const mockStr = localStorage.getItem('nola_mock_templates');

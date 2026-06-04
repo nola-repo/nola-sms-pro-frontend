@@ -192,18 +192,31 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
 
     useEffect(() => {
         if (!locationId) {
+            setAccountProfile(null);
             setLoading(false);
             return;
         }
         let cancelled = false;
+
+        // Immediately set cached profile to avoid loading flash
+        const cachedProfile =
+            getCachedAccountProfile(locationId, { includeAuth: false, allowExpired: true }) ||
+            getCachedAccountProfile(locationId, { allowExpired: true });
+        setAccountProfile(cachedProfile);
+
         const loadData = async () => {
             setLoading(true);
             try {
-                const [creditRes, convRes, contactRes, txRes] = await Promise.allSettled([
+                const [creditRes, convRes, contactRes, txRes, profileRes] = await Promise.allSettled([
                     fetchCreditStatus(locationId),
                     fetchConversations(locationId),
                     fetchContacts(locationId),
                     fetchCreditTransactions('default', 100, locationId),
+                    fetchAccountProfile(locationId, {
+                        includeAuth: false,
+                        forceRefresh: true,
+                        allowStaleOnError: true,
+                    })
                 ]);
                 if (cancelled) return;
                 if (creditRes.status === 'fulfilled') setCreditStatus(creditRes.value);
@@ -214,6 +227,9 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                     setContactsCount(list.length);
                 }
                 if (txRes.status === 'fulfilled') setTransactions(txRes.value || []);
+                if (profileRes.status === 'fulfilled') {
+                    setAccountProfile(profileRes.value || cachedProfile);
+                }
             } catch (err) {
                 console.error('[Home] Data fetch error:', err);
             } finally {
@@ -222,34 +238,6 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         };
         loadData();
         return () => { cancelled = true; };
-    }, [locationId]);
-
-    useEffect(() => {
-        if (!locationId) {
-            setAccountProfile(null);
-            return;
-        }
-
-        let cancelled = false;
-        const cachedProfile =
-            getCachedAccountProfile(locationId, { includeAuth: false, allowExpired: true }) ||
-            getCachedAccountProfile(locationId, { allowExpired: true });
-
-        setAccountProfile(cachedProfile);
-
-        fetchAccountProfile(locationId, {
-            includeAuth: false,
-            forceRefresh: true,
-            allowStaleOnError: true,
-        }).then((profile) => {
-            if (!cancelled) {
-                setAccountProfile(profile || cachedProfile);
-            }
-        });
-
-        return () => {
-            cancelled = true;
-        };
     }, [locationId]);
 
     useEffect(() => {
@@ -391,7 +379,20 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         }
     });
     const sentTodaySeries = createDaySeries(trendAnchor, 14);
-    sentTodaySeries[sentTodaySeries.length - 1].value = sentToday;
+    const sentTodayIndex = new Map(sentTodaySeries.map((point, index) => [point.key, index]));
+    transactions.forEach((tx) => {
+        const log = tx as HomeCreditTransaction;
+        const date = toDate(log.created_at);
+        if (!date) return;
+        const index = sentTodayIndex.get(dayKey(date));
+        const isUsage = log.type !== 'top_up' && log.type !== 'refund' && log.type !== 'manual_adjustment' && log.type !== 'credit_purchase';
+        if (index !== undefined && isUsage && dayKey(date) >= trendStartKey) {
+            sentTodaySeries[index].value += 1;
+        }
+    });
+    if (sentTodaySeries.length > 0) {
+        sentTodaySeries[sentTodaySeries.length - 1].value = sentToday;
+    }
     const sentMetricSeries = sentTodaySeries;
     const creditMetricSeries = creditUsageSeries;
     const latestMetricSeries = recentActivitySeries;
@@ -645,7 +646,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                             <div className="w-10 h-10 rounded-xl bg-white/70 dark:bg-white/[0.14] flex items-center justify-center text-purple-700 dark:text-purple-50 mb-4 shadow-sm shadow-purple-900/10 ring-1 ring-white/40 dark:ring-white/10">
                                                 <FiMessageSquare className="h-5 w-5" />
                                             </div>
-                                            <p className="text-[12px] font-bold text-purple-950/70 dark:text-purple-50/80 uppercase tracking-widest mb-1">Total Conversations</p>
+                                            <p className="text-[12px] font-bold text-purple-950/70 dark:text-purple-50/80 uppercase tracking-widest mb-1">Active Conversations</p>
                                         </div>
                                         <h2 className="text-3xl sm:text-4xl font-black text-[#3b0764] dark:text-white leading-none mt-4">
                                             {conversations.length}

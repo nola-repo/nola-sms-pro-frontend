@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { fetchTemplates, createTemplate, updateTemplate, deleteTemplate } from "../api/templates";
 import { fetchContacts } from "../api/contacts";
 import { sendSms } from "../api/sms";
@@ -6,6 +7,7 @@ import type { Template } from "../types/Template";
 import type { Contact } from "../types/Contact";
 import { useLocationId } from "../context/LocationContext";
 import { safeStorage } from "../utils/safeStorage";
+import { getCachedTemplates } from "../utils/templateCache";
 import {
   FiAlertCircle,
   FiCheck,
@@ -210,10 +212,24 @@ export const TemplatesTab: React.FC = () => {
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
-  const loadTemplates = async () => {
+  const loadTemplates = async (forceRefresh = false) => {
+    const cached = getCachedTemplates(locationId || undefined);
+    if (cached && !forceRefresh) {
+      setTemplates(cached);
+      setLoading(false);
+      // Fetch in the background to update the cache and state
+      try {
+        const data = await fetchTemplates(locationId || undefined, true);
+        setTemplates(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Background template fetch failed:", err);
+      }
+      return;
+    }
+
     setLoading(true);
     try {
-      const data = await fetchTemplates();
+      const data = await fetchTemplates(locationId || undefined, forceRefresh);
       setTemplates(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
@@ -223,10 +239,13 @@ export const TemplatesTab: React.FC = () => {
     }
   };
 
-  // Load templates and pre-load contacts on mount
+  // Load templates on mount/location change
   useEffect(() => {
     loadTemplates();
+  }, [locationId]);
 
+  // Load contacts data on mount/location change
+  useEffect(() => {
     const loadContactsData = async () => {
       setContactsLoading(true);
       try {
@@ -800,17 +819,44 @@ export const TemplatesTab: React.FC = () => {
           </div>
         </div>
       )}
-      {/* Full-screen Sending Overlay */}
+      {/* Sending Overlay — dismissible, non-blocking */}
       {quickSending && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="flex flex-col items-center p-8 bg-white dark:bg-[#1e1f23] rounded-3xl border border-white/10 shadow-2xl max-w-sm w-full mx-4 text-center animate-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center text-[#2b83fa] mb-4 animate-bounce">
-              <FiLoader className="w-8 h-8 animate-spin" />
-            </div>
-            <h4 className="text-[16px] font-extrabold text-[#111111] dark:text-white mb-2">Sending Message...</h4>
-            <p className="text-[13px] text-gray-500 dark:text-gray-400">
-              Sending <strong className="text-[#2b83fa]">{quickSendTemplate?.name}</strong> to <strong className="text-gray-800 dark:text-[#ececf1]">{selectedContact?.name}</strong>
+        <div
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setQuickSendTemplate(null)}
+        >
+          <div
+            className="flex flex-col items-center px-8 pt-6 pb-7 bg-white dark:bg-[#1e1f23] rounded-3xl border border-white/10 shadow-2xl max-w-xs w-full mx-4 text-center animate-in zoom-in-95 duration-200 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Dismiss button */}
+            <button
+              onClick={() => setQuickSendTemplate(null)}
+              className="absolute top-3 right-3 p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 transition-all"
+              title="Dismiss — send continues in background"
+            >
+              <FiX className="w-4 h-4" />
+            </button>
+
+            {/* Lottie animation */}
+            <DotLottieReact
+              src="https://lottie.host/8bff6661-62db-4473-adb8-7eced34f3649/mii3gOOlir.lottie"
+              loop
+              autoplay
+              className="w-28 h-28 -mt-2 -mb-1"
+            />
+
+            <h4 className="text-[16px] font-extrabold text-[#111111] dark:text-white mb-1.5">Sending Message…</h4>
+            <p className="text-[13px] text-gray-500 dark:text-gray-400 leading-snug">
+              Sending <strong className="text-[#2b83fa]">{quickSendTemplate?.name}</strong> to{" "}
+              <strong className="text-gray-800 dark:text-[#ececf1]">{selectedContact?.name}</strong>
             </p>
+            <button
+              onClick={() => setQuickSendTemplate(null)}
+              className="mt-5 text-[11px] font-semibold text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors underline decoration-dashed hover:decoration-solid"
+            >
+              Dismiss — sending continues in background
+            </button>
           </div>
         </div>
       )}

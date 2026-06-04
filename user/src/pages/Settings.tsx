@@ -1095,8 +1095,8 @@ function formatTxDate(iso: string): string {
     }
 }
 
-const AR_AMOUNTS = [100, 250, 500, 1000, 2000];
-const AR_THRESHOLDS = [25, 50, 100, 200];
+// const AR_AMOUNTS = [100, 250, 500, 1000, 2000];
+// const AR_THRESHOLDS = [25, 50, 100, 200];
 const API_BASE_URL = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
 const CHECKOUT_ALLOWED_ORIGINS = new Set(['https://sms.nolawebsolutions.com', 'https://nolasmspro.com']);
 const CHECKOUT_SESSION_STORAGE_KEY = 'nola_pending_checkout';
@@ -1170,12 +1170,12 @@ const CreditsSection: React.FC = () => {
     const popupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    // Auto-recharge state
-    const [arEnabled, setArEnabled] = useState(false);
-    const [arAmount, setArAmount] = useState(500);
-    const [arThreshold, setArThreshold] = useState(50);
-    const [arSaving, setArSaving] = useState(false);
-    const [arSaved, setArSaved] = useState(false);
+    // AUTO_RECHARGE_DISABLED
+    // const [arEnabled, setArEnabled] = useState(false);
+    // const [arAmount, setArAmount] = useState(500);
+    // const [arThreshold, setArThreshold] = useState(50);
+    // const [arSaving, setArSaving] = useState(false);
+    // const [arSaved, setArSaved] = useState(false);
 
     // Request credits state
     const [reqModalOpen, setReqModalOpen] = useState(false);
@@ -1316,19 +1316,19 @@ const CreditsSection: React.FC = () => {
     const creditsUsedToday = creditStatus?.stats?.credits_used_today ?? 0;
     const creditsUsedMonth = creditStatus?.stats?.credits_used_month ?? 0;
 
-    // ── Auto-recharge save ────────────────────────────────────────────────────
-    const saveAutoRecharge = async () => {
-        setArSaving(true);
-        try {
-            await fetch(`${API_BASE_URL}/api/billing/subaccount_wallet.php`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ action: 'set_auto_recharge', location_id: locationId, enabled: arEnabled, amount: arAmount, threshold: arThreshold }),
-            });
-            setArSaved(true); setTimeout(() => setArSaved(false), 2000);
-        } catch { /* silently handled */ } finally { setArSaving(false); }
-    };
+    // AUTO_RECHARGE_DISABLED
+    // const saveAutoRecharge = async () => {
+    //     setArSaving(true);
+    //     try {
+    //         await fetch(`${API_BASE_URL}/api/billing/subaccount_wallet.php`, {
+    //             method: 'POST',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             credentials: 'include',
+    //             body: JSON.stringify({ action: 'set_auto_recharge', location_id: locationId, enabled: arEnabled, amount: arAmount, threshold: arThreshold }),
+    //         });
+    //         setArSaved(true); setTimeout(() => setArSaved(false), 2000);
+    //     } catch { /* silently handled */ } finally { setArSaving(false); }
+    // };
 
     // ── Submit credit request ─────────────────────────────────────────────────
     const submitCreditRequest = async () => {
@@ -1535,7 +1535,7 @@ const CreditsSection: React.FC = () => {
 
     return (
         <div className="space-y-5">
-            <SectionHeader title="Credits & Billing" subtitle="Monitor your SMS credit balance, configure auto-recharge, and request credits from your agency." />
+            <SectionHeader title="Credits & Billing" subtitle="Monitor your SMS credit balance and request credits from your agency." />
             {/* ── Request Credits Modal ──────────────────────────────────────── */}
             {reqModalOpen && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]" onClick={() => setReqModalOpen(false)}>
@@ -1657,39 +1657,39 @@ const CreditsSection: React.FC = () => {
                 )}
             </div>
             {/* Auto-recharge config row */}
+            {/* AUTO_RECHARGE_DISABLED
             <Card>
                 <div className="flex flex-wrap items-center gap-3">
                     <button
-                        onClick={() => setArEnabled(v => !v)}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 focus:outline-none ${arEnabled ? 'bg-[#2b83fa]' : 'bg-gray-200 dark:bg-[#3a3b3f]'}`}
+                        onClick={() => {}}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 focus:outline-none bg-gray-200 dark:bg-[#3a3b3f]`}
                     >
-                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${arEnabled ? 'translate-x-[18px]' : 'translate-x-1'}`} />
+                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform translate-x-1`} />
                     </button>
                     <span className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a9] font-medium">Auto recharge with</span>
                     <div className="relative">
-                        <select value={arAmount} onChange={e => setArAmount(Number(e.target.value))} disabled={!arEnabled}
+                        <select value={500} onChange={() => {}} disabled={true}
                             className="pl-3 pr-7 py-1 rounded-lg bg-[#f0f2f8] dark:bg-[#1c1e21] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[12.5px] font-bold text-[#111111] dark:text-white appearance-none focus:outline-none disabled:opacity-50">
-                            {AR_AMOUNTS.map(v => <option key={v} value={v}>{v.toLocaleString()} credits</option>)}
+                            <option value={500}>500 credits</option>
                         </select>
                         <FiChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#9aa0a6] pointer-events-none" />
                     </div>
                     <span className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a9] font-medium">when below</span>
                     <div className="relative">
-                        <select value={arThreshold} onChange={e => setArThreshold(Number(e.target.value))} disabled={!arEnabled}
+                        <select value={50} onChange={() => {}} disabled={true}
                             className="pl-3 pr-7 py-1 rounded-lg bg-[#f0f2f8] dark:bg-[#1c1e21] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[12.5px] font-bold text-[#111111] dark:text-white appearance-none focus:outline-none disabled:opacity-50">
-                            {AR_THRESHOLDS.map(v => <option key={v} value={v}>{v.toLocaleString()} credits</option>)}
+                            <option value={50}>50 credits</option>
                         </select>
                         <FiChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#9aa0a6] pointer-events-none" />
                     </div>
-                    <button onClick={saveAutoRecharge} disabled={arSaving}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all disabled:opacity-50 ${
-                            arSaved ? 'bg-emerald-500/10 text-emerald-600' : 'bg-[#f0f2f8] dark:bg-[#1c1e21] text-[#6e6e73] dark:text-[#9aa0a9] hover:text-[#111111] dark:hover:text-white border border-[#e0e0e0] dark:border-[#ffffff0a]'
-                        }`}>
-                        {arSaving ? <FiRefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FiCheck className="w-3.5 h-3.5" />}
-                        {arSaved ? 'Saved!' : 'Save'}
+                    <button onClick={() => {}} disabled={true}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all disabled:opacity-50 bg-[#f0f2f8] dark:bg-[#1c1e21] text-[#6e6e73] dark:text-[#9aa0a9] border border-[#e0e0e0] dark:border-[#ffffff0a]`}>
+                        <FiCheck className="w-3.5 h-3.5" />
+                        Save
                     </button>
                 </div>
             </Card>
+            */}
             {/* Request Credits from Agency */}
             <Card>
                 <div className="flex items-center justify-between gap-4">

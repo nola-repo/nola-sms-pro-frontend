@@ -579,6 +579,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
               selectedContacts={selectedContacts}
               activeContact={activeContact}
               activeBulkMessage={activeBulkMessage}
+              isNewMessage={!activeContact && !activeBulkMessage}
               onSelectContact={handleSelectContact}
               onSelectBulkMessage={handleSelectBulkMessage}
               onToggleMobileMenu={toggleMobileMenu}

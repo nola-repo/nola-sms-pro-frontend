@@ -22,8 +22,8 @@ const parseFirestoreDate = (raw: unknown): Date => {
     if (!raw) return new Date();
     if (typeof raw === "string") return new Date(raw);
     if (typeof raw === "object" && raw !== null) {
-        if ("toDate" in raw && typeof (raw as any).toDate === "function") {
-            return (raw as any).toDate();
+        if ("toDate" in raw && typeof (raw as { toDate: () => Date }).toDate === "function") {
+            return (raw as { toDate: () => Date }).toDate();
         }
         if ("_seconds" in raw) {
             return new Date((raw as { _seconds: number })._seconds * 1000);
@@ -31,6 +31,37 @@ const parseFirestoreDate = (raw: unknown): Date => {
     }
     return new Date();
 };
+
+const STATUS_PRIORITY: Record<string, number> = {
+    sending: 0,
+    queued: 1,
+    pending: 2,
+    sent: 3,
+    delivered: 4,
+    failed: 4,
+    rejected: 4,
+    undelivered: 4,
+    expired: 4,
+};
+
+const apiMatchesLocal = (api: Message, local: Message) =>
+    api.id === local.id ||
+    (
+        api.text === local.text &&
+        Math.abs(api.timestamp.getTime() - local.timestamp.getTime()) < 60_000
+    );
+
+interface DatabaseMessageRow {
+    id?: string;
+    message_id?: string;
+    message?: string;
+    created_at?: unknown;
+    date_created?: unknown;
+    sender_id?: string;
+    status?: string;
+    batch_id?: string;
+    error_reason?: string;
+}
 
 /**
  * Load and listen to messages for a single conversation by its conversation_id.
@@ -60,7 +91,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         cacheKeyRef.current = cacheKey;
     }, [cacheKey]);
 
-    const processAndMergeMessages = useCallback((rows: any[]) => {
+    const processAndMergeMessages = useCallback((rows: DatabaseMessageRow[]) => {
         // Sort oldest → newest for chronological display
         const sorted = [...rows].sort(
             (a, b) =>
@@ -93,18 +124,9 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             };
         });
 
-        // Frontend status priority guard — mirrors backend retrieve_status.php
-        const STATUS_PRIORITY: Record<string, number> = {
-            sending: 0,
-            queued: 1,
-            pending: 2,
-            sent: 3,
-            delivered: 4,
-            failed: 4,
-            rejected: 4,
-            undelivered: 4,
-            expired: 4,
-        };
+        // Compute apiReturnedTransientEmpty outside the state updater context
+        const apiReturnedTransientEmpty =
+            !isInitialLoad.current && formatted.length === 0;
 
         setMessages(prev => {
             const prevById = new Map(prev.map(m => [m.id, m]));
@@ -121,15 +143,9 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 return apiMsg;
             });
 
-            const apiMatchesLocal = (api: Message, local: Message) =>
-                api.id === local.id ||
-                (
-                    api.text === local.text &&
-                    Math.abs(api.timestamp.getTime() - local.timestamp.getTime()) < 60_000
-                );
-
-            const apiReturnedTransientEmpty =
-                !isInitialLoad.current && formatted.length === 0 && prev.length > 0;
+            const currentCacheKey = cacheKeyRef.current;
+            const hasPrev = prev.length > 0;
+            const isTransientEmpty = apiReturnedTransientEmpty && hasPrev;
 
             const localOnly = prev.filter((local) => {
                 if (formatted.some((api) => apiMatchesLocal(api, local))) {
@@ -141,18 +157,18 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 }
 
                 const isRecentlySent = Date.now() - local.timestamp.getTime() < 5 * 60_000;
-                return apiReturnedTransientEmpty || isRecentlySent;
+                return isTransientEmpty || isRecentlySent;
             });
 
             const nextMessages = [...merged, ...localOnly].sort(
                 (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
             );
-            if (cacheKey) {
-                messageHistoryCache.set(cacheKey, { messages: nextMessages, fetchedAt: Date.now() });
+            if (currentCacheKey) {
+                messageHistoryCache.set(currentCacheKey, { messages: nextMessages, fetchedAt: Date.now() });
             }
             return nextMessages;
         });
-    }, [cacheKey]);
+    }, []);
 
     const fetchHistory = useCallback(async (showLoading = true) => {
         if (!conversationId) {
@@ -309,7 +325,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         return () => window.removeEventListener('conversation-updated', handleConversationUpdated);
     }, [conversationId, fetchHistory]);
 
-    const addOptimisticMessage = (text: string, senderName: string, targetConversationId?: string): string => {
+    const addOptimisticMessage = useCallback((text: string, senderName: string, targetConversationId?: string): string => {
         const id = `temp-${Date.now()}`;
         const newMsg: Message = {
             id,
@@ -349,9 +365,9 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             return nextMessages;
         });
         return id;
-    };
+    }, [locationId, conversationId, recipientKey]);
 
-    const updateMessageStatus = (
+    const updateMessageStatus = useCallback((
         tempId: string,
         status: "sending" | "sent" | "failed",
         realId?: string,
@@ -387,7 +403,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         if (realId && targetCacheKey) {
             optimisticMessageTargets.current.set(realId, targetCacheKey);
         }
-    };
+    }, []);
 
     return {
         messages,
