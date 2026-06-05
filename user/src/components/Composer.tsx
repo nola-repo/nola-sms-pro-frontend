@@ -750,7 +750,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 const tempId = phone ? tempIds[phone] : undefined;
                 if (tempId) {
                   const messageIds = result.messageIds || [];
-                  updateMessageStatus(tempId, result.success ? 'sent' : 'failed', messageIds[0], result.success ? undefined : result.message);
+                  updateMessageStatus(tempId, result.success ? 'sending' : 'failed', messageIds[0], result.success ? undefined : result.message);
                 }
               }
             );
@@ -761,7 +761,7 @@ export const Composer: React.FC<ComposerProps> = ({
             const failedCount = sentTotal - successCount;
 
             if (groupTempId) {
-              updateMessageStatus(groupTempId, successCount > 0 ? 'sent' : 'failed');
+              updateMessageStatus(groupTempId, successCount > 0 ? 'sending' : 'failed');
             }
 
             if (successCount > 0) {
@@ -772,6 +772,29 @@ export const Composer: React.FC<ComposerProps> = ({
 
               // Refresh to show new messages in the conversation
               setTimeout(() => refresh(), 2000);
+
+              // Real-time status polling: check Semaphore for actual delivery status
+              const allMessageIds = results.flatMap(r => r.messageIds || []);
+              if (allMessageIds.length > 0) {
+                let attempts = 0;
+                const maxAttempts = 30; // ~60s total
+                const pollStatus = async () => {
+                  attempts++;
+                  const statusMap = await checkMessageStatus(allMessageIds);
+                  const allResolved = allMessageIds.every(id => {
+                    const s = (statusMap[id] || '').toLowerCase();
+                    return s === 'sent' || s === 'failed' || s === 'success';
+                  });
+
+                  // Refresh messages to show DB-persisted status
+                  if (allResolved || attempts >= maxAttempts) {
+                    refresh();
+                  } else {
+                    setTimeout(pollStatus, 2000);
+                  }
+                };
+                setTimeout(pollStatus, 2000);
+              }
             } else {
               guardedToast("error", "Failed to send bulk messages");
             }
@@ -845,7 +868,7 @@ export const Composer: React.FC<ComposerProps> = ({
                   const tempId = phone ? tempIds[phone] : undefined;
                   if (tempId) {
                     const messageIds = result.messageIds || [];
-                    updateMessageStatus(tempId, result.success ? 'sent' : 'failed', messageIds[0], result.success ? undefined : result.message);
+                    updateMessageStatus(tempId, result.success ? 'sending' : 'failed', messageIds[0], result.success ? undefined : result.message);
                   }
                 }
               );
@@ -855,7 +878,7 @@ export const Composer: React.FC<ComposerProps> = ({
               const failedCount = sentTotal - successCount;
 
               if (groupTempId) {
-                updateMessageStatus(groupTempId, successCount > 0 ? 'sent' : 'failed');
+                updateMessageStatus(groupTempId, successCount > 0 ? 'sending' : 'failed');
               }
 
               if (successCount > 0) {
@@ -876,6 +899,29 @@ export const Composer: React.FC<ComposerProps> = ({
 
                 // Refresh after navigation to fetch from Firestore
                 setTimeout(() => refresh(), 2000);
+
+                // Real-time status polling: check Semaphore for actual delivery status
+                const allMessageIds = results.flatMap(r => r.messageIds || []);
+                if (allMessageIds.length > 0) {
+                  let attempts = 0;
+                  const maxAttempts = 30; // ~60s total
+                  const pollStatus = async () => {
+                    attempts++;
+                    const statusMap = await checkMessageStatus(allMessageIds);
+                    const allResolved = allMessageIds.every(id => {
+                      const s = (statusMap[id] || '').toLowerCase();
+                      return s === 'sent' || s === 'failed' || s === 'success';
+                    });
+
+                    // Refresh messages to show DB-persisted status
+                    if (allResolved || attempts >= maxAttempts) {
+                      refresh();
+                    } else {
+                      setTimeout(pollStatus, 2000);
+                    }
+                  };
+                  setTimeout(pollStatus, 2000);
+                }
               } else {
                 guardedToast("error", "Failed to send bulk messages");
                 const updatedBulkItem: BulkMessageHistoryItem = {
