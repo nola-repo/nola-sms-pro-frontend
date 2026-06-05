@@ -270,6 +270,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           });
         }
 
+        // Filter out generic system-generated names ('Bulk Campaign', batch IDs) so the
+        // sidebar falls through to showing resolved contact names from the members list.
+        const rawServerName = asText(conv.name);
+        const isGenericName = !rawServerName
+          || rawServerName === 'Bulk Campaign'
+          || /^batch[-_]/i.test(rawServerName);
+        const resolvedCustomName = isGenericName ? (existing?.customName || '') : rawServerName;
+
         const item: BulkMessageHistoryItem = {
           id: existing?.id || `bulk-db-${batchId}`,
           message: asText(conv.last_message || existing?.message),
@@ -277,7 +285,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           recipientNames,
           recipientNumbers: members,
           recipientKey: existing?.recipientKey || batchId,
-          customName: asText(conv.name) || existing?.customName,
+          customName: resolvedCustomName || undefined,
           timestamp: conv.last_message_at || conv.updated_at || existing?.timestamp || new Date().toISOString(),
           status: existing?.status || 'sent',
           batchId,
@@ -285,6 +293,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           locationId: conv.location_id,
         };
         mergedBulk.set(key, item);
+
       });
 
     const combined = Array.from(mergedBulk.values())
@@ -536,10 +545,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const cancelDeleteContact = () => setDeletingContact(null);
 
   const getBulkDisplayName = (item: BulkMessageHistoryItem): string => {
-    // Avoid showing auto-generated batch IDs as the "name"
+    // Avoid showing auto-generated/generic names as the display label
     if (item.customName) {
       const looksLikeBatchId = /^batch[-_]\d+$/i.test(item.customName) || /^batch[-_]/i.test(item.customName);
-      if (!looksLikeBatchId) return item.customName;
+      const isGeneric = item.customName === 'Bulk Campaign';
+      if (!looksLikeBatchId && !isGeneric) return item.customName;
     }
     if (item.recipientNames && item.recipientNames.length > 0) {
       const names = item.recipientNames.map((n) => toProperCase(n)).filter(Boolean);
