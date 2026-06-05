@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { fetchMessagesByConversationId, ConversationMessagesError } from "../api/sms";
-import type { Message } from "../types/Sms";
+import type { Message, Conversation } from "../types/Sms";
 import { useLocationId } from "../context/LocationContext";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
 import { db, auth } from "../services/firebaseConfig";
 
@@ -73,6 +73,7 @@ interface DatabaseMessageRow {
 export const useConversationMessages = (conversationId: string | undefined, recipientKey?: string) => {
     const { locationId } = useLocationId();
     const [messages, setMessages] = useState<Message[]>([]);
+    const [conversation, setConversation] = useState<Conversation | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
@@ -133,12 +134,30 @@ export const useConversationMessages = (conversationId: string | undefined, reci
 
             const merged = formatted.map(apiMsg => {
                 const local = prevById.get(apiMsg.id);
-                if (!local) return apiMsg;
-                // Keep local status if it has equal or higher priority than what DB returned
-                const localPriority = STATUS_PRIORITY[local.status] ?? -1;
-                const apiPriority = STATUS_PRIORITY[apiMsg.status] ?? -1;
-                if (localPriority >= apiPriority) {
-                    return { ...apiMsg, status: local.status };
+                if (local) {
+                    // Keep local status if it has equal or higher priority than what DB returned
+                    const localPriority = STATUS_PRIORITY[local.status] ?? -1;
+                    const apiPriority = STATUS_PRIORITY[apiMsg.status] ?? -1;
+                    if (localPriority >= apiPriority) {
+                        return { ...apiMsg, status: local.status };
+                    }
+                    return apiMsg;
+                }
+                // For bulk conversations: a single optimistic temp message represents the whole batch.
+                // When the Firestore real-time listener fires with per-recipient API messages (status='Sending'),
+                // check if any temp message matches by text+timestamp and inherit its higher-priority status
+                // (e.g. 'sent') so the UI doesn't regress to 'Sending' after a successful send.
+                const matchingTemp = prev.find(m =>
+                    m.id.startsWith('temp-') &&
+                    m.text === apiMsg.text &&
+                    Math.abs(m.timestamp.getTime() - apiMsg.timestamp.getTime()) < 60_000
+                );
+                if (matchingTemp) {
+                    const tempPriority = STATUS_PRIORITY[matchingTemp.status] ?? -1;
+                    const apiPriority = STATUS_PRIORITY[apiMsg.status] ?? -1;
+                    if (tempPriority >= apiPriority) {
+                        return { ...apiMsg, status: matchingTemp.status };
+                    }
                 }
                 return apiMsg;
             });
@@ -310,6 +329,53 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         };
     }, [conversationId, locationId, recipientKey, processAndMergeMessages]);
 
+    // Real-time Firestore conversation document subscription
+    useEffect(() => {
+        if (!conversationId) {
+            setConversation(null);
+            return;
+        }
+
+        let unsubscribe: (() => void) | undefined;
+
+        const setupDocListener = async () => {
+            try {
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                }
+                const docRef = doc(db, "conversations", conversationId);
+                unsubscribe = onSnapshot(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const d = docSnap.data();
+                        setConversation({
+                            id: docSnap.id,
+                            location_id: d.location_id ?? null,
+                            type: d.type ?? null,
+                            members: Array.isArray(d.members) ? d.members.map(String).filter(Boolean) : [],
+                            name: d.name ?? null,
+                            last_message: d.last_message ?? null,
+                            last_message_at: d.last_message_at ? (typeof d.last_message_at.toDate === 'function' ? d.last_message_at.toDate().toISOString() : d.last_message_at) : null,
+                            updated_at: d.updated_at ? (typeof d.updated_at.toDate === 'function' ? d.updated_at.toDate().toISOString() : d.updated_at) : null,
+                            ghl_contact_id: d.ghl_contact_id ?? null,
+                        } as Conversation);
+                    } else {
+                        setConversation(null);
+                    }
+                }, (err) => {
+                    console.error("[useConversationMessages] Firestore conversation doc snapshot error:", err);
+                });
+            } catch (err) {
+                console.error("[useConversationMessages] Firestore conversation doc setup error:", err);
+            }
+        };
+
+        setupDocListener();
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
+    }, [conversationId]);
+
     // Listen for sidebar-triggered refresh events
     useEffect(() => {
         if (!conversationId) return;
@@ -413,5 +479,6 @@ export const useConversationMessages = (conversationId: string | undefined, reci
         addOptimisticMessage,
         updateMessageStatus,
         refresh: fetchHistory,
+        conversation,
     };
 };

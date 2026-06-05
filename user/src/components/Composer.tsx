@@ -64,49 +64,7 @@ const DetailRow: React.FC<{ label: string; value?: string | number | null; mono?
   );
 };
 
-const StatusBadgeSummary: React.FC<{ stats: { sent: number, sending: number, failed: number, total: number }, minimal?: boolean }> = ({ stats, minimal }) => {
-  if (minimal) {
-    const isFullySent = stats.sent === stats.total && stats.total > 0;
-    const isFailed = stats.failed === stats.total && stats.total > 0;
 
-    return (
-      <div className="flex items-center gap-1.5 text-[10px] font-bold">
-        {stats.failed > 0 ? (
-          <span className="text-red-500 uppercase tracking-wider flex items-center gap-1">
-            <FiAlertCircle size={11} className="animate-pulse" /> {isFailed ? 'Failed' : `${stats.failed} Failed`}
-          </span>
-        ) : isFullySent ? (
-          <span className="text-green-500 flex items-center gap-0.5 uppercase tracking-wider">
-            <FiCheck size={11} /> Sent
-          </span>
-        ) : (
-          <span className="text-gray-400 dark:text-gray-500 uppercase flex items-center gap-1">
-            <FiLoader className="animate-spin" size={10} /> {stats.sent}/{stats.total}
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider">
-      {stats.failed > 0 && (
-        <span className="text-red-500 flex items-center gap-1">
-          <FiAlertCircle size={10} /> {stats.failed} Failed
-        </span>
-      )}
-      {stats.sending > 0 && (
-        <span className="text-gray-400 dark:text-gray-500 flex items-center gap-1">
-          <FiLoader className="animate-spin" size={10} /> {stats.sending} Sending
-        </span>
-      )}
-      <span className="text-gray-400 dark:text-gray-500 flex items-center gap-1">
-        <FiCheck size={10} className={stats.sent === stats.total && stats.total > 0 ? "text-green-500" : ""} />
-        {stats.sent}/{stats.total} Sent
-      </span>
-    </div>
-  );
-};
 
 const MessageHistorySkeleton: React.FC = () => {
   const rows = [
@@ -276,6 +234,7 @@ export const Composer: React.FC<ComposerProps> = ({
     addOptimisticMessage,
     updateMessageStatus,
     refresh,
+    conversation,
   } = useConversationMessages(conversationId, recipientKeyFocus);
 
   // Optional per-contact fallback: raw outbound log view by phone number
@@ -413,6 +372,28 @@ export const Composer: React.FC<ComposerProps> = ({
     }
   }, [activeContact, selectedContacts, activeBulkMessage]);
 
+  // Sync bulkSelectedContacts with real-time conversation members for group chats
+  const lastSyncedMembersKeyRef = useRef<string>("");
+  useEffect(() => {
+    if (activeBulkMessage && conversation?.members && conversation.members.length > 0) {
+      const derivedContacts: Contact[] = conversation.members.map((num) => {
+        const contactName = resolveContactNameByPhone(contactMap, num);
+        return {
+          id: `bulk-derive-${num}`,
+          name: contactName || num,
+          phone: num
+        };
+      });
+      const membersKey = derivedContacts.map(c => `${c.phone}:${c.name}`).sort().join(',');
+      if (lastSyncedMembersKeyRef.current !== membersKey) {
+        lastSyncedMembersKeyRef.current = membersKey;
+        setBulkSelectedContacts(derivedContacts);
+      }
+    } else {
+      lastSyncedMembersKeyRef.current = "";
+    }
+  }, [activeBulkMessage, conversation, contactMap]);
+
   // Reset bulkSelectedContacts when switching from bulk to single mode
   useEffect(() => {
     setBulkSelectedContacts((current) =>
@@ -474,8 +455,18 @@ export const Composer: React.FC<ComposerProps> = ({
 
   const handleSelectBulkContact = (contact: Contact) => {
     if (composeMode === "single") {
-      setBulkSelectedContacts([contact]);
-      setIsPickerOpen(false);
+      if (bulkSelectedContacts.length > 0 && bulkSelectedContacts[0].id !== contact.id) {
+        setComposeMode("bulk");
+        setBulkSelectedContacts(prev => {
+          if (!prev.find(c => c.id === contact.id)) {
+            return [...prev, contact];
+          }
+          return prev;
+        });
+      } else {
+        setBulkSelectedContacts([contact]);
+        setIsPickerOpen(false);
+      }
     } else {
       if (!bulkSelectedContacts.find(c => c.id === contact.id)) {
         setBulkSelectedContacts(prev => [...prev, contact]);
@@ -494,7 +485,17 @@ export const Composer: React.FC<ComposerProps> = ({
         phone: searchQuery.trim(),
       };
       if (composeMode === "single") {
-        setBulkSelectedContacts([newManualContact]);
+        if (bulkSelectedContacts.length > 0 && bulkSelectedContacts[0].phone !== newManualContact.phone) {
+          setComposeMode("bulk");
+          setBulkSelectedContacts(prev => {
+            if (!prev.find(c => c.phone === newManualContact.phone)) {
+              return [...prev, newManualContact];
+            }
+            return prev;
+          });
+        } else {
+          setBulkSelectedContacts([newManualContact]);
+        }
       } else {
         if (!bulkSelectedContacts.find(c => c.phone === newManualContact.phone)) {
           setBulkSelectedContacts(prev => [...prev, newManualContact]);
@@ -1721,26 +1722,37 @@ export const Composer: React.FC<ComposerProps> = ({
                           </div>
 
                           <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-40 opacity-100 mt-1 mb-1 px-1' : 'max-h-0 opacity-0'}`}>
-                            <div className="flex flex-col items-end gap-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                                  {grp.rows[0]?.senderName || 'NOLASMSPro'}
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                                {grp.rows[0]?.senderName || 'NOLASMSPro'}
+                              </span>
+                              <span className="text-[10px] text-gray-400">•</span>
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+                                {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <span className="text-[10px] text-gray-400">•</span>
+                              {campaignStats.sending > 0 ? (
+                                <span className="text-[10px] font-bold text-gray-400 capitalize tracking-wider flex items-center gap-0.5">
+                                  <FiLoader className="animate-spin inline mb-0.5 mr-1" size={10} />
+                                  Sending…
                                 </span>
-                                <span className="text-[10px] text-gray-400">•</span>
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
-                                  {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              ) : campaignStats.failed > 0 ? (
+                                <span className="text-[10px] font-bold text-red-500 capitalize tracking-wider flex items-center gap-0.5">
+                                  <FiAlertCircle size={10} className="inline mb-0.5 mr-1 animate-pulse" />
+                                  Failed {campaignStats.failed > 0 && `(${campaignStats.failed}/${campaignStats.total} failed)`}
                                 </span>
-                              </div>
-                              <StatusBadgeSummary stats={campaignStats} />
+                              ) : (
+                                <span className="text-[10px] font-bold text-green-500 capitalize tracking-wider flex items-center gap-0.5">
+                                  <FiCheck className="inline mb-0.5 mr-1" size={10} />
+                                  Sent
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          {/* Only show the inline status badge when there is still work in-flight
-                              or failures to call attention to. Hiding it for fully-sent messages
-                              removes the persistent extra space that made bubbles look "floating". */}
-                          {!isExpanded && (campaignStats.sending > 0 || campaignStats.failed > 0) && (
-                            <div className="mt-1 px-1">
-                              <StatusBadgeSummary stats={campaignStats} minimal />
+                          {!isExpanded && campaignStats.sending > 0 && (
+                            <div className="mt-1 flex items-center justify-end px-1">
+                              <FiLoader className="h-3 w-3 animate-spin text-gray-400 dark:text-gray-500" />
                             </div>
                           )}
                         </div>
