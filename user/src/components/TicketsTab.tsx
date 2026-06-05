@@ -49,9 +49,11 @@ export const TicketsTab: React.FC = () => {
         const cached =
             getCachedAccountProfile(resolvedLocationId, { includeAuth: false, allowExpired: true }) ||
             getCachedAccountProfile(resolvedLocationId, { includeAuth: true, allowExpired: true });
-
-        if (cached) setAccountProfile(cached);
-
+        if (cached) {
+            Promise.resolve().then(() => {
+                if (!cancelled) setAccountProfile(cached);
+            });
+        }
         fetchAccountProfile(resolvedLocationId, {
             includeAuth: false,
             forceRefresh: true,

@@ -212,7 +212,7 @@ export const TemplatesTab: React.FC = () => {
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
-  const loadTemplates = async (forceRefresh = false) => {
+  const loadTemplates = useCallback(async (forceRefresh = false) => {
     const cached = getCachedTemplates(locationId || undefined);
     if (cached && !forceRefresh) {
       setTemplates(cached);
@@ -237,12 +237,12 @@ export const TemplatesTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [locationId]);
 
   // Load templates on mount/location change
   useEffect(() => {
     loadTemplates();
-  }, [locationId]);
+  }, [loadTemplates]);
 
   // Load contacts data on mount/location change
   useEffect(() => {
@@ -337,8 +337,8 @@ export const TemplatesTab: React.FC = () => {
         setPreviewTemplate(created);
       }
       handleCloseModal();
-    } catch (err: any) {
-      setError(err.message || "Failed to save template");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save template");
     } finally {
       setIsSubmitting(false);
     }
