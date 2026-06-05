@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { fetchTemplates, createTemplate, updateTemplate, deleteTemplate } from "../api/templates";
 import { fetchContacts } from "../api/contacts";
