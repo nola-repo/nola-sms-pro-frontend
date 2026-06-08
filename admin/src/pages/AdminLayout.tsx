@@ -197,7 +197,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-                <header className="relative z-10 px-6 py-4 bg-white/80 dark:bg-[#121415]/80 backdrop-blur-2xl border-b border-[#0000000a] dark:border-[#ffffff0a] flex-shrink-0 flex items-center justify-between shadow-[0_1px_0_rgba(0,0,0,0.04)] dark:shadow-[0_1px_0_rgba(255,255,255,0.03)]">
+                <header className="relative z-50 px-6 py-4 bg-white/80 dark:bg-[#121415]/80 backdrop-blur-2xl border-b border-[#0000000a] dark:border-[#ffffff0a] flex-shrink-0 flex items-center justify-between shadow-[0_1px_0_rgba(0,0,0,0.04)] dark:shadow-[0_1px_0_rgba(255,255,255,0.03)]">
                     <div className="flex items-center gap-3">
                         {/* Mobile hamburger */}
                         <button
