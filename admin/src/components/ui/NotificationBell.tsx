@@ -1,6 +1,7 @@
 // @ts-nocheck
-import React, { useState, useRef, useEffect } from 'react';
-import { FiBell, FiAlertTriangle, FiAlertOctagon, FiCheckCircle, FiX } from 'react-icons/fi';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FiBell, FiAlertTriangle, FiAlertOctagon, FiCheckCircle, FiX, FiSend, FiUserPlus, FiBriefcase } from 'react-icons/fi';
 import { useAdminNotifications, AdminNotification } from '../../hooks/useAdminNotifications';
 
 function timeAgo(iso: string): string {
@@ -11,52 +12,123 @@ function timeAgo(iso: string): string {
     return `${Math.floor(diff / 86400)}d ago`;
 }
 
+const NOTIF_CONFIGS: Record<string, {
+    icon: React.ComponentType<{ className?: string }>;
+    iconBg: string;
+    iconText: string;
+    unreadBg: string;
+    dotBg: string;
+    getTitle: (n: AdminNotification) => string;
+    getDescription: (n: AdminNotification) => string;
+    route: string;
+}> = {
+    zero_balance: {
+        icon: FiAlertOctagon,
+        iconBg: 'bg-red-100 dark:bg-red-900/30',
+        iconText: 'text-red-500',
+        unreadBg: 'bg-red-50/60 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/15',
+        dotBg: 'bg-red-500',
+        getTitle: (n) => `⚠️ Zero Balance — ${n.location_name || n.location_id || 'Unknown Subaccount'}`,
+        getDescription: (n) => `Sending suspended. Balance: 0 credits.`,
+        route: '/accounts',
+    },
+    low_balance: {
+        icon: FiAlertTriangle,
+        iconBg: 'bg-amber-100 dark:bg-amber-900/30',
+        iconText: 'text-amber-500',
+        unreadBg: 'bg-amber-50/60 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/15',
+        dotBg: 'bg-amber-500',
+        getTitle: (n) => `Low Balance — ${n.location_name || n.location_id || 'Unknown Subaccount'}`,
+        getDescription: (n) => `Balance dropped to ${n.balance ?? 0} credits (threshold: ${n.threshold ?? 0}).`,
+        route: '/accounts',
+    },
+    sender_request: {
+        icon: FiSend,
+        iconBg: 'bg-blue-100 dark:bg-blue-900/30',
+        iconText: 'text-blue-500',
+        unreadBg: 'bg-blue-50/60 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/15',
+        dotBg: 'bg-blue-500',
+        getTitle: (n) => `New Sender ID Request`,
+        getDescription: (n) => `Subaccount "${n.location_name || n.location_id || 'Unknown'}" requested Sender ID: "${n.metadata?.sender_id || 'Pending'}"`,
+        route: '/requests',
+    },
+    new_subaccount: {
+        icon: FiUserPlus,
+        iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
+        iconText: 'text-emerald-500',
+        unreadBg: 'bg-emerald-50/60 dark:bg-emerald-950/10 hover:bg-emerald-50 dark:hover:bg-emerald-950/15',
+        dotBg: 'bg-emerald-500',
+        getTitle: (n) => `New Subaccount Connected`,
+        getDescription: (n) => `Subaccount "${n.location_name || n.location_id || 'Unknown'}" is now connected.`,
+        route: '/accounts',
+    },
+    new_agency: {
+        icon: FiBriefcase,
+        iconBg: 'bg-purple-100 dark:bg-purple-900/30',
+        iconText: 'text-purple-500',
+        unreadBg: 'bg-purple-50/60 dark:bg-purple-900/10 hover:bg-purple-50 dark:hover:bg-purple-900/15',
+        dotBg: 'bg-purple-500',
+        getTitle: (n) => `New Agency Registered`,
+        getDescription: (n) => `Agency "${n.metadata?.agency_name || n.location_name || 'New Agency'}" has registered.`,
+        route: '/agencies',
+    },
+};
+
+const DEFAULT_CONFIG = {
+    icon: FiBell,
+    iconBg: 'bg-gray-100 dark:bg-gray-800',
+    iconText: 'text-gray-500',
+    unreadBg: 'bg-gray-50/60 dark:bg-gray-800/10 hover:bg-gray-50 dark:hover:bg-gray-800/15',
+    dotBg: 'bg-gray-500',
+    getTitle: (n: AdminNotification) => `New Notification`,
+    getDescription: (n: AdminNotification) => `You have a new message.`,
+    route: '/dashboard',
+};
+
 const NotifItem: React.FC<{
     notif: AdminNotification;
     onRead: (id: string) => void;
-}> = ({ notif, onRead }) => {
-    const isZero = notif.type === 'zero_balance';
+    onClose: () => void;
+}> = ({ notif, onRead, onClose }) => {
+    const navigate = useNavigate();
+    const config = NOTIF_CONFIGS[notif.type] || DEFAULT_CONFIG;
+    const Icon = config.icon;
 
     return (
         <div
-            onClick={() => { if (!notif.read) onRead(notif.id); }}
+            onClick={() => {
+                if (!notif.read) {
+                    onRead(notif.id);
+                }
+                navigate(config.route);
+                onClose();
+            }}
             className={`
                 relative flex items-start gap-3 px-4 py-3.5 cursor-pointer
                 transition-colors duration-150
                 ${notif.read
                     ? 'opacity-60 hover:opacity-100 hover:bg-[#f7f7f7] dark:hover:bg-white/[0.03]'
-                    : isZero
-                        ? 'bg-red-50/60 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/15'
-                        : 'bg-amber-50/60 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/15'
+                    : config.unreadBg
                 }
             `}
         >
             {/* Icon */}
             <div className={`
                 mt-0.5 w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center
-                ${isZero
-                    ? 'bg-red-100 dark:bg-red-900/30 text-red-500'
-                    : 'bg-amber-100 dark:bg-amber-900/30 text-amber-500'
-                }
+                ${config.iconBg} ${config.iconText}
             `}>
-                {isZero
-                    ? <FiAlertOctagon className="w-4 h-4" />
-                    : <FiAlertTriangle className="w-4 h-4" />
-                }
+                <Icon className="w-4 h-4" />
             </div>
 
             {/* Content */}
             <div className="flex-1 min-w-0">
                 <p className="text-[12.5px] font-bold text-[#111111] dark:text-white leading-snug">
-                    {isZero ? '⚠️ Zero Balance' : 'Low Balance'} — {notif.location_name || notif.location_id}
+                    {config.getTitle(notif)}
                 </p>
                 <p className="text-[11.5px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5 font-medium">
-                    {isZero
-                        ? `Sending suspended. Balance: 0 credits.`
-                        : `Balance dropped to ${notif.balance} credits (threshold: ${notif.threshold}).`
-                    }
+                    {config.getDescription(notif)}
                 </p>
-                <p className="text-[10.5px] text-[#9aa0a6] mt-1 font-medium">{notif.email}</p>
+                {notif.email && <p className="text-[10.5px] text-[#9aa0a6] mt-1 font-medium">{notif.email}</p>}
                 <p className="text-[10px] text-[#9aa0a6] mt-0.5 font-medium uppercase tracking-wide">
                     {timeAgo(notif.created_at)}
                 </p>
@@ -66,7 +138,7 @@ const NotifItem: React.FC<{
             {!notif.read && (
                 <span className={`
                     mt-1.5 w-2 h-2 rounded-full flex-shrink-0
-                    ${isZero ? 'bg-red-500' : 'bg-amber-500'}
+                    ${config.dotBg}
                     animate-pulse
                 `} />
             )}
@@ -96,6 +168,33 @@ export const NotificationBell: React.FC = () => {
     }, [open]);
 
     const hasZero = notifications.some(n => !n.read && n.type === 'zero_balance');
+
+    // Sort notifications so that unread & critical ones are always on top
+    const sortedNotifications = useMemo(() => {
+        return [...notifications].sort((a, b) => {
+            // 1. Unread first
+            if (a.read !== b.read) {
+                return a.read ? 1 : -1;
+            }
+
+            // 2. Sort by type severity/importance
+            const severity: Record<string, number> = {
+                zero_balance: 0,
+                sender_request: 1,
+                low_balance: 2,
+                new_subaccount: 3,
+                new_agency: 4,
+            };
+            const sevA = severity[a.type] ?? 99;
+            const sevB = severity[b.type] ?? 99;
+            if (sevA !== sevB) {
+                return sevA - sevB;
+            }
+
+            // 3. Newest first
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+    }, [notifications]);
 
     return (
         <div className="relative">
@@ -189,7 +288,7 @@ export const NotificationBell: React.FC = () => {
                                     </div>
                                 ))}
                             </div>
-                        ) : notifications.length === 0 ? (
+                        ) : sortedNotifications.length === 0 ? (
                             <div className="py-14 text-center">
                                 <FiBell className="w-8 h-8 mx-auto mb-3 text-[#d0d0d5] dark:text-[#3a3b3f]" />
                                 <p className="text-[13px] font-semibold text-[#9aa0a6]">No notifications yet</p>
@@ -198,8 +297,8 @@ export const NotificationBell: React.FC = () => {
                                 </p>
                             </div>
                         ) : (
-                            notifications.map(n => (
-                                <NotifItem key={n.id} notif={n} onRead={markRead} />
+                            sortedNotifications.map(n => (
+                                <NotifItem key={n.id} notif={n} onRead={markRead} onClose={() => setOpen(false)} />
                             ))
                         )}
                     </div>
