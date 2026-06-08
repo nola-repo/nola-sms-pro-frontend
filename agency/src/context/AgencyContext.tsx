@@ -1,6 +1,6 @@
 import { safeStorage } from '../utils/safeStorage';
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getAgencySession, clearAgencySession, type AgencySession, fetchAgencyProfile } from '../services/agencyAuthHelper.ts';
+import { getAgencySession, clearAgencySession, ghlAutoLogin, type AgencySession, fetchAgencyProfile } from '../services/agencyAuthHelper.ts';
 import { useGhlCompany } from '../hooks/useGhlCompany.ts';
 
 interface AgencyContextValue {
@@ -74,18 +74,45 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (!isGhlFrame || !ghlCompanyId) return;
 
-    // The agency panel runs like the user-side GHL app: the trusted GHL
-    // companyId is enough to enter the iframe experience. Do not call the
-    // optional JWT auto-login endpoint here because older deployments return
-    // 404 for unlinked agencies and surface a scary console error.
     setAgencyId(ghlCompanyId);
     safeStorage.setItem('nola_agency_id', ghlCompanyId);
-    setAutoLoginError(null);
-    setAutoLoginLoading(false);
-  }, [isGhlFrame, ghlCompanyId]);
+
+    // Skip re-auth if we already have a valid token for this company
+    if (agencySession?.token && agencySession.companyId === ghlCompanyId) {
+      setAutoLoginError(null);
+      setAutoLoginLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setAutoLoginLoading(true);
+
+    ghlAutoLogin(ghlCompanyId)
+      .then(result => {
+        if (cancelled) return;
+        setAgencySession({
+          token: result.token,
+          role: 'agency',
+          companyId: result.companyId,
+          user: result.user,
+        });
+        setAutoLoginError(null);
+      })
+      .catch(err => {
+        if (cancelled) return;
+        // 404 = agency not yet linked in Firestore; warn but don't block the iframe
+        console.warn('[AgencyContext] GHL auto-login failed:', err);
+        setAutoLoginError(null);
+      })
+      .finally(() => {
+        if (!cancelled) setAutoLoginLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [isGhlFrame, ghlCompanyId, agencySession?.token, agencySession?.companyId]);
 
   useEffect(() => {
-    if (!agencySession?.token || isGhlFrame) return;
+    if (!agencySession?.token) return;
 
     let isMounted = true;
 
@@ -112,7 +139,7 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
     return () => { isMounted = false; };
-  }, [agencySession?.token, isGhlFrame]);
+  }, [agencySession?.token, agencyId]);
 
   const logout = () => {
     clearAgencySession();

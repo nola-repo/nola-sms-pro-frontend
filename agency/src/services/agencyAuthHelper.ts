@@ -210,15 +210,17 @@ export class MissingCompanyIdError extends Error {
   }
 }
 
+// Fix 5: Use agency-specific profile endpoint instead of /api/auth/me
 export const fetchAgencyProfile = async (): Promise<AgencyAuthUser | null> => {
   const token = getAuthToken();
   if (!token) return null;
 
-  const res = await fetch('/api/auth/me', {
+  const res = await fetch('/api/agency/profile.php', {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json',
     },
     credentials: 'include',
   });

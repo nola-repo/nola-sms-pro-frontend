@@ -50,8 +50,9 @@ export const Settings = () => {
     if (agencyId) setLocalCompanyId(agencyId);
   }, [agencyId]);
 
+  // Fix 4: Remove isGhlFrame guard — profile should also load inside iframe
   useEffect(() => {
-    if (!agencySession?.token || isGhlFrame) return;
+    if (!agencySession?.token) return;
 
     let isMounted = true;
 
@@ -66,7 +67,7 @@ export const Settings = () => {
       });
 
     return () => { isMounted = false; };
-  }, [agencySession?.token, agencyId, isGhlFrame]);
+  }, [agencySession?.token, agencyId]);
 
   const user = {
     ...(agencySession?.user ?? {}),
