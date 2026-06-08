@@ -293,7 +293,7 @@ export const NotificationBell: React.FC = () => {
                                 <FiBell className="w-8 h-8 mx-auto mb-3 text-[#d0d0d5] dark:text-[#3a3b3f]" />
                                 <p className="text-[13px] font-semibold text-[#9aa0a6]">No notifications yet</p>
                                 <p className="text-[11px] text-[#9aa0a6] mt-1 font-medium">
-                                    Zero/low balance alerts will appear here
+                                    Alerts and platform updates will appear here
                                 </p>
                             </div>
                         ) : (
