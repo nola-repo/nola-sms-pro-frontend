@@ -8,15 +8,47 @@ import SplitText from './SplitText';
 import FadeContent from './FadeContent';
 import AnimatedContent from './AnimatedContent';
 import { AdminLogs } from '../AdminLogs';
+import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
+
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
 
+const normalizeNumber = (value: unknown, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
 
+const normalizeAccount = (item: any) => {
+    const raw = item?.data ? { id: item.id, ...item.data } : item || {};
+    const name = raw.name || raw.full_name || [raw.firstName, raw.lastName].filter(Boolean).join(' ').trim();
+    const locationName = raw.location_name || raw.subaccount_name || raw.company_name || '';
+
+    return {
+        ...raw,
+        id: raw.id || raw.user_id || raw.uid || raw.location_id || raw.email || `user-${Math.random().toString(36).slice(2)}`,
+        name: name || raw.email || locationName || 'Unnamed User',
+        full_name: raw.full_name || name || raw.email || locationName || 'Unnamed User',
+        email: raw.email || raw.email_address || '',
+        phone: raw.phone || raw.phone_number || '',
+        role: raw.role || 'user',
+        active: raw.active !== false,
+        location_id: raw.location_id || raw.active_location_id || '',
+        active_location_id: raw.active_location_id || raw.location_id || '',
+        location_name: locationName,
+        agency_name: raw.agency_name || raw.company_name || '',
+        credit_balance: normalizeNumber(raw.credit_balance ?? raw.credits, 0),
+        credits: normalizeNumber(raw.credits ?? raw.credit_balance, 0),
+        free_usage_count: normalizeNumber(raw.free_usage_count, 0),
+        free_credits_total: normalizeNumber(raw.free_credits_total, 10),
+        approved_sender_id: raw.approved_sender_id || null,
+    };
+};
 
 export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNavigate }) => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [requests, setRequests] = useState<SenderRequest[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
+    const [totalMessages, setTotalMessages] = useState(0);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
@@ -27,20 +59,38 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
     const fetchData = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
         try {
-            const [accRes, logsRes, reqRes] = await Promise.all([
-                fetch(`${ADMIN_API}?action=accounts`).catch(() => null),
-                fetch(`${ADMIN_API}?action=logs`).catch(() => null),
-                fetch(ADMIN_API).catch(() => null)
+            const [logsRes, reqRes] = await Promise.all([
+                fetch(`${ADMIN_API}?action=logs`, { headers: getAdminAuthHeaders() }).catch(() => null),
+                fetch(ADMIN_API, { headers: getAdminAuthHeaders() }).catch(() => null)
             ]);
 
-            if (accRes) {
-                const accJson = await accRes.json();
-                if (accJson.status === 'success') {
-                    const mapped = (accJson.data || []).map((item: any) => item.data ? { id: item.id, ...item.data } : item)
-                        .filter((acc: any) => acc.id !== 'ghl' && acc.location_id);
-                    setAccounts(mapped);
+            // Fetch accurate registered users list
+            let accs = [];
+            try {
+                const res = await fetch('/api/admin_list_users.php', { headers: getAdminAuthHeaders() });
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json.status === 'success') {
+                        accs = (json.data || []).map(normalizeAccount);
+                    }
+                }
+            } catch (err) {
+                console.error("Dashboard list users fetch error:", err);
+            }
+
+            // Fallback to ADMIN_API?action=accounts if list users failed
+            if (!accs.length) {
+                const accRes = await fetch(`${ADMIN_API}?action=accounts`, { headers: getAdminAuthHeaders() }).catch(() => null);
+                if (accRes) {
+                    const accJson = await accRes.json();
+                    if (accJson.status === 'success') {
+                        accs = (accJson.data || []).map(normalizeAccount)
+                            .filter((acc: any) => acc.id !== 'ghl' && acc.location_id);
+                    }
                 }
             }
+            setAccounts(accs);
+
             if (reqRes) {
                 const reqJson = await reqRes.json();
                 if (reqJson.status === 'success') setRequests(reqJson.data || []);
@@ -54,6 +104,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                         return timeB - timeA;
                     });
                     setLogs(sortedLogs);
+                    setTotalMessages(logsJson.total_messages ?? sortedLogs.length);
                 }
             }
             setLastRefreshed(new Date());
@@ -72,7 +123,6 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
 
     const totalAccounts = accounts.length;
     const pendingRequests = requests.filter(r => r.status === 'pending').length;
-    const totalMessages = logs.length;
     const approvedSenders = accounts.filter(a => a.approved_sender_id).length;
     const recentRequests = [...requests].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 6);
 
