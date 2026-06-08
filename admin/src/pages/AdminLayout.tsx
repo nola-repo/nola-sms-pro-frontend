@@ -33,6 +33,79 @@ const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
     '/settings':  { title: 'System Settings',   subtitle: 'Global configuration and platform settings.' },
 };
 
+const NavItems = ({ onNav }: { onNav?: () => void }) => {
+    const navigate = useNavigate();
+    const { pathname } = useLocation();
+
+    return (
+        <>
+            {NAV_ITEMS.map(item => {
+                const isActive = pathname === item.path || (pathname === '/' && item.path === '/dashboard');
+                return (
+                    <button
+                        key={item.path}
+                        onClick={() => { navigate(item.path); onNav?.(); }}
+                        className={`
+                          w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 relative group
+                          ${isActive
+                              ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
+                              : 'text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]'}
+                        `}
+                    >
+                        {isActive && (
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#2b83fa] rounded-r-full shadow-sm" />
+                        )}
+                        <div className={`text-[19px] transition-all duration-500 ${isActive ? 'scale-110 text-[#2b83fa]' : 'group-hover:scale-105 group-hover:text-[#2b83fa]'} active:scale-90`}>
+                            {item.icon}
+                        </div>
+                        <span className={`text-[13.5px] transition-all duration-200 ${isActive ? 'font-bold tracking-tight' : 'font-medium'}`}>
+                            {item.label}
+                        </span>
+                    </button>
+                );
+            })}
+        </>
+    );
+};
+
+const SidebarContent = ({ onNav, onLogout }: { onNav?: () => void; onLogout: () => void }) => (
+    <>
+        <div className="px-4 pt-3 pb-2">
+            <div className="flex items-center gap-3.5 group cursor-pointer transition-all">
+                <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-md flex items-center justify-center shrink-0 transition-all duration-500 relative overflow-hidden group-hover:rotate-6 group-hover:scale-105 active:scale-95">
+                    <div className="transition-all duration-500 group-hover:rotate-[-6deg]">
+                       <FiLock className="w-5 h-5 text-white" />
+                    </div>
+                </div>
+                <div className="flex flex-col">
+                    <h2 className="text-[14.5px] font-extrabold text-[#111111] dark:text-white tracking-tight leading-none">
+                        NOLA SMS PRO
+                    </h2>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[10px] font-bold text-[#2b83fa] uppercase tracking-widest opacity-80">Admin</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <nav className="flex-1 flex flex-col gap-0.5 px-3 pt-0 overflow-y-auto sidebar-scroll">
+            <div className="px-2 pt-1 pb-1.5">
+              <span className="text-[10.5px] font-bold text-[#9aa0a6] dark:text-[#5f6368] uppercase tracking-widest">Main Menu</span>
+            </div>
+            <NavItems onNav={onNav} />
+        </nav>
+
+        <div className="p-4 border-t border-[#00000005] dark:border-[#ffffff05]">
+            <button
+                onClick={onLogout}
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-bold text-[#6e6e73] dark:text-[#94959b] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+            >
+                <FiLogOut /> Logout
+            </button>
+        </div>
+    </>
+);
+
 export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => void }> = ({ darkMode, toggleDarkMode }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(() =>
         sessionStorage.getItem('nola_admin_auth') === 'true'
@@ -96,82 +169,13 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
 
     const page = PAGE_TITLES[pathname] ?? PAGE_TITLES['/dashboard'];
 
-    const NavItems = ({ onNav }: { onNav?: () => void }) => (
-        <>
-            {NAV_ITEMS.map(item => {
-                const isActive = pathname === item.path || (pathname === '/' && item.path === '/dashboard');
-                return (
-                    <button
-                        key={item.path}
-                        onClick={() => { navigate(item.path); onNav?.(); }}
-                        className={`
-                          w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 relative group
-                          ${isActive
-                              ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
-                              : 'text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]'}
-                        `}
-                    >
-                        {isActive && (
-                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#2b83fa] rounded-r-full shadow-sm" />
-                        )}
-                        <div className={`text-[19px] transition-all duration-500 ${isActive ? 'scale-110 text-[#2b83fa]' : 'group-hover:scale-105 group-hover:text-[#2b83fa]'} active:scale-90`}>
-                            {item.icon}
-                        </div>
-                        <span className={`text-[13.5px] transition-all duration-200 ${isActive ? 'font-bold tracking-tight' : 'font-medium'}`}>
-                            {item.label}
-                        </span>
-                    </button>
-                );
-            })}
-        </>
-    );
 
-    const SidebarContent = ({ onNav }: { onNav?: () => void }) => (
-        <>
-            <div className="px-4 pt-3 pb-2">
-                <div className="flex items-center gap-3.5 group cursor-pointer transition-all">
-                    <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-md flex items-center justify-center shrink-0 transition-all duration-500 relative overflow-hidden group-hover:rotate-6 group-hover:scale-105 active:scale-95">
-                        <div className="transition-all duration-500 group-hover:rotate-[-6deg]">
-                           <FiLock className="w-5 h-5 text-white" />
-                        </div>
-                    </div>
-                    <div className="flex flex-col">
-                        <h2 className="text-[14.5px] font-extrabold text-[#111111] dark:text-white tracking-tight leading-none">
-                            NOLA SMS PRO
-                        </h2>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[10px] font-bold text-[#2b83fa] uppercase tracking-widest opacity-80">Admin</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <nav className="flex-1 flex flex-col gap-0.5 px-3 pt-0 overflow-y-auto sidebar-scroll">
-                <div className="px-2 pt-1 pb-1.5">
-                  <span className="text-[10.5px] font-bold text-[#9aa0a6] dark:text-[#5f6368] uppercase tracking-widest">Main Menu</span>
-                </div>
-                <NavItems onNav={onNav} />
-            </nav>
-
-            <div className="p-4 border-t border-[#00000005] dark:border-[#ffffff05]">
-                <button
-                    onClick={() => {
-                        setIsMobileOpen(false);
-                        setShowLogoutConfirm(true);
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-bold text-[#6e6e73] dark:text-[#94959b] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-                >
-                    <FiLogOut /> Logout
-                </button>
-            </div>
-        </>
-    );
 
     return (
         <div className={`h-screen flex overflow-hidden bg-[#f7f7f7] dark:bg-[#111111] ${darkMode ? 'dark' : ''}`}>
             {/* Desktop Sidebar */}
             <div className="hidden md:flex w-64 bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border-r border-[#0000000a] dark:border-[#ffffff0a] shadow-[1px_0_0_rgba(0,0,0,0.05)] flex-col z-20 flex-shrink-0">
-                <SidebarContent />
+                <SidebarContent onLogout={() => setShowLogoutConfirm(true)} />
             </div>
 
             {/* Mobile Sidebar Overlay */}
@@ -192,7 +196,13 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                         <FiX className="h-5 w-5" />
                     </button>
                 </div>
-                <SidebarContent onNav={() => setIsMobileOpen(false)} />
+                <SidebarContent 
+                    onNav={() => setIsMobileOpen(false)} 
+                    onLogout={() => {
+                        setIsMobileOpen(false);
+                        setShowLogoutConfirm(true);
+                    }} 
+                />
             </div>
 
             {/* Main Content */}
