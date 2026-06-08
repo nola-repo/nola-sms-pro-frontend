@@ -29,7 +29,7 @@ const NOTIF_CONFIGS: Record<string, {
         unreadBg: 'bg-red-50/60 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/15',
         dotBg: 'bg-red-500',
         getTitle: (n) => `⚠️ Zero Balance — ${n.location_name || n.location_id || 'Unknown Subaccount'}`,
-        getDescription: (n) => `Sending suspended. Balance: 0 credits.`,
+        getDescription: () => `Sending suspended. Balance: 0 credits.`,
         route: '/accounts',
     },
     low_balance: {
