@@ -1,0 +1,83 @@
+// @ts-nocheck
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { getAdminAuthHeaders } from '../utils/adminAuthHeaders';
+
+const ADMIN_NOTIFICATIONS_API = '/api/admin_notifications.php';
+const POLL_INTERVAL = 60_000; // 60 seconds
+
+export type AdminNotification = {
+    id: string;
+    type: 'low_balance' | 'zero_balance';
+    location_id: string;
+    location_name: string;
+    email: string;
+    balance: number;
+    threshold: number;
+    created_at: string;
+    read: boolean;
+};
+
+export function useAdminNotifications() {
+    const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+    const [loading, setLoading] = useState(true);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const fetchNotifications = useCallback(async (isInitial = false) => {
+        if (isInitial) setLoading(true);
+        try {
+            const res = await fetch(`${ADMIN_NOTIFICATIONS_API}?limit=30`, {
+                headers: getAdminAuthHeaders(),
+            });
+            if (!res.ok) return;
+            const json = await res.json();
+            if (json.status === 'success') {
+                setNotifications(json.data || []);
+            }
+        } catch {
+            // Silently fail – bell just shows stale data
+        } finally {
+            if (isInitial) setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchNotifications(true);
+        timerRef.current = setInterval(() => fetchNotifications(false), POLL_INTERVAL);
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, [fetchNotifications]);
+
+    const markRead = useCallback(async (notificationId: string) => {
+        // Optimistic update
+        setNotifications(prev =>
+            prev.map(n => (n.id === notificationId ? { ...n, read: true } : n))
+        );
+        try {
+            await fetch(ADMIN_NOTIFICATIONS_API, {
+                method: 'POST',
+                headers: { ...getAdminAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'mark_read', notification_id: notificationId }),
+            });
+        } catch {
+            // Reverting optimistic update on failure is optional; keep it simple
+        }
+    }, []);
+
+    const markAllRead = useCallback(async () => {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        try {
+            await fetch(ADMIN_NOTIFICATIONS_API, {
+                method: 'POST',
+                headers: { ...getAdminAuthHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'mark_all_read' }),
+            });
+        } catch {
+            // Silently fail
+        }
+    }, []);
+
+    const unreadCount = notifications.filter(n => !n.read).length;
+
+    return { notifications, loading, unreadCount, markRead, markAllRead, refetch: fetchNotifications };
+}

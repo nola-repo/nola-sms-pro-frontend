@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX, FiBriefcase } from 'react-icons/fi';
+import { NotificationBell } from '../components/ui/NotificationBell';
 
 import { AdminLogin } from './components/AdminLogin';
 import { AdminForgotPassword } from './components/AdminForgotPassword';
@@ -211,14 +212,17 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                             <p className="text-[11.5px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">{page.subtitle}</p>
                         </div>
                     </div>
-                    <button
-                        onClick={toggleDarkMode}
-                        className="p-2 rounded-xl bg-[#f7f7f7] dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/5 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#efefef] dark:hover:bg-white/5 transition-all shadow-sm"
-                        aria-label="Toggle theme"
-                        title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                    >
-                        {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <NotificationBell />
+                        <button
+                            onClick={toggleDarkMode}
+                            className="p-2 rounded-xl bg-[#f7f7f7] dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/5 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#efefef] dark:hover:bg-white/5 transition-all shadow-sm"
+                            aria-label="Toggle theme"
+                            title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                        >
+                            {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
+                        </button>
+                    </div>
                 </header>
 
                 <main className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-[#f7f7f7] dark:bg-[#111111]">
