@@ -16,23 +16,13 @@ import { AdminAgencies } from './components/AdminAgencies';
 
 const NAV_ITEMS = [
     { path: '/dashboard',  label: 'Dashboard',        icon: <FiHome /> },
-    { path: '/requests',   label: 'Sender Requests',   icon: <FiSend /> },
+    { path: '/requests',   label: 'Sender Requests',  icon: <FiSend /> },
     { path: '/activity',   label: 'Platform Activity', icon: <FiActivity /> },
-    { path: '/accounts',   label: 'All Subaccounts',   icon: <FiUsers /> },
-    { path: '/agencies',   label: 'All Agencies',      icon: <FiBriefcase /> },
-    { path: '/admins',     label: 'Admin Users',       icon: <FiShield /> },
-    { path: '/settings',   label: 'System Settings',   icon: <FiSettings /> },
+    { path: '/accounts',   label: 'All Subaccounts',  icon: <FiUsers /> },
+    { path: '/agencies',   label: 'All Agencies',     icon: <FiBriefcase /> },
+    { path: '/admins',     label: 'Admin Users',      icon: <FiShield /> },
+    { path: '/settings',   label: 'System Settings',  icon: <FiSettings /> },
 ] as const;
-
-const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
-    '/dashboard': { title: 'Dashboard',         subtitle: 'Platform-wide overview of all accounts and activity.' },
-    '/requests':  { title: 'Sender Requests',   subtitle: 'Management overview and administrative actions.' },
-    '/activity':  { title: 'Platform Activity', subtitle: 'All SMS, credit, and billing events across accounts.' },
-    '/accounts':  { title: 'All Subaccounts',   subtitle: 'Overview of all mapped GHL subaccounts and credits.' },
-    '/agencies':  { title: 'All Agencies',      subtitle: 'Overview of administrative agencies.' },
-    '/admins':    { title: 'Admin Users',       subtitle: 'Manage admin access and team permissions.' },
-    '/settings':  { title: 'System Settings',   subtitle: 'Global configuration and platform settings.' },
-};
 
 const NavItems = ({ onNav }: { onNav?: () => void }) => {
     const navigate = useNavigate();
@@ -115,7 +105,6 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // ── #2 Idle timeout: auto-logout after 30 minutes of inactivity ──────────
     const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
     const resetIdleTimer = useCallback(() => {
@@ -132,18 +121,16 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
         if (!isAuthenticated) return;
         const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
         events.forEach(e => window.addEventListener(e, resetIdleTimer, { passive: true }));
-        resetIdleTimer(); // start the first timer
+        resetIdleTimer();
         return () => {
             events.forEach(e => window.removeEventListener(e, resetIdleTimer));
             if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
         };
     }, [isAuthenticated, resetIdleTimer]);
 
-    const navigate   = useNavigate();
-    const { pathname } = useLocation();
+    const navigate = useNavigate();
 
     const handleLogin = (username: string, token?: string) => {
-        // Store session in sessionStorage (tab-scoped, dies on close) — not localStorage
         sessionStorage.setItem('nola_admin_auth', 'true');
         sessionStorage.setItem('nola_admin_user', username);
         if (token) sessionStorage.setItem('nola_admin_token', token);
@@ -168,25 +155,71 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
         );
     }
 
-    const page = PAGE_TITLES[pathname] ?? PAGE_TITLES['/dashboard'];
+    const renderMobileMenuButton = (light = false) => (
+        <button
+            onClick={() => setIsMobileOpen(true)}
+            className={`md:hidden flex h-10 w-10 items-center justify-center rounded-xl transition-all active:scale-95 ${
+                light
+                    ? 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+                    : 'bg-white dark:bg-[#1c1e21] border border-[#e5e5e5] dark:border-white/10 text-[#111111] dark:text-white shadow-sm hover:bg-[#f7f7f7] dark:hover:bg-white/10'
+            }`}
+            aria-label="Open menu"
+        >
+            <FiMenu className="w-5 h-5" />
+        </button>
+    );
 
+    const dashboardTopControls = (
+        <div className="flex items-center gap-2">
+            <NotificationBell variant="light" />
+            <button
+                onClick={toggleDarkMode}
+                className="p-2 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all shadow-sm"
+                aria-label="Toggle theme"
+                title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+                {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
+            </button>
+        </div>
+    );
 
+    const standardPageControls = (
+        <div className="mb-4 flex items-center justify-between gap-3">
+            {renderMobileMenuButton(false)}
+            <div className="ml-auto flex items-center gap-2">
+                <NotificationBell />
+                <button
+                    onClick={toggleDarkMode}
+                    className="p-2 rounded-xl bg-white dark:bg-[#1c1e21] border border-[#e5e5e5] dark:border-white/10 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/10 transition-all shadow-sm"
+                    aria-label="Toggle theme"
+                    title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                >
+                    {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
+                </button>
+            </div>
+        </div>
+    );
+
+    const renderPage = (page: React.ReactNode) => (
+        <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
+            {standardPageControls}
+            {page}
+        </div>
+    );
 
     return (
-        <div className={`h-screen flex overflow-hidden bg-[#f7f7f7] dark:bg-[#111111] ${darkMode ? 'dark' : ''}`}>
-            {/* Desktop Sidebar */}
+        <div className={`h-screen flex overflow-hidden bg-[#f3f4f6] dark:bg-[#09090b] ${darkMode ? 'dark' : ''}`}>
             <div className="hidden md:flex w-64 bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border-r border-[#0000000a] dark:border-[#ffffff0a] shadow-[1px_0_0_rgba(0,0,0,0.05)] flex-col z-20 flex-shrink-0">
                 <SidebarContent onLogout={() => setShowLogoutConfirm(true)} />
             </div>
 
-            {/* Mobile Sidebar Overlay */}
             {isMobileOpen && (
                 <div
                     className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[90] md:hidden"
                     onClick={() => setIsMobileOpen(false)}
                 />
             )}
-            {/* Mobile Sidebar Drawer */}
+
             <div className={`fixed inset-y-0 left-0 z-[100] md:hidden w-72 bg-white/95 dark:bg-[#121415]/95 backdrop-blur-2xl border-r border-[#0000000a] dark:border-[#ffffff0a] shadow-2xl flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <div className="absolute top-3 right-3">
                     <button
@@ -197,81 +230,40 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                         <FiX className="h-5 w-5" />
                     </button>
                 </div>
-                <SidebarContent 
-                    onNav={() => setIsMobileOpen(false)} 
+                <SidebarContent
+                    onNav={() => setIsMobileOpen(false)}
                     onLogout={() => {
                         setIsMobileOpen(false);
                         setShowLogoutConfirm(true);
-                    }} 
+                    }}
                 />
             </div>
 
-            {/* Main Content */}
             <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-                {/* Blue gradient topbar — matches user panel */}
-                <header className="relative z-50 flex-shrink-0">
-                    {/* Gradient background with rounded bottom corners and shadow matching user panel */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#2b83fa] via-[#1d6bd4] to-[#1556ac] rounded-b-[32px] shadow-[0_14px_34px_rgba(29,107,212,0.22)] pointer-events-none" />
-
-                    {/* Topbar content */}
-                    <div className="relative z-10 px-4 sm:px-6 pt-4 pb-12 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            {/* Mobile hamburger */}
-                            <button
-                                onClick={() => setIsMobileOpen(true)}
-                                className="md:hidden p-2 -ml-1 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-all"
-                                aria-label="Open menu"
-                            >
-                                <FiMenu className="w-5 h-5" />
-                            </button>
-                            <div className="w-10 h-10 rounded-xl bg-white/95 border border-white/40 shadow-md flex items-center justify-center overflow-hidden flex-shrink-0">
-                                <img src={faviconLogo} alt="NOLA SMS PRO" className="h-8 w-8 object-contain" />
-                            </div>
-                            <div className="min-w-0">
-                                <div className="text-[16px] sm:text-[17px] font-black text-white tracking-tight leading-tight">
-                                    NOLA SMS PRO
-                                </div>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[10px] font-black text-white/85 uppercase tracking-widest">Admin Panel</span>
-                                    {pathname !== '/dashboard' && pathname !== '/' && (
-                                        <span className="hidden sm:inline-flex items-center rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white/90 ring-1 ring-white/20">
-                                            {page.title}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {/* Notification Bell — white glass style on gradient */}
-                            <NotificationBell variant="light" />
-                            <button
-                                onClick={toggleDarkMode}
-                                className="p-2 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all shadow-sm"
-                                aria-label="Toggle theme"
-                                title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                            >
-                                {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
-                            </button>
-                        </div>
-                    </div>
-                </header>
-
-                <main className="flex-1 overflow-y-auto px-4 sm:px-6 pb-6 pt-0 custom-scrollbar bg-[#f7f7f7] dark:bg-[#111111]">
-                    <div className="relative z-10 max-w-6xl mx-auto -mt-7">
-                        <Routes>
-                            <Route path="/"           element={<Navigate to="/dashboard" replace />} />
-                            <Route path="/dashboard"  element={<AdminDashboard onNavigate={(tab) => navigate(`/${tab}`)} />} />
-                            <Route path="/requests"   element={<AdminSenderRequests />} />
-                            <Route path="/activity"   element={<AdminLogs />} />
-                            <Route path="/accounts"   element={<AdminAccounts />} />
-                            <Route path="/agencies"   element={<AdminAgencies />} />
-                            <Route path="/admins"     element={<AdminTeamManagement />} />
-                            <Route path="/settings"   element={<AdminSettings />} />
-                            <Route path="*"           element={<Navigate to="/dashboard" replace />} />
-                        </Routes>
-                    </div>
+                <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#f3f4f6] dark:bg-[#09090b]">
+                    <Routes>
+                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        <Route
+                            path="/dashboard"
+                            element={(
+                                <AdminDashboard
+                                    onNavigate={(tab) => navigate(`/${tab}`)}
+                                    mobileMenuButton={renderMobileMenuButton(true)}
+                                    topControls={dashboardTopControls}
+                                />
+                            )}
+                        />
+                        <Route path="/requests" element={renderPage(<AdminSenderRequests />)} />
+                        <Route path="/activity" element={renderPage(<AdminLogs />)} />
+                        <Route path="/accounts" element={renderPage(<AdminAccounts />)} />
+                        <Route path="/agencies" element={renderPage(<AdminAgencies />)} />
+                        <Route path="/admins" element={renderPage(<AdminTeamManagement />)} />
+                        <Route path="/settings" element={renderPage(<AdminSettings />)} />
+                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                    </Routes>
                 </main>
             </div>
+
             {showLogoutConfirm && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-[#e5e5e5] dark:border-white/10 bg-white dark:bg-[#1a1b1e] shadow-2xl animate-in zoom-in-95 duration-200">

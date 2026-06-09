@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiArrowRight, FiDownload } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiAlertCircle, FiX, FiActivity, FiMessageSquare, FiCreditCard, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiArrowRight, FiDownload } from 'react-icons/fi';
 import { generateMonthlyReport } from '../../utils/pdfGenerator';
 import SplitText from './SplitText';
 import FadeContent from './FadeContent';
@@ -41,7 +41,46 @@ const normalizeAccount = (item: any) => {
     };
 };
 
-export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNavigate }) => {
+type TrendPoint = {
+    key: string;
+    label: string;
+    value: number;
+};
+
+const dayKey = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const createDaySeries = (anchorDate: Date, days = 14): TrendPoint[] =>
+    Array.from({ length: days }, (_, index) => {
+        const date = new Date(anchorDate);
+        date.setDate(anchorDate.getDate() - (days - 1 - index));
+        return {
+            key: dayKey(date),
+            label: date.toLocaleDateString([], { weekday: 'short' }),
+            value: 0,
+        };
+    });
+
+const addToSeries = (series: TrendPoint[], rawDate?: string | null, amount = 1) => {
+    if (!rawDate) return;
+    const date = new Date(rawDate);
+    if (Number.isNaN(date.getTime())) return;
+    const point = series.find(item => item.key === dayKey(date));
+    if (point) point.value += amount;
+};
+
+const getSeriesTotal = (series: TrendPoint[]) =>
+    series.reduce((sum, point) => sum + point.value, 0);
+
+export const AdminDashboard: React.FC<{
+    onNavigate: (tab: any) => void;
+    topControls?: React.ReactNode;
+    mobileMenuButton?: React.ReactNode;
+}> = ({ onNavigate, topControls, mobileMenuButton }) => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [requests, setRequests] = useState<SenderRequest[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
@@ -51,6 +90,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
     const [showGlobalReportModal, setShowGlobalReportModal] = useState(false);
     const [reportSelectedMonth, setReportSelectedMonth] = useState('All');
+    const [searchQuery, setSearchQuery] = useState('');
     const ITEMS_PER_PAGE = 5;
 
     const fetchData = useCallback(async (isInitial = false) => {
@@ -121,34 +161,143 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
     const totalAccounts = accounts.length;
     const pendingRequests = requests.filter(r => r.status === 'pending').length;
     const approvedSenders = accounts.filter(a => a.approved_sender_id).length;
+    const activeAccounts = accounts.filter(a => a.active !== false).length;
     const recentRequests = [...requests].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 6);
 
-    const StatCard = ({ label, value, accent, iconBg, icon, note, index = 0 }: { label: string; value: number | string; accent: string; iconBg: string; icon: React.ReactNode, note: string; index?: number }) => (
-        <div
-            className="animate-in fade-in slide-in-from-bottom-4 duration-700 h-full"
-            style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'both' }}
-        >
-            <div className="group relative h-full min-h-[156px] overflow-hidden rounded-[24px] border border-white/70 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#2b83fa]/15 hover:shadow-lg dark:border-white/[0.06] dark:bg-[#1c1e21]">
-                <div className={`absolute -right-7 -bottom-8 opacity-[0.07] transition-transform duration-500 group-hover:scale-110 ${accent}`}>
-                    <div className="w-28 h-28">{icon}</div>
+    const latestActivityAt = logs[0]?.timestamp || logs[0]?.date_created || logs[0]?.created_at || recentRequests[0]?.created_at;
+    const latestActivityDate = latestActivityAt ? new Date(latestActivityAt) : null;
+    const latestActivityValue = latestActivityDate
+        ? latestActivityDate.toLocaleDateString([], { month: 'short', day: 'numeric' })
+        : 'No activity';
+    const latestActivityTime = latestActivityDate
+        ? latestActivityDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : 'Ready';
+
+    const trendAnchor = new Date();
+    const requestTrendSeries = createDaySeries(trendAnchor, 14);
+    const messageTrendSeries = createDaySeries(trendAnchor, 14);
+    const accountTrendSeries = createDaySeries(trendAnchor, 14);
+    requests.forEach(req => addToSeries(requestTrendSeries, req.created_at || req.updated_at));
+    logs.forEach(log => addToSeries(messageTrendSeries, log.timestamp || log.date_created || log.created_at));
+    accounts.forEach(acc => addToSeries(accountTrendSeries, acc.created_at || acc.createdAt || acc.date_created));
+
+    const requestTrendTotal = getSeriesTotal(requestTrendSeries);
+    const messageTrendTotal = getSeriesTotal(messageTrendSeries);
+    const accountTrendTotal = getSeriesTotal(accountTrendSeries);
+
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const accountSearchResults = normalizedSearch
+        ? accounts.filter((account: any) =>
+            [
+                account.full_name,
+                account.name,
+                account.email,
+                account.phone,
+                account.location_name,
+                account.location_id,
+                account.agency_name,
+            ].some(value => String(value || '').toLowerCase().includes(normalizedSearch))
+        ).slice(0, 5)
+        : [];
+
+    const DashboardMetricCard = ({ label, value, note, icon, gradient, iconClass, labelClass, valueClass, buttonClass, onClick, actionLabel, index = 0 }: {
+        label: string;
+        value: number | string;
+        note: string;
+        icon: React.ReactNode;
+        gradient: string;
+        iconClass: string;
+        labelClass: string;
+        valueClass: string;
+        buttonClass: string;
+        onClick: () => void;
+        actionLabel: string;
+        index?: number;
+    }) => (
+        <AnimatedContent delay={0.1 + index * 0.1} distance={50} direction="vertical">
+            <div className={`p-6 rounded-[24px] ${gradient} shadow-xl transition-all group overflow-hidden relative h-full min-h-[184px] border border-white/70 dark:border-white/15 hover:-translate-y-0.5`}>
+                <div className="absolute inset-0 bg-white/10 dark:bg-white/[0.05] pointer-events-none" />
+                <div className="absolute bottom-0 right-0 p-4 opacity-[0.13] dark:opacity-[0.16] group-hover:scale-110 transition-transform duration-500">
+                    <div className="w-24 h-24">{icon}</div>
                 </div>
-                <div className="relative z-10 flex flex-col h-full justify-between">
+                <button
+                    onClick={onClick}
+                    className={`group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full text-white shadow-[0_10px_24px_rgba(15,23,42,0.22)] ring-1 ring-white/45 hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white transition-all ${buttonClass}`}
+                    aria-label={actionLabel}
+                    title={actionLabel}
+                >
+                    <FiPlus className="h-[18px] w-[18px] stroke-[2.4] transition-transform duration-200 group-hover/action:rotate-90" />
+                </button>
+                <div className="relative z-10 flex h-full flex-col justify-between">
                     <div>
-                        <div className={`w-10 h-10 p-2.5 rounded-xl flex items-center justify-center mb-4 shadow-sm ring-1 ring-black/5 dark:ring-white/10 ${iconBg} ${accent}`}>
-                            <div className="w-full h-full">{icon}</div>
+                        <div className={`w-10 h-10 rounded-xl bg-white/70 dark:bg-white/[0.14] flex items-center justify-center mb-4 shadow-sm ring-1 ring-white/40 dark:ring-white/10 ${iconClass}`}>
+                            <div className="h-5 w-5">{icon}</div>
                         </div>
-                        <p className="text-[11.5px] font-black text-[#64748b] dark:text-[#9aa7bb] uppercase tracking-widest mb-1">{label}</p>
+                        <p className={`text-[12px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>
+                            {label}
+                        </p>
                     </div>
-                    <div className="mt-6">
-                        <h2 className="text-[32px] font-black text-[#111111] dark:text-white tracking-tight leading-none">
-                            {loading ? <span className="inline-block w-14 h-8 bg-[#edf0f3] dark:bg-white/10 animate-pulse rounded-lg" /> : value}
+                    <div className="mt-4">
+                        <h2 className={`text-3xl sm:text-4xl font-black leading-none ${valueClass}`}>
+                            {loading ? <span className="inline-block h-10 w-20 rounded-lg bg-white/40 dark:bg-white/15 animate-pulse" /> : value}
                         </h2>
-                        <p className="mt-2 text-[12px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">{note}</p>
+                        <p className={`mt-2 text-[12px] font-bold ${labelClass}`}>{note}</p>
                     </div>
                 </div>
             </div>
-        </div>
+        </AnimatedContent>
     );
+
+    const renderMiniBars = (series: TrendPoint[], color: string, isLoading: boolean, unitLabel: string) => {
+        const maxValue = Math.max(1, ...series.map(point => point.value));
+        const startLabel = series[0]?.label || '';
+        const endLabel = series[series.length - 1]?.label || '';
+
+        if (isLoading) {
+            return (
+                <div>
+                    <div className="h-14 flex items-end gap-1.5">
+                        {[36, 58, 44, 72, 52, 84, 64].map((height, index) => (
+                            <div
+                                key={`admin-bar-skeleton-${index}`}
+                                className="flex-1 rounded-t-md bg-[#edf0f3] dark:bg-white/10 animate-pulse"
+                                style={{ height: `${height}%` }}
+                            />
+                        ))}
+                    </div>
+                    <div className="mt-2 h-3 w-full rounded-full bg-[#edf0f3] dark:bg-white/10 animate-pulse" />
+                </div>
+            );
+        }
+
+        return (
+            <div>
+                <div className="relative h-14 flex items-end gap-1.5" aria-label={`14 day ${unitLabel} trend`}>
+                    <div className="absolute inset-x-0 bottom-0 h-px bg-slate-200 dark:bg-white/10" />
+                    {series.map(point => {
+                        const height = point.value === 0 ? 10 : Math.max(28, Math.round((point.value / maxValue) * 100));
+                        return (
+                            <div
+                                key={point.key}
+                                className="relative z-10 flex-1 rounded-t-[5px] transition-all duration-300 hover:opacity-100 hover:scale-y-105 origin-bottom"
+                                title={`${point.label}: ${point.value.toLocaleString()} ${unitLabel}`}
+                                style={{
+                                    height: `${height}%`,
+                                    backgroundColor: point.value === 0 ? 'rgba(148,163,184,0.18)' : color,
+                                    boxShadow: point.value === 0 ? 'none' : `0 0 0 1px ${color}1f`,
+                                }}
+                            />
+                        );
+                    })}
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-[#73809a] dark:text-[#7d8ba3]">
+                    <span>{startLabel}</span>
+                    <span>14-day trend</span>
+                    <span>{endLabel}</span>
+                </div>
+            </div>
+        );
+    };
 
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -158,50 +307,229 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
     };
 
     return (
-        <div className="space-y-7">
-            {/* Header Section */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-[24px] bg-white/95 dark:bg-[#1c1e21]/95 border border-white/80 dark:border-white/[0.06] shadow-sm px-5 py-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="flex items-center gap-4">
-                    <div className="w-11 h-11 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center shadow-sm flex-shrink-0 hidden sm:flex">
-                        <FiHome className="h-6 w-6" />
+        <div id="admin-dashboard" className="w-full min-h-full bg-[#f3f4f6] dark:bg-[#09090b] relative">
+            <div className="absolute top-0 left-0 w-full h-[340px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] z-0 rounded-b-[40px] pointer-events-none" />
+
+            <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 relative z-10">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-8">
+                    <div className="flex items-start gap-3 text-white min-w-0">
+                        {mobileMenuButton}
+                        <div className="min-w-0">
+                            <SplitText
+                                text={`${getGreeting()}, Admin`}
+                                className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight"
+                                delay={40}
+                                duration={1.2}
+                                ease="power3.out"
+                                splitType="chars"
+                                from={{ opacity: 0, y: 30 }}
+                                to={{ opacity: 1, y: 0 }}
+                                threshold={0.1}
+                                rootMargin="-100px"
+                                textAlign="left"
+                                tag="h1"
+                            />
+                            <FadeContent blur={false} duration={1200} ease="ease-out" initialOpacity={0}>
+                                <p className="text-white/80 font-medium mt-1">
+                                    NOLA SMS PRO is ready for platform operations.
+                                </p>
+                            </FadeContent>
+                        </div>
                     </div>
-                    <div>
-                        <SplitText
-                            text={`${getGreeting()}, Admin!`}
-                            className="text-[24px] sm:text-[28px] font-black text-[#111111] dark:text-white tracking-tight"
-                            delay={40}
-                            duration={1.2}
-                            ease="power3.out"
-                            splitType="chars"
-                            from={{ opacity: 0, y: 30 }}
-                            to={{ opacity: 1, y: 0 }}
-                            threshold={0.1}
-                            rootMargin="-100px"
-                            textAlign="left"
-                            tag="h1"
-                        />
-                        <FadeContent blur={false} duration={1200} ease="ease-out" initialOpacity={0}>
-                            <p className="text-[13px] text-[#6e6e73] dark:text-[#a0a0ab] font-semibold">Welcome back to NOLA SMS PRO</p>
-                        </FadeContent>
+
+                    <div className="flex items-center gap-3 w-full lg:w-auto">
+                        <div className="relative flex-1 lg:w-72" onClick={(e) => e.stopPropagation()}>
+                            <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/70" />
+                            <input
+                                type="text"
+                                placeholder="Search accounts..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-11 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-[14px] font-medium text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/20 transition-all"
+                            />
+                            {searchQuery.trim() !== '' && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-[#1a1b1e]/95 backdrop-blur-md border border-gray-200 dark:border-white/10 rounded-2xl shadow-xl z-50 overflow-hidden py-1.5 animate-in fade-in slide-in-from-top-2 duration-200 max-h-60 overflow-y-auto custom-scrollbar">
+                                    {accountSearchResults.length > 0 ? (
+                                        accountSearchResults.map((account: any) => (
+                                            <button
+                                                key={account.id || account.location_id || account.email}
+                                                onClick={() => {
+                                                    setSearchQuery('');
+                                                    onNavigate('accounts');
+                                                }}
+                                                className="w-full px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-white/[0.05] transition-colors text-left flex items-center gap-3"
+                                            >
+                                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-[12px] flex-shrink-0 bg-gradient-to-br from-[#2b83fa] to-[#60a5fa]">
+                                                    {(account.full_name || account.name || account.email || '?').charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-[13.5px] font-bold text-[#111111] dark:text-white leading-tight truncate">
+                                                        {account.full_name || account.name || account.location_name || 'Unnamed account'}
+                                                    </p>
+                                                    <p className="text-[11.5px] text-gray-500 dark:text-gray-400 font-medium truncate">
+                                                        {account.email || account.location_id || 'No account detail'}
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="px-4 py-3 text-center text-gray-400 dark:text-gray-500 text-[12.5px] font-medium italic">
+                                            No accounts found
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-black/10 border-2 border-white/20 flex-shrink-0 text-white font-bold text-[14px] bg-gradient-to-br from-[#13c8a3] to-[#2dd4bf]"
+                            title="Admin"
+                        >
+                            A
+                        </div>
+                        {topControls}
                     </div>
                 </div>
-                {!loading && (
-                    <span className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] font-bold bg-[#f7f7f7] dark:bg-[#0d0e10] px-3 py-1.5 rounded-full border border-[#0000000a] dark:border-[#ffffff0a]">
-                        Last checked: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    </span>
-                )}
-            </div>
-            
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-                <StatCard index={0} label="Registered Users" value={totalAccounts} accent="text-[#2b83fa]" iconBg="bg-blue-50 dark:bg-blue-900/20" icon={<FiUsers className="w-full h-full" />} note="Installed subaccounts" />
-                <StatCard index={1} label="Pending Requests" value={pendingRequests} accent={pendingRequests > 0 ? 'text-amber-500' : 'text-slate-500'} iconBg={pendingRequests > 0 ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-slate-100 dark:bg-slate-800'} icon={<FiClock className="w-full h-full" />} note="Waiting for review" />
-                <StatCard index={2} label="Approved Senders" value={approvedSenders} accent="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" icon={<FiCheck className="w-full h-full" />} note="Ready to send" />
-                <StatCard index={3} label="Total Messages" value={totalMessages} accent="text-violet-500" iconBg="bg-violet-50 dark:bg-violet-900/20" icon={<FiMessageSquare className="w-full h-full" />} note="Platform activity" />
-            </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
+                    <DashboardMetricCard
+                        index={0}
+                        label="Registered Users"
+                        value={totalAccounts.toLocaleString()}
+                        note={`${activeAccounts.toLocaleString()} active subaccounts`}
+                        icon={<FiUsers className="w-full h-full" />}
+                        gradient="bg-gradient-to-br from-[#e0f2fe] via-[#60a5fa] to-[#06b6d4] dark:from-[#3b82f6] dark:via-[#2584d5] dark:to-[#14a3a1] shadow-blue-500/20 hover:shadow-blue-500/30"
+                        iconClass="text-blue-700 dark:text-blue-50"
+                        labelClass="text-blue-950/70 dark:text-blue-50/80"
+                        valueClass="text-[#082f49] dark:text-white"
+                        buttonClass="bg-blue-700 hover:bg-blue-800 dark:bg-blue-500 dark:hover:bg-blue-400"
+                        actionLabel="Open accounts"
+                        onClick={() => onNavigate('accounts')}
+                    />
+                    <DashboardMetricCard
+                        index={1}
+                        label="Pending Requests"
+                        value={pendingRequests.toLocaleString()}
+                        note="Waiting for review"
+                        icon={<FiSend className="w-full h-full" />}
+                        gradient="bg-gradient-to-br from-[#fae8ff] via-[#c084fc] to-[#7c3aed] dark:from-[#8b5cf6] dark:via-[#7c3aed] dark:to-[#5b5ce2] shadow-purple-500/20 hover:shadow-purple-500/30"
+                        iconClass="text-purple-700 dark:text-purple-50"
+                        labelClass="text-purple-950/70 dark:text-purple-50/80"
+                        valueClass="text-[#3b0764] dark:text-white"
+                        buttonClass="bg-purple-700 hover:bg-purple-800 dark:bg-purple-500 dark:hover:bg-purple-400"
+                        actionLabel="Review requests"
+                        onClick={() => onNavigate('requests')}
+                    />
+                    <DashboardMetricCard
+                        index={2}
+                        label="Total Messages"
+                        value={totalMessages.toLocaleString()}
+                        note="Platform activity"
+                        icon={<FiMessageSquare className="w-full h-full" />}
+                        gradient="bg-gradient-to-br from-[#dcfce7] via-[#86efac] to-[#2dd4bf] dark:from-[#10b981] dark:via-[#0ea56f] dark:to-[#0d9488] shadow-emerald-500/20 hover:shadow-emerald-500/30"
+                        iconClass="text-emerald-700 dark:text-emerald-50"
+                        labelClass="text-emerald-950/70 dark:text-emerald-50/80"
+                        valueClass="text-[#022c22] dark:text-white"
+                        buttonClass="bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+                        actionLabel="Open activity"
+                        onClick={() => onNavigate('activity')}
+                    />
+                </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <AnimatedContent delay={0.35} distance={40} direction="vertical">
+                    <div className="bg-white dark:bg-[#1c1e21] rounded-[24px] shadow-sm mb-8 overflow-hidden border border-[#0000000a] dark:border-[#ffffff0a]">
+                        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#0000000a] dark:divide-[#ffffff0a]">
+                            {[
+                                {
+                                    label: 'Approved Senders',
+                                    value: approvedSenders.toLocaleString(),
+                                    accent: '#ef4444',
+                                    series: accountTrendSeries,
+                                    note: 'Ready to send',
+                                    badge: accountTrendTotal > 0 ? `${accountTrendTotal.toLocaleString()} new` : 'No recent new',
+                                    chartUnit: 'accounts',
+                                    chartCaption: `${activeAccounts.toLocaleString()} active subaccounts`,
+                                    onClick: () => onNavigate('accounts'),
+                                },
+                                {
+                                    label: 'Requests This Month',
+                                    value: pendingRequests.toLocaleString(),
+                                    accent: '#8b5cf6',
+                                    series: requestTrendSeries,
+                                    note: 'Pending sender IDs',
+                                    badge: requestTrendTotal > 0 ? `${requestTrendTotal.toLocaleString()} in 14 days` : 'No recent request',
+                                    chartUnit: 'requests',
+                                    chartCaption: 'Recent sender request volume',
+                                    onClick: () => onNavigate('requests'),
+                                },
+                                {
+                                    label: 'Latest Activity',
+                                    value: latestActivityValue,
+                                    accent: '#10b981',
+                                    series: messageTrendSeries,
+                                    note: latestActivityTime,
+                                    badge: latestActivityAt ? 'Open latest' : 'No updates',
+                                    chartUnit: 'events',
+                                    chartCaption: `${messageTrendTotal.toLocaleString()} activity events in 14 days`,
+                                    onClick: () => onNavigate('activity'),
+                                },
+                            ].map((item) => (
+                                <button
+                                    key={item.label}
+                                    type="button"
+                                    onClick={item.onClick}
+                                    className="p-6 flex flex-col justify-between text-left transition-colors hover:bg-black/[0.025] dark:hover:bg-white/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/50"
+                                >
+                                    <div>
+                                        <div className="mb-3 flex items-center justify-between gap-3">
+                                            <p className="text-[12px] font-black uppercase tracking-[0.08em] text-[#475569] dark:text-[#a9bdd8]">{item.label}</p>
+                                            {!loading && (
+                                                <span
+                                                    className="h-2.5 w-2.5 rounded-full shadow-sm"
+                                                    style={{ backgroundColor: item.accent, boxShadow: `0 0 0 4px ${item.accent}1f` }}
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            {loading ? (
+                                                <div className="h-8 w-28 bg-gray-100 dark:bg-white/5 animate-pulse rounded-lg" />
+                                            ) : (
+                                                <div className="flex items-end gap-2 min-w-0">
+                                                    <h2 className="text-[28px] leading-none font-black text-[#111111] dark:text-white break-words" title={item.value}>
+                                                        {item.value}
+                                                    </h2>
+                                                    <span
+                                                        className="mb-0.5 rounded-full px-2 py-1 text-[10px] font-black leading-none"
+                                                        style={{
+                                                            color: item.accent,
+                                                            backgroundColor: `${item.accent}18`,
+                                                        }}
+                                                    >
+                                                        {item.badge}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {!loading && (
+                                                <p className="text-[12px] font-semibold leading-snug text-[#64748b] dark:text-[#9aa7bb]">
+                                                    {item.note}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="mt-6 rounded-2xl bg-[#f8fafc] px-3 py-3 ring-1 ring-black/[0.03] dark:bg-black/15 dark:ring-white/[0.04]">
+                                        {renderMiniBars(item.series, item.accent, loading, item.chartUnit)}
+                                        {!loading && (
+                                            <p className="mt-2 text-[11px] font-semibold text-[#64748b] dark:text-[#8b95a7]">
+                                                {item.chartCaption}
+                                            </p>
+                                        )}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </AnimatedContent>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Quick Actions */}
                 <AnimatedContent delay={0.4} distance={50} direction="vertical">
                     <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-5 flex items-center gap-2 h-8">
@@ -409,6 +737,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                     </div>
                 </div>
                 </AnimatedContent>
+            </div>
             </div>
             {/* Global Report Modal */}
             {showGlobalReportModal && (
