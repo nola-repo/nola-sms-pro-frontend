@@ -99,17 +99,17 @@ const TopMoreOptions: React.FC<{
         type="button"
         onClick={() => setOpen((value) => !value)}
         className={`
-          inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-sm shadow-black/10 backdrop-blur-xl transition-all active:scale-95
+          relative inline-flex items-center justify-center rounded-xl border p-2 shadow-sm transition-all active:scale-95
           ${open
-            ? "border-white/70 bg-white text-[#1d6bd4] shadow-md dark:border-white/15 dark:bg-[#22252a] dark:text-[#60a5fa]"
-            : "border-white/50 bg-white/90 text-[#1d6bd4] hover:-translate-y-0.5 hover:bg-white hover:shadow-md dark:border-white/10 dark:bg-[#1a1b1e]/90 dark:text-[#60a5fa] dark:hover:bg-[#22252a]"
+            ? "border-white/30 bg-white/25 text-white"
+            : "border-white/20 bg-white/10 text-white hover:bg-white/20"
           }
         `}
         aria-label="More options"
         aria-expanded={open}
         title="More options"
       >
-        <FiMoreHorizontal className="h-5 w-5" />
+        <FiMoreHorizontal className="h-4 w-4" />
         {!onboardingDone && (
           <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#1a1b1e]" />
         )}
@@ -238,7 +238,7 @@ const AppLayout: React.FC = () => {
   const hideToggle = hideTogglePaths.includes(location.pathname.toLowerCase());
   const topControls = !hideToggle ? (
     <div className="hidden md:flex items-center gap-2 flex-shrink-0">
-      <UserNotificationBell onTabChange={handleTabChange} shape="circle" />
+      <UserNotificationBell onTabChange={handleTabChange} variant="light" />
       <TopMoreOptions
         darkMode={darkMode}
         toggleDarkMode={toggleDarkMode}

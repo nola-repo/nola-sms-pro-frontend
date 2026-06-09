@@ -308,7 +308,7 @@ export const AdminDashboard: React.FC<{
 
     return (
         <div id="admin-dashboard" className="w-full min-h-full bg-[#f3f4f6] dark:bg-[#09090b] relative">
-            <div className="absolute top-0 left-0 w-full h-[340px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] z-0 rounded-b-[40px] pointer-events-none" />
+            <div className="absolute top-0 left-0 w-full h-[390px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] z-0 rounded-b-[40px] pointer-events-none" />
 
             <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 relative z-10">
                 <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-8">

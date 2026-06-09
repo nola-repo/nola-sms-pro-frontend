@@ -24,6 +24,33 @@ const NAV_ITEMS = [
     { path: '/settings',   label: 'System Settings',  icon: <FiSettings /> },
 ] as const;
 
+const PAGE_HEADERS = {
+    requests: {
+        title: 'Sender Requests',
+        subtitle: 'Review sender names, approval status, and account requests.',
+    },
+    activity: {
+        title: 'Platform Activity',
+        subtitle: 'Track SMS, credit, and billing events across all accounts.',
+    },
+    accounts: {
+        title: 'All Subaccounts',
+        subtitle: 'Manage connected subaccounts, credit balances, and sender access.',
+    },
+    agencies: {
+        title: 'All Agencies',
+        subtitle: 'Monitor agency accounts and platform ownership at a glance.',
+    },
+    admins: {
+        title: 'Admin Users',
+        subtitle: 'Manage admin access, permissions, and team membership.',
+    },
+    settings: {
+        title: 'System Settings',
+        subtitle: 'Configure platform defaults, free tier limits, and admin controls.',
+    },
+} as const;
+
 const NavItems = ({ onNav }: { onNav?: () => void }) => {
     const navigate = useNavigate();
     const { pathname } = useLocation();
@@ -183,29 +210,36 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
         </div>
     );
 
-    const standardPageControls = (
-        <div className="mb-4 flex items-center justify-between gap-3">
-            {renderMobileMenuButton(false)}
-            <div className="ml-auto flex items-center gap-2">
-                <NotificationBell />
-                <button
-                    onClick={toggleDarkMode}
-                    className="p-2 rounded-xl bg-white dark:bg-[#1c1e21] border border-[#e5e5e5] dark:border-white/10 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/10 transition-all shadow-sm"
-                    aria-label="Toggle theme"
-                    title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                >
-                    {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
-                </button>
+    const renderPage = (page: React.ReactNode, pageKey: keyof typeof PAGE_HEADERS) => {
+        const header = PAGE_HEADERS[pageKey];
+
+        return (
+        <div className="relative min-h-full bg-[#f3f4f6] dark:bg-[#09090b]">
+            <div className="absolute left-0 top-0 h-[250px] w-full rounded-b-[40px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] pointer-events-none" />
+            <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+                <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3 text-white">
+                        {renderMobileMenuButton(true)}
+                        <div className="min-w-0">
+                            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight">
+                                {header.title}
+                            </h1>
+                            <p className="mt-1 max-w-2xl text-[14px] sm:text-[15px] font-semibold text-white/80">
+                                {header.subtitle}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="ml-auto flex items-center gap-2">
+                        {dashboardTopControls}
+                    </div>
+                </div>
+                <div className="pb-6">
+                    {page}
+                </div>
             </div>
         </div>
-    );
-
-    const renderPage = (page: React.ReactNode) => (
-        <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
-            {standardPageControls}
-            {page}
-        </div>
-    );
+        );
+    };
 
     return (
         <div className={`h-screen flex overflow-hidden bg-[#f3f4f6] dark:bg-[#09090b] ${darkMode ? 'dark' : ''}`}>
@@ -253,12 +287,12 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                                 />
                             )}
                         />
-                        <Route path="/requests" element={renderPage(<AdminSenderRequests />)} />
-                        <Route path="/activity" element={renderPage(<AdminLogs />)} />
-                        <Route path="/accounts" element={renderPage(<AdminAccounts />)} />
-                        <Route path="/agencies" element={renderPage(<AdminAgencies />)} />
-                        <Route path="/admins" element={renderPage(<AdminTeamManagement />)} />
-                        <Route path="/settings" element={renderPage(<AdminSettings />)} />
+                        <Route path="/requests" element={renderPage(<AdminSenderRequests />, 'requests')} />
+                        <Route path="/activity" element={renderPage(<AdminLogs />, 'activity')} />
+                        <Route path="/accounts" element={renderPage(<AdminAccounts />, 'accounts')} />
+                        <Route path="/agencies" element={renderPage(<AdminAgencies />, 'agencies')} />
+                        <Route path="/admins" element={renderPage(<AdminTeamManagement />, 'admins')} />
+                        <Route path="/settings" element={renderPage(<AdminSettings />, 'settings')} />
                         <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>
                 </main>
