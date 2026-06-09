@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
 import { GhlCallback } from "./pages/GhlCallback";
@@ -10,7 +10,7 @@ import { safeStorage } from "./utils/safeStorage";
 import { useUserProfile } from "./hooks/useUserProfile";
 import { UserProfileContext } from "./context/UserProfileContext";
 import { isAuthenticated } from "./services/authService";
-import { FiBookOpen } from "react-icons/fi";
+import { FiBookOpen, FiMessageSquare, FiMoreHorizontal } from "react-icons/fi";
 import { UserNotificationBell } from "./components/ui/UserNotificationBell";
 import type { ViewTab } from "./components/Sidebar";
 
@@ -61,6 +61,116 @@ const ThemeSwitch: React.FC<{ checked: boolean; onChange: () => void }> = ({ che
     </span>
   </label>
 );
+
+const TopMoreOptions: React.FC<{
+  darkMode: boolean;
+  toggleDarkMode: () => void;
+  onboardingDone: boolean;
+  onOpenGettingStarted: () => void;
+  onOpenTickets: () => void;
+}> = ({ darkMode, toggleDarkMode, onboardingDone, onOpenGettingStarted, onOpenTickets }) => {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
+
+  const handleGettingStarted = () => {
+    onOpenGettingStarted();
+    setOpen(false);
+  };
+
+  const handleTickets = () => {
+    onOpenTickets();
+    setOpen(false);
+  };
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className={`
+          inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-sm shadow-black/10 backdrop-blur-xl transition-all active:scale-95
+          ${open
+            ? "border-white/70 bg-white text-[#1d6bd4] shadow-md dark:border-white/15 dark:bg-[#22252a] dark:text-[#60a5fa]"
+            : "border-white/50 bg-white/90 text-[#1d6bd4] hover:-translate-y-0.5 hover:bg-white hover:shadow-md dark:border-white/10 dark:bg-[#1a1b1e]/90 dark:text-[#60a5fa] dark:hover:bg-[#22252a]"
+          }
+        `}
+        aria-label="More options"
+        aria-expanded={open}
+        title="More options"
+      >
+        <FiMoreHorizontal className="h-5 w-5" />
+        {!onboardingDone && (
+          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#1a1b1e]" />
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+10px)] z-[80] w-72 overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white/95 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-200 dark:border-white/10 dark:bg-[#1a1b1e]/95">
+          <button
+            type="button"
+            onClick={handleGettingStarted}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#f4f7fb] dark:hover:bg-white/[0.05]"
+          >
+            <span className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-[#2b83fa]/10 text-[#2b83fa]">
+              <FiBookOpen className="h-[18px] w-[18px]" />
+              {!onboardingDone && (
+                <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#1a1b1e]" />
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-bold text-[#111111] dark:text-white">Get Started</span>
+              <span className="block truncate text-[11.5px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
+                Open onboarding
+              </span>
+            </span>
+            {!onboardingDone && (
+              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-500">
+                New
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleTickets}
+            className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#f4f7fb] dark:hover:bg-white/[0.05]"
+          >
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-[#2b83fa]/10 text-[#2b83fa]">
+              <FiMessageSquare className="h-[18px] w-[18px]" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-bold text-[#111111] dark:text-white">Tickets</span>
+              <span className="block truncate text-[11.5px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
+                View support tickets
+              </span>
+            </span>
+          </button>
+
+          <div className="mt-1 flex items-center justify-between gap-3 rounded-xl px-3 py-2.5">
+            <span className="min-w-0">
+              <span className="block text-[13px] font-bold text-[#111111] dark:text-white">Theme</span>
+              <span className="block text-[11.5px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
+                {darkMode ? "Dark mode" : "Light mode"}
+              </span>
+            </span>
+            <ThemeSwitch checked={darkMode} onChange={toggleDarkMode} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AppLayout: React.FC = () => {
   const [darkMode, setDarkMode] = useState(() => {
@@ -128,19 +238,14 @@ const AppLayout: React.FC = () => {
   const hideToggle = hideTogglePaths.includes(location.pathname.toLowerCase());
   const topControls = !hideToggle ? (
     <div className="hidden md:flex items-center gap-2 flex-shrink-0">
-      <button
-        onClick={openGettingStarted}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/90 text-[#1d6bd4] shadow-sm shadow-black/10 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-md dark:border-white/10 dark:bg-[#1a1b1e]/90 dark:text-[#60a5fa] dark:hover:bg-[#22252a]"
-        title="Getting Started"
-        aria-label="Getting Started"
-      >
-        <FiBookOpen className="h-5 w-5" />
-        {!onboardingDone && (
-          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#1a1b1e]" />
-        )}
-      </button>
       <UserNotificationBell onTabChange={handleTabChange} shape="circle" />
-      <ThemeSwitch checked={darkMode} onChange={toggleDarkMode} />
+      <TopMoreOptions
+        darkMode={darkMode}
+        toggleDarkMode={toggleDarkMode}
+        onboardingDone={onboardingDone}
+        onOpenGettingStarted={openGettingStarted}
+        onOpenTickets={() => handleTabChange('tickets')}
+      />
     </div>
   ) : null;
 

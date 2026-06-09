@@ -363,7 +363,7 @@ export const UserNotificationBell: React.FC<UserNotificationBellProps> = ({
         type="button"
         onClick={() => setOpen((value) => !value)}
         className={`
-          relative border p-2 shadow-sm transition-all
+          relative inline-flex items-center justify-center border p-2 leading-none shadow-sm transition-all
           ${shape === "circle" ? "h-10 w-10 rounded-full" : "rounded-xl"}
           ${variant === "light"
             ? open
