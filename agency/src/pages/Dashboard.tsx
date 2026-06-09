@@ -12,7 +12,7 @@ import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from '../services/firebaseConfig.ts';
 
 export const Dashboard = () => {
-  const { agencyId } = useAgency();
+  const { agencyId, agencySession } = useAgency();
   const navigate = useNavigate();
 
   const [subaccounts, setSubaccounts] = useState([]);
@@ -112,9 +112,21 @@ export const Dashboard = () => {
     return "Good evening";
   };
 
-  const agencyName = (subaccounts.length > 0 && (subaccounts[0].agency_name || subaccounts[0].company_name)) 
-    ? (subaccounts[0].agency_name || subaccounts[0].company_name) 
-    : 'Agency';
+  const sessionAgencyName = (() => {
+    const user = agencySession?.user;
+    if (!user) return '';
+    return (
+      user.company_name ||
+      user.agency_name ||
+      user.name ||
+      [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
+    );
+  })();
+
+  const agencyName = sessionAgencyName ||
+    ((subaccounts.length > 0 && (subaccounts[0].agency_name || subaccounts[0].company_name))
+      ? (subaccounts[0].agency_name || subaccounts[0].company_name)
+      : 'Agency');
 
   return (
     <AgencyLayout title="Dashboard" subtitle="Agency overview and quick stats">

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiBriefcase, FiDownload } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
@@ -9,13 +9,133 @@ import { generateMonthlyReport } from '../../utils/pdfGenerator';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
+const ADMIN_AGENCY_USERS_API = '/api/admin_list_agency_users.php';
+const AGENCY_USER_ENDPOINTS = [
+    ADMIN_AGENCY_USERS_API,
+    `${ADMIN_API}?action=agency_users`,
+    `${ADMIN_API}?action=agencies`,
+];
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
+
+type AgencyAccount = {
+    id: string;
+    name?: string;
+    full_name?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    role?: string;
+    active?: boolean;
+    company_id?: string;
+    company_name?: string;
+    agency_name?: string;
+    balance?: number;
+    credit_balance?: number;
+    credits?: number;
+    created_at?: string;
+    createdAt?: string;
+    updated_at?: string;
+    source?: string;
+};
+
+const normalizeNumber = (value: unknown, fallback = 0) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const compact = (...parts: Array<string | null | undefined>) =>
+    parts.map(part => part?.trim()).filter(Boolean).join(' ').trim();
+
+const normalizeAgencyAccount = (item: any): AgencyAccount => {
+    const raw = item?.data ? { id: item.id, ...item.data } : item || {};
+    const firstName = raw.firstName || raw.first_name || '';
+    const lastName = raw.lastName || raw.last_name || '';
+    const personName = raw.name || raw.full_name || compact(firstName, lastName);
+    const companyName = raw.company_name || raw.companyName || raw.agency_name || raw.agencyName || '';
+    const companyId = raw.company_id || raw.companyId || raw.agency_id || raw.agencyId || '';
+    const id = raw.id || raw.user_id || raw.uid || raw.email || companyId || `agency-${Math.random().toString(36).slice(2)}`;
+
+    return {
+        ...raw,
+        id,
+        name: personName || companyName || raw.email || 'Unnamed Agency',
+        full_name: raw.full_name || personName || companyName || raw.email || 'Unnamed Agency',
+        firstName,
+        lastName,
+        email: raw.email || raw.email_address || '',
+        phone: raw.phone || raw.phone_number || '',
+        role: raw.role || 'agency',
+        active: raw.active !== false,
+        company_id: companyId || (raw.appType === 'agency' ? raw.id : ''),
+        company_name: companyName || personName || 'Unknown Agency',
+        agency_name: raw.agency_name || companyName || '',
+        balance: normalizeNumber(raw.balance ?? raw.credit_balance ?? raw.credits, 0),
+        credit_balance: normalizeNumber(raw.credit_balance ?? raw.balance ?? raw.credits, 0),
+        credits: normalizeNumber(raw.credits ?? raw.credit_balance ?? raw.balance, 0),
+        created_at: raw.created_at || raw.createdAt || raw.date_created || '',
+        createdAt: raw.createdAt || raw.created_at || raw.date_created || '',
+        updated_at: raw.updated_at || raw.updatedAt || '',
+    };
+};
+
+const getAgencyDisplayName = (account: AgencyAccount) =>
+    account.full_name ||
+    account.name ||
+    compact(account.firstName, account.lastName) ||
+    account.company_name ||
+    account.email ||
+    'Unnamed Agency';
+
+const getInitials = (account: AgencyAccount) => {
+    const source = getAgencyDisplayName(account);
+    const parts = source.split(/\s+/).filter(Boolean);
+    return ((parts[0]?.[0] || account.email?.[0] || '?') + (parts[1]?.[0] || '')).toUpperCase();
+};
+
+const getCompanyLabel = (account: AgencyAccount) =>
+    account.company_name ||
+    account.agency_name ||
+    'Not linked';
+
+const emptyValue = (value?: string | null) => value?.trim() || '-';
+
+const formatAgencyDate = (value?: any) => {
+    if (!value) return '-';
+    if (typeof value === 'object' && typeof value.seconds === 'number') {
+        return new Date(value.seconds * 1000).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    const raw = String(value);
+    const normalized = raw
+        .replace(' at ', ' ')
+        .replace(/ UTC([+-]\d{1,2})$/, ' GMT$1')
+        .replace(/ UTC([+-]\d{1,2}):?(\d{2})$/, ' GMT$1$2');
+    const date = new Date(normalized);
+    if (Number.isNaN(date.getTime())) return raw;
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const roleBadge = (role?: string) => (
+    <span className="inline-flex px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30 text-[10px] font-black uppercase tracking-wider">
+        {(role || 'agency').replace(/_/g, ' ')}
+    </span>
+);
+
+const getAgencyRows = (json: any) => {
+    const rows = json?.data ?? json?.agency_users ?? json?.users ?? json?.agencies ?? [];
+    if (Array.isArray(rows)) return rows;
+    if (rows && typeof rows === 'object') {
+        return Object.entries(rows).map(([id, data]) => ({ id, ...(data as Record<string, unknown>) }));
+    }
+    return [];
+};
 
 
 
 
 export const AdminAgencies: React.FC = () => {
-    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [accounts, setAccounts] = useState<AgencyAccount[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -23,7 +143,7 @@ export const AdminAgencies: React.FC = () => {
     
     // Manage Sender States
     const [searchTerm, setSearchTerm] = useState('');
-    const [managingAccount, setManagingAccount] = useState<Account | null>(null);
+    const [managingAccount, setManagingAccount] = useState<AgencyAccount | null>(null);
     const [manageSenderId, setManageSenderId] = useState('');
     const [manageCreditBalance, setManageCreditBalance] = useState<number>(0);
     const [manageFreeCreditsTotal, setManageFreeCreditsTotal] = useState<number>(10);
@@ -32,7 +152,7 @@ export const AdminAgencies: React.FC = () => {
     const [reportTransactions, setReportTransactions] = useState<any[]>([]);
     const [isLoadingReport, setIsLoadingReport] = useState(false);
     const [reportSelectedMonth, setReportSelectedMonth] = useState('All');
-    const [selectedReportAccount, setSelectedReportAccount] = useState<Account | null>(null);
+    const [selectedReportAccount, setSelectedReportAccount] = useState<AgencyAccount | null>(null);
 
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
@@ -47,14 +167,30 @@ export const AdminAgencies: React.FC = () => {
         if (isInitial) setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${ADMIN_API}?action=agencies`, { headers: getAdminAuthHeaders() });
-            const json = await res.json();
-            if (json.status === 'success') {
-                setAccounts(json.data || []);
-            } else {
-                setError(json.message || 'Failed to load agencies.');
+            let lastError: Error | null = null;
+
+            for (const endpoint of AGENCY_USER_ENDPOINTS) {
+                try {
+                    const res = await fetch(endpoint, { headers: getAdminAuthHeaders() });
+                    const json = await res.json().catch(() => ({}));
+                    const rows = getAgencyRows(json);
+
+                    if (!res.ok || (json.status && json.status !== 'success') || json.success === false) {
+                        throw new Error(json.message || `Failed to load agencies from ${endpoint}.`);
+                    }
+
+                    setAccounts(rows.map(normalizeAgencyAccount));
+                    setError(endpoint.includes('action=agencies')
+                        ? 'Agency user endpoint is unavailable. Showing legacy agency records until the backend route is deployed.'
+                        : null);
+                    setLastRefreshed(new Date());
+                    return;
+                } catch (error) {
+                    lastError = error instanceof Error ? error : new Error('Failed to load agencies.');
+                }
             }
-            setLastRefreshed(new Date());
+
+            throw lastError || new Error('Failed to load agencies.');
         } catch {
             setError('Network error. Could not reach the backend.');
         } finally {
@@ -68,13 +204,43 @@ export const AdminAgencies: React.FC = () => {
         return () => clearInterval(timer);
     }, [fetchAccounts]);
 
-    const fetchReportForAccount = async (acc: Account) => {
+    const filteredAccounts = useMemo(() => {
+        const query = searchTerm.trim().toLowerCase();
+        if (!query) return accounts;
+
+        return accounts.filter(acc =>
+            getAgencyDisplayName(acc).toLowerCase().includes(query) ||
+            getCompanyLabel(acc).toLowerCase().includes(query) ||
+            acc.email?.toLowerCase().includes(query) ||
+            acc.phone?.toLowerCase().includes(query) ||
+            acc.role?.toLowerCase().includes(query) ||
+            acc.company_id?.toLowerCase().includes(query) ||
+            acc.id?.toLowerCase().includes(query)
+        );
+    }, [accounts, searchTerm]);
+
+    const totalPages = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
+    const currentAccounts = filteredAccounts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+    useEffect(() => {
+        if (totalPages > 0 && currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
+    const fetchReportForAccount = async (acc: AgencyAccount) => {
+        const reportKey = acc.company_id || acc.id;
+        if (!reportKey) {
+            showToast('This agency does not have a company ID for reporting.', 'error');
+            return;
+        }
+
         setSelectedReportAccount(acc);
         setIsLoadingReport(true);
         setReportSelectedMonth('All');
         setReportTransactions([]);
         try {
-            const res = await fetch(`/api/get_credit_transactions.php?location_id=${acc.id || acc.company_id}`, { headers: getAdminAuthHeaders() });
+            const res = await fetch(`/api/get_credit_transactions.php?location_id=${encodeURIComponent(reportKey)}`, { headers: getAdminAuthHeaders() });
             const json = await res.json();
             if (json.status === 'success') {
                 setReportTransactions(json.data || json.transactions || []);
@@ -98,14 +264,22 @@ export const AdminAgencies: React.FC = () => {
                     action: 'manage_agency',
                     user_id: managingAccount.id,
                     company_id: managingAccount.company_id,
+                    balance: manageCreditBalance,
                     credit_balance: manageCreditBalance,
                 }),
             });
             const json = await res.json();
             if (json.status === 'success') {
+                const updated = {
+                    ...managingAccount,
+                    balance: manageCreditBalance,
+                    credit_balance: manageCreditBalance,
+                    credits: manageCreditBalance,
+                };
+                setAccounts(prev => prev.map(acc => acc.id === managingAccount.id ? updated : acc));
                 showToast(json.message || 'Agency config updated successfully.', 'success');
                 setManagingAccount(null);
-                fetchAccounts();
+                void fetchAccounts(false);
             } else {
                 showToast(json.message || 'Failed to update agency.', 'error');
             }
@@ -151,6 +325,13 @@ export const AdminAgencies: React.FC = () => {
             </div>
 
             <div className="p-6">
+            {error && (
+                <div className="flex items-center gap-2 px-4 py-3 mb-5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30 text-amber-700 dark:text-amber-400 text-[12px] font-medium">
+                    <FiAlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {error}
+                </div>
+            )}
+
             {loading ? (
                 <div className="space-y-3">
                     {[1, 2, 3, 4].map(i => <div key={i} className="h-14 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />)}
@@ -160,74 +341,73 @@ export const AdminAgencies: React.FC = () => {
                     <FiBriefcase className="w-8 h-8 mx-auto mb-3 opacity-30" />
                     <p className="text-[14px] font-semibold">No agencies found.</p>
                 </div>
+            ) : filteredAccounts.length === 0 ? (
+                <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
+                    <FiSearch className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                    <p className="text-[14px] font-semibold">No agencies match your search.</p>
+                </div>
             ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto pb-4">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-[#e5e5e5] dark:border-white/5">
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Company Name</th>
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Company ID</th>
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Created</th>
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Status</th>
-                                <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Report</th>
-                                <th className="pb-3 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider">Actions</th>
+                                {['Agency', 'Email', 'Phone', 'Role', 'Company', 'Balance', 'Created', 'Actions'].map(header => (
+                                    <th key={header} className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                        {header}
+                                    </th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
-                             {(() => {
-                                const filteredAccounts = accounts.filter(acc => 
-                                    acc.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                    acc.company_id?.toLowerCase().includes(searchTerm.toLowerCase())
-                                );
-                                
-                                const currentAccounts = filteredAccounts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-
-                                return currentAccounts.map(acc => (
+                            {currentAccounts.map(acc => (
                                 <tr key={acc.id} className="group hover:bg-[#f7f7f7] dark:hover:bg-white/[0.015] transition-colors">
-                                    <td className="py-4 pr-4">
+                                    <td className="py-4 pr-4 min-w-[260px]">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-[#f0f0f0] dark:bg-white/5 flex items-center justify-center text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6]">
-                                                {acc.company_name ? acc.company_name.substring(0, 1).toUpperCase() : '?'}
+                                            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 shadow-sm">
+                                                {getInitials(acc)}
+                                                <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#1a1b1e] ${acc.active !== false ? 'bg-emerald-500' : 'bg-gray-400'}`} />
                                             </div>
-                                            <div>
-                                                <p className="font-bold text-[13px] text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors">{acc.company_name || 'Unknown Agency'}</p>
-                                                <p className="text-[10px] text-[#9aa0a6] font-mono mt-0.5">ID: {acc.id}</p>
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-[13px] text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors truncate">{getAgencyDisplayName(acc)}</p>
+                                                <p className="text-[10px] text-[#9aa0a6] font-medium mt-0.5 truncate">ID: {acc.id}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="py-4 pr-4">
-                                        {acc.company_id ? (
-                                            <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-400 text-[11px] font-bold border border-blue-200 dark:border-blue-800/30 uppercase tracking-wider">{acc.company_id}</span>
-                                        ) : (
-                                            <span className="text-[11px] font-bold text-[#9aa0a6] uppercase tracking-widest pl-2 italic">Not Linked</span>
-                                        )}
+                                    <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[190px]">{emptyValue(acc.email)}</td>
+                                    <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[130px]">{emptyValue(acc.phone)}</td>
+                                    <td className="py-4 pr-4">{roleBadge(acc.role)}</td>
+                                    <td className="py-4 pr-4 min-w-[230px]">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[13px] font-bold text-[#111111] dark:text-white">{getCompanyLabel(acc)}</span>
+                                            {acc.company_id ? (
+                                                <span className="inline-flex w-fit items-center px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-400 text-[10px] font-bold border border-blue-200 dark:border-blue-800/30 uppercase tracking-wider">{acc.company_id}</span>
+                                            ) : (
+                                                <span className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest italic">Not linked</span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="py-4 pr-4">
-                                        <span className="text-[13px] text-[#111111] dark:text-white font-medium">
-                                            {acc.createdAt ? new Date(acc.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-                                        </span>
+                                        <div className="flex flex-col">
+                                            <span className="text-[13px] font-bold text-[#111111] dark:text-white">{(acc.balance ?? acc.credit_balance ?? acc.credits ?? 0).toLocaleString()}</span>
+                                            <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">Agency credits</span>
+                                        </div>
                                     </td>
-                                    <td className="py-4 pr-4">
-                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${acc.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30 shadow-sm' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900/10 dark:text-gray-400 dark:border-gray-800/30'}`}>
-                                            <span className={`w-1.5 h-1.5 rounded-full ${acc.active !== false ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-400'}`} />
-                                            {acc.active !== false ? 'Active' : 'Inactive'}
-                                        </span>
+                                    <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] whitespace-nowrap">
+                                        {formatAgencyDate(acc.created_at || acc.createdAt)}
                                     </td>
-                                    <td className="py-4 pr-4">
-                                        <button
-                                            onClick={() => fetchReportForAccount(acc)}
-                                            className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/10 text-[#2b83fa] hover:bg-[#2b83fa] hover:text-white transition-all border border-blue-100 dark:border-blue-800/30"
-                                            title="Download Agency Report"
-                                        >
-                                            <FiDownload className="w-4 h-4" />
-                                        </button>
-                                    </td>
-                                    <td className="py-4">
-                                        <div className="flex items-center gap-2 transition-opacity">
+                                    <td className="py-4 pr-2">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => fetchReportForAccount(acc)}
+                                                className="p-2 rounded-xl text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
+                                                title="Download Agency Report"
+                                            >
+                                                <FiDownload className="w-4 h-4" />
+                                            </button>
                                             <button
                                                 onClick={() => {
                                                     setManagingAccount(acc);
-                                                    setManageCreditBalance(acc.credit_balance ?? 0);
+                                                    setManageCreditBalance(acc.balance ?? acc.credit_balance ?? acc.credits ?? 0);
                                                 }}
                                                 className="p-2 rounded-xl text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
                                                 title="Manage Agency"
@@ -237,21 +417,11 @@ export const AdminAgencies: React.FC = () => {
                                         </div>
                                     </td>
                                 </tr>
-                                ));
-                            })()}
+                            ))}
                         </tbody>
                     </table>
                     
-                    {/* Pagination Controls */}
-                    {(() => {
-                        const filteredAccounts = accounts.filter(acc => 
-                            acc.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            acc.company_id?.toLowerCase().includes(searchTerm.toLowerCase())
-                        );
-                        const totalPages = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
-                        if (totalPages <= 1) return null;
-
-                        return (
+                    {totalPages > 1 && (
                             <div className="flex items-center justify-between px-4 py-4 mt-2 border-t border-[#e5e5e5] dark:border-white/5">
                                 <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] font-medium">
                                     Showing <span className="font-bold text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-bold text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, filteredAccounts.length)}</span> of <span className="font-bold text-[#111111] dark:text-white">{filteredAccounts.length}</span> entries
@@ -290,8 +460,7 @@ export const AdminAgencies: React.FC = () => {
                                     </button>
                                 </div>
                             </div>
-                        );
-                    })()}
+                    )}
                 </div>
             )}
 
@@ -309,7 +478,7 @@ export const AdminAgencies: React.FC = () => {
                         </div>
 
                         <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-5">
-                             Update the credit balance for <span className="font-semibold text-[#111111] dark:text-white">{managingAccount.company_name}</span>.
+                             Update the credit balance for <span className="font-semibold text-[#111111] dark:text-white">{getAgencyDisplayName(managingAccount)}</span>.
                          </p>
 
                         <form onSubmit={submitManageSender} className="space-y-4">
@@ -374,7 +543,7 @@ export const AdminAgencies: React.FC = () => {
                             </div>
                             
                             <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6]">
-                                Select a month to download the credit report for <span className="font-semibold text-[#111111] dark:text-white">{selectedReportAccount.company_name || 'Unknown Agency'}</span>.
+                                Select a month to download the credit report for <span className="font-semibold text-[#111111] dark:text-white">{getAgencyDisplayName(selectedReportAccount)}</span>.
                             </p>
 
                             {isLoadingReport ? (
@@ -405,7 +574,7 @@ export const AdminAgencies: React.FC = () => {
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={() => generateMonthlyReport(reportSelectedMonth, reportTransactions, 'agency', selectedReportAccount.company_name)}
+                                        onClick={() => generateMonthlyReport(reportSelectedMonth, reportTransactions, 'agency', getAgencyDisplayName(selectedReportAccount))}
                                         disabled={reportTransactions.length === 0}
                                         className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl text-[13px] font-bold transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50 disabled:hover:shadow-none whitespace-nowrap"
                                     >

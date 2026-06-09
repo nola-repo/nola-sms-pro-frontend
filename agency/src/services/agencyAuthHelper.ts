@@ -41,6 +41,7 @@ const normalizeAgencyUser = (raw: any): AgencyAuthUser | null => {
     email: raw.email ?? undefined,
     phone: raw.phone ?? raw.phone_number ?? undefined,
     company_name: raw.company_name ?? raw.agency_name ?? undefined,
+    agency_name: raw.agency_name ?? raw.company_name ?? undefined,
     company_id: raw.company_id ?? raw.companyId ?? undefined,
     role: raw.role ?? 'agency',
   };
@@ -157,6 +158,7 @@ export interface AgencyAuthUser {
   email?:        string;
   phone?:        string;
   company_name?: string;
+  agency_name?:  string;
   company_id?:   string;
   role?:         string;
 }
