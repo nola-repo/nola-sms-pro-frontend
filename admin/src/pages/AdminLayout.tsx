@@ -1,8 +1,9 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX, FiBriefcase } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX, FiBriefcase } from 'react-icons/fi';
 import { NotificationBell } from '../components/ui/NotificationBell';
+import faviconLogo from '../assets/FAV ICON - NOLA SMS PRO.png';
 
 import { AdminLogin } from './components/AdminLogin';
 import { AdminForgotPassword } from './components/AdminForgotPassword';
@@ -72,9 +73,9 @@ const SidebarContent = ({ onNav, onLogout }: { onNav?: () => void; onLogout: () 
     <>
         <div className="px-4 pt-3 pb-2">
             <div className="flex items-center gap-3.5 group cursor-pointer transition-all">
-                <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-md flex items-center justify-center shrink-0 transition-all duration-500 relative overflow-hidden group-hover:rotate-6 group-hover:scale-105 active:scale-95">
+                <div className="w-9 h-9 rounded-[10px] bg-white dark:bg-[#1a1b1e] border border-black/[0.06] dark:border-white/[0.08] shadow-sm flex items-center justify-center shrink-0 transition-all duration-500 relative overflow-hidden group-hover:rotate-3 group-hover:scale-105 active:scale-95">
                     <div className="transition-all duration-500 group-hover:rotate-[-6deg]">
-                       <FiLock className="w-5 h-5 text-white" />
+                       <img src={faviconLogo} alt="NOLA SMS PRO" className="h-7 w-7 object-contain" />
                     </div>
                 </div>
                 <div className="flex flex-col">
@@ -210,10 +211,10 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                 {/* Blue gradient topbar — matches user panel */}
                 <header className="relative z-50 flex-shrink-0">
                     {/* Gradient background with rounded bottom corners and shadow matching user panel */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] rounded-b-[32px] shadow-[0_12px_30px_rgba(29,107,212,0.2)] pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#2b83fa] via-[#1d6bd4] to-[#1556ac] rounded-b-[32px] shadow-[0_14px_34px_rgba(29,107,212,0.22)] pointer-events-none" />
 
                     {/* Topbar content */}
-                    <div className="relative z-10 px-6 pt-5 pb-6 flex items-center justify-between">
+                    <div className="relative z-10 px-4 sm:px-6 pt-4 pb-12 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                             {/* Mobile hamburger */}
                             <button
@@ -223,13 +224,21 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                             >
                                 <FiMenu className="w-5 h-5" />
                             </button>
-                            <div className="flex flex-col">
-                                <h2 className="text-[17px] font-bold text-white capitalize tracking-tight leading-tight drop-shadow-sm font-sans">
-                                    {page.title}
-                                </h2>
-                                <p className="text-[11.5px] text-white/80 mt-1 font-semibold tracking-tight">
-                                    {page.subtitle}
-                                </p>
+                            <div className="w-10 h-10 rounded-xl bg-white/95 border border-white/40 shadow-md flex items-center justify-center overflow-hidden flex-shrink-0">
+                                <img src={faviconLogo} alt="NOLA SMS PRO" className="h-8 w-8 object-contain" />
+                            </div>
+                            <div className="min-w-0">
+                                <div className="text-[16px] sm:text-[17px] font-black text-white tracking-tight leading-tight">
+                                    NOLA SMS PRO
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] font-black text-white/85 uppercase tracking-widest">Admin Panel</span>
+                                    {pathname !== '/dashboard' && pathname !== '/' && (
+                                        <span className="hidden sm:inline-flex items-center rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white/90 ring-1 ring-white/20">
+                                            {page.title}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -247,8 +256,8 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-[#f7f7f7] dark:bg-[#111111]">
-                    <div className="max-w-6xl mx-auto">
+                <main className="flex-1 overflow-y-auto px-4 sm:px-6 pb-6 pt-0 custom-scrollbar bg-[#f7f7f7] dark:bg-[#111111]">
+                    <div className="relative z-10 max-w-6xl mx-auto -mt-7">
                         <Routes>
                             <Route path="/"           element={<Navigate to="/dashboard" replace />} />
                             <Route path="/dashboard"  element={<AdminDashboard onNavigate={(tab) => navigate(`/${tab}`)} />} />

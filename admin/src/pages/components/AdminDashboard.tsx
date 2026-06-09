@@ -123,26 +123,27 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
     const approvedSenders = accounts.filter(a => a.approved_sender_id).length;
     const recentRequests = [...requests].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 6);
 
-    const StatCard = ({ label, value, color, icon, index = 0 }: { label: string; value: number | string; color: string; icon: React.ReactNode, index?: number }) => (
+    const StatCard = ({ label, value, accent, iconBg, icon, note, index = 0 }: { label: string; value: number | string; accent: string; iconBg: string; icon: React.ReactNode, note: string; index?: number }) => (
         <div
             className="animate-in fade-in slide-in-from-bottom-4 duration-700 h-full"
             style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'both' }}
         >
-            <div className={`relative p-6 rounded-3xl bg-gradient-to-br ${color} shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group h-full`}>
-                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
-                    <div className="w-20 h-20">{icon}</div>
+            <div className="group relative h-full min-h-[156px] overflow-hidden rounded-[24px] border border-white/70 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#2b83fa]/15 hover:shadow-lg dark:border-white/[0.06] dark:bg-[#1c1e21]">
+                <div className={`absolute -right-7 -bottom-8 opacity-[0.07] transition-transform duration-500 group-hover:scale-110 ${accent}`}>
+                    <div className="w-28 h-28">{icon}</div>
                 </div>
                 <div className="relative z-10 flex flex-col h-full justify-between">
                     <div>
-                        <div className="w-10 h-10 p-2.5 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-4 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
-                            {icon}
+                        <div className={`w-10 h-10 p-2.5 rounded-xl flex items-center justify-center mb-4 shadow-sm ring-1 ring-black/5 dark:ring-white/10 ${iconBg} ${accent}`}>
+                            <div className="w-full h-full">{icon}</div>
                         </div>
-                        <p className="text-[12px] font-bold text-white/80 uppercase tracking-widest mb-1">{label}</p>
+                        <p className="text-[11.5px] font-black text-[#64748b] dark:text-[#9aa7bb] uppercase tracking-widest mb-1">{label}</p>
                     </div>
-                    <div className="mt-auto pt-2">
-                        <h2 className="text-3xl font-black text-white tracking-tight drop-shadow-sm">
-                            {loading ? <span className="inline-block w-10 h-8 bg-white/20 animate-pulse rounded-lg" /> : value}
+                    <div className="mt-6">
+                        <h2 className="text-[32px] font-black text-[#111111] dark:text-white tracking-tight leading-none">
+                            {loading ? <span className="inline-block w-14 h-8 bg-[#edf0f3] dark:bg-white/10 animate-pulse rounded-lg" /> : value}
                         </h2>
+                        <p className="mt-2 text-[12px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">{note}</p>
                     </div>
                 </div>
             </div>
@@ -157,17 +158,17 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-7">
             {/* Header Section */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-[24px] bg-white/95 dark:bg-[#1c1e21]/95 border border-white/80 dark:border-white/[0.06] shadow-sm px-5 py-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center shadow-[0_8px_25px_rgba(43,131,250,0.4)] flex-shrink-0 hidden sm:flex">
-                        <FiHome className="h-6 w-6 text-white" />
+                    <div className="w-11 h-11 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center shadow-sm flex-shrink-0 hidden sm:flex">
+                        <FiHome className="h-6 w-6" />
                     </div>
                     <div>
                         <SplitText
                             text={`${getGreeting()}, Admin!`}
-                            className="text-3xl font-extrabold text-[#111111] dark:text-white tracking-tight"
+                            className="text-[24px] sm:text-[28px] font-black text-[#111111] dark:text-white tracking-tight"
                             delay={40}
                             duration={1.2}
                             ease="power3.out"
@@ -180,12 +181,12 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             tag="h1"
                         />
                         <FadeContent blur={false} duration={1200} ease="ease-out" initialOpacity={0}>
-                            <p className="text-[#6e6e73] dark:text-[#a0a0ab] font-medium">Welcome back to NOLA SMS PRO</p>
+                            <p className="text-[13px] text-[#6e6e73] dark:text-[#a0a0ab] font-semibold">Welcome back to NOLA SMS PRO</p>
                         </FadeContent>
                     </div>
                 </div>
                 {!loading && (
-                    <span className="text-[11px] text-[#9aa0a6] font-medium bg-white/50 dark:bg-[#1a1b1e]/50 px-3 py-1.5 rounded-full border border-[#0000000a] dark:border-[#ffffff0a]">
+                    <span className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] font-bold bg-[#f7f7f7] dark:bg-[#0d0e10] px-3 py-1.5 rounded-full border border-[#0000000a] dark:border-[#ffffff0a]">
                         Last checked: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>
                 )}
@@ -193,14 +194,14 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
             
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-                <StatCard index={0} label="Registered Users" value={totalAccounts} color="from-[#2b83fa] to-[#60a5fa]" icon={<FiUsers className="w-full h-full" />} />
-                <StatCard index={1} label="Pending Requests" value={pendingRequests} color={pendingRequests > 0 ? 'from-amber-500 to-orange-500' : 'from-slate-400 to-slate-500'} icon={<FiClock className="w-full h-full" />} />
-                <StatCard index={2} label="Approved Senders" value={approvedSenders} color="from-emerald-500 to-teal-600" icon={<FiCheck className="w-full h-full" />} />
-                <StatCard index={3} label="Total Messages" value={totalMessages} color="from-indigo-500 to-purple-600" icon={<FiMessageSquare className="w-full h-full" />} />
+                <StatCard index={0} label="Registered Users" value={totalAccounts} accent="text-[#2b83fa]" iconBg="bg-blue-50 dark:bg-blue-900/20" icon={<FiUsers className="w-full h-full" />} note="Installed subaccounts" />
+                <StatCard index={1} label="Pending Requests" value={pendingRequests} accent={pendingRequests > 0 ? 'text-amber-500' : 'text-slate-500'} iconBg={pendingRequests > 0 ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-slate-100 dark:bg-slate-800'} icon={<FiClock className="w-full h-full" />} note="Waiting for review" />
+                <StatCard index={2} label="Approved Senders" value={approvedSenders} accent="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" icon={<FiCheck className="w-full h-full" />} note="Ready to send" />
+                <StatCard index={3} label="Total Messages" value={totalMessages} accent="text-violet-500" iconBg="bg-violet-50 dark:bg-violet-900/20" icon={<FiMessageSquare className="w-full h-full" />} note="Platform activity" />
             </div>
 
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Quick Actions */}
                 <AnimatedContent delay={0.4} distance={50} direction="vertical">
                     <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-5 flex items-center gap-2 h-8">
@@ -213,7 +214,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             { tab: 'settings', label: 'System Settings', desc: 'Global sender ID and free tier config', color: 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800', icon: <FiSettings className="h-6 w-6" />, badge: 0, hoverBorder: 'hover:border-gray-500/30 hover:shadow-gray-500/10' },
                         ].map(item => (
                             <button key={item.tab} onClick={() => onNavigate(item.tab)}
-                                className={`w-full p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm transition-all text-left flex items-center justify-between group ${item.hoverBorder}`}>
+                                className={`w-full p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-white/70 dark:border-white/[0.06] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left flex items-center justify-between group ${item.hoverBorder}`}>
                                 <div className="flex items-center gap-4">
                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${item.color} transition-transform group-hover:scale-110`}>
                                         {item.icon}
@@ -267,7 +268,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                             </div>
                         ) : recentRequests.slice(0, 3).map(req => (
                             <button key={req.id} onClick={() => onNavigate('requests')}
-                                className="w-full p-4 rounded-2xl bg-white dark:bg-[#1c1e21] border border-[#0000000a] dark:border-[#ffffff0a] shadow-sm hover:shadow-md transition-all text-left flex items-center justify-between group min-h-[74px]">
+                                className="w-full p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-white/70 dark:border-white/[0.06] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left flex items-center justify-between group min-h-[74px]">
                                 <div className="flex items-center gap-4 overflow-hidden">
                                     <div className={`w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center text-white text-[13px] font-bold shadow-sm ${
                                         req.status === 'pending' ? 'bg-gradient-to-br from-amber-400 to-orange-500' : req.status === 'approved' ? 'bg-gradient-to-br from-emerald-400 to-teal-500' : 'bg-gradient-to-br from-red-400 to-rose-600'
@@ -296,9 +297,9 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
             </div>
 
             {/* Recent Activity Logs */}
-            <div className="mt-10">
+            <div className="mt-2">
                 <AnimatedContent delay={0.6} distance={50} direction="vertical">
-                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm flex flex-col">
+                    <div className="bg-white dark:bg-[#1c1e21] border border-white/70 dark:border-white/[0.06] rounded-[24px] p-5 sm:p-6 shadow-sm flex flex-col">
                         {/* Header Inside Container */}
                         <div className="flex items-center justify-between mb-5 h-8">
                             <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
@@ -377,8 +378,8 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                                 </div>
                                                 <div className="flex items-center justify-between gap-3">
                                                     <p className="text-[13px] text-gray-500 dark:text-gray-400 flex-1 leading-snug">
-                                                        {account?.location_name || (locId ? locId.substring(0, 12) + '…' : 'System')}
-                                                        {log.sendername ? ` · via ${log.sendername}` : ''}
+                                                        {account?.location_name || (locId ? locId.substring(0, 12) + '...' : 'System')}
+                                                        {log.sendername ? ` - via ${log.sendername}` : ''}
                                                     </p>
                                                     <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
                                                         <span className="text-[10px] font-bold text-[#111111] dark:text-white uppercase tracking-wider">{date}</span>
@@ -391,7 +392,7 @@ export const AdminDashboard: React.FC<{ onNavigate: (tab: any) => void }> = ({ o
                                 {totalPages > 1 && (
                                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#e5e5e5] dark:border-white/5">
                                         <div className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] uppercase font-bold tracking-wider">
-                                            Showing <b className="text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</b> – <b className="text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, logs.length)}</b> of <b className="text-[#111111] dark:text-white">{logs.length}</b>
+                                            Showing <b className="text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</b> - <b className="text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, logs.length)}</b> of <b className="text-[#111111] dark:text-white">{logs.length}</b>
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-1 rounded-lg text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronLeft className="w-4 h-4" /></button>
