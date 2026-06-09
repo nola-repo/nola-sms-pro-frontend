@@ -2,12 +2,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiArrowRight, FiDownload } from 'react-icons/fi';
 import { generateMonthlyReport } from '../../utils/pdfGenerator';
-import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
-import Antigravity from '../../components/ui/Antigravity';
 import SplitText from './SplitText';
 import FadeContent from './FadeContent';
 import AnimatedContent from './AnimatedContent';
-import { AdminLogs } from '../AdminLogs';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_API = '/api/admin_sender_requests.php';

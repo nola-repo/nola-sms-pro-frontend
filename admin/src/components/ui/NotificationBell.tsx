@@ -146,7 +146,7 @@ const NotifItem: React.FC<{
     );
 };
 
-export const NotificationBell: React.FC = () => {
+export const NotificationBell: React.FC<{ variant?: 'default' | 'light' }> = ({ variant = 'default' }) => {
     const { notifications, loading, unreadCount, markRead, markAllRead } = useAdminNotifications();
     const [open, setOpen] = useState(false);
     const panelRef = useRef<HTMLDivElement>(null);
@@ -205,9 +205,13 @@ export const NotificationBell: React.FC = () => {
                 onClick={() => setOpen(o => !o)}
                 className={`
                     relative p-2 rounded-xl border transition-all shadow-sm
-                    ${open
-                        ? 'bg-[#2b83fa]/10 border-[#2b83fa]/30 text-[#2b83fa]'
-                        : 'bg-[#f7f7f7] dark:bg-[#1e2023] border-[#e5e5e5] dark:border-white/5 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#efefef] dark:hover:bg-white/5'
+                    ${variant === 'light'
+                        ? open
+                            ? 'bg-white/25 border-white/30 text-white'
+                            : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                        : open
+                            ? 'bg-[#2b83fa]/10 border-[#2b83fa]/30 text-[#2b83fa]'
+                            : 'bg-[#f7f7f7] dark:bg-[#1e2023] border-[#e5e5e5] dark:border-white/5 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#efefef] dark:hover:bg-white/5'
                     }
                 `}
                 aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}

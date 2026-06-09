@@ -207,31 +207,43 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-                <header className="relative z-50 px-6 py-4 bg-white/80 dark:bg-[#121415]/80 backdrop-blur-2xl border-b border-[#0000000a] dark:border-[#ffffff0a] flex-shrink-0 flex items-center justify-between shadow-[0_1px_0_rgba(0,0,0,0.04)] dark:shadow-[0_1px_0_rgba(255,255,255,0.03)]">
-                    <div className="flex items-center gap-3">
-                        {/* Mobile hamburger */}
-                        <button
-                            onClick={() => setIsMobileOpen(true)}
-                            className="md:hidden p-2 -ml-1 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-all"
-                            aria-label="Open menu"
-                        >
-                            <FiMenu className="w-5 h-5" />
-                        </button>
-                        <div className="flex flex-col">
-                            <h2 className="text-[17px] font-bold text-[#111111] dark:text-white capitalize tracking-tight leading-tight">{page.title}</h2>
-                            <p className="text-[11.5px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">{page.subtitle}</p>
+                {/* Blue gradient topbar — matches user panel */}
+                <header className="relative z-50 flex-shrink-0">
+                    {/* Gradient background with rounded bottom corners and shadow matching user panel */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] rounded-b-[32px] shadow-[0_12px_30px_rgba(29,107,212,0.2)] pointer-events-none" />
+
+                    {/* Topbar content */}
+                    <div className="relative z-10 px-6 pt-5 pb-6 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            {/* Mobile hamburger */}
+                            <button
+                                onClick={() => setIsMobileOpen(true)}
+                                className="md:hidden p-2 -ml-1 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-all"
+                                aria-label="Open menu"
+                            >
+                                <FiMenu className="w-5 h-5" />
+                            </button>
+                            <div className="flex flex-col">
+                                <h2 className="text-[17px] font-bold text-white capitalize tracking-tight leading-tight drop-shadow-sm font-sans">
+                                    {page.title}
+                                </h2>
+                                <p className="text-[11.5px] text-white/80 mt-1 font-semibold tracking-tight">
+                                    {page.subtitle}
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <NotificationBell />
-                        <button
-                            onClick={toggleDarkMode}
-                            className="p-2 rounded-xl bg-[#f7f7f7] dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/5 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#efefef] dark:hover:bg-white/5 transition-all shadow-sm"
-                            aria-label="Toggle theme"
-                            title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                        >
-                            {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {/* Notification Bell — white glass style on gradient */}
+                            <NotificationBell variant="light" />
+                            <button
+                                onClick={toggleDarkMode}
+                                className="p-2 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all shadow-sm"
+                                aria-label="Toggle theme"
+                                title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                            >
+                                {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
+                            </button>
+                        </div>
                     </div>
                 </header>
 

@@ -37,13 +37,13 @@ export const generateMonthlyReport = (
 
   // Filter transactions to only this month (if not 'All'), and sort oldest to newest
   const monthFiltered = month === 'All' ? transactions : transactions.filter(tx => {
-     let rawDate = tx.timestamp || tx.created_at || '';
+     const rawDate: string = tx.timestamp || tx.created_at || '';
      return rawDate.startsWith(month);
   });
   
   const sortedTransactions = [...monthFiltered].sort((a, b) => {
-    let dateA = new Date(a.timestamp || a.created_at || 0).getTime();
-    let dateB = new Date(b.timestamp || b.created_at || 0).getTime();
+    const dateA = new Date(a.timestamp || a.created_at || 0).getTime();
+    const dateB = new Date(b.timestamp || b.created_at || 0).getTime();
     return dateA - dateB;
   });
 
@@ -104,18 +104,18 @@ export const generateMonthlyReport = (
   let rowIndex = 1;
 
   sortedTransactions.forEach((tx) => {
-    let rawDate = tx.timestamp || tx.created_at || '';
-    let d = rawDate ? new Date(rawDate) : null;
-    let dateTimeStr = d ? `${d.toLocaleDateString()} \n${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '';
+    const rawDate: string = tx.timestamp || tx.created_at || '';
+    const d = rawDate ? new Date(rawDate) : null;
+    const dateTimeStr: string = d ? `${d.toLocaleDateString()} \n${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '';
     
     let type = String(tx.type || '').replace(/_/g, ' ').toUpperCase();
-    let amount = Number(tx.amount || 0);
+    const amount = Number(tx.amount || 0);
 
     if (type === 'SMS USAGE') type = amount < 0 ? 'SMS (SENT)' : 'SMS';
     
-    let number = tx.to_number || '';
-    let message = tx.message_body || '';
-    let description = tx.description || '';
+    let number: string = tx.to_number || '';
+    let message: string = tx.message_body || '';
+    const description: string = tx.description || '';
     
     // Auto strip missing elements out of description
     if (!message && description) {
@@ -132,16 +132,16 @@ export const generateMonthlyReport = (
     
     if (!message) message = "Message preview unavailable";
 
-    let chars = Number(tx.chars || message.length);
-    let msgDisplay = `${message}\n[${chars} chars]`;
+    const chars = Number(tx.chars || message.length);
+    const msgDisplay = `${message}\n[${chars} chars]`;
 
-    let subNameDisplay = tx.subaccount_name || tx.location_name || displayName;
-    let agNameDisplay = tx.agency_name || finalAgency || 'N/A';
-    let accountDisplay = scope === 'subaccount' ? '-' : `${subNameDisplay}\n(Agency: ${agNameDisplay})`;
+    const subNameDisplay: string = tx.subaccount_name || tx.location_name || displayName;
+    const agNameDisplay: string = tx.agency_name || finalAgency || 'N/A';
+    const accountDisplay: string = scope === 'subaccount' ? '-' : `${subNameDisplay}\n(Agency: ${agNameDisplay})`;
 
-    let balance = Number(tx.balance_after || tx.balance || 0);
+    const balance = Number(tx.balance_after || tx.balance || 0);
     
-    let amtDisplay = amount > 0 ? `+${amount} credits` : `${amount} credits`;
+    const amtDisplay: string = amount > 0 ? `+${amount} credits` : `${amount} credits`;
 
     const row = [
       String(rowIndex++),
@@ -208,11 +208,13 @@ export const generateMonthlyReport = (
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(148, 163, 184);
       
-      const pageHeight = doc.internal.pageSize.height || (doc.internal.pageSize as any).getHeight();
+      const pageSize = doc.internal.pageSize as { height?: number; getHeight?: () => number };
+      const pageHeight = pageSize.height ?? (pageSize.getHeight ? pageSize.getHeight() : 842);
       
       doc.text('Note: If any discrepancies are found, please contact support immediately.', 40, pageHeight - 30);
       
-      const str = 'Page ' + (doc.internal as any).getNumberOfPages();
+      const internalDoc = doc.internal as unknown as { getNumberOfPages: () => number };
+      const str = 'Page ' + internalDoc.getNumberOfPages();
       const textWidth = doc.getTextWidth(str);
       doc.text(str, pageWidth - 40 - textWidth, pageHeight - 30);
 
@@ -222,7 +224,8 @@ export const generateMonthlyReport = (
     }
   });
 
-  const finalY = (doc as any).lastAutoTable?.finalY || 240;
+  const docWithTable = doc as typeof doc & { lastAutoTable?: { finalY?: number } };
+  const finalY = docWithTable.lastAutoTable?.finalY ?? 240;
 
   // --- Bottom Total Summary ---
   doc.setFillColor(241, 245, 249);
