@@ -20,6 +20,7 @@ import { GHL_BACKEND_ONBOARDING_URL, GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_
 import { fetchAccountProfile, type AccountProfile } from "../api/account";
 import faviconLogo from "../assets/FAV ICON - NOLA SMS PRO.png";
 import { isAuthenticated } from "../services/authService";
+import { UserNotificationBell } from "../components/ui/UserNotificationBell";
 
 interface DashboardProps {
   isMobileMenuOpen?: boolean;
@@ -508,6 +509,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             <span className="font-bold text-[15px] text-[#111111] dark:text-white tracking-tight">NOLA SMS Pro</span>
           </div>
           <div className="flex items-center gap-1">
+            <UserNotificationBell onTabChange={handleTabChange} />
             <button
               onClick={() => handleTabChange('settings')}
               className="p-2 rounded-lg hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] transition-colors settings-icon-rotate"
