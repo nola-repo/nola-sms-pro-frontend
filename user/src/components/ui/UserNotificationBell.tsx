@@ -16,6 +16,7 @@ type ViewTab = "home" | "compose" | "contacts" | "templates" | "settings" | "tic
 interface UserNotificationBellProps {
   variant?: "default" | "light";
   onTabChange?: (tab: ViewTab) => void;
+  shape?: "rounded" | "circle";
 }
 
 const timeAgo = (iso: string): string => {
@@ -210,6 +211,7 @@ const NotificationRow: React.FC<{
 export const UserNotificationBell: React.FC<UserNotificationBellProps> = ({
   variant = "default",
   onTabChange,
+  shape = "rounded",
 }) => {
   const { notifications, loading, unreadCount, markRead, markAllRead } = useUserNotifications();
   const [open, setOpen] = useState(false);
@@ -361,7 +363,8 @@ export const UserNotificationBell: React.FC<UserNotificationBellProps> = ({
         type="button"
         onClick={() => setOpen((value) => !value)}
         className={`
-          relative rounded-xl border p-2 shadow-sm transition-all
+          relative border p-2 shadow-sm transition-all
+          ${shape === "circle" ? "h-10 w-10 rounded-full" : "rounded-xl"}
           ${variant === "light"
             ? open
               ? "border-white/30 bg-white/25 text-white"

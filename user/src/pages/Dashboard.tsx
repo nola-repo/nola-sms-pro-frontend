@@ -20,7 +20,6 @@ import { GHL_BACKEND_ONBOARDING_URL, GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_
 import { fetchAccountProfile, type AccountProfile } from "../api/account";
 import faviconLogo from "../assets/FAV ICON - NOLA SMS PRO.png";
 import { isAuthenticated } from "../services/authService";
-import { UserNotificationBell } from "../components/ui/UserNotificationBell";
 
 interface DashboardProps {
   isMobileMenuOpen?: boolean;
@@ -28,6 +27,7 @@ interface DashboardProps {
   darkMode?: boolean;
   toggleDarkMode?: () => void;
   initialView?: ViewTab;
+  topControls?: React.ReactNode;
 }
 
 type RegistrationCheckState =
@@ -110,7 +110,7 @@ const RegistrationRequiredState: React.FC<{
   );
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: externalIsMobileMenuOpen, onMobileMenuToggle, darkMode, toggleDarkMode, initialView }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: externalIsMobileMenuOpen, onMobileMenuToggle, darkMode, toggleDarkMode, initialView, topControls }) => {
   const navigate = useNavigate();
   const onboarding = useOnboarding();
   // Reactive location ID from context — re-renders whenever subaccount changes
@@ -494,7 +494,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-full min-h-0 w-full min-w-0 overflow-hidden bg-[#f7f7f7] dark:bg-[#18191d]">
         {/* Mobile Header with Sidebar Toggle */}
-        <div className="md:hidden flex items-center justify-between px-4 py-2.5 border-b border-[#0000000a] dark:border-[#ffffff0a] bg-white/80 dark:bg-[#121415]/80 backdrop-blur-lg sticky top-0 z-30">
+        <div className="md:hidden flex items-center justify-between px-4 py-2.5 border-b border-[#0000000a] dark:border-[#ffffff0a] bg-white/80 dark:bg-[#121415]/80 backdrop-blur-lg z-30">
           <button
             onClick={toggleMobileMenu}
             className="p-2 -ml-2 rounded-xl hover:bg-black/[0.04] dark:hover:bg-white/[0.04] text-[#3c4043] dark:text-[#e8eaed] transition-all active:scale-90"
@@ -509,7 +509,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             <span className="font-bold text-[15px] text-[#111111] dark:text-white tracking-tight">NOLA SMS Pro</span>
           </div>
           <div className="flex items-center gap-1">
-            <UserNotificationBell onTabChange={handleTabChange} />
             <button
               onClick={() => handleTabChange('settings')}
               className="p-2 rounded-lg hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] transition-colors settings-icon-rotate"
@@ -575,6 +574,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
               onCreateContact={handleCreateContactShortcut}
               onSelectContact={handleSelectContact}
               onSelectBulkMessage={handleSelectBulkMessage}
+              topControls={topControls}
             />
           ) : currentView === 'compose' ? (
             <Composer

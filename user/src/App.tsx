@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
 import { GhlCallback } from "./pages/GhlCallback";
 
@@ -11,6 +11,8 @@ import { useUserProfile } from "./hooks/useUserProfile";
 import { UserProfileContext } from "./context/UserProfileContext";
 import { isAuthenticated } from "./services/authService";
 import { FiBookOpen } from "react-icons/fi";
+import { UserNotificationBell } from "./components/ui/UserNotificationBell";
+import type { ViewTab } from "./components/Sidebar";
 
 const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
   const alreadySignedIn = isAuthenticated();
@@ -74,6 +76,7 @@ const AppLayout: React.FC = () => {
     () => localStorage.getItem('nola_onboarding_done') === 'true'
   );
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Dynamically fetch and sync profile immediately on app boot
   const userProfile = useUserProfile();
@@ -109,30 +112,41 @@ const AppLayout: React.FC = () => {
     window.dispatchEvent(new CustomEvent('open-onboarding', { detail: { step: 0 } }));
   };
 
+  const handleTabChange = (tab: ViewTab) => {
+    const urlMap: Record<ViewTab, string> = {
+      home: '/',
+      compose: '/compose',
+      contacts: '/contacts',
+      settings: '/settings',
+      templates: '/templates',
+      tickets: '/tickets',
+    };
+    navigate({ pathname: urlMap[tab] ?? '/', search: window.location.search });
+  };
+
   const hideTogglePaths = ['/login', '/register-from-install'];
   const hideToggle = hideTogglePaths.includes(location.pathname.toLowerCase());
+  const topControls = !hideToggle ? (
+    <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+      <button
+        onClick={openGettingStarted}
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/90 text-[#1d6bd4] shadow-sm shadow-black/10 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-md dark:border-white/10 dark:bg-[#1a1b1e]/90 dark:text-[#60a5fa] dark:hover:bg-[#22252a]"
+        title="Getting Started"
+        aria-label="Getting Started"
+      >
+        <FiBookOpen className="h-5 w-5" />
+        {!onboardingDone && (
+          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#1a1b1e]" />
+        )}
+      </button>
+      <UserNotificationBell onTabChange={handleTabChange} shape="circle" />
+      <ThemeSwitch checked={darkMode} onChange={toggleDarkMode} />
+    </div>
+  ) : null;
 
   return (
     <UserProfileContext.Provider value={userProfile}>
-      <div className="h-screen overflow-hidden bg-[#ffffff] dark:bg-[#1a1b1e]">
-        {/* Header utilities - Fixed top right (Desktop only) */}
-      {!hideToggle && (
-        <div className="hidden md:flex fixed top-3 right-3 items-center gap-2 z-50">
-          <button
-            onClick={openGettingStarted}
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/90 text-[#1d6bd4] shadow-sm shadow-black/10 backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-md dark:border-white/10 dark:bg-[#1a1b1e]/90 dark:text-[#60a5fa] dark:hover:bg-[#22252a]"
-            title="Getting Started"
-            aria-label="Getting Started"
-          >
-            <FiBookOpen className="h-5 w-5" />
-            {!onboardingDone && (
-              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#1a1b1e]" />
-            )}
-          </button>
-          <ThemeSwitch checked={darkMode} onChange={toggleDarkMode} />
-        </div>
-      )}
-
+      <div className="relative h-screen overflow-hidden bg-[#ffffff] dark:bg-[#1a1b1e]">
       <Routes>
         <Route path="/login"                  element={<RedirectToBackend path="/login" />} />
         <Route path="/register"               element={<RedirectToBackend path="/register" />} />
@@ -151,6 +165,7 @@ const AppLayout: React.FC = () => {
                   darkMode={darkMode}
                   toggleDarkMode={toggleDarkMode}
                   initialView="home"
+                  topControls={topControls}
                 />
               )
             }
@@ -164,6 +179,7 @@ const AppLayout: React.FC = () => {
                 darkMode={darkMode}
                 toggleDarkMode={toggleDarkMode}
                 initialView="compose"
+                topControls={topControls}
               />
             }
           />
@@ -176,6 +192,7 @@ const AppLayout: React.FC = () => {
                 darkMode={darkMode}
                 toggleDarkMode={toggleDarkMode}
                 initialView="contacts"
+                topControls={topControls}
               />
             }
           />
@@ -188,6 +205,7 @@ const AppLayout: React.FC = () => {
                 darkMode={darkMode}
                 toggleDarkMode={toggleDarkMode}
                 initialView="settings"
+                topControls={topControls}
               />
             }
           />
@@ -200,6 +218,7 @@ const AppLayout: React.FC = () => {
                 darkMode={darkMode}
                 toggleDarkMode={toggleDarkMode}
                 initialView="templates"
+                topControls={topControls}
               />
             }
           />
@@ -212,6 +231,7 @@ const AppLayout: React.FC = () => {
                 darkMode={darkMode}
                 toggleDarkMode={toggleDarkMode}
                 initialView="tickets"
+                topControls={topControls}
               />
             }
           />

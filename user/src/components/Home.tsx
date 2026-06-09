@@ -26,6 +26,7 @@ interface HomeProps {
     onCreateContact: () => void;
     onSelectContact: (contact: Contact) => void;
     onSelectBulkMessage: (message: BulkMessageHistoryItem) => void;
+    topControls?: React.ReactNode;
 }
 
 type HomeCreditTransaction = Omit<CreditTransaction, "type"> & {
@@ -171,7 +172,7 @@ const getStoredProfileDisplayName = (locationId: string): string => {
     return "";
 };
 
-export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSelectContact, onSelectBulkMessage }) => {
+export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSelectContact, onSelectBulkMessage, topControls }) => {
     const { locationId } = useLocationId();
     const liveProfile = useUserProfileContext();
     const [accountProfile, setAccountProfile] = useState<AccountProfile | null>(() => {
@@ -486,7 +487,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                         </FadeContent>
                     </div>
 
-                    <div className="flex items-center gap-4 w-full sm:w-auto">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
                         <div className="relative flex-1 sm:w-64" onClick={(e) => e.stopPropagation()}>
                             <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/70" />
                             <input
@@ -553,6 +554,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                         >
                             {profileInitial || <FiUser className="w-5 h-5" />}
                         </div>
+                        {topControls}
                     </div>
                 </div>
 

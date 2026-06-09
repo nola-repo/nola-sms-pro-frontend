@@ -18,7 +18,6 @@ import { getAccountSettings } from "../utils/settingsStorage";
 import { buildContactNameLookup, isPhoneLike, resolveContactNameByPhone, toProperCase } from "../utils/contactDisplay";
 import { useLocationId } from "../context/LocationContext";
 import faviconLogo from "../assets/FAV ICON - NOLA SMS PRO.png";
-import { UserNotificationBell } from "./ui/UserNotificationBell";
 
 export type ViewTab = 'home' | 'compose' | 'contacts' | 'templates' | 'settings' | 'tickets';
 
@@ -625,12 +624,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div className="flex items-center gap-1">
-            {!isCollapsed && (
-              <div className="hidden md:block">
-                <UserNotificationBell onTabChange={onTabChange} />
-              </div>
-            )}
-
             {/* Mobile Close Button */}
             {!isCollapsed && onCloseMobile && (
               <button
