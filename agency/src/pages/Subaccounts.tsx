@@ -22,6 +22,7 @@ import {
   updateSubaccountSettings,
   checkInstallStatus,
 } from '../services/api.ts';
+import { agencyFetch } from '../services/agencyApi.ts';
 
 
 
@@ -201,9 +202,8 @@ export const Subaccounts = () => {
 
     Promise.all([
       getSubaccounts(agencyId),
-      fetch(`${import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io'}/api/billing/subscription.php?agency_id=${agencyId}`, {
+      agencyFetch(`${import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io'}/api/billing/subscription.php?agency_id=${encodeURIComponent(agencyId)}`, {
         credentials: 'include',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('agency_token') || sessionStorage.getItem('agency_token')}` }
       }).then(r => r.ok ? r.json() : null).catch(() => null)
     ])
       .then(([subData, subStateData]) => {

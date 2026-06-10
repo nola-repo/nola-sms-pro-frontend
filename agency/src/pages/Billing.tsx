@@ -9,6 +9,7 @@ import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 import { useToast } from '../hooks/useToast.ts';
 import { ToastContainer } from '../components/ui/ToastContainer.tsx';
+import { agencyFetch } from '../services/agencyApi.ts';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from '../services/firebaseConfig';
@@ -16,9 +17,6 @@ import { db, auth } from '../services/firebaseConfig';
 // ─── Constants ────────────────────────────────────────────────────────────────
 const AGENCY_ID = 'O0YXPGWM9ep2l37dgxAo';
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
-// Shared API secret — must match WEBHOOK_SECRET env var on the backend
-const WEBHOOK_SECRET = import.meta.env.VITE_WEBHOOK_SECRET || 'f7RkQ2pL9zV3tX8cB1nS4yW6';
-const AUTH_HEADERS = { 'Content-Type': 'application/json', 'X-Webhook-Secret': WEBHOOK_SECRET };
 
 const RECHARGE_AMOUNTS = [100, 250, 500, 1000, 2000, 5000];
 const RECHARGE_THRESHOLDS = [25, 50, 100, 200, 500];
@@ -96,10 +94,11 @@ const Skeleton = ({ className = '' }) => (
 // ─── Gift Credits Modal ───────────────────────────────────────────────────────
 const GiftCreditsModal: React.FC<{
   subaccounts: Subaccount[];
+  agencyId: string;
   agencyBalance: number;
   onClose: () => void;
   onSuccess: (locationId: string, amount: number) => void;
-}> = ({ subaccounts, agencyBalance, onClose, onSuccess }) => {
+}> = ({ subaccounts, agencyId, agencyBalance, onClose, onSuccess }) => {
   const [selectedId, setSelectedId] = useState('');
   const [amount, setAmount] = useState(100);
   const [note, setNote] = useState('');
@@ -114,11 +113,10 @@ const GiftCreditsModal: React.FC<{
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/api/billing/agency_wallet.php`, {
+      const res = await agencyFetch(`${API_BASE}/api/billing/agency_wallet.php`, {
         method: 'POST',
-        headers: AUTH_HEADERS,
         credentials: 'include',
-        body: JSON.stringify({ action: 'gift', location_id: selectedId, amount, note, agency_id: AGENCY_ID }),
+        body: JSON.stringify({ action: 'gift', location_id: selectedId, amount, note, agency_id: agencyId }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Gift failed');
@@ -362,6 +360,7 @@ export const Billing: React.FC = () => {
   // Wallet state
   const [wallet, setWallet] = useState<AgencyWallet | null>(null);
   const [walletLoading, setWalletLoading] = useState(true);
+  const [walletError, setWalletError] = useState<string | null>(null);
 
   // Auto-recharge config (local edits)
   const [arEnabled, setArEnabled] = useState(false);
@@ -398,19 +397,27 @@ export const Billing: React.FC = () => {
   // ── Fetch wallet ────────────────────────────────────────────────────────────
   const fetchWallet = useCallback(async () => {
     setWalletLoading(true);
+    setWalletError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/billing/agency_wallet.php?agency_id=${effectiveAgencyId}`, { credentials: 'include', headers: { 'X-Webhook-Secret': WEBHOOK_SECRET } });
+      const res = await agencyFetch(`${API_BASE}/api/billing/agency_wallet.php?agency_id=${encodeURIComponent(effectiveAgencyId)}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Wallet request failed (${res.status})`);
       const data = await res.json();
       if (!mountedRef.current) return;
-      setWallet(data);
+      setWallet(prev => ({
+        balance: Number(data.balance ?? prev?.balance ?? 0),
+        auto_recharge_enabled: data.auto_recharge_enabled ?? prev?.auto_recharge_enabled ?? false,
+        auto_recharge_amount: Number(data.auto_recharge_amount ?? prev?.auto_recharge_amount ?? 500),
+        auto_recharge_threshold: Number(data.auto_recharge_threshold ?? prev?.auto_recharge_threshold ?? 100),
+        enforce_master_balance_lock: data.enforce_master_balance_lock ?? prev?.enforce_master_balance_lock ?? false,
+        updated_at: data.updated_at ?? prev?.updated_at,
+      }));
       setArEnabled(data.auto_recharge_enabled ?? false);
       setArAmount(data.auto_recharge_amount ?? 500);
       setArThreshold(data.auto_recharge_threshold ?? 100);
       setMasterLock(data.enforce_master_balance_lock ?? false);
     } catch {
       if (!mountedRef.current) return;
-      // Use mock data when endpoint isn't live yet
-      setWallet({ balance: 0, auto_recharge_enabled: false, auto_recharge_amount: 500, auto_recharge_threshold: 100, enforce_master_balance_lock: false });
+      setWalletError('Could not refresh wallet balance. Showing the last known balance.');
     } finally {
       if (mountedRef.current) setWalletLoading(false);
     }
@@ -421,7 +428,8 @@ export const Billing: React.FC = () => {
     setTxLoading(true);
     try {
       const monthParam = txMonth === 'All' ? '' : `&month=${txMonth}`;
-      const res = await fetch(`${API_BASE}/api/billing/transactions.php?scope=agency&agency_id=${effectiveAgencyId}${monthParam}`, { credentials: 'include', headers: { 'X-Webhook-Secret': WEBHOOK_SECRET } });
+      const res = await agencyFetch(`${API_BASE}/api/billing/transactions.php?scope=agency&agency_id=${encodeURIComponent(effectiveAgencyId)}${monthParam}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Transactions request failed (${res.status})`);
       const data = await res.json();
       if (!mountedRef.current) return;
       setTransactions(data.transactions || []);
@@ -437,7 +445,8 @@ export const Billing: React.FC = () => {
   const fetchRequests = useCallback(async () => {
     setReqLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/billing/credit_requests.php?agency_id=${effectiveAgencyId}`, { credentials: 'include', headers: { 'X-Webhook-Secret': WEBHOOK_SECRET } });
+      const res = await agencyFetch(`${API_BASE}/api/billing/credit_requests.php?agency_id=${encodeURIComponent(effectiveAgencyId)}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Credit requests request failed (${res.status})`);
       const data = await res.json();
       if (!mountedRef.current) return;
       const reqs: CreditRequest[] = data.requests || [];
@@ -454,7 +463,8 @@ export const Billing: React.FC = () => {
   // ── Fetch subaccounts for gift modal ────────────────────────────────────────
   const fetchSubaccounts = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/agency/get_subaccounts.php?agency_id=${effectiveAgencyId}`, { credentials: 'include', headers: { 'X-Webhook-Secret': WEBHOOK_SECRET, 'X-Agency-ID': effectiveAgencyId } });
+      const res = await agencyFetch(`${API_BASE}/api/agency/get_subaccounts.php?agency_id=${encodeURIComponent(effectiveAgencyId)}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`Subaccounts request failed (${res.status})`);
       const data = await res.json();
       if (!mountedRef.current) return;
       setSubaccounts(data.subaccounts || []);
@@ -466,10 +476,10 @@ export const Billing: React.FC = () => {
   // ── Fetch all months that have records ──────────────────────────────────────
   const fetchAvailableMonths = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/billing/transactions.php?scope=agency&agency_id=${effectiveAgencyId}&limit=2000`, { 
-        credentials: 'include', 
-        headers: { 'X-Webhook-Secret': WEBHOOK_SECRET } 
+      const res = await agencyFetch(`${API_BASE}/api/billing/transactions.php?scope=agency&agency_id=${encodeURIComponent(effectiveAgencyId)}&limit=2000`, { 
+        credentials: 'include',
       });
+      if (!res.ok) throw new Error(`Transactions request failed (${res.status})`);
       const data = await res.json();
       const txs = data.transactions || [];
       const months = new Set<string>();
@@ -538,13 +548,14 @@ export const Billing: React.FC = () => {
             });
 
             setWallet(prev => {
-              const newBalance = cleanData.balance !== undefined ? Number(cleanData.balance) : (prev?.balance ?? 0);
+              if (prev) return prev;
+              const newBalance = cleanData.balance !== undefined ? Number(cleanData.balance) : 0;
               return {
                 balance: newBalance,
-                auto_recharge_enabled: cleanData.auto_recharge_enabled !== undefined ? !!cleanData.auto_recharge_enabled : (prev?.auto_recharge_enabled ?? false),
-                auto_recharge_amount: cleanData.auto_recharge_amount !== undefined ? Number(cleanData.auto_recharge_amount) : (prev?.auto_recharge_amount ?? 500),
-                auto_recharge_threshold: cleanData.auto_recharge_threshold !== undefined ? Number(cleanData.auto_recharge_threshold) : (prev?.auto_recharge_threshold ?? 100),
-                enforce_master_balance_lock: cleanData.enforce_master_balance_lock !== undefined ? !!cleanData.enforce_master_balance_lock : (prev?.enforce_master_balance_lock ?? false),
+                auto_recharge_enabled: cleanData.auto_recharge_enabled !== undefined ? !!cleanData.auto_recharge_enabled : false,
+                auto_recharge_amount: cleanData.auto_recharge_amount !== undefined ? Number(cleanData.auto_recharge_amount) : 500,
+                auto_recharge_threshold: cleanData.auto_recharge_threshold !== undefined ? Number(cleanData.auto_recharge_threshold) : 100,
+                enforce_master_balance_lock: cleanData.enforce_master_balance_lock !== undefined ? !!cleanData.enforce_master_balance_lock : false,
               };
             });
 
@@ -561,11 +572,8 @@ export const Billing: React.FC = () => {
             const userData = snapshot.docs[0].data();
             if (userData.balance !== undefined) {
               setWallet(prev => {
-                if (!prev) return { balance: Number(userData.balance), auto_recharge_enabled: false, auto_recharge_amount: 500, auto_recharge_threshold: 100, enforce_master_balance_lock: false };
-                return {
-                  ...prev,
-                  balance: Number(userData.balance),
-                };
+                if (prev) return prev;
+                return { balance: Number(userData.balance), auto_recharge_enabled: false, auto_recharge_amount: 500, auto_recharge_threshold: 100, enforce_master_balance_lock: false };
               });
             }
           }
@@ -589,9 +597,8 @@ export const Billing: React.FC = () => {
   const saveAutoRecharge = async () => {
     setArSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/api/billing/agency_wallet.php`, {
+      const res = await agencyFetch(`${API_BASE}/api/billing/agency_wallet.php`, {
         method: 'POST',
-        headers: AUTH_HEADERS,
         credentials: 'include',
         body: JSON.stringify({ action: 'set_auto_recharge', agency_id: effectiveAgencyId, enabled: arEnabled, amount: arAmount, threshold: arThreshold }),
       });
@@ -610,9 +617,8 @@ export const Billing: React.FC = () => {
     setMasterLock(val);
     setMasterLockSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/api/billing/agency_wallet.php`, {
+      const res = await agencyFetch(`${API_BASE}/api/billing/agency_wallet.php`, {
         method: 'POST',
-        headers: AUTH_HEADERS,
         credentials: 'include',
         body: JSON.stringify({ action: 'set_master_lock', agency_id: effectiveAgencyId, enabled: val }),
       });
@@ -636,9 +642,8 @@ export const Billing: React.FC = () => {
   const handleRequestAction = async (requestId: string, action: 'approve' | 'deny') => {
     setActionLoading(prev => ({ ...prev, [requestId]: true }));
     try {
-      const res = await fetch(`${API_BASE}/api/billing/credit_requests.php`, {
+      const res = await agencyFetch(`${API_BASE}/api/billing/credit_requests.php`, {
         method: 'POST',
-        headers: AUTH_HEADERS,
         credentials: 'include',
         body: JSON.stringify({ action, request_id: requestId, agency_id: effectiveAgencyId }),
       });
@@ -676,6 +681,7 @@ export const Billing: React.FC = () => {
       {giftModalOpen && (
         <GiftCreditsModal
           subaccounts={subaccounts}
+          agencyId={effectiveAgencyId}
           agencyBalance={balance}
           onClose={() => setGiftModalOpen(false)}
           onSuccess={(locId, amt) => {
@@ -729,7 +735,7 @@ export const Billing: React.FC = () => {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <div className="text-[12px] font-semibold text-[#6e6e73] dark:text-[#9aa0a9] uppercase tracking-wider mb-2">Agency Funding Wallet</div>
-                {walletLoading ? (
+                {walletLoading && !wallet ? (
                   <Skeleton className="h-10 w-36" />
                 ) : (
                   <div className="flex items-center gap-3">
@@ -742,6 +748,12 @@ export const Billing: React.FC = () => {
                         <FiAlertTriangle className="w-3 h-3" /> Low
                       </span>
                     )}
+                  </div>
+                )}
+                {walletError && (
+                  <div className="mt-3 flex items-center gap-2 text-[12px] font-semibold text-amber-600 dark:text-amber-400">
+                    <FiAlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                    {walletError}
                   </div>
                 )}
               </div>

@@ -21,6 +21,7 @@ import {
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { generateMonthlyReport } from '../../utils/pdfGenerator';
+import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 import { AdminSubaccountProfile } from './AdminSubaccountProfile';
 
@@ -169,7 +170,7 @@ export const AdminAccounts: React.FC = () => {
                 throw new Error('USER_LIST_SKIPPED_AFTER_401');
             }
 
-            const res = await fetch(ADMIN_LIST_USERS_API, { headers: getAdminAuthHeaders() });
+            const res = await adminFetch(ADMIN_LIST_USERS_API, { headers: getAdminAuthHeaders() });
             const json = await res.json().catch(() => ({}));
             if (!res.ok || json.status !== 'success') {
                 const error = new Error(json.message || (res.status === 401 ? 'Admin session was rejected by the user list endpoint.' : 'Failed to load registered users.'));
@@ -187,7 +188,7 @@ export const AdminAccounts: React.FC = () => {
             }
 
             try {
-                const legacyRes = await fetch(`${ADMIN_SENDER_API}?action=accounts`, { headers: getAdminAuthHeaders() });
+                const legacyRes = await adminFetch(`${ADMIN_SENDER_API}?action=accounts`, { headers: getAdminAuthHeaders() });
                 const legacyJson = await legacyRes.json();
                 if (!legacyRes.ok || legacyJson.status !== 'success') throw primaryError;
                 setAccounts((legacyJson.data || []).map(normalizeAccount));
@@ -260,7 +261,7 @@ export const AdminAccounts: React.FC = () => {
         setReportTransactions([]);
 
         try {
-            const res = await fetch(`/api/get_credit_transactions.php?location_id=${encodeURIComponent(account.location_id)}`, {
+            const res = await adminFetch(`/api/get_credit_transactions.php?location_id=${encodeURIComponent(account.location_id)}`, {
                 headers: getAdminAuthHeaders(),
             });
             const json = await res.json();
@@ -286,7 +287,7 @@ export const AdminAccounts: React.FC = () => {
 
         setActionLoading('managing');
         try {
-            const res = await fetch(ADMIN_SENDER_API, {
+            const res = await adminFetch(ADMIN_SENDER_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
                 body: JSON.stringify({
@@ -328,7 +329,7 @@ export const AdminAccounts: React.FC = () => {
     const handleManageUserAction = async (type: 'reset' | 'delete', account: Account) => {
         setActionLoading(`${type}:${account.id}`);
         try {
-            const res = await fetch(ADMIN_MANAGE_USER_API, {
+            const res = await adminFetch(ADMIN_MANAGE_USER_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
                 body: JSON.stringify({ action: type, user_id: account.id }),
@@ -380,7 +381,7 @@ export const AdminAccounts: React.FC = () => {
     const handleToggleActive = async (account: Account, active: boolean) => {
         updateAccountLocally(account.id, { active });
         try {
-            const res = await fetch(ADMIN_MANAGE_USER_API, {
+            const res = await adminFetch(ADMIN_MANAGE_USER_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
                 body: JSON.stringify({ action: 'toggle_active', user_id: account.id, active }),

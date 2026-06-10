@@ -4,12 +4,13 @@
  * The nginx proxy forwards /api/* → https://smspro-api.nolacrm.io/api/*
  */
 
+import { agencyFetch, getAgencyAuthHeaders } from './agencyApi';
+
 const BASE = '/api/agency';
 
 const defaultHeaders = (agencyId, extra = {}) => ({
-  'Content-Type': 'application/json',
+  ...getAgencyAuthHeaders(true),
   'X-Agency-ID': agencyId || '',
-  'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
   ...extra,
 });
 
@@ -31,18 +32,12 @@ const handleResponse = async (res: Response) => {
 
 // ── GET all subaccounts for this agency (standardized endpoint) ───────────────
 export const getSubaccounts = async (agencyId) => {
-  // Use the standardized admin endpoint which now supports filtering by company_id
-  const res = await fetch(`/api/admin_sender_requests.php?action=accounts&company_id=${encodeURIComponent(agencyId)}`, {
+  const res = await agencyFetch(`${BASE}/get_subaccounts.php?agency_id=${encodeURIComponent(agencyId)}`, {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6', // Same secret as admin panel
-    },
   });
   const json = await handleResponse(res);
   
-  // Transform the admin panel's data shape { id, data: { ... } } 
-  // into the flat array shape the agency frontend expects.
+  // Keep support for the legacy admin-style shape { id, data: { ... } }.
   if (json.status === 'success' && Array.isArray(json.data)) {
     return {
       status: 'success',
@@ -61,7 +56,7 @@ export const toggleSubaccount = async (agencyId: string, payload: {
   subaccount_id: string;
   enabled: boolean;
 }) => {
-  const res = await fetch(`${BASE}/update_subaccount.php`, {
+  const res = await agencyFetch(`${BASE}/update_subaccount.php`, {
     method: 'POST',
     headers: defaultHeaders(agencyId),
     body: JSON.stringify({
@@ -99,7 +94,7 @@ export const updateSubaccountSettings = async (agencyId, payload: {
   rate_limit: number;
   reset_counter: boolean;
 }) => {
-  const res = await fetch(`${BASE}/update_subaccount.php`, {
+  const res = await agencyFetch(`${BASE}/update_subaccount.php`, {
     method: 'POST',
     headers: defaultHeaders(agencyId),
     body: JSON.stringify(payload),
@@ -109,12 +104,8 @@ export const updateSubaccountSettings = async (agencyId, payload: {
 
 // ── GET all toggle-ON subaccounts (used by main admin panel) ──────────────────
 export const getAllActiveSubaccounts = async () => {
-  const res = await fetch(`${BASE}/get_all_active.php`, {
+  const res = await agencyFetch(`${BASE}/get_all_active.php`, {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Webhook-Secret': 'f7RkQ2pL9zV3tX8cB1nS4yW6',
-    },
   });
   return handleResponse(res); // { status, active_subaccounts: [] }
 };
@@ -123,7 +114,7 @@ export const getAllActiveSubaccounts = async () => {
 // Returns string[] of locationIds with a valid ghl_token in the backend.
 // Used to gate the enable/disable toggle per sub-account.
 export const checkInstallStatus = async (agencyId: string): Promise<string[]> => {
-  const res = await fetch(`${BASE}/check_installs.php?company_id=${encodeURIComponent(agencyId)}`, {
+  const res = await agencyFetch(`${BASE}/check_installs.php?company_id=${encodeURIComponent(agencyId)}`, {
     method: 'GET',
     headers: defaultHeaders(agencyId),
   });

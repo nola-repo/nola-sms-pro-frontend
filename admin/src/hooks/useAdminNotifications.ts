@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { adminFetch } from '../utils/adminApi';
 import { getAdminAuthHeaders } from '../utils/adminAuthHeaders';
 
 const ADMIN_NOTIFICATIONS_API = '/api/admin_notifications.php';
@@ -25,7 +26,7 @@ export function useAdminNotifications() {
     const fetchNotifications = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
         try {
-            const res = await fetch(`${ADMIN_NOTIFICATIONS_API}?limit=30`, {
+            const res = await adminFetch(`${ADMIN_NOTIFICATIONS_API}?limit=30`, {
                 headers: getAdminAuthHeaders(),
             });
             if (!res.ok) return;
@@ -54,7 +55,7 @@ export function useAdminNotifications() {
             prev.map(n => (n.id === notificationId ? { ...n, read: true } : n))
         );
         try {
-            await fetch(ADMIN_NOTIFICATIONS_API, {
+            await adminFetch(ADMIN_NOTIFICATIONS_API, {
                 method: 'POST',
                 headers: { ...getAdminAuthHeaders(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'mark_read', notification_id: notificationId }),
@@ -67,7 +68,7 @@ export function useAdminNotifications() {
     const markAllRead = useCallback(async () => {
         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
         try {
-            await fetch(ADMIN_NOTIFICATIONS_API, {
+            await adminFetch(ADMIN_NOTIFICATIONS_API, {
                 method: 'POST',
                 headers: { ...getAdminAuthHeaders(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'mark_all_read' }),

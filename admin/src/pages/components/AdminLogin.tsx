@@ -5,7 +5,7 @@ import { FiEye, FiEyeOff, FiAlertTriangle, FiClock, FiRefreshCw, FiCheckCircle, 
 import defaultLogo from '../../assets/NOLA SMS PRO Logo.png';
 
 interface AdminLoginProps {
-  onLogin: (username: string, token?: string) => void;
+  onLogin: (username: string, token: string) => void;
   darkMode?: boolean;
   toggleDarkMode?: () => void;
 }
@@ -95,13 +95,17 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
     try {
         const res = await fetch('/api/admin_auth.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: trimmedEmail, username: trimmedEmail, password })
         });
         const json = await res.json();
         
         if (res.ok && json.status === 'success') {
             const adminToken = json.token ?? json.admin_token ?? json.access_token ?? json.jwt ?? undefined;
+            if (!adminToken) {
+              setError('Admin login did not return a session token. Check JWT_SECRET on the backend.');
+              return;
+            }
             onLogin(trimmedEmail, adminToken);
         } else {
             setError(json.message || 'Incorrect email or password.');

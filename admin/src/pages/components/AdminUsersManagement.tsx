@@ -5,6 +5,7 @@ import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
+import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
@@ -77,7 +78,7 @@ export const AdminTeamManagement: React.FC = () => {
         if (isInitial) setLoading(true);
         setError(null);
         try {
-            const res = await fetch(USERS_API, { headers: getAdminAuthHeaders() });
+            const res = await adminFetch(USERS_API, { headers: getAdminAuthHeaders() });
             const json = await res.json();
             if (res.ok && json.status === 'success') {
                 setAdmins(json.data || []);
@@ -110,7 +111,7 @@ export const AdminTeamManagement: React.FC = () => {
 
         setActionLoading(true);
         try {
-            const res = await fetch(USERS_API, {
+            const res = await adminFetch(USERS_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
                 body: JSON.stringify({ action: 'create', email: trimmedEmail, username: trimmedEmail, password: newPassword, role: newRole })
@@ -136,7 +137,7 @@ export const AdminTeamManagement: React.FC = () => {
         if (!resetTarget || !resetPassword.trim()) return;
         setActionLoading(true);
         try {
-            const res = await fetch(USERS_API, {
+            const res = await adminFetch(USERS_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
                 body: JSON.stringify({ action: 'reset_password', email: resetTarget, new_password: resetPassword })
@@ -158,7 +159,7 @@ export const AdminTeamManagement: React.FC = () => {
         // Optimistic update
         setAdmins(prev => prev.map(a => a.email === admin.email ? { ...a, active: newActive } : a));
         try {
-            const res = await fetch(USERS_API, {
+            const res = await adminFetch(USERS_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
                 body: JSON.stringify({ action: 'toggle_status', email: admin.email, active: newActive })
@@ -182,7 +183,7 @@ export const AdminTeamManagement: React.FC = () => {
         if (!confirm(`Are you sure you want to delete '${emailToDelete}'? This cannot be undone.`)) return;
         setActionLoading(true); setActionMenuId(null);
         try {
-            const res = await fetch(USERS_API, {
+            const res = await adminFetch(USERS_API, {
                 method: 'DELETE',
                 headers: getAdminAuthHeaders(),
                 body: JSON.stringify({ email: emailToDelete })

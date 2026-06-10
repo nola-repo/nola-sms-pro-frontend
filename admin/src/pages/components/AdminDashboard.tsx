@@ -5,6 +5,7 @@ import { generateMonthlyReport } from '../../utils/pdfGenerator';
 import SplitText from './SplitText';
 import FadeContent from './FadeContent';
 import AnimatedContent from './AnimatedContent';
+import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
@@ -97,14 +98,14 @@ export const AdminDashboard: React.FC<{
         if (isInitial) setLoading(true);
         try {
             const [logsRes, reqRes] = await Promise.all([
-                fetch(`${ADMIN_API}?action=logs`, { headers: getAdminAuthHeaders() }).catch(() => null),
-                fetch(ADMIN_API, { headers: getAdminAuthHeaders() }).catch(() => null)
+                adminFetch(`${ADMIN_API}?action=logs`, { headers: getAdminAuthHeaders() }).catch(() => null),
+                adminFetch(ADMIN_API, { headers: getAdminAuthHeaders() }).catch(() => null)
             ]);
 
             // Fetch accurate registered users list
             let accs = [];
             try {
-                const res = await fetch('/api/admin_list_users.php', { headers: getAdminAuthHeaders() });
+                const res = await adminFetch('/api/admin_list_users.php', { headers: getAdminAuthHeaders() });
                 if (res.ok) {
                     const json = await res.json();
                     if (json.status === 'success') {
@@ -117,7 +118,7 @@ export const AdminDashboard: React.FC<{
 
             // Fallback to ADMIN_API?action=accounts if list users failed
             if (!accs.length) {
-                const accRes = await fetch(`${ADMIN_API}?action=accounts`, { headers: getAdminAuthHeaders() }).catch(() => null);
+                const accRes = await adminFetch(`${ADMIN_API}?action=accounts`, { headers: getAdminAuthHeaders() }).catch(() => null);
                 if (accRes) {
                     const accJson = await accRes.json();
                     if (accJson.status === 'success') {

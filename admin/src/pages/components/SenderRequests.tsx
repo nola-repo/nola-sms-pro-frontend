@@ -5,6 +5,7 @@ import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
+import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
@@ -55,8 +56,8 @@ export const AdminSenderRequests: React.FC = () => {
         if (isInitial) setLoading(true);
         try {
             const [reqRes, accRes] = await Promise.all([
-                fetch(ADMIN_API, { headers: getAdminAuthHeaders() }),
-                fetch(`${ADMIN_API}?action=accounts`, { headers: getAdminAuthHeaders() })
+                adminFetch(ADMIN_API, { headers: getAdminAuthHeaders() }),
+                adminFetch(`${ADMIN_API}?action=accounts`, { headers: getAdminAuthHeaders() })
             ]);
             
             const reqJson = await reqRes.json();
@@ -92,7 +93,7 @@ export const AdminSenderRequests: React.FC = () => {
     const doAction = async (action: string, requestId: string, extra: Record<string, string> = {}) => {
         setActionLoading(requestId + action);
         try {
-            const res = await fetch(ADMIN_API, {
+            const res = await adminFetch(ADMIN_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
                 body: JSON.stringify({ request_id: requestId, status: action, ...extra }),

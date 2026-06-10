@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useEffect, useState } from 'react';
 import { FiAlertCircle, FiCheck, FiRefreshCw, FiSave, FiUser, FiX } from 'react-icons/fi';
+import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_PROFILE_API = '/api/admin_profile.php';
@@ -37,7 +38,7 @@ export const AdminSubaccountProfile = ({ account, onClose, onSaved, onToggleActi
         let cancelled = false;
         setLoadingProfile(true);
 
-        fetch(`${ADMIN_PROFILE_API}?user_id=${encodeURIComponent(account.id)}`, {
+        adminFetch(`${ADMIN_PROFILE_API}?user_id=${encodeURIComponent(account.id)}`, {
             headers: getAdminAuthHeaders(),
         })
             .then(async (res) => {
@@ -85,7 +86,7 @@ export const AdminSubaccountProfile = ({ account, onClose, onSaved, onToggleActi
         };
 
         try {
-            const res = await fetch(ADMIN_PROFILE_API, {
+            const res = await adminFetch(ADMIN_PROFILE_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
                 body: JSON.stringify({

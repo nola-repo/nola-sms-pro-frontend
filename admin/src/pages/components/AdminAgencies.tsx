@@ -6,6 +6,7 @@ import Antigravity from '../../components/ui/Antigravity';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { generateMonthlyReport } from '../../utils/pdfGenerator';
+import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
@@ -163,7 +164,7 @@ export const AdminAgencies: React.FC = () => {
 
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
-    const fetchAccounts = useCallback(async (isInitial = false) => {
+    const fetchAccounts = useCallback(async (isInitial = false, bypassCache = false) => {
         if (isInitial) setLoading(true);
         setError(null);
         try {
@@ -171,12 +172,15 @@ export const AdminAgencies: React.FC = () => {
 
             for (const endpoint of AGENCY_USER_ENDPOINTS) {
                 try {
-                    const res = await fetch(endpoint, { headers: getAdminAuthHeaders() });
+                    const endpointUrl = bypassCache && endpoint === ADMIN_AGENCY_USERS_API
+                        ? `${endpoint}?refresh=1`
+                        : endpoint;
+                    const res = await adminFetch(endpointUrl, { headers: getAdminAuthHeaders() });
                     const json = await res.json().catch(() => ({}));
                     const rows = getAgencyRows(json);
 
                     if (!res.ok || (json.status && json.status !== 'success') || json.success === false) {
-                        throw new Error(json.message || `Failed to load agencies from ${endpoint}.`);
+                        throw new Error(json.message || `Failed to load agencies from ${endpointUrl}.`);
                     }
 
                     setAccounts(rows.map(normalizeAgencyAccount));
@@ -240,7 +244,7 @@ export const AdminAgencies: React.FC = () => {
         setReportSelectedMonth('All');
         setReportTransactions([]);
         try {
-            const res = await fetch(`/api/get_credit_transactions.php?location_id=${encodeURIComponent(reportKey)}`, { headers: getAdminAuthHeaders() });
+            const res = await adminFetch(`/api/get_credit_transactions.php?location_id=${encodeURIComponent(reportKey)}`, { headers: getAdminAuthHeaders() });
             const json = await res.json();
             if (json.status === 'success') {
                 setReportTransactions(json.data || json.transactions || []);
@@ -257,7 +261,7 @@ export const AdminAgencies: React.FC = () => {
         if (!managingAccount) return;
         setActionLoading('managing');
         try {
-            const res = await fetch(ADMIN_API, {
+            const res = await adminFetch(ADMIN_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
                 body: JSON.stringify({
@@ -317,7 +321,7 @@ export const AdminAgencies: React.FC = () => {
                             />
                             {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"><FiX className="w-3 h-3" /></button>}
                         </div>
-                        <button onClick={() => fetchAccounts(true)} className="p-2 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl flex-shrink-0">
+                        <button onClick={() => fetchAccounts(true, true)} className="p-2 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl flex-shrink-0">
                             <FiRefreshCw className={`w-3.5 h-3.5 ${loading && accounts.length === 0 ? 'animate-spin' : ''}`} />
                         </button>
                     </div>

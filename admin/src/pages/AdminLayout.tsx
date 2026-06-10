@@ -13,6 +13,7 @@ import { AdminAccounts } from './components/AdminAccounts';
 import { AdminTeamManagement } from './components/AdminUsersManagement';
 import { AdminLogs, AdminSettings } from './components/SystemSettings';
 import { AdminAgencies } from './components/AdminAgencies';
+import { ADMIN_AUTH_REQUIRED_EVENT } from '../utils/adminApi';
 
 const NAV_ITEMS = [
     { path: '/dashboard',  label: 'Dashboard',        icon: <FiHome /> },
@@ -126,7 +127,8 @@ const SidebarContent = ({ onNav, onLogout }: { onNav?: () => void; onLogout: () 
 
 export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => void }> = ({ darkMode, toggleDarkMode }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(() =>
-        sessionStorage.getItem('nola_admin_auth') === 'true'
+        sessionStorage.getItem('nola_admin_auth') === 'true' &&
+        Boolean(sessionStorage.getItem('nola_admin_token'))
     );
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -134,15 +136,21 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
 
     const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
+    const navigate = useNavigate();
+
+    const clearAdminSession = useCallback(() => {
+        sessionStorage.removeItem('nola_admin_auth');
+        sessionStorage.removeItem('nola_admin_user');
+        sessionStorage.removeItem('nola_admin_token');
+        setShowLogoutConfirm(false);
+        setIsAuthenticated(false);
+        navigate('/dashboard');
+    }, [navigate]);
+
     const resetIdleTimer = useCallback(() => {
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = setTimeout(() => {
-            sessionStorage.removeItem('nola_admin_auth');
-            sessionStorage.removeItem('nola_admin_user');
-            sessionStorage.removeItem('nola_admin_token');
-            setIsAuthenticated(false);
-        }, IDLE_TIMEOUT_MS);
-    }, [IDLE_TIMEOUT_MS]);
+        idleTimerRef.current = setTimeout(clearAdminSession, IDLE_TIMEOUT_MS);
+    }, [clearAdminSession, IDLE_TIMEOUT_MS]);
 
     useEffect(() => {
         if (!isAuthenticated) return;
@@ -155,22 +163,20 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
         };
     }, [isAuthenticated, resetIdleTimer]);
 
-    const navigate = useNavigate();
+    useEffect(() => {
+        window.addEventListener(ADMIN_AUTH_REQUIRED_EVENT, clearAdminSession);
+        return () => window.removeEventListener(ADMIN_AUTH_REQUIRED_EVENT, clearAdminSession);
+    }, [clearAdminSession]);
 
-    const handleLogin = (username: string, token?: string) => {
+    const handleLogin = (username: string, token: string) => {
         sessionStorage.setItem('nola_admin_auth', 'true');
         sessionStorage.setItem('nola_admin_user', username);
-        if (token) sessionStorage.setItem('nola_admin_token', token);
+        sessionStorage.setItem('nola_admin_token', token);
         setIsAuthenticated(true);
     };
 
     const handleLogout = () => {
-        sessionStorage.removeItem('nola_admin_auth');
-        sessionStorage.removeItem('nola_admin_user');
-        sessionStorage.removeItem('nola_admin_token');
-        setShowLogoutConfirm(false);
-        setIsAuthenticated(false);
-        navigate('/dashboard');
+        clearAdminSession();
     };
 
     if (!isAuthenticated) {

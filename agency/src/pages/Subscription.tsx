@@ -4,11 +4,11 @@ import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 import { useToast } from '../hooks/useToast.ts';
 import { ToastContainer } from '../components/ui/ToastContainer.tsx';
+import { agencyFetch } from '../services/agencyApi.ts';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const AGENCY_ID = 'O0YXPGWM9ep2l37dgxAo';
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
-const WEBHOOK_SECRET = import.meta.env.VITE_WEBHOOK_SECRET || 'f7RkQ2pL9zV3tX8cB1nS4yW6';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SubscriptionState {
@@ -124,11 +124,8 @@ export const Subscription: React.FC = () => {
   const fetchSubscription = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/billing/subscription.php?agency_id=${effectiveAgencyId}`, {
+      const res = await agencyFetch(`${API_BASE}/api/billing/subscription.php?agency_id=${encodeURIComponent(effectiveAgencyId)}`, {
         credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('agency_token') || sessionStorage.getItem('agency_token')}`
-        }
       });
       if (!res.ok) throw new Error('API failed');
       const data = await res.json();
