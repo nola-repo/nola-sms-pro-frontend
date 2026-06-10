@@ -606,7 +606,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* Rail Mode Expand Toggle (Right Collapse Icon) */}
               {isCollapsed && (
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
-                  <TbLayoutSidebarRightCollapse className="h-6 w-6 text-[#2b83fa]" />
+                  <TbLayoutSidebarRightCollapse className="h-6 w-6 text-[#111111] dark:text-white" />
                 </div>
               )}
             </div>
@@ -617,7 +617,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   NOLA SMS PRO
                 </h2>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-[10px] font-bold text-[#2b83fa] uppercase tracking-widest opacity-80">One Way SMS</span>
+                  <span className="text-[10px] font-bold text-[#6e6e73] dark:text-[#94959b] uppercase tracking-widest opacity-80">One Way SMS</span>
                 </div>
               </div>
             )}
@@ -639,7 +639,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!isCollapsed && (
               <button
                 onClick={onToggleCollapse}
-                className="hidden md:flex p-2 rounded-xl text-gray-400 hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all active:scale-90"
+                className="hidden md:flex p-2 rounded-xl text-gray-400 hover:text-[#111111] hover:bg-black/[0.04] dark:hover:text-white dark:hover:bg-white/[0.06] transition-all active:scale-90"
                 title="Collapse Sidebar"
               >
                 <TbLayoutSidebarLeftCollapse className="h-5 w-5" />
@@ -693,21 +693,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   flex items-center transition-all duration-300 relative group
                   ${isCollapsed ? 'w-14 py-1.5 flex-col justify-center gap-0.5 rounded-xl' : 'w-full gap-2.5 px-2.5 py-1.5 rounded-lg'}
                   ${isActive
-                    ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/[0.15] text-[#2b83fa]'
+                    ? 'bg-[#eceff3] text-[#111111] dark:bg-[#202327] dark:text-white'
                     : 'text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]'}
                 `}
               >
                 {isActive && !isCollapsed && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-[#2b83fa] rounded-r-full shadow-sm" />
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-[#111111] dark:bg-white/80 rounded-r-full shadow-sm" />
                 )}
                 {isActive && isCollapsed && (
-                  <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#2b83fa] rounded-r-full" />
+                  <div className="absolute left-[-4px] top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#111111] dark:bg-white/80 rounded-r-full" />
                 )}
-                <div className={`text-[17px] transition-all duration-500 ${isActive ? 'scale-110 text-[#2b83fa]' : 'group-hover:scale-105 group-hover:text-[#2b83fa]'} active:scale-90`}>
+                <div className={`text-[17px] transition-all duration-500 ${isActive ? 'scale-110 text-[#111111] dark:text-white' : 'group-hover:scale-105 group-hover:text-[#111111] dark:group-hover:text-white'} active:scale-90`}>
                   {item.icon}
                 </div>
                 {isCollapsed ? (
-                  <span className={`text-[9px] font-semibold leading-none tracking-tight ${isActive ? 'text-[#2b83fa]' : 'text-[#9aa0a6] dark:text-[#5f6368]'}`}>
+                  <span className={`text-[9px] font-semibold leading-none tracking-tight ${isActive ? 'text-[#111111] dark:text-white' : 'text-[#9aa0a6] dark:text-[#5f6368]'}`}>
                     {item.label}
                   </span>
                 ) : (
@@ -731,23 +731,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ) : directHistory.length === 0 && bulkHistory.length === 0 ? (
               <div
                 onClick={() => onTabChange('compose')}
-                className="flex-1 flex flex-col items-center justify-center p-6 text-center cursor-pointer group rounded-2xl border border-dashed border-black/[0.06] dark:border-white/[0.06] hover:border-[#2b83fa]/40 dark:hover:border-[#2b83fa]/30 hover:bg-[#2b83fa]/[0.02] dark:hover:bg-[#2b83fa]/[0.01] transition-all duration-300 mx-2 my-4 relative overflow-hidden"
+                className="flex-1 flex flex-col items-center justify-center p-6 text-center cursor-pointer group rounded-2xl border border-dashed border-black/[0.06] dark:border-white/[0.06] hover:border-black/20 dark:hover:border-white/20 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-all duration-300 mx-2 my-4 relative overflow-hidden"
               >
                 {/* Subtle soft ambient light glow in the background on hover */}
-                <div className="absolute -inset-10 bg-gradient-to-r from-[#2b83fa]/5 via-purple-500/5 to-[#2b83fa]/5 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+                <div className="absolute -inset-10 bg-gradient-to-r from-black/[0.03] via-black/[0.02] to-black/[0.03] dark:from-white/[0.05] dark:via-white/[0.03] dark:to-white/[0.05] rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
                 {/* Floating animated icon container */}
-                <div className="w-16 h-16 rounded-[22px] bg-gradient-to-tr from-[#2b83fa]/10 to-[#2b83fa]/5 dark:from-[#2b83fa]/15 dark:to-[#2b83fa]/[0.02] flex items-center justify-center mb-4 relative transition-all duration-500 group-hover:scale-110 group-hover:-translate-y-1 shadow-sm group-hover:shadow-md border border-white/50 dark:border-white/5">
-                  <div className="absolute inset-0 bg-[#2b83fa]/20 rounded-[22px] blur-xl opacity-30 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <FiPlus className="w-7 h-7 text-[#2b83fa] relative z-10 transition-transform duration-300 group-hover:rotate-90" />
+                <div className="w-16 h-16 rounded-[22px] bg-gradient-to-tr from-black/[0.06] to-black/[0.02] dark:from-white/[0.1] dark:to-white/[0.03] flex items-center justify-center mb-4 relative transition-all duration-500 group-hover:scale-110 group-hover:-translate-y-1 shadow-sm group-hover:shadow-md border border-white/50 dark:border-white/5">
+                  <div className="absolute inset-0 bg-black/[0.08] dark:bg-white/[0.12] rounded-[22px] blur-xl opacity-30 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <FiPlus className="w-7 h-7 text-[#111111] dark:text-white relative z-10 transition-transform duration-300 group-hover:rotate-90" />
                 </div>
 
-                <h3 className="text-[14px] font-bold text-[#111111] dark:text-white mb-1.5 transition-colors group-hover:text-[#2b83fa] relative z-10">
+                <h3 className="text-[14px] font-bold text-[#111111] dark:text-white mb-1.5 transition-colors relative z-10">
                   Start a new conversation
                 </h3>
 
                 <p className="text-[11.5px] leading-relaxed text-gray-500 dark:text-gray-400 max-w-[180px] relative z-10">
-                  Click here or the <span className="text-[#2b83fa] font-bold group-hover:underline">New Message</span> button above to send your first SMS.
+                  Click here or the <span className="text-[#111111] dark:text-white font-bold group-hover:underline">New Message</span> button above to send your first SMS.
                 </p>
               </div>
             ) : (
@@ -792,7 +792,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           group relative transition-all duration-200 overflow-visible
                           px-3 py-2 rounded-xl cursor-pointer mx-1
                           ${activeContactId === contact.id
-                            ? 'bg-[#e8f2ff] dark:bg-[#2b83fa]/[0.18] ring-1 ring-[#9cc7ff]/80 dark:ring-[#60a5fa]/30'
+                            ? 'bg-[#eceff3] dark:bg-[#202327] ring-1 ring-black/[0.06] dark:ring-white/[0.06]'
                             : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'}
                         `}
                         onClick={() => {
@@ -801,13 +801,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }}
                       >
                         {activeContactId === contact.id && (
-                          <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#2b83fa]" />
+                          <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#111111] dark:bg-white/80" />
                         )}
                         <div className="flex items-center gap-3">
                           <div className="relative flex-shrink-0">
                             <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-[13px] transition-all duration-200
                             ${activeContactId === contact.id
-                                ? 'bg-[#2b83fa] text-white shadow-md shadow-blue-500/20'
+                                ? 'bg-[#111111] text-white shadow-md shadow-black/10 dark:bg-white dark:text-[#111111]'
                                 : 'bg-[#f0f2f4] dark:bg-[#2a2b32] text-[#5f6368] dark:text-[#9aa0a6]'}
                             `}>
                               {(contact.name || contact.phone).charAt(0).toUpperCase()}
@@ -855,7 +855,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 )}
                               </div>
                             </div>
-                            <div className={`text-[11.5px] truncate leading-snug ${activeContactId === contact.id ? 'text-[#2b83fa]/80 dark:text-[#60a5fa]/80' : 'text-[#9aa0a6] dark:text-[#5f6368]'}`}>
+                            <div className={`text-[11.5px] truncate leading-snug ${activeContactId === contact.id ? 'text-[#5f6368] dark:text-[#b6bac2]' : 'text-[#9aa0a6] dark:text-[#5f6368]'}`}>
                               {contact.lastMessage || 'No messages yet'}
                             </div>
                           </div>
@@ -892,7 +892,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               group relative transition-all duration-200 rounded-xl mx-1
                               px-3 py-2 cursor-pointer overflow-visible
                               ${isActive
-                                ? 'bg-[#e8f2ff] dark:bg-[#2b83fa]/[0.18] ring-1 ring-[#9cc7ff]/80 dark:ring-[#60a5fa]/30'
+                                ? 'bg-[#eceff3] dark:bg-[#202327] ring-1 ring-black/[0.06] dark:ring-white/[0.06]'
                                 : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'
                               }
                             `}
@@ -904,14 +904,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             }}
                           >
                             {isActive && (
-                              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#2b83fa]" />
+                              <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#111111] dark:bg-white/80" />
                             )}
                             <div className="flex items-center gap-3 overflow-visible">
                               <div className="relative flex-shrink-0">
                                 <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200
                                   ${isActive
-                                    ? 'bg-[#2b83fa] text-white shadow-md shadow-blue-500/20'
-                                    : 'bg-blue-50 dark:bg-[#2b83fa]/[0.15] text-[#2b83fa] group-hover:bg-blue-100 dark:group-hover:bg-[#2b83fa]/25'
+                                    ? 'bg-[#111111] text-white shadow-md shadow-black/10 dark:bg-white dark:text-[#111111]'
+                                    : 'bg-[#f1f2f4] dark:bg-white/[0.06] text-[#5f6368] dark:text-[#b6bac2] group-hover:bg-[#e7e9ed] dark:group-hover:bg-white/[0.1] group-hover:text-[#111111] dark:group-hover:text-white'
                                   }
                                 `}>
                                   <FiUsers className="w-4 h-4" />
@@ -968,7 +968,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       )}
                                     </div>
                                   </div>
-                                  <div className={`text-[11.5px] truncate leading-snug ${isActive ? 'text-[#2b83fa]/80 dark:text-[#60a5fa]/80' : 'text-[#9aa0a6] dark:text-[#5f6368]'}`}>
+                                  <div className={`text-[11.5px] truncate leading-snug ${isActive ? 'text-[#5f6368] dark:text-[#b6bac2]' : 'text-[#9aa0a6] dark:text-[#5f6368]'}`}>
                                     {item.message || 'No message sent'}
                                   </div>
                                 </>
@@ -1001,7 +1001,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className={`
             md:hidden flex items-center rounded-xl transition-all duration-200 group relative
             ${isCollapsed ? 'w-10 h-10 justify-center' : 'w-full gap-3 px-3 py-2'}
-            text-[#9aa0a6] dark:text-[#5f6368] hover:bg-[#2b83fa]/5 dark:hover:bg-[#2b83fa]/10 hover:text-[#2b83fa]
+            text-[#9aa0a6] dark:text-[#5f6368] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-[#111111] dark:hover:text-white
           `}
           title="Getting Started"
         >
@@ -1030,11 +1030,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             flex items-center rounded-xl transition-all duration-200 group
             ${isCollapsed ? 'w-10 h-10 justify-center' : 'w-full gap-3 px-3 py-2'}
             ${activeTab === 'settings'
-              ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/[0.15] text-[#2b83fa]'
+              ? 'bg-[#eceff3] text-[#111111] dark:bg-[#202327] dark:text-white'
               : 'text-[#9aa0a6] dark:text-[#5f6368] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] hover:text-[#5f6368] dark:hover:text-[#9aa0a6]'}
           `}
         >
-          <div className={`transition-all duration-300 ${activeTab === 'settings' ? 'scale-110 rotate-45 text-[#2b83fa]' : 'group-hover:scale-110 group-hover:rotate-45'}`}>
+          <div className={`transition-all duration-300 ${activeTab === 'settings' ? 'scale-110 rotate-45 text-[#111111] dark:text-white' : 'group-hover:scale-110 group-hover:rotate-45'}`}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1110,7 +1110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 autoFocus
                 placeholder="Enter new name"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-black/20 text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all font-medium"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-black/20 text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 transition-all font-medium"
               />
             </div>
             <div className="flex bg-gray-50 dark:bg-black/40 border-t border-gray-100 dark:border-white/5 p-4 gap-3 justify-end mt-2">
@@ -1122,7 +1122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
               <button
                 onClick={() => handleSaveEdit(editingBulkId!)}
-                className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-[#2b83fa] hover:bg-[#1d6ee6] shadow-sm transition-all"
+                className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-[#111111] hover:bg-[#2b2b2b] dark:bg-white dark:text-[#111111] dark:hover:bg-[#e8eaed] shadow-sm transition-all"
               >
                 Save
               </button>

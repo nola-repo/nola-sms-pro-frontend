@@ -196,38 +196,6 @@ export const AdminSettings: React.FC = () => {
                 </Field>
             </Section>
 
-            {/* Pricing Settings */}
-            <Section title="Dynamic Pricing" icon={<FiCreditCard className="w-4 h-4" />}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Provider Cost" help="The base cost you pay your upstream SMS provider per segment (e.g., $0.020).">
-                        <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa0a6] font-bold">$</span>
-                            <input
-                                type="number"
-                                step="0.001"
-                                min="0"
-                                value={providerCost}
-                                onChange={e => setProviderCost(e.target.value)}
-                                className="w-full pl-8 pr-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
-                            />
-                        </div>
-                    </Field>
-                    <Field label="Charged Rate" help="The rate you charge your end users per SMS segment (e.g., $0.050).">
-                        <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9aa0a6] font-bold">$</span>
-                            <input
-                                type="number"
-                                step="0.001"
-                                min="0"
-                                value={chargedRate}
-                                onChange={e => setChargedRate(e.target.value)}
-                                className="w-full pl-8 pr-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
-                            />
-                        </div>
-                    </Field>
-                </div>
-            </Section>
-
             {/* Platform Settings */}
             <Section title="Platform" icon={<FiShield className="w-4 h-4" />}>
                 <div className="flex items-center justify-between gap-4">

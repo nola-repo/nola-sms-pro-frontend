@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX, FiBriefcase } from 'react-icons/fi';
+import { FiUsers, FiSend, FiLogOut, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX, FiBriefcase } from 'react-icons/fi';
 import { NotificationBell } from '../components/ui/NotificationBell';
 import faviconLogo from '../assets/FAV ICON - NOLA SMS PRO.png';
 
@@ -11,7 +11,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AdminSenderRequests } from './components/SenderRequests';
 import { AdminAccounts } from './components/AdminAccounts';
 import { AdminTeamManagement } from './components/AdminUsersManagement';
-import { AdminLogs, AdminSettings } from './components/SystemSettings';
+import { AdminLogs } from './components/SystemSettings';
 import { AdminAgencies } from './components/AdminAgencies';
 import { ADMIN_AUTH_REQUIRED_EVENT } from '../utils/adminApi';
 
@@ -22,7 +22,7 @@ const NAV_ITEMS = [
     { path: '/accounts',   label: 'All Subaccounts',  icon: <FiUsers /> },
     { path: '/agencies',   label: 'All Agencies',     icon: <FiBriefcase /> },
     { path: '/admins',     label: 'Admin Users',      icon: <FiShield /> },
-    { path: '/settings',   label: 'System Settings',  icon: <FiSettings /> },
+    // { path: '/settings',   label: 'System Settings',  icon: <FiSettings /> },
 ] as const;
 
 const PAGE_HEADERS = {
@@ -46,10 +46,10 @@ const PAGE_HEADERS = {
         title: 'Admin Users',
         subtitle: 'Manage admin access, permissions, and team membership.',
     },
-    settings: {
-        title: 'System Settings',
-        subtitle: 'Configure platform defaults, free tier limits, and admin controls.',
-    },
+    // settings: {
+    //     title: 'System Settings',
+    //     subtitle: 'Configure platform defaults, free tier limits, and admin controls.',
+    // },
 } as const;
 
 const NavItems = ({ onNav }: { onNav?: () => void }) => {
@@ -67,14 +67,14 @@ const NavItems = ({ onNav }: { onNav?: () => void }) => {
                         className={`
                           w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 relative group
                           ${isActive
-                              ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
+                              ? 'bg-[#eceff3] text-[#111111] dark:bg-[#202327] dark:text-white'
                               : 'text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]'}
                         `}
                     >
                         {isActive && (
-                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#2b83fa] rounded-r-full shadow-sm" />
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#111111] dark:bg-white/80 rounded-r-full shadow-sm" />
                         )}
-                        <div className={`text-[19px] transition-all duration-500 ${isActive ? 'scale-110 text-[#2b83fa]' : 'group-hover:scale-105 group-hover:text-[#2b83fa]'} active:scale-90`}>
+                        <div className={`text-[19px] transition-all duration-500 ${isActive ? 'scale-110 text-[#111111] dark:text-white' : 'group-hover:scale-105 group-hover:text-[#111111] dark:group-hover:text-white'} active:scale-90`}>
                             {item.icon}
                         </div>
                         <span className={`text-[13.5px] transition-all duration-200 ${isActive ? 'font-bold tracking-tight' : 'font-medium'}`}>
@@ -101,7 +101,7 @@ const SidebarContent = ({ onNav, onLogout }: { onNav?: () => void; onLogout: () 
                         NOLA SMS PRO
                     </h2>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[10px] font-bold text-[#2b83fa] uppercase tracking-widest opacity-80">Admin</span>
+                        <span className="text-[10px] font-bold text-[#6e6e73] dark:text-[#94959b] uppercase tracking-widest opacity-80">Admin</span>
                     </div>
                 </div>
             </div>
@@ -221,9 +221,9 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
 
         return (
         <div className="relative min-h-full bg-[#f3f4f6] dark:bg-[#09090b]">
-            <div className="absolute left-0 top-0 h-[250px] w-full rounded-b-[40px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] pointer-events-none" />
+            <div className="absolute left-0 top-0 h-[128px] w-full rounded-b-[28px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] pointer-events-none" />
             <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-                <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3 text-white">
                         {renderMobileMenuButton(true)}
                         <div className="min-w-0">
@@ -298,7 +298,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                         <Route path="/accounts" element={renderPage(<AdminAccounts />, 'accounts')} />
                         <Route path="/agencies" element={renderPage(<AdminAgencies />, 'agencies')} />
                         <Route path="/admins" element={renderPage(<AdminTeamManagement />, 'admins')} />
-                        <Route path="/settings" element={renderPage(<AdminSettings />, 'settings')} />
+                        <Route path="/settings" element={<Navigate to="/dashboard" replace />} />
                         <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>
                 </main>

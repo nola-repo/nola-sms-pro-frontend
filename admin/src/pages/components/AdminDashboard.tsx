@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiAlertCircle, FiX, FiActivity, FiMessageSquare, FiCreditCard, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiArrowRight, FiDownload } from 'react-icons/fi';
+import { FiUsers, FiSend, FiAlertCircle, FiX, FiActivity, FiMessageSquare, FiCreditCard, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiArrowRight, FiDownload } from 'react-icons/fi';
 import { generateMonthlyReport } from '../../utils/pdfGenerator';
 import SplitText from './SplitText';
 import FadeContent from './FadeContent';
@@ -41,41 +41,6 @@ const normalizeAccount = (item: any) => {
         approved_sender_id: raw.approved_sender_id || null,
     };
 };
-
-type TrendPoint = {
-    key: string;
-    label: string;
-    value: number;
-};
-
-const dayKey = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
-
-const createDaySeries = (anchorDate: Date, days = 14): TrendPoint[] =>
-    Array.from({ length: days }, (_, index) => {
-        const date = new Date(anchorDate);
-        date.setDate(anchorDate.getDate() - (days - 1 - index));
-        return {
-            key: dayKey(date),
-            label: date.toLocaleDateString([], { weekday: 'short' }),
-            value: 0,
-        };
-    });
-
-const addToSeries = (series: TrendPoint[], rawDate?: string | null, amount = 1) => {
-    if (!rawDate) return;
-    const date = new Date(rawDate);
-    if (Number.isNaN(date.getTime())) return;
-    const point = series.find(item => item.key === dayKey(date));
-    if (point) point.value += amount;
-};
-
-const getSeriesTotal = (series: TrendPoint[]) =>
-    series.reduce((sum, point) => sum + point.value, 0);
 
 export const AdminDashboard: React.FC<{
     onNavigate: (tab: any) => void;
@@ -161,30 +126,8 @@ export const AdminDashboard: React.FC<{
 
     const totalAccounts = accounts.length;
     const pendingRequests = requests.filter(r => r.status === 'pending').length;
-    const approvedSenders = accounts.filter(a => a.approved_sender_id).length;
     const activeAccounts = accounts.filter(a => a.active !== false).length;
     const recentRequests = [...requests].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 6);
-
-    const latestActivityAt = logs[0]?.timestamp || logs[0]?.date_created || logs[0]?.created_at || recentRequests[0]?.created_at;
-    const latestActivityDate = latestActivityAt ? new Date(latestActivityAt) : null;
-    const latestActivityValue = latestActivityDate
-        ? latestActivityDate.toLocaleDateString([], { month: 'short', day: 'numeric' })
-        : 'No activity';
-    const latestActivityTime = latestActivityDate
-        ? latestActivityDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : 'Ready';
-
-    const trendAnchor = new Date();
-    const requestTrendSeries = createDaySeries(trendAnchor, 14);
-    const messageTrendSeries = createDaySeries(trendAnchor, 14);
-    const accountTrendSeries = createDaySeries(trendAnchor, 14);
-    requests.forEach(req => addToSeries(requestTrendSeries, req.created_at || req.updated_at));
-    logs.forEach(log => addToSeries(messageTrendSeries, log.timestamp || log.date_created || log.created_at));
-    accounts.forEach(acc => addToSeries(accountTrendSeries, acc.created_at || acc.createdAt || acc.date_created));
-
-    const requestTrendTotal = getSeriesTotal(requestTrendSeries);
-    const messageTrendTotal = getSeriesTotal(messageTrendSeries);
-    const accountTrendTotal = getSeriesTotal(accountTrendSeries);
 
     const normalizedSearch = searchQuery.trim().toLowerCase();
     const accountSearchResults = normalizedSearch
@@ -249,57 +192,6 @@ export const AdminDashboard: React.FC<{
         </AnimatedContent>
     );
 
-    const renderMiniBars = (series: TrendPoint[], color: string, isLoading: boolean, unitLabel: string) => {
-        const maxValue = Math.max(1, ...series.map(point => point.value));
-        const startLabel = series[0]?.label || '';
-        const endLabel = series[series.length - 1]?.label || '';
-
-        if (isLoading) {
-            return (
-                <div>
-                    <div className="h-14 flex items-end gap-1.5">
-                        {[36, 58, 44, 72, 52, 84, 64].map((height, index) => (
-                            <div
-                                key={`admin-bar-skeleton-${index}`}
-                                className="flex-1 rounded-t-md bg-[#edf0f3] dark:bg-white/10 animate-pulse"
-                                style={{ height: `${height}%` }}
-                            />
-                        ))}
-                    </div>
-                    <div className="mt-2 h-3 w-full rounded-full bg-[#edf0f3] dark:bg-white/10 animate-pulse" />
-                </div>
-            );
-        }
-
-        return (
-            <div>
-                <div className="relative h-14 flex items-end gap-1.5" aria-label={`14 day ${unitLabel} trend`}>
-                    <div className="absolute inset-x-0 bottom-0 h-px bg-slate-200 dark:bg-white/10" />
-                    {series.map(point => {
-                        const height = point.value === 0 ? 10 : Math.max(28, Math.round((point.value / maxValue) * 100));
-                        return (
-                            <div
-                                key={point.key}
-                                className="relative z-10 flex-1 rounded-t-[5px] transition-all duration-300 hover:opacity-100 hover:scale-y-105 origin-bottom"
-                                title={`${point.label}: ${point.value.toLocaleString()} ${unitLabel}`}
-                                style={{
-                                    height: `${height}%`,
-                                    backgroundColor: point.value === 0 ? 'rgba(148,163,184,0.18)' : color,
-                                    boxShadow: point.value === 0 ? 'none' : `0 0 0 1px ${color}1f`,
-                                }}
-                            />
-                        );
-                    })}
-                </div>
-                <div className="mt-2 flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-[#73809a] dark:text-[#7d8ba3]">
-                    <span>{startLabel}</span>
-                    <span>14-day trend</span>
-                    <span>{endLabel}</span>
-                </div>
-            </div>
-        );
-    };
-
     const getGreeting = () => {
         const hour = new Date().getHours();
         if (hour < 12) return "Good morning";
@@ -309,7 +201,7 @@ export const AdminDashboard: React.FC<{
 
     return (
         <div id="admin-dashboard" className="w-full min-h-full bg-[#f3f4f6] dark:bg-[#09090b] relative">
-            <div className="absolute top-0 left-0 w-full h-[390px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] z-0 rounded-b-[40px] pointer-events-none" />
+            <div className="absolute top-0 left-0 w-full h-[330px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] z-0 rounded-b-[32px] pointer-events-none" />
 
             <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 relative z-10">
                 <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-8">
@@ -436,100 +328,6 @@ export const AdminDashboard: React.FC<{
                     />
                 </div>
 
-                <AnimatedContent delay={0.35} distance={40} direction="vertical">
-                    <div className="bg-white dark:bg-[#1c1e21] rounded-[24px] shadow-sm mb-8 overflow-hidden border border-[#0000000a] dark:border-[#ffffff0a]">
-                        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#0000000a] dark:divide-[#ffffff0a]">
-                            {[
-                                {
-                                    label: 'Approved Senders',
-                                    value: approvedSenders.toLocaleString(),
-                                    accent: '#ef4444',
-                                    series: accountTrendSeries,
-                                    note: 'Ready to send',
-                                    badge: accountTrendTotal > 0 ? `${accountTrendTotal.toLocaleString()} new` : 'No recent new',
-                                    chartUnit: 'accounts',
-                                    chartCaption: `${activeAccounts.toLocaleString()} active subaccounts`,
-                                    onClick: () => onNavigate('accounts'),
-                                },
-                                {
-                                    label: 'Requests This Month',
-                                    value: pendingRequests.toLocaleString(),
-                                    accent: '#8b5cf6',
-                                    series: requestTrendSeries,
-                                    note: 'Pending sender IDs',
-                                    badge: requestTrendTotal > 0 ? `${requestTrendTotal.toLocaleString()} in 14 days` : 'No recent request',
-                                    chartUnit: 'requests',
-                                    chartCaption: 'Recent sender request volume',
-                                    onClick: () => onNavigate('requests'),
-                                },
-                                {
-                                    label: 'Latest Activity',
-                                    value: latestActivityValue,
-                                    accent: '#10b981',
-                                    series: messageTrendSeries,
-                                    note: latestActivityTime,
-                                    badge: latestActivityAt ? 'Open latest' : 'No updates',
-                                    chartUnit: 'events',
-                                    chartCaption: `${messageTrendTotal.toLocaleString()} activity events in 14 days`,
-                                    onClick: () => onNavigate('activity'),
-                                },
-                            ].map((item) => (
-                                <button
-                                    key={item.label}
-                                    type="button"
-                                    onClick={item.onClick}
-                                    className="p-6 flex flex-col justify-between text-left transition-colors hover:bg-black/[0.025] dark:hover:bg-white/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/50"
-                                >
-                                    <div>
-                                        <div className="mb-3 flex items-center justify-between gap-3">
-                                            <p className="text-[12px] font-black uppercase tracking-[0.08em] text-[#475569] dark:text-[#a9bdd8]">{item.label}</p>
-                                            {!loading && (
-                                                <span
-                                                    className="h-2.5 w-2.5 rounded-full shadow-sm"
-                                                    style={{ backgroundColor: item.accent, boxShadow: `0 0 0 4px ${item.accent}1f` }}
-                                                />
-                                            )}
-                                        </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            {loading ? (
-                                                <div className="h-8 w-28 bg-gray-100 dark:bg-white/5 animate-pulse rounded-lg" />
-                                            ) : (
-                                                <div className="flex items-end gap-2 min-w-0">
-                                                    <h2 className="text-[28px] leading-none font-black text-[#111111] dark:text-white break-words" title={item.value}>
-                                                        {item.value}
-                                                    </h2>
-                                                    <span
-                                                        className="mb-0.5 rounded-full px-2 py-1 text-[10px] font-black leading-none"
-                                                        style={{
-                                                            color: item.accent,
-                                                            backgroundColor: `${item.accent}18`,
-                                                        }}
-                                                    >
-                                                        {item.badge}
-                                                    </span>
-                                                </div>
-                                            )}
-                                            {!loading && (
-                                                <p className="text-[12px] font-semibold leading-snug text-[#64748b] dark:text-[#9aa7bb]">
-                                                    {item.note}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="mt-6 rounded-2xl bg-[#f8fafc] px-3 py-3 ring-1 ring-black/[0.03] dark:bg-black/15 dark:ring-white/[0.04]">
-                                        {renderMiniBars(item.series, item.accent, loading, item.chartUnit)}
-                                        {!loading && (
-                                            <p className="mt-2 text-[11px] font-semibold text-[#64748b] dark:text-[#8b95a7]">
-                                                {item.chartCaption}
-                                            </p>
-                                        )}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </AnimatedContent>
-
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Quick Actions */}
                 <AnimatedContent delay={0.4} distance={50} direction="vertical">
@@ -540,7 +338,6 @@ export const AdminDashboard: React.FC<{
                         {[
                             { tab: 'requests', label: 'Review Sender Requests', desc: `${pendingRequests} pending approval`, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20', icon: <FiSend className="h-6 w-6" />, badge: pendingRequests, hoverBorder: 'hover:border-amber-500/30 hover:shadow-amber-500/10' },
                             { tab: 'accounts', label: 'View All Subaccounts', desc: `${totalAccounts} total installed subaccounts`, color: 'text-[#2b83fa] bg-blue-50 dark:bg-blue-900/20', icon: <FiUsers className="h-6 w-6" />, badge: 0, hoverBorder: 'hover:border-[#2b83fa]/30 hover:shadow-blue-500/10' },
-                            { tab: 'settings', label: 'System Settings', desc: 'Global sender ID and free tier config', color: 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800', icon: <FiSettings className="h-6 w-6" />, badge: 0, hoverBorder: 'hover:border-gray-500/30 hover:shadow-gray-500/10' },
                         ].map(item => (
                             <button key={item.tab} onClick={() => onNavigate(item.tab)}
                                 className={`w-full p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-white/70 dark:border-white/[0.06] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left flex items-center justify-between group ${item.hoverBorder}`}>

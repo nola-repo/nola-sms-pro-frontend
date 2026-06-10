@@ -34,7 +34,7 @@ export const AgencyLayout = ({ children, title, subtitle }) => {
               NOLA SMS PRO
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10px] font-bold text-[#2b83fa] uppercase tracking-widest opacity-80">Agency</span>
+              <span className="text-[10px] font-bold text-[#6e6e73] dark:text-[#94959b] uppercase tracking-widest opacity-80">Agency</span>
             </div>
           </div>
         </div>
@@ -54,14 +54,14 @@ export const AgencyLayout = ({ children, title, subtitle }) => {
               className={`
                 w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 relative group
                 ${isActive
-                  ? 'bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15 text-[#2b83fa]'
+                  ? 'bg-[#eceff3] text-[#111111] dark:bg-[#202327] dark:text-white'
                   : 'text-[#6e6e73] dark:text-[#94959b] hover:bg-black/[0.03] dark:hover:bg-white/[0.03] hover:text-[#111111] dark:hover:text-[#ececf1]'}
               `}
             >
               {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#2b83fa] rounded-r-full shadow-sm" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-[#111111] dark:bg-white/80 rounded-r-full shadow-sm" />
               )}
-              <div className={`text-[19px] transition-all duration-500 ${isActive ? 'scale-110 text-[#2b83fa]' : 'group-hover:scale-105 group-hover:text-[#2b83fa]'} active:scale-90`}>
+              <div className={`text-[19px] transition-all duration-500 ${isActive ? 'scale-110 text-[#111111] dark:text-white' : 'group-hover:scale-105 group-hover:text-[#111111] dark:group-hover:text-white'} active:scale-90`}>
                 {icon}
               </div>
               <span className={`text-[13.5px] transition-all duration-200 ${isActive ? 'font-bold tracking-tight' : 'font-medium'}`}>
@@ -76,8 +76,8 @@ export const AgencyLayout = ({ children, title, subtitle }) => {
         {/* Logged-in user info */}
         {userName && !isGhlFrame && (
           <div className="flex items-center gap-2 px-2 py-1.5">
-            <div className="w-7 h-7 rounded-full bg-[#2b83fa]/10 flex items-center justify-center flex-shrink-0">
-              <FiUser className="w-3.5 h-3.5 text-[#2b83fa]" />
+            <div className="w-7 h-7 rounded-full bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center flex-shrink-0">
+              <FiUser className="w-3.5 h-3.5 text-[#5f6368] dark:text-[#b6bac2]" />
             </div>
             <div className="min-w-0">
               <div className="text-[12px] font-semibold text-[#111111] dark:text-white truncate">{userName}</div>
