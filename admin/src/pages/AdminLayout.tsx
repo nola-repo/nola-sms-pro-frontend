@@ -221,9 +221,9 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
 
         return (
         <div className="relative min-h-full bg-[#f3f4f6] dark:bg-[#09090b]">
-            <div className="absolute left-0 top-0 h-[144px] w-full rounded-b-[28px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] pointer-events-none" />
+            <div className="absolute left-0 top-0 h-[132px] w-full rounded-b-[28px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] pointer-events-none" />
             <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-                <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3 text-white">
                         {renderMobileMenuButton(true)}
                         <div className="min-w-0">
@@ -239,7 +239,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                         {dashboardTopControls}
                     </div>
                 </div>
-                <div className="pt-2 pb-8">
+                <div className="pb-8">
                     {page}
                 </div>
             </div>
