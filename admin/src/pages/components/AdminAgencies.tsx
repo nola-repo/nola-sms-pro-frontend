@@ -351,11 +351,11 @@ export const AdminAgencies: React.FC = () => {
                     <p className="text-[14px] font-semibold">No agencies match your search.</p>
                 </div>
             ) : (
-                <div className="overflow-x-auto pb-4">
+                <div className="pb-4">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-[#e5e5e5] dark:border-white/5">
-                                {['Agency', 'Email', 'Phone', 'Role', 'Company', 'Balance', 'Created', 'Actions'].map(header => (
+                                {['Agency', 'Email', 'Phone', 'Role', 'Balance', 'Actions'].map(header => (
                                     <th key={header} className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                         {header}
                                     </th>
@@ -365,7 +365,7 @@ export const AdminAgencies: React.FC = () => {
                         <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
                             {currentAccounts.map(acc => (
                                 <tr key={acc.id} className="group hover:bg-[#f7f7f7] dark:hover:bg-white/[0.015] transition-colors">
-                                    <td className="py-4 pr-4 min-w-[260px]">
+                                    <td className="py-4 pr-4 w-[34%]">
                                         <div className="flex items-center gap-3">
                                             <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 shadow-sm">
                                                 {getInitials(acc)}
@@ -373,37 +373,26 @@ export const AdminAgencies: React.FC = () => {
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="font-bold text-[13px] text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors truncate">{getAgencyDisplayName(acc)}</p>
-                                                <p className="text-[10px] text-[#9aa0a6] font-medium mt-0.5 truncate">ID: {acc.id}</p>
+                                                <p className="text-[10px] text-[#9aa0a6] font-medium mt-0.5 truncate">
+                                                    {getCompanyLabel(acc)} {acc.company_id ? `- ${acc.company_id}` : `- ${acc.id}`}
+                                                </p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[190px]">{emptyValue(acc.email)}</td>
-                                    <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[130px]">{emptyValue(acc.phone)}</td>
-                                    <td className="py-4 pr-4">{roleBadge(acc.role)}</td>
-                                    <td className="py-4 pr-4 min-w-[230px]">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="text-[13px] font-bold text-[#111111] dark:text-white">{getCompanyLabel(acc)}</span>
-                                            {acc.company_id ? (
-                                                <span className="inline-flex w-fit items-center px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-400 text-[10px] font-bold border border-blue-200 dark:border-blue-800/30 uppercase tracking-wider">{acc.company_id}</span>
-                                            ) : (
-                                                <span className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest italic">Not linked</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="py-4 pr-4">
+                                    <td className="py-4 pr-4 w-[22%] text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] truncate">{emptyValue(acc.email)}</td>
+                                    <td className="py-4 pr-4 w-[14%] text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] whitespace-nowrap">{emptyValue(acc.phone)}</td>
+                                    <td className="py-4 pr-4 w-[12%]">{roleBadge(acc.role)}</td>
+                                    <td className="py-4 pr-4 w-[10%]">
                                         <div className="flex flex-col">
                                             <span className="text-[13px] font-bold text-[#111111] dark:text-white">{(acc.balance ?? acc.credit_balance ?? acc.credits ?? 0).toLocaleString()}</span>
-                                            <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">Agency credits</span>
+                                            <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">Balance</span>
                                         </div>
                                     </td>
-                                    <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] whitespace-nowrap">
-                                        {formatAgencyDate(acc.created_at || acc.createdAt)}
-                                    </td>
-                                    <td className="py-4 pr-2">
-                                        <div className="flex items-center gap-2">
+                                    <td className="py-4 pr-2 w-[8%]">
+                                        <div className="flex items-center justify-end gap-1">
                                             <button
                                                 onClick={() => fetchReportForAccount(acc)}
-                                                className="p-2 rounded-xl text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
+                                                className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
                                                 title="Download Agency Report"
                                             >
                                                 <FiDownload className="w-4 h-4" />
@@ -413,7 +402,7 @@ export const AdminAgencies: React.FC = () => {
                                                     setManagingAccount(acc);
                                                     setManageCreditBalance(acc.balance ?? acc.credit_balance ?? acc.credits ?? 0);
                                                 }}
-                                                className="p-2 rounded-xl text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
+                                                className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
                                                 title="Manage Agency"
                                             >
                                                 <FiSettings className="w-4 h-4" />
