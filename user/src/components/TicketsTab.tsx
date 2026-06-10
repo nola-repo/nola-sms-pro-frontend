@@ -127,17 +127,15 @@ export const TicketsTab: React.FC = () => {
     return (
         <div className="h-full flex flex-col overflow-hidden bg-[#f3f4f6] dark:bg-[#09090b]">
             {/* Page Header */}
-            <div className="flex-shrink-0 bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] rounded-b-[40px] shadow-[0_18px_45px_rgba(29,107,212,0.24)]">
-                <div className="max-w-7xl mx-auto px-3 md:px-6 pt-5 pb-5">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-white/20 border border-white/20 flex items-center justify-center text-white shadow-md shadow-blue-950/10">
-                                <FiMessageSquare className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <h1 className="text-[22px] font-extrabold text-white tracking-tight">Support Tickets</h1>
-                                <p className="text-[12px] text-white/75 mt-1">Submit your support requests here</p>
-                            </div>
+            <div className="flex-shrink-0 border-b border-[#e5e5e5] bg-white/85 dark:border-white/10 dark:bg-[#151618]/85">
+                <div className="max-w-5xl mx-auto px-4 py-5 md:px-6">
+                    <div className="flex items-center gap-3 pr-12">
+                        <div className="w-10 h-10 rounded-2xl bg-black/[0.04] dark:bg-white/[0.06] border border-black/[0.04] dark:border-white/[0.08] flex items-center justify-center text-[#111111] dark:text-white">
+                            <FiMessageSquare className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                            <h1 className="text-[22px] font-extrabold text-[#111111] dark:text-white tracking-tight">Support Tickets</h1>
+                            <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">Submit your support requests here</p>
                         </div>
                     </div>
                 </div>

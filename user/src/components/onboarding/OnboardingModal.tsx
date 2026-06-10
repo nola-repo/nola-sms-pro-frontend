@@ -663,20 +663,20 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
   }
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm transition-opacity duration-300"
         onClick={close}
       />
 
-      <div className="relative w-full max-w-[420px] bg-white dark:bg-[#111213] rounded-3xl shadow-[0_20px_80px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_80px_rgba(0,0,0,0.8)] border border-white/20 dark:border-white/10 flex flex-col max-h-[90vh] animate-in zoom-in-[0.98] fade-in duration-300 overflow-hidden">
+      <div className="relative flex h-[min(760px,calc(100dvh-2rem))] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white shadow-2xl animate-in zoom-in-[0.98] fade-in duration-300 dark:border-white/10 dark:bg-[#111213]">
         
         {/* Subtle Ambient Glow inside Modal */}
         <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-[#2b83fa]/10 dark:bg-[#2b83fa]/5 rounded-full blur-3xl -mr-[100px] -mt-[100px] pointer-events-none" />
 
         {/* ── Header ── */}
-        <div className="relative z-10 px-6 pt-6 pb-5 flex-shrink-0">
-          <div className="flex items-start justify-between gap-3 mb-5">
+        <div className="relative z-10 px-6 pt-6 pb-5 flex-shrink-0 sm:px-8">
+          <div className="flex items-start justify-between gap-4 mb-5">
             <div className="flex items-center gap-1.5 flex-wrap">
               {step.tags.map((tagObj, idx) => (
                 <StepTag key={idx} label={tagObj.label} variant={tagObj.variant} />
@@ -692,18 +692,18 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
             </button>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="relative w-12 h-12 flex-shrink-0">
+          <div className="flex items-center gap-4 pr-10">
+            <div className="relative w-14 h-14 flex-shrink-0">
                <div className="absolute inset-0 bg-[#2b83fa]/30 rounded-2xl blur-md" />
                <div className="relative w-full h-full rounded-2xl bg-[linear-gradient(135deg,#1d6bd4_0%,#2b83fa_50%,#1d6bd4_100%)] bg-[length:210%_210%] flex items-center justify-center text-white shadow-lg border border-white/20">
                  <div className="drop-shadow-sm">{step.icon}</div>
                </div>
             </div>
-            <div>
-              <h2 className="text-[19px] font-black text-[#111111] dark:text-white tracking-tight leading-tight">
+            <div className="min-w-0">
+              <h2 className="text-[22px] sm:text-[26px] font-black text-[#111111] dark:text-white tracking-tight leading-tight">
                 {step.title}
               </h2>
-              <p className="text-[13px] text-[#6b7280] dark:text-[#a1a1aa] mt-1 leading-snug font-semibold pr-2">
+              <p className="text-[13px] sm:text-[14px] text-[#6b7280] dark:text-[#a1a1aa] mt-1 leading-snug font-semibold pr-2">
                 {step.subtitle}
               </p>
             </div>
@@ -711,7 +711,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
         </div>
 
         {/* ── Segmented Progress ── */}
-        <div className="relative z-10 px-6 pb-5 flex-shrink-0">
+        <div className="relative z-10 px-6 pb-5 flex-shrink-0 sm:px-8">
           <div className="flex items-center gap-2 mb-2">
             {STEPS.map((_, i) => (
               <button
@@ -740,9 +740,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
         <div className="h-px bg-gradient-to-r from-transparent via-black/5 dark:via-white/10 to-transparent flex-shrink-0" />
 
         {/* ── Content ── */}
-        <div className="relative z-10 px-6 py-6 overflow-y-auto h-[360px] sm:h-[380px] custom-scrollbar" style={{ scrollbarWidth: "thin" }}>
+        <div className="relative z-10 flex-1 min-h-0 overflow-y-auto px-6 py-6 sm:px-8 custom-scrollbar" style={{ scrollbarWidth: "thin" }}>
           <div
-            className={`transition-all duration-300 ease-out fill-mode-forwards ${
+            className={`mx-auto w-full max-w-3xl transition-all duration-300 ease-out fill-mode-forwards ${
               animating
                 ? animDir === "forward"
                   ? "opacity-0 translate-x-6 scale-[0.98]"
@@ -757,7 +757,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
         <div className="h-px bg-gradient-to-r from-transparent via-black/5 dark:via-white/10 to-transparent flex-shrink-0" />
 
         {/* ── Footer ── */}
-        <div className="relative z-10 px-6 py-4 flex items-center justify-between border-t border-transparent flex-shrink-0 bg-gray-50/50 dark:bg-black/20">
+        <div className="relative z-10 px-6 py-4 sm:px-8 flex items-center justify-between border-t border-transparent flex-shrink-0 bg-gray-50/70 dark:bg-black/20">
           <div className="flex-1 flex justify-start">
             <button
               onClick={() => back()}

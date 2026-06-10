@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiAlertCircle, FiX, FiActivity, FiMessageSquare, FiCreditCard, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiArrowRight, FiDownload } from 'react-icons/fi';
+import { FiUsers, FiSend, FiAlertCircle, FiX, FiActivity, FiMessageSquare, FiCreditCard, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiArrowRight, FiDownload, FiBriefcase } from 'react-icons/fi';
 import { generateMonthlyReport } from '../../utils/pdfGenerator';
 import SplitText from './SplitText';
 import FadeContent from './FadeContent';
@@ -218,7 +218,7 @@ export const AdminDashboard: React.FC<{
 
     return (
         <div id="admin-dashboard" className="w-full min-h-full bg-[#f3f4f6] dark:bg-[#09090b] relative">
-            <div className="absolute top-0 left-0 w-full h-[330px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] z-0 rounded-b-[32px] pointer-events-none" />
+            <div className="absolute top-0 left-0 w-full h-[360px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] z-0 rounded-b-[32px] pointer-events-none" />
 
             <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 relative z-10">
                 <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-8">
@@ -300,7 +300,7 @@ export const AdminDashboard: React.FC<{
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-14">
                     <DashboardMetricCard
                         index={0}
                         label="Registered Users"
@@ -358,6 +358,7 @@ export const AdminDashboard: React.FC<{
                         {[
                             { tab: 'requests', label: 'Review Sender Requests', desc: `${pendingRequests} pending approval`, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20', icon: <FiSend className="h-6 w-6" />, badge: pendingRequests, hoverBorder: 'hover:border-amber-500/30 hover:shadow-amber-500/10' },
                             { tab: 'accounts', label: 'View All Subaccounts', desc: `${totalAccounts} total installed subaccounts`, color: 'text-[#2b83fa] bg-blue-50 dark:bg-blue-900/20', icon: <FiUsers className="h-6 w-6" />, badge: 0, hoverBorder: 'hover:border-[#2b83fa]/30 hover:shadow-blue-500/10' },
+                            { tab: 'agencies', label: 'View All Agencies', desc: 'Manage agency accounts and balances', color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20', icon: <FiBriefcase className="h-6 w-6" />, badge: 0, hoverBorder: 'hover:border-emerald-500/30 hover:shadow-emerald-500/10' },
                         ].map(item => (
                             <button key={item.tab} onClick={() => onNavigate(item.tab)}
                                 className={`w-full p-4 rounded-[20px] bg-white dark:bg-[#1c1e21] border border-white/70 dark:border-white/[0.06] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 text-left flex items-center justify-between group ${item.hoverBorder}`}>
@@ -443,7 +444,7 @@ export const AdminDashboard: React.FC<{
             </div>
 
             {/* Recent Activity Logs */}
-            <div className="mt-2">
+            <div className="mt-12">
                 <AnimatedContent delay={0.6} distance={50} direction="vertical">
                     <div className="bg-white dark:bg-[#1c1e21] border border-white/70 dark:border-white/[0.06] rounded-[24px] p-5 sm:p-6 shadow-sm flex flex-col">
                         {/* Header Inside Container */}
