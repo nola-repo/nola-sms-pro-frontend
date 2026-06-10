@@ -42,6 +42,71 @@ const normalizeAccount = (item: any) => {
     };
 };
 
+type DashboardMetricCardProps = {
+    label: string;
+    value: number | string;
+    note: string;
+    icon: React.ReactNode;
+    gradient: string;
+    iconClass: string;
+    labelClass: string;
+    valueClass: string;
+    buttonClass: string;
+    onClick: () => void;
+    actionLabel: string;
+    loading: boolean;
+    index?: number;
+};
+
+const DashboardMetricCard = ({
+    label,
+    value,
+    note,
+    icon,
+    gradient,
+    iconClass,
+    labelClass,
+    valueClass,
+    buttonClass,
+    onClick,
+    actionLabel,
+    loading,
+    index = 0,
+}: DashboardMetricCardProps) => (
+    <AnimatedContent delay={0.1 + index * 0.1} distance={50} direction="vertical">
+        <div className={`p-6 rounded-[24px] ${gradient} shadow-xl transition-all group overflow-hidden relative h-full min-h-[184px] border border-white/70 dark:border-white/15 hover:-translate-y-0.5`}>
+            <div className="absolute inset-0 bg-white/10 dark:bg-white/[0.05] pointer-events-none" />
+            <div className="absolute bottom-0 right-0 p-4 opacity-[0.13] dark:opacity-[0.16] group-hover:scale-110 transition-transform duration-500">
+                <div className="w-24 h-24">{icon}</div>
+            </div>
+            <button
+                onClick={onClick}
+                className={`group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full text-white shadow-[0_10px_24px_rgba(15,23,42,0.22)] ring-1 ring-white/45 hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white transition-all ${buttonClass}`}
+                aria-label={actionLabel}
+                title={actionLabel}
+            >
+                <FiPlus className="h-[18px] w-[18px] stroke-[2.4] transition-transform duration-200 group-hover/action:rotate-90" />
+            </button>
+            <div className="relative z-10 flex h-full flex-col justify-between">
+                <div>
+                    <div className={`w-10 h-10 rounded-xl bg-white/70 dark:bg-white/[0.14] flex items-center justify-center mb-4 shadow-sm ring-1 ring-white/40 dark:ring-white/10 ${iconClass}`}>
+                        <div className="h-5 w-5">{icon}</div>
+                    </div>
+                    <p className={`text-[12px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>
+                        {label}
+                    </p>
+                </div>
+                <div className="mt-4">
+                    <h2 className={`text-3xl sm:text-4xl font-black leading-none ${valueClass}`}>
+                        {loading ? <span className="inline-block h-10 w-20 rounded-lg bg-white/40 dark:bg-white/15 animate-pulse" /> : value}
+                    </h2>
+                    <p className={`mt-2 text-[12px] font-bold ${labelClass}`}>{note}</p>
+                </div>
+            </div>
+        </div>
+    </AnimatedContent>
+);
+
 export const AdminDashboard: React.FC<{
     onNavigate: (tab: any) => void;
     topControls?: React.ReactNode;
@@ -143,54 +208,6 @@ export const AdminDashboard: React.FC<{
             ].some(value => String(value || '').toLowerCase().includes(normalizedSearch))
         ).slice(0, 5)
         : [];
-
-    const DashboardMetricCard = ({ label, value, note, icon, gradient, iconClass, labelClass, valueClass, buttonClass, onClick, actionLabel, index = 0 }: {
-        label: string;
-        value: number | string;
-        note: string;
-        icon: React.ReactNode;
-        gradient: string;
-        iconClass: string;
-        labelClass: string;
-        valueClass: string;
-        buttonClass: string;
-        onClick: () => void;
-        actionLabel: string;
-        index?: number;
-    }) => (
-        <AnimatedContent delay={0.1 + index * 0.1} distance={50} direction="vertical">
-            <div className={`p-6 rounded-[24px] ${gradient} shadow-xl transition-all group overflow-hidden relative h-full min-h-[184px] border border-white/70 dark:border-white/15 hover:-translate-y-0.5`}>
-                <div className="absolute inset-0 bg-white/10 dark:bg-white/[0.05] pointer-events-none" />
-                <div className="absolute bottom-0 right-0 p-4 opacity-[0.13] dark:opacity-[0.16] group-hover:scale-110 transition-transform duration-500">
-                    <div className="w-24 h-24">{icon}</div>
-                </div>
-                <button
-                    onClick={onClick}
-                    className={`group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full text-white shadow-[0_10px_24px_rgba(15,23,42,0.22)] ring-1 ring-white/45 hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white transition-all ${buttonClass}`}
-                    aria-label={actionLabel}
-                    title={actionLabel}
-                >
-                    <FiPlus className="h-[18px] w-[18px] stroke-[2.4] transition-transform duration-200 group-hover/action:rotate-90" />
-                </button>
-                <div className="relative z-10 flex h-full flex-col justify-between">
-                    <div>
-                        <div className={`w-10 h-10 rounded-xl bg-white/70 dark:bg-white/[0.14] flex items-center justify-center mb-4 shadow-sm ring-1 ring-white/40 dark:ring-white/10 ${iconClass}`}>
-                            <div className="h-5 w-5">{icon}</div>
-                        </div>
-                        <p className={`text-[12px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>
-                            {label}
-                        </p>
-                    </div>
-                    <div className="mt-4">
-                        <h2 className={`text-3xl sm:text-4xl font-black leading-none ${valueClass}`}>
-                            {loading ? <span className="inline-block h-10 w-20 rounded-lg bg-white/40 dark:bg-white/15 animate-pulse" /> : value}
-                        </h2>
-                        <p className={`mt-2 text-[12px] font-bold ${labelClass}`}>{note}</p>
-                    </div>
-                </div>
-            </div>
-        </AnimatedContent>
-    );
 
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -296,6 +313,7 @@ export const AdminDashboard: React.FC<{
                         valueClass="text-[#082f49] dark:text-white"
                         buttonClass="bg-blue-700 hover:bg-blue-800 dark:bg-blue-500 dark:hover:bg-blue-400"
                         actionLabel="Open accounts"
+                        loading={loading}
                         onClick={() => onNavigate('accounts')}
                     />
                     <DashboardMetricCard
@@ -310,6 +328,7 @@ export const AdminDashboard: React.FC<{
                         valueClass="text-[#3b0764] dark:text-white"
                         buttonClass="bg-purple-700 hover:bg-purple-800 dark:bg-purple-500 dark:hover:bg-purple-400"
                         actionLabel="Review requests"
+                        loading={loading}
                         onClick={() => onNavigate('requests')}
                     />
                     <DashboardMetricCard
@@ -324,6 +343,7 @@ export const AdminDashboard: React.FC<{
                         valueClass="text-[#022c22] dark:text-white"
                         buttonClass="bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-400"
                         actionLabel="Open activity"
+                        loading={loading}
                         onClick={() => onNavigate('activity')}
                     />
                 </div>
