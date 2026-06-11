@@ -3,10 +3,12 @@ import { fetchCreditStatus, fetchCreditTransactions, type CreditTransaction } fr
 import { fetchSenderRequests } from "../api/senderRequests";
 import { API_CONFIG } from "../config";
 import { useLocationId } from "../context/LocationContext";
+import { getSession } from "../services/authService";
 import { safeStorage } from "../utils/safeStorage";
 import { getNotificationSettings } from "../utils/settingsStorage";
 
 const POLL_INTERVAL = 60_000;
+const NOTIFICATIONS_API = `${API_CONFIG.base}/api/notifications`;
 const READ_STORAGE_PREFIX = "nola_user_notification_reads_";
 const VIEW_TABS = ["home", "compose", "contacts", "templates", "settings", "tickets"] as const;
 const SETTINGS_TABS = ["account", "senderIds", "notifications", "credits"] as const;
@@ -80,6 +82,43 @@ const writeReadIds = (locationId: string, ids: Set<string>) => {
   }
 };
 
+const decodeJwtPayload = (token: string): JsonRecord | null => {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), "=");
+    return JSON.parse(atob(padded)) as JsonRecord;
+  } catch {
+    return null;
+  }
+};
+
+const isJwtExpired = (token: string): boolean => {
+  const payload = decodeJwtPayload(token);
+  const exp = typeof payload?.exp === "number" ? payload.exp : null;
+  return exp !== null && exp * 1000 <= Date.now();
+};
+
+function getNotificationAuthHeaders(locationId?: string): Record<string, string> | null {
+  const session = getSession();
+  const token = session?.token || safeStorage.getItem("nola_auth_token");
+  const effectiveLocationId = locationId || session?.locationId || safeStorage.getItem("nola_location_id") || "";
+
+  if (!token || isJwtExpired(token)) return null;
+
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+
+  if (effectiveLocationId) {
+    headers["X-GHL-Location-ID"] = effectiveLocationId;
+  }
+
+  return headers;
+}
+
 const toIso = (value: unknown): string => {
   if (typeof value === "string" && value) return value;
   return new Date().toISOString();
@@ -108,14 +147,16 @@ const normalizeRemoteNotification = (raw: unknown, readIds: Set<string>): UserNo
 };
 
 async function fetchRemoteNotifications(locationId: string, readIds: Set<string>): Promise<UserNotification[] | null> {
-  const url = `${API_CONFIG.base}/api/notifications?limit=30&location_id=${encodeURIComponent(locationId)}`;
+  const headers = getNotificationAuthHeaders(locationId);
+  if (!headers) return null;
+
+  const params = new URLSearchParams({
+    limit: "30",
+    location_id: locationId,
+  });
+  const url = `${NOTIFICATIONS_API}?${params.toString()}`;
   try {
-    const res = await fetch(url, {
-      headers: {
-        "Content-Type": "application/json",
-        "X-GHL-Location-ID": locationId,
-      },
-    });
+    const res = await fetch(url, { headers });
     if (!res.ok) return null;
 
     const json = await res.json();
@@ -130,6 +171,30 @@ async function fetchRemoteNotifications(locationId: string, readIds: Set<string>
       .filter(Boolean) as UserNotification[];
   } catch {
     return null;
+  }
+}
+
+async function postNotificationAction(
+  locationId: string,
+  payload: { action: "mark_read"; notification_id: string } | { action: "mark_all_read" }
+): Promise<void> {
+  const headers = getNotificationAuthHeaders(locationId);
+  if (!headers) return;
+
+  try {
+    await fetch(NOTIFICATIONS_API, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...payload,
+        location_id: locationId,
+      }),
+    });
+  } catch {
+    // Local read state remains the fallback if remote persistence fails.
   }
 }
 
@@ -283,13 +348,19 @@ export function useUserNotifications() {
       )
     );
     persistRead([notificationId]);
-  }, [persistRead]);
+    if (locationId) {
+      void postNotificationAction(locationId, { action: "mark_read", notification_id: notificationId });
+    }
+  }, [locationId, persistRead]);
 
   const markAllRead = useCallback(() => {
     const ids = notifications.map((notification) => notification.id);
     setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })));
     persistRead(ids);
-  }, [notifications, persistRead]);
+    if (locationId) {
+      void postNotificationAction(locationId, { action: "mark_all_read" });
+    }
+  }, [locationId, notifications, persistRead]);
 
   const unreadCount = useMemo(
     () => notifications.filter((notification) => !notification.read).length,

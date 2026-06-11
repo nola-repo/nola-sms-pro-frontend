@@ -21,11 +21,47 @@ interface AuthContextValue extends Partial<AuthSession> {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+};
+
+const persistSessionHintsFromToken = (token: string) => {
+  const payload = decodeJwtPayload(token);
+  if (!payload) return;
+
+  const role = typeof payload.role === 'string' ? payload.role : 'user';
+  const companyId = typeof payload.company_id === 'string' ? payload.company_id : null;
+  const locationId = typeof payload.location_id === 'string' ? payload.location_id : null;
+
+  safeStorage.setItem(SESSION_KEYS.role, role);
+
+  if (companyId) {
+    safeStorage.setItem(SESSION_KEYS.companyId, companyId);
+  }
+
+  if (locationId) {
+    safeStorage.setItem(SESSION_KEYS.locationId, locationId);
+    safeStorage.setItem('nola_settings_account', JSON.stringify({
+      ghlLocationId: locationId,
+      displayName: '',
+    }));
+  }
+};
+
 const persistTokenForNewTabs = (token: string) => {
   sessionSafeStorage.setItem(SESSION_KEYS.token, token);
   safeStorage.setItem(SESSION_KEYS.token, token);
   try { sessionStorage.setItem(SESSION_KEYS.token, token); } catch { /* storage may be blocked in embedded views */ }
   try { localStorage.setItem(SESSION_KEYS.token, token); } catch { /* storage may be blocked in embedded views */ }
+  persistSessionHintsFromToken(token);
 };
 
 // ── Provider ─────────────────────────────────────────────────────────────────

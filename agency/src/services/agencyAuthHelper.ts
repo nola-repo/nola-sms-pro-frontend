@@ -62,11 +62,34 @@ export const saveCompanyId = (companyId: string): void => {
 const getAuthToken = (): string | null =>
   sessionSafeStorage.getItem(SESSION_KEYS.token) || safeStorage.getItem(SESSION_KEYS.token);
 
+const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+};
+
+const isTokenExpired = (token: string): boolean => {
+  const payload = decodeJwtPayload(token);
+  const exp = typeof payload?.exp === 'number' ? payload.exp : null;
+  return exp !== null && exp * 1000 <= Date.now();
+};
+
 const getPersistentAuthToken = (): string | null => {
   let token = sessionSafeStorage.getItem(SESSION_KEYS.token);
   if (!token) {
     token = safeStorage.getItem(SESSION_KEYS.token);
     if (token) sessionSafeStorage.setItem(SESSION_KEYS.token, token);
+  }
+  if (token && isTokenExpired(token)) {
+    sessionSafeStorage.removeItem(SESSION_KEYS.token);
+    safeStorage.removeItem(SESSION_KEYS.token);
+    return null;
   }
   return token;
 };
@@ -183,10 +206,15 @@ export const getAgencySession = (): AgencySession | null => {
   const token = getPersistentAuthToken();
   const role  = safeStorage.getItem(SESSION_KEYS.role);
   if (!token || role !== 'agency') return null;
+  const payload = decodeJwtPayload(token);
+  const tokenCompanyId = typeof payload?.company_id === 'string' ? payload.company_id : null;
+  if (tokenCompanyId && !safeStorage.getItem(SESSION_KEYS.companyId)) {
+    saveCompanyId(tokenCompanyId);
+  }
   return {
     token,
     role:      'agency',
-    companyId: safeStorage.getItem(SESSION_KEYS.companyId),
+    companyId: safeStorage.getItem(SESSION_KEYS.companyId) || tokenCompanyId,
     user:      parseMaybeJson<AgencyAuthUser | null>(safeStorage.getItem(SESSION_KEYS.user), null),
   };
 };

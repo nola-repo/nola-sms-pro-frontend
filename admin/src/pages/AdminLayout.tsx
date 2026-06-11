@@ -56,10 +56,31 @@ const ADMIN_AUTH_KEYS = ['nola_admin_auth', 'nola_admin_user', 'nola_admin_token
 const ADMIN_REMEMBER_KEY = 'nola_admin_remember';
 const ADMIN_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
+const isJwtExpired = (token: string) => {
+    try {
+        const payload = token.split('.')[1];
+        if (!payload) return false;
+        const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
+        const decoded = JSON.parse(atob(padded));
+        return typeof decoded.exp === 'number' && decoded.exp * 1000 <= Date.now();
+    } catch {
+        return false;
+    }
+};
+
 const readRememberedAdminSession = () => {
     const token = sessionStorage.getItem('nola_admin_token') || localStorage.getItem('nola_admin_token');
     const remembered = localStorage.getItem(ADMIN_REMEMBER_KEY) === 'true';
     if (!token) return false;
+    if (isJwtExpired(token)) {
+        ADMIN_AUTH_KEYS.forEach(key => {
+            sessionStorage.removeItem(key);
+            localStorage.removeItem(key);
+        });
+        localStorage.removeItem(ADMIN_REMEMBER_KEY);
+        return false;
+    }
 
     if (!sessionStorage.getItem('nola_admin_token')) {
         sessionStorage.setItem('nola_admin_token', token);

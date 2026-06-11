@@ -49,6 +49,24 @@ export interface RegisterPayload {
   role:      'agency' | 'user';
 }
 
+const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+};
+
+const isTokenExpired = (token: string): boolean => {
+  const payload = decodeJwtPayload(token);
+  const exp = typeof payload?.exp === 'number' ? payload.exp : null;
+  return exp !== null && exp * 1000 <= Date.now();
+};
+
 // ── Session helpers ─────────────────────────────────────────────────────────
 export const getSession = (): AuthSession | null => {
   // Try getting token from sessionStorage first, then fall back to localStorage (safeStorage)
@@ -59,18 +77,28 @@ export const getSession = (): AuthSession | null => {
       sessionSafeStorage.setItem(SESSION_KEYS.token, token);
     }
   }
-  if (!token) return null;
+  if (!token || isTokenExpired(token)) return null;
+
+  const payload = decodeJwtPayload(token);
+  const role = safeStorage.getItem(SESSION_KEYS.role) || (typeof payload?.role === 'string' ? payload.role : 'user');
+  const companyId = safeStorage.getItem(SESSION_KEYS.companyId) || (typeof payload?.company_id === 'string' ? payload.company_id : null);
+  const locationId = safeStorage.getItem(SESSION_KEYS.locationId) || (typeof payload?.location_id === 'string' ? payload.location_id : null);
+
+  if (role) safeStorage.setItem(SESSION_KEYS.role, role);
+  if (companyId) safeStorage.setItem(SESSION_KEYS.companyId, companyId);
+  if (locationId) safeStorage.setItem(SESSION_KEYS.locationId, locationId);
+
   return {
     token,
-    role:       (safeStorage.getItem(SESSION_KEYS.role) as 'agency' | 'user') ?? 'user',
-    companyId:  safeStorage.getItem(SESSION_KEYS.companyId),
-    locationId: safeStorage.getItem(SESSION_KEYS.locationId),
+    role:       (role as 'agency' | 'user') ?? 'user',
+    companyId,
+    locationId,
     user:       JSON.parse(safeStorage.getItem(SESSION_KEYS.user) ?? 'null'),
   };
 };
 
 export const isAuthenticated = (): boolean =>
-  !!sessionSafeStorage.getItem(SESSION_KEYS.token) || !!safeStorage.getItem(SESSION_KEYS.token);
+  Boolean(getSession()?.token);
 
 export const saveSession = (data: LoginResponse): void => {
   // Remove all prior session keys

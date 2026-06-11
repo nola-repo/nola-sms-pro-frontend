@@ -1,6 +1,6 @@
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
-import { getSession } from "../services/authService";
+import { getSession, redirectToLogin, type AuthSession } from "../services/authService";
 import type { Contact } from "../types/Contact";
 
 // Use the GHL contacts proxy endpoint (calls GoHighLevel API directly)
@@ -33,10 +33,61 @@ export class GhlReconnectError extends Error {
 export const isGhlReconnectError = (error: unknown): error is GhlReconnectError =>
   error instanceof GhlReconnectError;
 
-const getAuthHeaders = (): Record<string, string> => {
+const decodeJwtPayload = (token: string): JsonRecord | null => {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
+    const decoded = atob(padded);
+    return JSON.parse(decoded) as JsonRecord;
+  } catch {
+    return null;
+  }
+};
+
+const isJwtExpired = (token: string): boolean => {
+  const payload = decodeJwtPayload(token);
+  const exp = typeof payload?.exp === 'number' ? payload.exp : null;
+  return exp !== null && exp * 1000 <= Date.now();
+};
+
+const createRequestId = () => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const getProtectedContactContext = (explicitLocationId?: string): {
+  session: AuthSession;
+  locationId: string;
+  headers: Record<string, string>;
+} | null => {
   const session = getSession();
-  if (!session?.token) return {};
-  return { Authorization: `Bearer ${session.token}` };
+  const accountSettings = getAccountSettings();
+  const locationId = explicitLocationId || session?.locationId || accountSettings.ghlLocationId || '';
+
+  if (!session?.token || isJwtExpired(session.token)) {
+    if (session?.token && isJwtExpired(session.token)) {
+      redirectToLogin();
+    }
+    return null;
+  }
+
+  if (!locationId) return null;
+
+  return {
+    session,
+    locationId,
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.token}`,
+      'X-GHL-Location-ID': locationId,
+      'X-Request-ID': createRequestId(),
+    },
+  };
 };
 
 const isRecord = (value: unknown): value is JsonRecord =>
@@ -65,6 +116,12 @@ const getErrorMessage = (body: ErrorBody, fallback: string): string => {
 
 const isReconnectResponse = (status: number, body: ErrorBody): boolean =>
   status === 401 && isRecord(body) && body.requires_reconnect === true;
+
+const handleUnauthorizedResponse = (status: number, body: ErrorBody) => {
+  if (status === 401 && !isReconnectResponse(status, body)) {
+    redirectToLogin();
+  }
+};
 
 const asString = (value: unknown): string => {
   if (typeof value === 'string') return value;
@@ -134,27 +191,21 @@ const normalizeContacts = (data: unknown): Contact[] => {
 
 export const fetchContactsMeta = async (explicitLocationId?: string): Promise<FetchContactsResult> => {
   try {
-    const accountSettings = getAccountSettings();
-    const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
+    const contactContext = getProtectedContactContext(explicitLocationId);
 
-    if (!locationId) {
-      console.warn('NOLA SMS: No locationId available for contacts fetch.');
-      return { ok: false, contacts: [], kind: 'other', message: 'No linked GHL location', status: 400 };
+    if (!contactContext) {
+      console.warn('NOLA SMS: Contacts fetch skipped until auth token and location are available.');
+      return { ok: false, contacts: [], kind: 'other', message: 'Authentication or location is not ready', status: 401 };
     }
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-GHL-Location-ID': locationId,
-      ...getAuthHeaders(),
-    };
-
-    // Send locationId as query param (primary) AND location_id as fallback, plus header
-    const url = `${CONTACTS_API_URL}?locationId=${encodeURIComponent(locationId)}&location_id=${encodeURIComponent(locationId)}`;
-    const res = await fetch(url, { headers });
+    const params = new URLSearchParams({ location_id: contactContext.locationId });
+    const url = `${CONTACTS_API_URL}?${params.toString()}`;
+    const res = await fetch(url, { headers: contactContext.headers });
 
     if (!res.ok) {
       const errorBody = await readJsonOrText(res);
       console.error('NOLA SMS: Contacts API error:', res.status, res.statusText, errorBody);
+      handleUnauthorizedResponse(res.status, errorBody);
 
       if (isReconnectResponse(res.status, errorBody)) {
         return {
@@ -202,33 +253,26 @@ export interface AddContactParams {
 
 export const addContact = async (params: AddContactParams): Promise<Contact | null> => {
   try {
-    const accountSettings = getAccountSettings();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...getAuthHeaders(),
-    };
-
-    if (accountSettings.ghlLocationId) {
-      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    const contactContext = getProtectedContactContext();
+    if (!contactContext) {
+      throw new Error('Authentication or location is not ready.');
     }
-
-    const url = accountSettings.ghlLocationId
-      ? `${CONTACTS_API_URL}?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`
-      : CONTACTS_API_URL;
 
     // Strip empty optional fields; GHL rejects email: "" with "email must be an email"
     const body: Record<string, string> = { name: params.name, phone: params.phone };
     if (params.email) body.email = params.email;
 
+    const url = `${CONTACTS_API_URL}?${new URLSearchParams({ location_id: contactContext.locationId }).toString()}`;
     const res = await fetch(url, {
       method: 'POST',
-      headers,
+      headers: contactContext.headers,
       body: JSON.stringify(body),
     });
 
     if (!res.ok) {
       const error = await readJsonOrText(res);
       console.error('Failed to add contact:', error);
+      handleUnauthorizedResponse(res.status, error);
       if (isReconnectResponse(res.status, error)) {
         throw new GhlReconnectError(getErrorMessage(error, 'GoHighLevel connection expired'), res.status);
       }
@@ -252,33 +296,26 @@ export interface UpdateContactParams {
 
 export const updateContact = async (params: UpdateContactParams): Promise<Contact | null> => {
   try {
-    const accountSettings = getAccountSettings();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...getAuthHeaders(),
-    };
-
-    if (accountSettings.ghlLocationId) {
-      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    const contactContext = getProtectedContactContext();
+    if (!contactContext) {
+      throw new Error('Authentication or location is not ready.');
     }
-
-    const url = accountSettings.ghlLocationId
-      ? `${CONTACTS_API_URL}?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`
-      : CONTACTS_API_URL;
 
     // Strip empty optional fields; GHL rejects email: "" with "email must be an email"
     const body: Record<string, string> = { id: params.id, name: params.name, phone: params.phone };
     if (params.email) body.email = params.email;
 
+    const url = `${CONTACTS_API_URL}?${new URLSearchParams({ location_id: contactContext.locationId }).toString()}`;
     const res = await fetch(url, {
       method: 'PUT',
-      headers,
+      headers: contactContext.headers,
       body: JSON.stringify(body),
     });
 
     if (!res.ok) {
       const error = await readJsonOrText(res);
       console.error('Failed to update contact:', error);
+      handleUnauthorizedResponse(res.status, error);
       if (isReconnectResponse(res.status, error)) {
         throw new GhlReconnectError(getErrorMessage(error, 'GoHighLevel connection expired'), res.status);
       }
@@ -295,26 +332,25 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
 
 export const deleteContact = async (id: string): Promise<boolean> => {
   try {
-    const accountSettings = getAccountSettings();
-    const headers: Record<string, string> = { ...getAuthHeaders() };
-
-    if (accountSettings.ghlLocationId) {
-      headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
+    const contactContext = getProtectedContactContext();
+    if (!contactContext) {
+      throw new Error('Authentication or location is not ready.');
     }
 
-    let url = `${CONTACTS_API_URL}?id=${encodeURIComponent(id)}`;
-    if (accountSettings.ghlLocationId) {
-      url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
-    }
+    const url = `${CONTACTS_API_URL}?${new URLSearchParams({
+      id,
+      location_id: contactContext.locationId,
+    }).toString()}`;
 
     const res = await fetch(url, {
       method: 'DELETE',
-      headers,
+      headers: contactContext.headers,
     });
 
     if (!res.ok) {
       const error = await readJsonOrText(res);
       console.error('Failed to delete contact:', error);
+      handleUnauthorizedResponse(res.status, error);
       if (isReconnectResponse(res.status, error)) {
         throw new GhlReconnectError(getErrorMessage(error, 'GoHighLevel connection expired'), res.status);
       }

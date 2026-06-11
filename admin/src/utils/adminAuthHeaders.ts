@@ -1,3 +1,16 @@
+const isJwtExpired = (token: string): boolean => {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return false;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
+    const decoded = JSON.parse(atob(padded));
+    return typeof decoded.exp === 'number' && decoded.exp * 1000 <= Date.now();
+  } catch {
+    return false;
+  }
+};
+
 export const getAdminAuthHeaders = (): Record<string, string> => {
   const token =
     sessionStorage.getItem('nola_admin_token') ||
@@ -18,7 +31,7 @@ export const getAdminAuthHeaders = (): Record<string, string> => {
     'Content-Type': 'application/json',
   };
 
-  if (token) {
+  if (token && !isJwtExpired(token)) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
