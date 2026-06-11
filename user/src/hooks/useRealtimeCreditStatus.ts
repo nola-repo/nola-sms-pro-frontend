@@ -29,6 +29,7 @@ export const useRealtimeCreditStatus = (explicitLocationId?: string | null) => {
     const [loading, setLoading] = useState(() => Boolean(explicitLocationId || contextLocationId));
     const mountedRef = useRef(false);
     const requestSeq = useRef(0);
+    const hasLoadedRef = useRef(false);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -46,20 +47,24 @@ export const useRealtimeCreditStatus = (explicitLocationId?: string | null) => {
             ...(prev ?? {}),
             ...patchWithoutUndefined,
         }));
+        hasLoadedRef.current = true;
+        setLoading(false);
     }, []);
 
-    const refresh = useCallback(async () => {
+    const refresh = useCallback(async (showLoading = false) => {
         const requestId = ++requestSeq.current;
 
         if (!locationId) {
             if (mountedRef.current) {
                 setStatus(null);
                 setLoading(false);
+                hasLoadedRef.current = false;
             }
             return null;
         }
 
-        if (mountedRef.current) setLoading(true);
+        const shouldShowLoading = showLoading && !hasLoadedRef.current;
+        if (mountedRef.current && shouldShowLoading) setLoading(true);
         try {
             const result = await fetchCreditStatus(locationId);
             if (result && requestSeq.current === requestId) {
@@ -70,7 +75,7 @@ export const useRealtimeCreditStatus = (explicitLocationId?: string | null) => {
             console.error("Failed to fetch credit status", error);
             return null;
         } finally {
-            if (mountedRef.current && requestSeq.current === requestId) setLoading(false);
+            if (mountedRef.current && shouldShowLoading) setLoading(false);
         }
     }, [locationId, mergeStatus]);
 
@@ -79,11 +84,14 @@ export const useRealtimeCreditStatus = (explicitLocationId?: string | null) => {
             requestSeq.current += 1;
             setStatus(null);
             setLoading(false);
+            hasLoadedRef.current = false;
             return;
         }
 
         setStatus(null);
-        void refresh();
+        setLoading(true);
+        hasLoadedRef.current = false;
+        void refresh(true);
 
         const userUnsubscribers: Array<() => void> = [];
         let integrationUnsubscribe: (() => void) | null = null;
