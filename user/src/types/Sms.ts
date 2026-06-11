@@ -15,7 +15,6 @@ export interface FirestoreMessage {
   sender_id: string;
   status: string;
   batch_id?: string;
-  recipient_key?: string;
   created_at: string | { _seconds: number; _nanoseconds: number } | null;
   name?: string;
   location_id?: string;
@@ -75,9 +74,6 @@ export interface Message {
   errorReason?: string;
   // Extra fields for compatibility
   batch_id?: string;
-  conversation_id?: string;
-  number?: string;
-  recipient_key?: string;
   message?: string;
   date_created?: string | { _seconds: number; _nanoseconds: number };
 }

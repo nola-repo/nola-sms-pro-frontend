@@ -1,18 +1,103 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiCreditCard, FiRefreshCw, FiZap, FiPlus, FiGift } from "react-icons/fi";
-import { useRealtimeCreditStatus } from "../hooks/useRealtimeCreditStatus";
+import { fetchCreditStatus, type CreditStatus } from "../api/credits";
+import { useLocationId } from "../context/LocationContext";
+import { doc, collection, query, where, onSnapshot } from "firebase/firestore";
+import { signInAnonymously } from "firebase/auth";
+import { db, auth } from "../services/firebaseConfig";
 
 interface CreditBadgeProps {
     tone?: "default" | "onBlue";
 }
 
 export const CreditBadge = ({ tone = "default" }: CreditBadgeProps) => {
+    const [status, setStatus] = useState<CreditStatus | null>(null);
+    const [loading, setLoading] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
-    const { status, loading, refresh } = useRealtimeCreditStatus();
+    const { locationId } = useLocationId();
 
     const navigateToCredits = () => {
         window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }));
     };
+
+    const fetchStatus = async () => {
+        setLoading(true);
+        try {
+            const result = await fetchCreditStatus(locationId || undefined);
+            setStatus(result);
+        } catch (error) {
+            console.error("Failed to fetch credit status", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!locationId) return;
+
+        fetchStatus();
+
+        let unsubscribeUser: (() => void) | null = null;
+        let unsubscribeInt: (() => void) | null = null;
+
+        const setupListeners = async () => {
+            try {
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                }
+
+                const docId = 'ghl_' + locationId.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+                // 1. Listen to integrations document for fallback balance & trial counts
+                unsubscribeInt = onSnapshot(doc(db, 'integrations', docId), (snapshot) => {
+                    if (snapshot.exists()) {
+                        const data = snapshot.data();
+                        setStatus(prev => {
+                            if (!prev) return prev;
+                            return {
+                                ...prev,
+                                credit_balance: data.credit_balance !== undefined ? Number(data.credit_balance) : prev.credit_balance,
+                                free_usage_count: data.free_usage_count !== undefined ? Number(data.free_usage_count) : prev.free_usage_count,
+                                free_credits_total: data.free_credits_total !== undefined ? Number(data.free_credits_total) : prev.free_credits_total,
+                            };
+                        });
+                    }
+                });
+
+                // 2. Listen to users document for primary credit_balance
+                const userQuery = query(collection(db, 'users'), where('active_location_id', '==', locationId));
+                unsubscribeUser = onSnapshot(userQuery, (snapshot) => {
+                    if (!snapshot.empty) {
+                        const userData = snapshot.docs[0].data();
+                        if (userData.credit_balance !== undefined) {
+                            setStatus(prev => {
+                                if (!prev) return prev;
+                                return {
+                                    ...prev,
+                                    credit_balance: Number(userData.credit_balance),
+                                };
+                            });
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error("Firestore balance listener setup failed:", err);
+            }
+        };
+
+        setupListeners();
+
+        window.addEventListener('sms-sent', fetchStatus);
+        window.addEventListener('bulk-message-sent', fetchStatus);
+
+        return () => {
+            if (unsubscribeUser) unsubscribeUser();
+            if (unsubscribeInt) unsubscribeInt();
+            window.removeEventListener('sms-sent', fetchStatus);
+            window.removeEventListener('bulk-message-sent', fetchStatus);
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [locationId]);
 
     // ── Derived billing state ─────────────────────────────────────────────────
     const balance      = status?.credit_balance ?? 0;
@@ -38,7 +123,7 @@ export const CreditBadge = ({ tone = "default" }: CreditBadgeProps) => {
                         ? "bg-white/[0.18] border-white/30 text-white shadow-sm shadow-blue-950/10 hover:bg-white/[0.24] hover:border-white/45"
                         : `bg-gradient-to-br ${accent.bg} ${accent.border} hover:shadow-lg`}
                 `}
-                onClick={() => void refresh()}
+                onClick={fetchStatus}
                 onMouseEnter={() => setShowInfo(true)}
                 onMouseLeave={() => setShowInfo(false)}
             >

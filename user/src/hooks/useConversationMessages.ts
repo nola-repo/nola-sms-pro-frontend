@@ -51,29 +51,15 @@ const apiMatchesLocal = (api: Message, local: Message) =>
         Math.abs(api.timestamp.getTime() - local.timestamp.getTime()) < 60_000
     );
 
-const apiSupersedesLocal = (api: Message, local: Message) =>
-    apiMatchesLocal(api, local) ||
-    (
-        local.id.startsWith("temp-") &&
-        api.text === local.text &&
-        Math.abs(api.timestamp.getTime() - local.timestamp.getTime()) < 5 * 60_000
-    );
-
-const makeTempId = () =>
-    `temp-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
 interface DatabaseMessageRow {
     id?: string;
     message_id?: string;
-    conversation_id?: string;
-    number?: string;
     message?: string;
     created_at?: unknown;
     date_created?: unknown;
     sender_id?: string;
     status?: string;
     batch_id?: string;
-    recipient_key?: string;
     error_reason?: string;
 }
 
@@ -128,15 +114,12 @@ export const useConversationMessages = (conversationId: string | undefined, reci
 
             return {
                 id: row.id || row.message_id || `msg-${Date.now()}-${Math.random()}`,
-                conversation_id: row.conversation_id,
-                number: row.number,
                 text: row.message || "",
                 timestamp: parseFirestoreDate(row.created_at || row.date_created),
                 senderName: row.sender_id || "NOLASMSPro",
                 status: status as Message["status"],
 
                 batch_id: row.batch_id,
-                recipient_key: row.recipient_key,
                 message: row.message,
                 errorReason: row.error_reason,
             };
@@ -167,7 +150,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 const matchingTemp = prev.find(m =>
                     m.id.startsWith('temp-') &&
                     m.text === apiMsg.text &&
-                    Math.abs(m.timestamp.getTime() - apiMsg.timestamp.getTime()) < 5 * 60_000
+                    Math.abs(m.timestamp.getTime() - apiMsg.timestamp.getTime()) < 60_000
                 );
                 if (matchingTemp) {
                     const tempPriority = STATUS_PRIORITY[matchingTemp.status] ?? -1;
@@ -184,7 +167,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             const isTransientEmpty = apiReturnedTransientEmpty && hasPrev;
 
             const localOnly = prev.filter((local) => {
-                if (formatted.some((api) => apiSupersedesLocal(api, local))) {
+                if (formatted.some((api) => apiMatchesLocal(api, local))) {
                     return false;
                 }
 
@@ -196,18 +179,9 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 return isTransientEmpty || isRecentlySent;
             });
 
-            const nextMessages = [...merged, ...localOnly]
-                .reduce<Message[]>((acc, message) => {
-                    const isDuplicate = acc.some(existing =>
-                        existing.id === message.id ||
-                        (message.id.startsWith("temp-") && apiSupersedesLocal(existing, message))
-                    );
-                    if (isDuplicate) {
-                        return acc;
-                    }
-                    return [...acc, message];
-                }, [])
-                .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+            const nextMessages = [...merged, ...localOnly].sort(
+                (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+            );
             if (currentCacheKey) {
                 messageHistoryCache.set(currentCacheKey, { messages: nextMessages, fetchedAt: Date.now() });
             }
@@ -418,7 +392,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
     }, [conversationId, fetchHistory]);
 
     const addOptimisticMessage = useCallback((text: string, senderName: string, targetConversationId?: string): string => {
-        const id = makeTempId();
+        const id = `temp-${Date.now()}`;
         const newMsg: Message = {
             id,
             text,

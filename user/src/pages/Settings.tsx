@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { fetchCreditTransactions, fetchCreditPackages } from "../api/credits";
-import type { CreditTransaction, CreditPackage } from "../api/credits";
+import { fetchCreditStatus, fetchCreditTransactions, fetchCreditPackages } from "../api/credits";
+import type { CreditStatus, CreditTransaction, CreditPackage } from "../api/credits";
 import {
     FiUser, FiSend, FiBell, FiCreditCard,
     FiSave, FiPlus, FiCheck,
@@ -22,7 +22,6 @@ import {
 } from "../api/notificationSettings";
 import { SenderRequestModal } from "../components/SenderRequestModal";
 import { useGhlLocation } from "../hooks/useGhlLocation";
-import { useRealtimeCreditStatus } from "../hooks/useRealtimeCreditStatus";
 import { fetchSenderRequests, fetchAccountSenderConfig, cancelSenderRequest, type SenderRequest, type AccountSenderConfig } from "../api/senderRequests";
 import { fetchAccountProfile, getCachedAccountProfile, updateAccountProfile } from "../api/account";
 import type { AccountProfile } from "../api/account";
@@ -1150,8 +1149,8 @@ const buildSafeCheckoutUrl = (rawUrl: string): URL | null => {
 const CreditsSection: React.FC = () => {
     const ghlLocationIdFromHook = useGhlLocation();
     const liveProfile = useUserProfileContext();
-    const locationId = ghlLocationIdFromHook || getAccountSettings().ghlLocationId;
-    const { status: creditStatus, loading: balanceLoading, refresh: refreshCreditStatus } = useRealtimeCreditStatus(locationId);
+    const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
+    const [balanceLoading, setBalanceLoading] = useState(true);
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
     const [txLoading, setTxLoading] = useState(true);
     const [txMonth, setTxMonth] = useState(() => {
@@ -1170,7 +1169,6 @@ const CreditsSection: React.FC = () => {
     const popupRef = useRef<Window | null>(null);
     const popupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const lastLiveBalanceRef = useRef<number | null>(null);
 
     // AUTO_RECHARGE_DISABLED
     // const [arEnabled, setArEnabled] = useState(false);
@@ -1185,6 +1183,9 @@ const CreditsSection: React.FC = () => {
     const [reqNote, setReqNote] = useState('');
     const [reqLoading, setReqLoading] = useState(false);
     const [reqSuccess, setReqSuccess] = useState(false);
+
+    // Final derived location ID
+    const locationId = ghlLocationIdFromHook || getAccountSettings().ghlLocationId;
 
     const clearCheckoutTimers = useCallback(() => {
         if (popupPollRef.current) {
@@ -1212,33 +1213,25 @@ const CreditsSection: React.FC = () => {
     }, [clearCheckoutTimers]);
 
     const load = useCallback(async () => {
+        setBalanceLoading(true);
         setTxLoading(true);
-        try {
-            const [txs, pkgs] = await Promise.all([
-                fetchCreditTransactions('default', 500, locationId || undefined, txMonth === 'All' ? undefined : txMonth),
-                fetchCreditPackages(),
-            ]);
-            if (!mountedRef.current) return;
-            setTransactions(txs);
-            setPackages(pkgs);
+        const [status, txs, pkgs] = await Promise.all([
+            fetchCreditStatus(locationId || undefined),
+            fetchCreditTransactions('default', 500, locationId || undefined, txMonth === 'All' ? undefined : txMonth),
+            fetchCreditPackages(),
+        ]);
+        if (!mountedRef.current) return;
+        setCreditStatus(status);
+        setTransactions(txs);
+        setPackages(pkgs);
 
-            // Default topUpAmount to the second package if available, else first
-            if (pkgs.length > 0) {
-                setTopUpAmount(pkgs[1]?.credits || pkgs[0].credits);
-            }
-        } catch (error) {
-            console.error("Failed to load credit billing data", error);
-        } finally {
-            if (mountedRef.current) {
-                setTxLoading(false);
-            }
+        // Default topUpAmount to the second package if available, else first
+        if (pkgs.length > 0) {
+            setTopUpAmount(pkgs[1]?.credits || pkgs[0].credits);
         }
+        setBalanceLoading(false);
+        setTxLoading(false);
     }, [locationId, txMonth]);
-
-    const refreshCreditsView = useCallback(() => {
-        void refreshCreditStatus();
-        void load();
-    }, [load, refreshCreditStatus]);
 
     useEffect(() => {
         const fetchAvailableMonths = async () => {
@@ -1266,31 +1259,6 @@ const CreditsSection: React.FC = () => {
         };
         fetchAvailableMonths();
     }, [locationId]);
-
-    useEffect(() => {
-        if (!locationId || !creditStatus) return;
-
-        const nextBalance = Number(creditStatus.credit_balance ?? 0);
-        if (lastLiveBalanceRef.current === null) {
-            lastLiveBalanceRef.current = nextBalance;
-            return;
-        }
-        if (lastLiveBalanceRef.current === nextBalance) return;
-
-        lastLiveBalanceRef.current = nextBalance;
-        const timer = window.setTimeout(async () => {
-            try {
-                const txs = await fetchCreditTransactions('default', 500, locationId || undefined, txMonth === 'All' ? undefined : txMonth);
-                if (mountedRef.current) {
-                    setTransactions(txs);
-                }
-            } catch (error) {
-                console.error("Failed to refresh credit transactions", error);
-            }
-        }, 250);
-
-        return () => window.clearTimeout(timer);
-    }, [creditStatus, locationId, txMonth]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -1322,7 +1290,7 @@ const CreditsSection: React.FC = () => {
 
             setCheckoutError(null);
             resetCheckoutState(true);
-            refreshCreditsView();
+            load(); // Auto-refresh credits on success
         };
         window.addEventListener('message', handlePaymentMessage);
 
@@ -1333,7 +1301,7 @@ const CreditsSection: React.FC = () => {
             window.removeEventListener('message', handlePaymentMessage);
             clearCheckoutTimers();
         };
-    }, [clearCheckoutTimers, load, refreshCreditsView, resetCheckoutState]);
+    }, [clearCheckoutTimers, load, resetCheckoutState]);
 
 
     const displayBalance  = creditStatus?.credit_balance ?? 0;
@@ -1649,7 +1617,7 @@ const CreditsSection: React.FC = () => {
                             <FiCreditCard className="w-6 h-6 text-white" />
                         </div>
                         <button
-                            onClick={refreshCreditsView}
+                            onClick={load}
                             className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all active:scale-90"
                             title="Refresh"
                         >
