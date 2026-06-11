@@ -27,10 +27,11 @@ export async function fetchCreditStatus(explicitLocationId?: string): Promise<Cr
             headers['X-GHL-Location-ID'] = locationId;
         }
 
-        let url = API_CONFIG.credits;
+        const params = new URLSearchParams({ fresh: "1" });
         if (locationId) {
-            url += `?location_id=${encodeURIComponent(locationId)}`;
+            params.set("location_id", locationId);
         }
+        const url = `${API_CONFIG.credits}?${params.toString()}`;
 
         const res = await fetch(url, { headers });
         if (!res.ok) return null;

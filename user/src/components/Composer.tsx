@@ -281,6 +281,7 @@ export const Composer: React.FC<ComposerProps> = ({
   const customValuesRef = useRef<HTMLDivElement>(null);
   const templatePickerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const sendGuardRef = useRef(false);
   const tagsRef = useRef<HTMLDivElement>(null);
   const msgAreaRef = useRef<HTMLDivElement>(null);
   const touchStartYMsg = useRef<number>(0);
@@ -631,6 +632,8 @@ export const Composer: React.FC<ComposerProps> = ({
     ? smsSegments * bulkSelectedContacts.length
     : smsSegments;
   const handleSend = () => {
+    if (sendGuardRef.current) return;
+
     // Guard to ensure only one toast fires per send action
     let toastShown = false;
     const guardedToast = (severity: "success" | "error", msg: string) => {
@@ -652,6 +655,11 @@ export const Composer: React.FC<ComposerProps> = ({
       setTimeout(() => setShowDisabledReason(false), 3000);
       return;
     }
+
+    sendGuardRef.current = true;
+    window.setTimeout(() => {
+      sendGuardRef.current = false;
+    }, 750);
 
     // Snapshot inputs and clear the compose area immediately so the user
     // can start typing/sending the next message right away.
