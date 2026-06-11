@@ -5,7 +5,7 @@ import { FiEye, FiEyeOff, FiAlertTriangle, FiClock, FiRefreshCw, FiCheckCircle, 
 import defaultLogo from '../../assets/NOLA SMS PRO Logo.png';
 
 interface AdminLoginProps {
-  onLogin: (username: string, token: string) => void;
+  onLogin: (username: string, token: string, rememberMe: boolean) => void;
   darkMode?: boolean;
   toggleDarkMode?: () => void;
 }
@@ -26,6 +26,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw]     = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   
   // Step 1
   const [forgotEmail, setForgotEmail] = useState('');
@@ -96,7 +97,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
         const res = await fetch('/api/admin_auth.php', {
             method: 'POST',
             headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: trimmedEmail, username: trimmedEmail, password })
+            body: JSON.stringify({ email: trimmedEmail, username: trimmedEmail, password, remember_me: rememberMe })
         });
         const json = await res.json();
         
@@ -106,7 +107,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
               setError('Admin login did not return a session token. Check JWT_SECRET on the backend.');
               return;
             }
-            onLogin(trimmedEmail, adminToken);
+            onLogin(trimmedEmail, adminToken, rememberMe);
         } else {
             setError(json.message || 'Incorrect email or password.');
         }
@@ -543,6 +544,16 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
                 </button>
               </div>
             </div>
+
+            <label className="flex items-center gap-2.5 rounded-xl px-1 text-[13px] font-semibold text-gray-600 dark:text-gray-300 select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-[#2b83fa] focus:ring-[#2b83fa]"
+              />
+              Remember me on this device
+            </label>
 
             <button
               type="submit" disabled={loading || !email.trim() || !password.trim()}
