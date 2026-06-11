@@ -10,7 +10,7 @@ import { safeStorage } from "./utils/safeStorage";
 import { useUserProfile } from "./hooks/useUserProfile";
 import { UserProfileContext } from "./context/UserProfileContext";
 import { isAuthenticated } from "./services/authService";
-import { FiBookOpen, FiMessageSquare, FiMoreHorizontal, FiX } from "react-icons/fi";
+import { FiBookOpen, FiMessageSquare, FiMoon, FiMoreHorizontal, FiSettings, FiSun, FiX } from "react-icons/fi";
 import { UserNotificationBell } from "./components/ui/UserNotificationBell";
 import type { ViewTab } from "./components/Sidebar";
 import { TicketsTab } from "./components/TicketsTab";
@@ -90,9 +90,11 @@ const TopMoreOptions: React.FC<{
   onboardingDone: boolean;
   onOpenGettingStarted: () => void;
   onOpenTickets: () => void;
-}> = ({ darkMode, toggleDarkMode, onboardingDone, onOpenGettingStarted, onOpenTickets }) => {
+  onOpenSettings: () => void;
+}> = ({ darkMode, toggleDarkMode, onboardingDone, onOpenGettingStarted, onOpenTickets, onOpenSettings }) => {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const optionIconClass = "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-[#f1f3f4] text-[#5f6368] dark:bg-white/[0.06] dark:text-[#b6bac2]";
 
   useEffect(() => {
     if (!open) return;
@@ -112,6 +114,11 @@ const TopMoreOptions: React.FC<{
 
   const handleTickets = () => {
     onOpenTickets();
+    setOpen(false);
+  };
+
+  const handleSettings = () => {
+    onOpenSettings();
     setOpen(false);
   };
 
@@ -144,7 +151,7 @@ const TopMoreOptions: React.FC<{
             onClick={handleGettingStarted}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#f4f7fb] dark:hover:bg-white/[0.05]"
           >
-            <span className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-[#2b83fa]/10 text-[#2b83fa]">
+            <span className={`relative ${optionIconClass}`}>
               <FiBookOpen className="h-[18px] w-[18px]" />
               {!onboardingDone && (
                 <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#1a1b1e]" />
@@ -168,7 +175,7 @@ const TopMoreOptions: React.FC<{
             onClick={handleTickets}
             className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#f4f7fb] dark:hover:bg-white/[0.05]"
           >
-            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-[#2b83fa]/10 text-[#2b83fa]">
+            <span className={optionIconClass}>
               <FiMessageSquare className="h-[18px] w-[18px]" />
             </span>
             <span className="min-w-0 flex-1">
@@ -179,8 +186,27 @@ const TopMoreOptions: React.FC<{
             </span>
           </button>
 
+          <button
+            type="button"
+            onClick={handleSettings}
+            className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[#f4f7fb] dark:hover:bg-white/[0.05]"
+          >
+            <span className={optionIconClass}>
+              <FiSettings className="h-[18px] w-[18px]" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-bold text-[#111111] dark:text-white">Settings</span>
+              <span className="block truncate text-[11.5px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
+                Manage account and billing
+              </span>
+            </span>
+          </button>
+
           <div className="mt-1 flex items-center justify-between gap-3 rounded-xl px-3 py-2.5">
-            <span className="min-w-0">
+            <span className={optionIconClass}>
+              {darkMode ? <FiMoon className="h-[18px] w-[18px]" /> : <FiSun className="h-[18px] w-[18px]" />}
+            </span>
+            <span className="min-w-0 flex-1">
               <span className="block text-[13px] font-bold text-[#111111] dark:text-white">Theme</span>
               <span className="block text-[11.5px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
                 {darkMode ? "Dark mode" : "Light mode"}
@@ -268,6 +294,7 @@ const AppLayout: React.FC = () => {
         onboardingDone={onboardingDone}
         onOpenGettingStarted={openGettingStarted}
         onOpenTickets={() => setTicketsModalOpen(true)}
+        onOpenSettings={() => handleTabChange('settings')}
       />
     </div>
   ) : null;
