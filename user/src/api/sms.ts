@@ -149,14 +149,15 @@ export const sendSms = async (
   contactEmail?: string
 
 ): Promise<SendSmsResponse> => {
-  if (!phoneNumber || !message) {
+  const formattedNumber = normalizePHNumber(String(phoneNumber || ""));
+  const messageText = String(message || "").trim();
+
+  if (!formattedNumber || !messageText) {
     return {
       success: false,
-      message: "Phone number and message are required",
+      message: !formattedNumber ? "A valid phone number is required" : "Message text is required",
     };
   }
-
-  const formattedNumber = normalizePHNumber(phoneNumber);
 
   if (!formattedNumber || !isValidPHNumber(formattedNumber)) {
     return {
@@ -165,9 +166,12 @@ export const sendSms = async (
     };
   }
 
-  const personalizedMessage = interpolateMessage(message, { name: contactName, phone: formattedNumber, email: contactEmail });
+  const personalizedMessage = interpolateMessage(messageText, { name: contactName, phone: formattedNumber, email: contactEmail });
 
   const payload = {
+    number: formattedNumber,
+    message: personalizedMessage,
+    sendername: senderName,
     customData: {
       number: formattedNumber,
       message: personalizedMessage,

@@ -90,6 +90,29 @@ const MessageHistorySkeleton: React.FC = () => {
   );
 };
 
+type ContactWithPhoneAliases = Contact & {
+  phone_number?: string;
+  phoneNumber?: string;
+  mobileNumber?: string;
+  number?: string;
+};
+
+const resolveContactPhone = (contact: ContactWithPhoneAliases | undefined | null): string => {
+  return (
+    contact?.phone ||
+    contact?.phone_number ||
+    contact?.phoneNumber ||
+    contact?.mobileNumber ||
+    contact?.number ||
+    ""
+  ).trim();
+};
+
+const normalizeRecipient = (contact: Contact): Contact => ({
+  ...contact,
+  phone: resolveContactPhone(contact),
+});
+
 export const Composer: React.FC<ComposerProps> = ({
   selectedContacts,
   isNewMessage = true,
@@ -185,14 +208,14 @@ export const Composer: React.FC<ComposerProps> = ({
     if (name && !isPhoneLike(name)) {
       return name;
     }
-    const phone = contact.phone || name;
+    const phone = resolveContactPhone(contact) || name;
     const matched = resolveContactNameByPhone(contactMap, phone);
     return matched || phone || name;
   }, [contactMap]);
 
   const activePhoneNumber = useMemo(() => {
-    if (activeContact) return activeContact.phone;
-    if (selectedContacts.length === 1) return selectedContacts[0].phone;
+    if (activeContact) return resolveContactPhone(activeContact);
+    if (selectedContacts.length === 1) return resolveContactPhone(selectedContacts[0]);
     return undefined;
   }, [activeContact, selectedContacts]);
 
@@ -614,9 +637,12 @@ export const Composer: React.FC<ComposerProps> = ({
       toastShown = true;
       showToast(severity, msg);
     };
-    const recipients = getActiveRecipients();
+    const recipients = getActiveRecipients()
+      .map(normalizeRecipient)
+      .filter(contact => contact.phone);
+    const messageText = (messageInputRef.current?.value ?? message).trim();
 
-    if (!message) {
+    if (!messageText) {
       setShowDisabledReason(true);
       setTimeout(() => setShowDisabledReason(false), 3000);
       return;
@@ -629,7 +655,6 @@ export const Composer: React.FC<ComposerProps> = ({
 
     // Snapshot inputs and clear the compose area immediately so the user
     // can start typing/sending the next message right away.
-    const messageText = message;
     const currentTags = [...selectedTagsToApply];
     setMessage("");
     setSelectedTagsToApply([]);
@@ -988,25 +1013,29 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   const isSendDisabled = () => {
-    if (!message || !toggleEnabled) return true;
+    const draftMessage = (messageInputRef.current?.value ?? message).trim();
+    if (!draftMessage || !toggleEnabled) return true;
     // Allow sending when viewing an existing conversation
     if (activeBulkMessage || activeContact) {
-      return false;
+      return getActiveRecipients().map(normalizeRecipient).filter(contact => contact.phone).length === 0;
     }
     // For new message flow, need recipients
-    if (bulkSelectedContacts.length === 0) return true;
+    if (getActiveRecipients().map(normalizeRecipient).filter(contact => contact.phone).length === 0) return true;
     return false;
   };
 
   const getSendDisabledReason = (): string => {
+    const draftMessage = (messageInputRef.current?.value ?? message).trim();
     if (!toggleEnabled) return "SMS sending is disabled for this account";
-    if (!message) return "Enter a message to send";
+    if (!draftMessage) return "Enter a message to send";
     // Allow sending when viewing an existing conversation
     if (activeBulkMessage || activeContact) {
-      return "";
+      return getActiveRecipients().map(normalizeRecipient).filter(contact => contact.phone).length === 0
+        ? "Enter a phone number or select a contact"
+        : "";
     }
     // For new message flow, need recipients
-    if (bulkSelectedContacts.length === 0) return "Select at least one recipient";
+    if (getActiveRecipients().map(normalizeRecipient).filter(contact => contact.phone).length === 0) return "Select at least one recipient";
     return "";
   };
 

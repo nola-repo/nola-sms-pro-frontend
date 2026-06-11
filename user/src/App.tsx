@@ -34,6 +34,27 @@ const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
   );
 };
 
+const RedirectInstallRegistration: React.FC = () => {
+  useEffect(() => {
+    const target = new URL("https://smspro-api.nolacrm.io/install-register.php");
+    const params = new URLSearchParams(window.location.search);
+    params.forEach((value, key) => target.searchParams.set(key, value));
+    window.location.replace(target.toString());
+  }, []);
+
+  return (
+    <div className="h-screen w-full flex items-center justify-center bg-[#f7f8fc] dark:bg-[#0a0a0b]">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <div className="w-10 h-10 rounded-full border-4 border-[#2b83fa]/20 border-t-[#2b83fa] animate-spin" />
+        <div>
+          <p className="text-[14px] font-bold text-[#111111] dark:text-white">Opening installation setup</p>
+          <p className="text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">Redirecting to the secure setup page...</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ThemeSwitch: React.FC<{ checked: boolean; onChange: () => void }> = ({ checked, onChange }) => (
   <label className="app-theme-switch" title={checked ? "Switch to Light Mode" : "Switch to Dark Mode"}>
     <input
@@ -257,6 +278,7 @@ const AppLayout: React.FC = () => {
       <Routes>
         <Route path="/login"                  element={<RedirectToBackend path="/login" />} />
         <Route path="/register"               element={<RedirectToBackend path="/register" />} />
+        <Route path="/register-from-install"  element={<RedirectInstallRegistration />} />
         <Route path="/oauth/callback"         element={<GhlCallback />} />
         {/* Protected routes — requires a valid auth token */}
         <Route element={<ProtectedRoute />}>

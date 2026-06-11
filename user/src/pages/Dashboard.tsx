@@ -537,7 +537,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         </div>
 
         {/* Missing Location Alert */}
-        {window.self === window.top && !locationId && currentView !== 'settings' && (
+        {!locationId && currentView !== 'settings' && (
           <div className="px-6 py-3 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-200 dark:border-amber-800/20 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-800/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
