@@ -145,7 +145,7 @@ export const login = async (email: string, password: string): Promise<LoginRespo
   const res = await fetch(`${BASE}/login.php`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ email, password }),
+    body:    JSON.stringify({ email, password, remember_me: true }),
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error ?? json.message ?? 'Login failed');

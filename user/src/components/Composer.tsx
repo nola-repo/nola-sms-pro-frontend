@@ -18,7 +18,7 @@ import { CreditBadge } from "./CreditBadge";
 import { FiCheck, FiAlertCircle, FiLoader, FiFileText } from "react-icons/fi";
 import { getAccountSettings, getPreferredSender, savePreferredSender } from "../utils/settingsStorage";
 import { fetchAccountSenderConfig } from "../api/senderRequests";
-import { buildDirectConversationId } from "../utils/conversationId";
+import { buildDirectConversationId, buildGroupConversationId } from "../utils/conversationId";
 import { estimateSmsSegments } from "../utils/smsSegments";
 import { buildContactNameLookup, isPhoneLike, resolveContactNameByPhone } from "../utils/contactDisplay";
 
@@ -241,10 +241,9 @@ export const Composer: React.FC<ComposerProps> = ({
     if (historyPhoneNumber) {
       return buildDirectConversationId(historyPhoneNumber, effectiveLocationId) || undefined;
     }
-    if (activeBulkMessage) {
-      // Backend expects scoped IDs: {locationId}_group_{batchId}
+    if (activeBulkMessage?.batchId) {
       const prefix = activeBulkMessage.locationId || effectiveLocationId;
-      return prefix ? `${prefix}_group_${activeBulkMessage.batchId}` : `group_${activeBulkMessage.batchId}`;
+      return buildGroupConversationId(activeBulkMessage.batchId, prefix) || undefined;
     }
     return undefined;
   }, [historyPhoneNumber, activeBulkMessage, locationId]);
@@ -867,9 +866,7 @@ export const Composer: React.FC<ComposerProps> = ({
             fromDatabase: true,
             locationId: effectiveLocationId
           };
-          const groupConversationId = effectiveLocationId
-            ? `${effectiveLocationId}_group_${generatedBatchId}`
-            : `group_${generatedBatchId}`;
+          const groupConversationId = buildGroupConversationId(generatedBatchId, effectiveLocationId) || `group_${generatedBatchId}`;
           const groupTempId = addOptimisticMessage(messageText, senderName, groupConversationId);
 
           saveBulkMessage(bulkItemForNav);

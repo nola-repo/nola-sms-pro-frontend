@@ -62,6 +62,15 @@ export const saveCompanyId = (companyId: string): void => {
 const getAuthToken = (): string | null =>
   sessionSafeStorage.getItem(SESSION_KEYS.token) || safeStorage.getItem(SESSION_KEYS.token);
 
+const getPersistentAuthToken = (): string | null => {
+  let token = sessionSafeStorage.getItem(SESSION_KEYS.token);
+  if (!token) {
+    token = safeStorage.getItem(SESSION_KEYS.token);
+    if (token) sessionSafeStorage.setItem(SESSION_KEYS.token, token);
+  }
+  return token;
+};
+
 export const linkCompany = async (companyId: string): Promise<void> => {
   const token = getAuthToken();
   if (!token) throw new Error('Not authenticated');
@@ -171,8 +180,7 @@ export interface AgencySession {
 }
 
 export const getAgencySession = (): AgencySession | null => {
-  // Token lives in sessionStorage (tab-scoped); other fields in safeStorage
-  const token = sessionSafeStorage.getItem(SESSION_KEYS.token);
+  const token = getPersistentAuthToken();
   const role  = safeStorage.getItem(SESSION_KEYS.role);
   if (!token || role !== 'agency') return null;
   return {
@@ -243,11 +251,11 @@ export const fetchAgencyProfile = async (): Promise<AgencyAuthUser | null> => {
   return user;
 };
 
-export const login = async (email: string, password: string): Promise<any> => {
+export const login = async (email: string, password: string, rememberMe = true): Promise<any> => {
   const res = await fetch(`/api/auth/login.php`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ email, password }),
+    body:    JSON.stringify({ email, password, remember_me: rememberMe }),
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error ?? json.message ?? 'Login failed');
@@ -264,6 +272,11 @@ export const login = async (email: string, password: string): Promise<any> => {
   });
 
   sessionSafeStorage.setItem(SESSION_KEYS.token, json.token);
+  if (rememberMe) {
+    safeStorage.setItem(SESSION_KEYS.token, json.token);
+  } else {
+    safeStorage.removeItem(SESSION_KEYS.token);
+  }
   safeStorage.setItem(SESSION_KEYS.role, json.role);
   persistAgencyUser(user);
 

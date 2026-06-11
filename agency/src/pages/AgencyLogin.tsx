@@ -27,6 +27,7 @@ const AgencyLogin: React.FC = () => {
   const [email, setEmail]           = useState('');
   const [password, setPassword]     = useState('');
   const [showPw, setShowPw]         = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
 
@@ -226,7 +227,7 @@ const AgencyLogin: React.FC = () => {
     setError(null);
 
     try {
-      await authLogin(email, password);
+      await authLogin(email, password, rememberMe);
       // company_id was in the JWT — go straight to dashboard
       window.location.href = '/';
     } catch (err: any) {
@@ -386,6 +387,16 @@ const AgencyLogin: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              <label className="flex items-center gap-2.5 px-1 text-[13px] font-semibold text-gray-600 dark:text-gray-300 select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-[#2b83fa] focus:ring-[#2b83fa]"
+                />
+                Remember me on this device
+              </label>
 
                 <button
                   type="submit"

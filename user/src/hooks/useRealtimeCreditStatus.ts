@@ -12,6 +12,8 @@ const emptyCreditStatus: CreditStatus = {
     currency: "PHP",
 };
 
+const CREDIT_REFRESH_INTERVAL_MS = 5000;
+
 const sanitizeLocationId = (locationId: string) =>
     "ghl_" + locationId.replace(/[^a-zA-Z0-9_-]/g, "_");
 
@@ -128,11 +130,13 @@ export const useRealtimeCreditStatus = (explicitLocationId?: string | null) => {
         void setupListeners();
         window.addEventListener("sms-sent", refreshFromEvent);
         window.addEventListener("bulk-message-sent", refreshFromEvent);
+        const pollTimer = window.setInterval(refreshFromEvent, CREDIT_REFRESH_INTERVAL_MS);
 
         return () => {
             cancelled = true;
             userUnsubscribers.forEach(unsubscribe => unsubscribe());
             if (integrationUnsubscribe) integrationUnsubscribe();
+            window.clearInterval(pollTimer);
             window.removeEventListener("sms-sent", refreshFromEvent);
             window.removeEventListener("bulk-message-sent", refreshFromEvent);
         };

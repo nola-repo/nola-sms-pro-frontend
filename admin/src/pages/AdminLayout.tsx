@@ -52,6 +52,25 @@ const PAGE_HEADERS = {
     // },
 } as const;
 
+const ADMIN_AUTH_KEYS = ['nola_admin_auth', 'nola_admin_user', 'nola_admin_token'] as const;
+const ADMIN_REMEMBER_KEY = 'nola_admin_remember';
+const ADMIN_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+
+const readRememberedAdminSession = () => {
+    const token = sessionStorage.getItem('nola_admin_token') || localStorage.getItem('nola_admin_token');
+    const remembered = localStorage.getItem(ADMIN_REMEMBER_KEY) === 'true';
+    if (!token) return false;
+
+    if (!sessionStorage.getItem('nola_admin_token')) {
+        sessionStorage.setItem('nola_admin_token', token);
+        sessionStorage.setItem('nola_admin_auth', 'true');
+        const user = localStorage.getItem('nola_admin_user');
+        if (user) sessionStorage.setItem('nola_admin_user', user);
+    }
+
+    return sessionStorage.getItem('nola_admin_auth') === 'true' || remembered;
+};
+
 const NavItems = ({ onNav }: { onNav?: () => void }) => {
     const navigate = useNavigate();
     const { pathname } = useLocation();
@@ -126,22 +145,19 @@ const SidebarContent = ({ onNav, onLogout }: { onNav?: () => void; onLogout: () 
 );
 
 export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => void }> = ({ darkMode, toggleDarkMode }) => {
-    const [isAuthenticated, setIsAuthenticated] = useState(() =>
-        sessionStorage.getItem('nola_admin_auth') === 'true' &&
-        Boolean(sessionStorage.getItem('nola_admin_token'))
-    );
+    const [isAuthenticated, setIsAuthenticated] = useState(readRememberedAdminSession);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
-
     const navigate = useNavigate();
 
-    const clearAdminSession = useCallback(() => {
-        sessionStorage.removeItem('nola_admin_auth');
-        sessionStorage.removeItem('nola_admin_user');
-        sessionStorage.removeItem('nola_admin_token');
+    const clearAdminSession = useCallback((includeRemembered = true) => {
+        ADMIN_AUTH_KEYS.forEach(key => sessionStorage.removeItem(key));
+        if (includeRemembered) {
+            ADMIN_AUTH_KEYS.forEach(key => localStorage.removeItem(key));
+            localStorage.removeItem(ADMIN_REMEMBER_KEY);
+        }
         setShowLogoutConfirm(false);
         setIsAuthenticated(false);
         navigate('/dashboard');
@@ -149,8 +165,9 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
 
     const resetIdleTimer = useCallback(() => {
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = setTimeout(clearAdminSession, IDLE_TIMEOUT_MS);
-    }, [clearAdminSession, IDLE_TIMEOUT_MS]);
+        if (localStorage.getItem(ADMIN_REMEMBER_KEY) === 'true') return;
+        idleTimerRef.current = setTimeout(() => clearAdminSession(false), ADMIN_IDLE_TIMEOUT_MS);
+    }, [clearAdminSession]);
 
     useEffect(() => {
         if (!isAuthenticated) return;
@@ -168,10 +185,19 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
         return () => window.removeEventListener(ADMIN_AUTH_REQUIRED_EVENT, clearAdminSession);
     }, [clearAdminSession]);
 
-    const handleLogin = (username: string, token: string) => {
+    const handleLogin = (username: string, token: string, rememberMe = true) => {
         sessionStorage.setItem('nola_admin_auth', 'true');
         sessionStorage.setItem('nola_admin_user', username);
         sessionStorage.setItem('nola_admin_token', token);
+        if (rememberMe) {
+            localStorage.setItem('nola_admin_auth', 'true');
+            localStorage.setItem('nola_admin_user', username);
+            localStorage.setItem('nola_admin_token', token);
+            localStorage.setItem(ADMIN_REMEMBER_KEY, 'true');
+        } else {
+            ADMIN_AUTH_KEYS.forEach(key => localStorage.removeItem(key));
+            localStorage.removeItem(ADMIN_REMEMBER_KEY);
+        }
         setIsAuthenticated(true);
     };
 

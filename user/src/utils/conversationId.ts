@@ -29,6 +29,12 @@ export function buildDirectConversationId(phone: string, locationId?: string | n
   return locationId ? `${locationId}_conv_${normalized}` : `conv_${normalized}`;
 }
 
+export function buildGroupConversationId(batchId: string, locationId?: string | null): string | null {
+  const normalizedBatchId = batchId?.trim();
+  if (!normalizedBatchId) return null;
+  return locationId ? `${locationId}_group_${normalizedBatchId}` : `group_${normalizedBatchId}`;
+}
+
 export function extractPhoneFromDirectConversationId(conversationId: string): string | null {
   if (!conversationId) return null;
 

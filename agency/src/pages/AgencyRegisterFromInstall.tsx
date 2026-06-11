@@ -217,6 +217,7 @@ const AgencyRegisterFromInstall: React.FC = () => {
 
       // Save agency session using the same keys as agencyAuthHelper.login()
       sessionSafeStorage.setItem(SESSION_KEYS.token, data.token);
+      safeStorage.setItem(SESSION_KEYS.token, data.token);
       safeStorage.setItem(SESSION_KEYS.role,     'agency');
       if (data.user)       safeStorage.setItem(SESSION_KEYS.user,      JSON.stringify(data.user));
       if (data.company_id) {

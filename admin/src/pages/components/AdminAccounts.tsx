@@ -8,6 +8,7 @@ import {
     FiClock,
     FiDownload,
     FiEye,
+    FiFilter,
     FiMoreVertical,
     FiMinus,
     FiPlus,
@@ -118,12 +119,21 @@ const getLocationLine = (account: Account) => {
     return locationName || locationId || '';
 };
 
+const getAgencyName = (account: Account) =>
+    (account.agency_name || account.company_name || account.company_id || '').trim() || 'Unassigned agency';
+
+const hasSenderConfigured = (account: Account) => Boolean(account.approved_sender_id?.trim());
+
 export const AdminAccounts: React.FC = () => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [agencyFilter, setAgencyFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [senderFilter, setSenderFilter] = useState('all');
+    const [sortBy, setSortBy] = useState('agency_az');
     const [currentPage, setCurrentPage] = useState(1);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
@@ -148,7 +158,7 @@ export const AdminAccounts: React.FC = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm]);
+    }, [searchTerm, agencyFilter, statusFilter, senderFilter, sortBy]);
 
     useEffect(() => {
         if (!actionMenuId) return;
@@ -210,20 +220,56 @@ export const AdminAccounts: React.FC = () => {
         return () => clearInterval(timer);
     }, [fetchAccounts]);
 
+    const agencyOptions = useMemo(() => {
+        const agencies = new Map<string, string>();
+        accounts.forEach(account => {
+            const agency = getAgencyName(account);
+            agencies.set(agency.toLowerCase(), agency);
+        });
+        return Array.from(agencies.values()).sort((a, b) => a.localeCompare(b));
+    }, [accounts]);
+
     const filteredAccounts = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
-        if (!query) return accounts;
 
-        return accounts.filter(acc =>
-            getAccountName(acc).toLowerCase().includes(query) ||
-            acc.email?.toLowerCase().includes(query) ||
-            acc.phone?.toLowerCase().includes(query) ||
-            acc.role?.toLowerCase().includes(query) ||
-            acc.location_id?.toLowerCase().includes(query) ||
-            acc.location_name?.toLowerCase().includes(query) ||
-            acc.approved_sender_id?.toLowerCase().includes(query)
-        );
-    }, [accounts, searchTerm]);
+        const matches = accounts.filter(acc => {
+            const agencyName = getAgencyName(acc);
+            const matchesSearch = !query ||
+                getAccountName(acc).toLowerCase().includes(query) ||
+                agencyName.toLowerCase().includes(query) ||
+                acc.email?.toLowerCase().includes(query) ||
+                acc.phone?.toLowerCase().includes(query) ||
+                acc.role?.toLowerCase().includes(query) ||
+                acc.company_id?.toLowerCase().includes(query) ||
+                acc.location_id?.toLowerCase().includes(query) ||
+                acc.location_name?.toLowerCase().includes(query) ||
+                acc.approved_sender_id?.toLowerCase().includes(query);
+
+            const matchesAgency = agencyFilter === 'all' || agencyName === agencyFilter;
+            const matchesStatus = statusFilter === 'all' ||
+                (statusFilter === 'active' ? acc.active !== false : acc.active === false);
+            const matchesSender = senderFilter === 'all' ||
+                (senderFilter === 'configured' ? hasSenderConfigured(acc) : !hasSenderConfigured(acc));
+
+            return matchesSearch && matchesAgency && matchesStatus && matchesSender;
+        });
+
+        return [...matches].sort((a, b) => {
+            if (sortBy === 'agency_az') {
+                return getAgencyName(a).localeCompare(getAgencyName(b)) || getAccountName(a).localeCompare(getAccountName(b));
+            }
+            if (sortBy === 'credits_high') {
+                return (b.credit_balance ?? b.credits ?? 0) - (a.credit_balance ?? a.credits ?? 0);
+            }
+            if (sortBy === 'credits_low') {
+                return (a.credit_balance ?? a.credits ?? 0) - (b.credit_balance ?? b.credits ?? 0);
+            }
+            if (sortBy === 'name_az') {
+                return getAccountName(a).localeCompare(getAccountName(b));
+            }
+            return 0;
+        });
+    }, [accounts, searchTerm, agencyFilter, statusFilter, senderFilter, sortBy]);
 
     const totalPages = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
     const currentAccounts = filteredAccounts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -462,6 +508,49 @@ export const AdminAccounts: React.FC = () => {
                             </button>
                         </div>
                     </div>
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
+                        <label className="relative">
+                            <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5 pointer-events-none" />
+                            <select
+                                value={agencyFilter}
+                                onChange={e => setAgencyFilter(e.target.value)}
+                                className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
+                            >
+                                <option value="all">All agencies</option>
+                                {agencyOptions.map(agency => (
+                                    <option key={agency} value={agency}>{agency}</option>
+                                ))}
+                            </select>
+                        </label>
+                        <select
+                            value={statusFilter}
+                            onChange={e => setStatusFilter(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
+                        >
+                            <option value="all">All statuses</option>
+                            <option value="active">Active only</option>
+                            <option value="inactive">Inactive only</option>
+                        </select>
+                        <select
+                            value={senderFilter}
+                            onChange={e => setSenderFilter(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
+                        >
+                            <option value="all">All sender IDs</option>
+                            <option value="configured">Sender configured</option>
+                            <option value="missing">Missing sender</option>
+                        </select>
+                        <select
+                            value={sortBy}
+                            onChange={e => setSortBy(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
+                        >
+                            <option value="agency_az">Sort by agency</option>
+                            <option value="name_az">Sort by name</option>
+                            <option value="credits_high">Credits high to low</option>
+                            <option value="credits_low">Credits low to high</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div className="p-6">
@@ -484,14 +573,14 @@ export const AdminAccounts: React.FC = () => {
                     ) : filteredAccounts.length === 0 ? (
                         <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
                             <FiSearch className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                            <p className="text-[14px] font-semibold">No users match your search.</p>
+                            <p className="text-[14px] font-semibold">No subaccounts match your filters.</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto pb-4">
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="border-b border-[#e5e5e5] dark:border-white/5">
-                                        {['Name', 'Email', 'Phone', 'Role', 'Credits', 'Free Used', 'Actions'].map(header => (
+                                        {['Name', 'Agency', 'Email', 'Phone', 'Role', 'Credits', 'Free Used', 'Actions'].map(header => (
                                             <th key={header} className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                                 {header}
                                             </th>
@@ -511,6 +600,14 @@ export const AdminAccounts: React.FC = () => {
                                                         <p className="font-bold text-[13px] text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors truncate">{getAccountName(account)}</p>
                                                         <p className="text-[10px] text-[#9aa0a6] font-medium mt-0.5 truncate">{getLocationLine(account) || account.id}</p>
                                                     </div>
+                                                </div>
+                                            </td>
+                                            <td className="py-4 pr-4 text-[12px] font-bold text-[#111111] dark:text-white min-w-[170px]">
+                                                <div className="flex flex-col">
+                                                    <span className="truncate max-w-[190px]">{getAgencyName(account)}</span>
+                                                    {account.company_id && (
+                                                        <span className="text-[10px] text-[#9aa0a6] font-medium truncate max-w-[190px]">{account.company_id}</span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[190px]">{emptyValue(account.email)}</td>

@@ -44,10 +44,26 @@ const STATUS_PRIORITY: Record<string, number> = {
     expired: 4,
 };
 
+const sameMessageTarget = (a: Message, b: Message) => {
+    const sameConversation = !a.conversation_id || !b.conversation_id || a.conversation_id === b.conversation_id;
+    const sameNumber = !a.number || !b.number || a.number === b.number;
+    const sameRecipientKey = !a.recipient_key || !b.recipient_key || a.recipient_key === b.recipient_key;
+    return sameConversation && sameNumber && sameRecipientKey;
+};
+
+const messagesLikelySame = (a: Message, b: Message) =>
+    a.id === b.id ||
+    (
+        a.text.trim() === b.text.trim() &&
+        sameMessageTarget(a, b) &&
+        Math.abs(a.timestamp.getTime() - b.timestamp.getTime()) < 5 * 60_000
+    );
+
 const apiMatchesLocal = (api: Message, local: Message) =>
     api.id === local.id ||
     (
-        api.text === local.text &&
+        api.text.trim() === local.text.trim() &&
+        sameMessageTarget(api, local) &&
         Math.abs(api.timestamp.getTime() - local.timestamp.getTime()) < 60_000
     );
 
@@ -127,7 +143,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
             }
 
             return {
-                id: row.id || row.message_id || `msg-${Date.now()}-${Math.random()}`,
+                id: row.message_id || row.id || `msg-${Date.now()}-${Math.random()}`,
                 conversation_id: row.conversation_id,
                 number: row.number,
                 text: row.message || "",
@@ -198,10 +214,12 @@ export const useConversationMessages = (conversationId: string | undefined, reci
 
             const nextMessages = [...merged, ...localOnly]
                 .reduce<Message[]>((acc, message) => {
-                    const isDuplicate = acc.some(existing =>
-                        existing.id === message.id ||
-                        (message.id.startsWith("temp-") && apiSupersedesLocal(existing, message))
-                    );
+                    const isDuplicate = acc.some(existing => {
+                        const involvesTemp = existing.id.startsWith("temp-") || message.id.startsWith("temp-");
+                        return existing.id === message.id ||
+                            (involvesTemp && messagesLikelySame(existing, message)) ||
+                            (message.id.startsWith("temp-") && apiSupersedesLocal(existing, message));
+                    });
                     if (isDuplicate) {
                         return acc;
                     }
