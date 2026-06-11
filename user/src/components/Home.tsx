@@ -8,7 +8,7 @@ gsap.registerPlugin(ScrollTrigger);
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
 import { fetchConversations } from "../api/sms";
 import { fetchContacts } from "../api/contacts";
-import { fetchCreditStatus, fetchCreditTransactions, type CreditStatus, type CreditTransaction } from "../api/credits";
+import { fetchCreditTransactions, type CreditTransaction } from "../api/credits";
 import { fetchAccountProfile, getCachedAccountProfile, type AccountProfile } from "../api/account";
 import { generateMonthlyReport } from "../utils/pdfGenerator";
 import SplitText from "./SplitText";
@@ -17,6 +17,7 @@ import FadeContent from "./FadeContent";
 import { extractBatchIdFromGroupConversationId, extractPhoneFromDirectConversationId } from "../utils/conversationId";
 import { useLocationId } from "../context/LocationContext";
 import { useUserProfileContext } from "../context/UserProfileContext";
+import { useRealtimeCreditStatus } from "../hooks/useRealtimeCreditStatus";
 import { safeStorage } from "../utils/safeStorage";
 import { buildContactNameLookup, isPhoneLike, resolveContactNameByPhone, toProperCase } from "../utils/contactDisplay";
 import type { ViewTab } from "./Sidebar";
@@ -182,7 +183,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
             getCachedAccountProfile(locationId, { allowExpired: true })
         );
     });
-    const [creditStatus, setCreditStatus] = useState<CreditStatus | null>(null);
+    const { status: creditStatus, loading: creditLoading } = useRealtimeCreditStatus(locationId);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -209,8 +210,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         const loadData = async () => {
             setLoading(true);
             try {
-                const [creditRes, convRes, contactRes, txRes, profileRes] = await Promise.allSettled([
-                    fetchCreditStatus(locationId),
+                const [convRes, contactRes, txRes, profileRes] = await Promise.allSettled([
                     fetchConversations(locationId),
                     fetchContacts(locationId),
                     fetchCreditTransactions('default', 100, locationId),
@@ -221,7 +221,6 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                     })
                 ]);
                 if (cancelled) return;
-                if (creditRes.status === 'fulfilled') setCreditStatus(creditRes.value);
                 if (convRes.status === 'fulfilled') setConversations(convRes.value || []);
                 if (contactRes.status === 'fulfilled') {
                     const list = contactRes.value || [];
@@ -338,6 +337,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         "User";
     const profileInitial = profileDisplayName.charAt(0).toUpperCase();
     const greetingText = subaccountName ? `${getGreeting()}, ${subaccountName}` : getGreeting();
+    const creditDisplayLoading = creditLoading && !creditStatus;
     const sentToday = creditStatus?.stats?.sent_today ?? 0;
     const creditsUsedMonth = creditStatus?.stats?.credits_used_month ?? 0;
     const lastActivityAt = conversations[0]?.last_message_at || conversations[0]?.updated_at;
@@ -573,7 +573,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                     <div className="absolute bottom-0 right-0 p-4 opacity-[0.13] dark:opacity-[0.16] group-hover:scale-110 transition-transform duration-500 text-blue-900 dark:text-blue-100">
                                         <FiCreditCard className="w-24 h-24" />
                                     </div>
-                                    {loading ? (
+                                    {loading || creditDisplayLoading ? (
                                         <DashboardCardSkeleton valueWidth="w-24" />
                                     ) : (
                                         <>
@@ -688,7 +688,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                             {[
                                 {
                                     label: 'Sent Today',
-                                    value: sentToday.toLocaleString(),
+                                    value: creditDisplayLoading ? '—' : sentToday.toLocaleString(),
                                     accent: '#ef4444',
                                     series: sentMetricSeries,
                                     note: 'Messages sent today',
@@ -699,7 +699,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                 },
                                 {
                                     label: 'Credits Used This Month',
-                                    value: creditsUsedMonth.toLocaleString(),
+                                    value: creditDisplayLoading ? '—' : creditsUsedMonth.toLocaleString(),
                                     accent: '#8b5cf6',
                                     series: creditMetricSeries,
                                     note: 'Credits used this month',
