@@ -122,8 +122,6 @@ const getLocationLine = (account: Account) => {
 const getAgencyName = (account: Account) =>
     (account.agency_name || account.company_name || account.company_id || '').trim() || 'Unassigned agency';
 
-const hasSenderConfigured = (account: Account) => Boolean(account.approved_sender_id?.trim());
-
 export const AdminAccounts: React.FC = () => {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [loading, setLoading] = useState(true);
@@ -131,9 +129,8 @@ export const AdminAccounts: React.FC = () => {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [agencyFilter, setAgencyFilter] = useState('all');
-    const [statusFilter, setStatusFilter] = useState('all');
-    const [senderFilter, setSenderFilter] = useState('all');
     const [sortBy, setSortBy] = useState('agency_az');
+    const [filterMenuOpen, setFilterMenuOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
@@ -143,6 +140,7 @@ export const AdminAccounts: React.FC = () => {
     const [actionMenuId, setActionMenuId] = useState<string | null>(null);
     const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
     const menuRef = useRef<HTMLDivElement>(null);
+    const filterMenuRef = useRef<HTMLDivElement>(null);
 
     const [manageSenderId, setManageSenderId] = useState('');
     const [manageCreditBalance, setManageCreditBalance] = useState<number>(0);
@@ -158,7 +156,18 @@ export const AdminAccounts: React.FC = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, agencyFilter, statusFilter, senderFilter, sortBy]);
+    }, [searchTerm, agencyFilter, sortBy]);
+
+    useEffect(() => {
+        if (!filterMenuOpen) return;
+        const handler = (event: MouseEvent) => {
+            if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+                setFilterMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [filterMenuOpen]);
 
     useEffect(() => {
         if (!actionMenuId) return;
@@ -246,12 +255,8 @@ export const AdminAccounts: React.FC = () => {
                 acc.approved_sender_id?.toLowerCase().includes(query);
 
             const matchesAgency = agencyFilter === 'all' || agencyName === agencyFilter;
-            const matchesStatus = statusFilter === 'all' ||
-                (statusFilter === 'active' ? acc.active !== false : acc.active === false);
-            const matchesSender = senderFilter === 'all' ||
-                (senderFilter === 'configured' ? hasSenderConfigured(acc) : !hasSenderConfigured(acc));
 
-            return matchesSearch && matchesAgency && matchesStatus && matchesSender;
+            return matchesSearch && matchesAgency;
         });
 
         return [...matches].sort((a, b) => {
@@ -269,7 +274,7 @@ export const AdminAccounts: React.FC = () => {
             }
             return 0;
         });
-    }, [accounts, searchTerm, agencyFilter, statusFilter, senderFilter, sortBy]);
+    }, [accounts, searchTerm, agencyFilter, sortBy]);
 
     const totalPages = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
     const currentAccounts = filteredAccounts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -483,8 +488,8 @@ export const AdminAccounts: React.FC = () => {
                                 Users from the Firestore users collection with profile and credit controls.
                             </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <div className="relative w-full sm:w-72">
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <div className="relative min-w-0 flex-1 sm:w-72">
                                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5" />
                                 <input
                                     type="text"
@@ -499,6 +504,73 @@ export const AdminAccounts: React.FC = () => {
                                     </button>
                                 )}
                             </div>
+                            <div ref={filterMenuRef} className="relative flex-shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setFilterMenuOpen(open => !open)}
+                                    className={`h-10 px-3 rounded-xl border text-[12px] font-bold flex items-center gap-2 transition-all ${
+                                        agencyFilter !== 'all' || sortBy !== 'agency_az'
+                                            ? 'bg-[#2b83fa]/10 border-[#2b83fa]/30 text-[#2b83fa]'
+                                            : 'bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e5e5e5] dark:border-white/5 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10'
+                                    }`}
+                                    title="Filter users"
+                                    aria-expanded={filterMenuOpen}
+                                    aria-haspopup="true"
+                                >
+                                    <FiFilter className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline">Filters</span>
+                                </button>
+
+                                {filterMenuOpen && (
+                                    <div className="absolute right-0 top-full z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-[#e5e5e5] dark:border-white/10 bg-white dark:bg-[#1e2023] shadow-2xl p-4 animate-in zoom-in-95 fade-in duration-100">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-[12px] font-black uppercase tracking-wider text-[#5f6368] dark:text-[#9aa0a6]">Filters</span>
+                                            {(agencyFilter !== 'all' || sortBy !== 'agency_az') && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setAgencyFilter('all');
+                                                        setSortBy('agency_az');
+                                                    }}
+                                                    className="text-[11px] font-bold text-[#2b83fa] hover:text-[#1d6bd4] transition-colors"
+                                                >
+                                                    Reset
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <label className="block">
+                                                <span className="block text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] mb-1.5 uppercase tracking-wider">Agency</span>
+                                                <select
+                                                    value={agencyFilter}
+                                                    onChange={e => setAgencyFilter(e.target.value)}
+                                                    className="w-full px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
+                                                >
+                                                    <option value="all">All agencies</option>
+                                                    {agencyOptions.map(agency => (
+                                                        <option key={agency} value={agency}>{agency}</option>
+                                                    ))}
+                                                </select>
+                                            </label>
+
+                                            <label className="block">
+                                                <span className="block text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] mb-1.5 uppercase tracking-wider">Sort</span>
+                                                <select
+                                                    value={sortBy}
+                                                    onChange={e => setSortBy(e.target.value)}
+                                                    className="w-full px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
+                                                >
+                                                    <option value="agency_az">Sort by agency</option>
+                                                    <option value="name_az">Sort by name</option>
+                                                    <option value="credits_high">Credits high to low</option>
+                                                    <option value="credits_low">Credits low to high</option>
+                                                </select>
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                             <button
                                 onClick={() => fetchAccounts(true)}
                                 className="p-2 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl flex-shrink-0"
@@ -507,49 +579,6 @@ export const AdminAccounts: React.FC = () => {
                                 <FiRefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
                             </button>
                         </div>
-                    </div>
-                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
-                        <label className="relative">
-                            <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5 pointer-events-none" />
-                            <select
-                                value={agencyFilter}
-                                onChange={e => setAgencyFilter(e.target.value)}
-                                className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
-                            >
-                                <option value="all">All agencies</option>
-                                {agencyOptions.map(agency => (
-                                    <option key={agency} value={agency}>{agency}</option>
-                                ))}
-                            </select>
-                        </label>
-                        <select
-                            value={statusFilter}
-                            onChange={e => setStatusFilter(e.target.value)}
-                            className="w-full px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
-                        >
-                            <option value="all">All statuses</option>
-                            <option value="active">Active only</option>
-                            <option value="inactive">Inactive only</option>
-                        </select>
-                        <select
-                            value={senderFilter}
-                            onChange={e => setSenderFilter(e.target.value)}
-                            className="w-full px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
-                        >
-                            <option value="all">All sender IDs</option>
-                            <option value="configured">Sender configured</option>
-                            <option value="missing">Missing sender</option>
-                        </select>
-                        <select
-                            value={sortBy}
-                            onChange={e => setSortBy(e.target.value)}
-                            className="w-full px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
-                        >
-                            <option value="agency_az">Sort by agency</option>
-                            <option value="name_az">Sort by name</option>
-                            <option value="credits_high">Credits high to low</option>
-                            <option value="credits_low">Credits low to high</option>
-                        </select>
                     </div>
                 </div>
 
