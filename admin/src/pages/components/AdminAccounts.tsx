@@ -508,35 +508,19 @@ export const AdminAccounts: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => setFilterMenuOpen(open => !open)}
-                                    className={`h-10 px-3 rounded-xl border text-[12px] font-bold flex items-center gap-2 transition-all ${
-                                        agencyFilter !== 'all' || sortBy !== 'agency_az'
-                                            ? 'bg-[#2b83fa]/10 border-[#2b83fa]/30 text-[#2b83fa]'
-                                            : 'bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e5e5e5] dark:border-white/5 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10'
-                                    }`}
+                                    className="h-10 w-10 rounded-xl border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e5e5e5] dark:border-white/5 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 flex items-center justify-center transition-all"
                                     title="Filter users"
+                                    aria-label="Filter users"
                                     aria-expanded={filterMenuOpen}
                                     aria-haspopup="true"
                                 >
                                     <FiFilter className="w-3.5 h-3.5" />
-                                    <span className="hidden sm:inline">Filters</span>
                                 </button>
 
                                 {filterMenuOpen && (
                                     <div className="absolute right-0 top-full z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-[#e5e5e5] dark:border-white/10 bg-white dark:bg-[#1e2023] shadow-2xl p-4 animate-in zoom-in-95 fade-in duration-100">
-                                        <div className="flex items-center justify-between mb-3">
+                                        <div className="mb-3">
                                             <span className="text-[12px] font-black uppercase tracking-wider text-[#5f6368] dark:text-[#9aa0a6]">Filters</span>
-                                            {(agencyFilter !== 'all' || sortBy !== 'agency_az') && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setAgencyFilter('all');
-                                                        setSortBy('agency_az');
-                                                    }}
-                                                    className="text-[11px] font-bold text-[#2b83fa] hover:text-[#1d6bd4] transition-colors"
-                                                >
-                                                    Reset
-                                                </button>
-                                            )}
                                         </div>
 
                                         <div className="space-y-3">
