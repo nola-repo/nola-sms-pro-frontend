@@ -2,18 +2,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     FiAlertCircle,
-    FiCheck,
+    FiChevronDown,
     FiChevronLeft,
     FiChevronRight,
+    FiChevronUp,
     FiDownload,
     FiEye,
     FiFilter,
     FiMoreVertical,
-    FiMinus,
-    FiPlus,
     FiRefreshCw,
     FiSearch,
-    FiSettings,
     FiTrash2,
     FiUsers,
     FiX,
@@ -168,22 +166,20 @@ export const AdminAccounts: React.FC = () => {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [agencyFilter, setAgencyFilter] = useState('all');
-    const [sortBy, setSortBy] = useState('agency_az');
+    const [sortBy, setSortBy] = useState('name_az');
+    const [subaccountSortDir, setSubaccountSortDir] = useState<'az' | 'za'>('az');
     const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+    const [editingCreditId, setEditingCreditId] = useState<string | null>(null);
+    const [editingCreditValue, setEditingCreditValue] = useState<string>('');
     const [currentPage, setCurrentPage] = useState(1);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
     const [profileAccount, setProfileAccount] = useState<Account | null>(null);
-    const [managingAccount, setManagingAccount] = useState<Account | null>(null);
     const [confirmAction, setConfirmAction] = useState<{ type: 'reset' | 'delete'; account: Account } | null>(null);
     const [actionMenuId, setActionMenuId] = useState<string | null>(null);
     const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
     const menuRef = useRef<HTMLDivElement>(null);
     const filterMenuRef = useRef<HTMLDivElement>(null);
-
-    const [manageSenderId, setManageSenderId] = useState('');
-    const [manageCreditBalance, setManageCreditBalance] = useState<number>(0);
-    const [manageFreeCreditsTotal, setManageFreeCreditsTotal] = useState<number>(10);
 
     const [reportTransactions, setReportTransactions] = useState<any[]>([]);
     const [isLoadingReport, setIsLoadingReport] = useState(false);
@@ -299,6 +295,11 @@ export const AdminAccounts: React.FC = () => {
         });
 
         return [...matches].sort((a, b) => {
+            if (sortBy === 'subaccount_col') {
+                const aName = (a.location_name || getAccountName(a)).toLowerCase();
+                const bName = (b.location_name || getAccountName(b)).toLowerCase();
+                return subaccountSortDir === 'az' ? aName.localeCompare(bName) : bName.localeCompare(aName);
+            }
             if (sortBy === 'agency_az') {
                 return getAgencyName(a).localeCompare(getAgencyName(b)) || getAccountName(a).localeCompare(getAccountName(b));
             }
@@ -330,14 +331,6 @@ export const AdminAccounts: React.FC = () => {
         setActionMenuId(prev => prev === accountId ? null : accountId);
     };
 
-    const openManageConfig = (account: Account) => {
-        setManagingAccount(account);
-        setManageSenderId(account.approved_sender_id || '');
-        setManageCreditBalance(account.credit_balance ?? account.credits ?? 0);
-        setManageFreeCreditsTotal(account.free_credits_total ?? 10);
-        setActionMenuId(null);
-    };
-
     const fetchReportForAccount = async (account: Account, showModal = true) => {
         if (!account.location_id) {
             showToast('This account does not have a location ID for reporting.', 'error');
@@ -363,50 +356,6 @@ export const AdminAccounts: React.FC = () => {
             showToast('Failed to load transaction history.', 'error');
         } finally {
             setIsLoadingReport(false);
-        }
-    };
-
-    const submitManageSender = async (event: React.FormEvent) => {
-        event.preventDefault();
-        if (!managingAccount) return;
-        if (!managingAccount.location_id) {
-            showToast('This account does not have a location ID.', 'error');
-            return;
-        }
-
-        setActionLoading('managing');
-        try {
-            const res = await adminFetch(ADMIN_SENDER_API, {
-                method: 'POST',
-                headers: getAdminAuthHeaders(),
-                body: JSON.stringify({
-                    action: 'manage_sender',
-                    location_id: managingAccount.location_id,
-                    sender_id: manageSenderId,
-                    credit_balance: manageCreditBalance,
-                    free_credits_total: manageFreeCreditsTotal,
-                }),
-            });
-            const json = await res.json();
-            if (json.status === 'success') {
-                const updated = {
-                    ...managingAccount,
-                    approved_sender_id: manageSenderId || null,
-                    credit_balance: manageCreditBalance,
-                    credits: manageCreditBalance,
-                    free_credits_total: manageFreeCreditsTotal,
-                };
-                setAccounts(prev => prev.map(acc => acc.id === managingAccount.id ? updated : acc));
-                setManagingAccount(null);
-                showToast(json.message || 'Account config updated successfully.', 'success');
-                void fetchAccounts(false);
-            } else {
-                showToast(json.message || 'Failed to update account config.', 'error');
-            }
-        } catch {
-            showToast('Network error during update.', 'error');
-        } finally {
-            setActionLoading(null);
         }
     };
 
@@ -504,6 +453,48 @@ export const AdminAccounts: React.FC = () => {
         );
     };
 
+    const handleSubaccountSortToggle = () => {
+        if (sortBy === 'subaccount_col') {
+            setSubaccountSortDir(prev => prev === 'az' ? 'za' : 'az');
+        } else {
+            setSortBy('subaccount_col');
+            setSubaccountSortDir('az');
+        }
+    };
+
+    const startEditCredit = (account: Account) => {
+        setEditingCreditId(account.id);
+        setEditingCreditValue(String(account.credit_balance ?? account.credits ?? 0));
+    };
+
+    const saveEditCredit = async (account: Account) => {
+        const newVal = parseInt(editingCreditValue) || 0;
+        setEditingCreditId(null);
+        if (newVal === (account.credit_balance ?? account.credits ?? 0)) return;
+        updateAccountLocally(account.id, { credit_balance: newVal, credits: newVal });
+        try {
+            const res = await adminFetch(ADMIN_SENDER_API, {
+                method: 'POST',
+                headers: getAdminAuthHeaders(),
+                body: JSON.stringify({
+                    action: 'manage_sender',
+                    location_id: account.location_id,
+                    sender_id: account.approved_sender_id || '',
+                    credit_balance: newVal,
+                    free_credits_total: account.free_credits_total ?? 10,
+                }),
+            });
+            const json = await res.json();
+            if (json.status === 'success') {
+                showToast('Credits updated.', 'success');
+            } else {
+                showToast(json.message || 'Failed to update credits.', 'error');
+            }
+        } catch {
+            showToast('Network error updating credits.', 'error');
+        }
+    };
+
     return (
         <>
             <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] dark:shadow-[0_2px_15px_rgba(0,0,0,0.2)] overflow-hidden">
@@ -583,6 +574,7 @@ export const AdminAccounts: React.FC = () => {
                                                     onChange={e => setSortBy(e.target.value)}
                                                     className="w-full px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
                                                 >
+                                                    <option value="subaccount_col">Sort by subaccount name</option>
                                                     <option value="agency_az">Sort by agency</option>
                                                     <option value="name_az">Sort by name</option>
                                                     <option value="credits_high">Credits high to low</option>
@@ -631,7 +623,22 @@ export const AdminAccounts: React.FC = () => {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="border-b border-[#e5e5e5] dark:border-white/5">
-                                        {['Name', 'Agency', 'Email', 'Phone', 'Role', 'Credits', 'Free Used', 'Actions'].map(header => (
+                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                            <button
+                                                onClick={handleSubaccountSortToggle}
+                                                className="flex items-center gap-1 hover:text-[#2b83fa] transition-colors group"
+                                            >
+                                                Subaccount
+                                                <span className="opacity-50 group-hover:opacity-100 transition-opacity">
+                                                    {sortBy === 'subaccount_col' ? (
+                                                        subaccountSortDir === 'az' ? <FiChevronUp className="w-3 h-3" /> : <FiChevronDown className="w-3 h-3" />
+                                                    ) : (
+                                                        <FiChevronUp className="w-3 h-3 opacity-40" />
+                                                    )}
+                                                </span>
+                                            </button>
+                                        </th>
+                                        {['Agency', 'Email', 'Phone', 'Role', 'Credits', 'Free Used', 'Actions'].map(header => (
                                             <th key={header} className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                                 {header}
                                             </th>
@@ -641,16 +648,14 @@ export const AdminAccounts: React.FC = () => {
                                 <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
                                     {currentAccounts.map(account => (
                                         <tr key={account.id} className="group hover:bg-[#f7f7f7] dark:hover:bg-white/[0.015] transition-colors">
-                                            <td className="py-4 pr-4 min-w-[300px]">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 shadow-sm">
-                                                        {getInitials(account)}
-                                                        <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#1a1b1e] ${account.active !== false ? 'bg-emerald-500' : 'bg-gray-400'}`} />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <p className="font-bold text-[13px] text-[#111111] dark:text-white group-hover:text-[#2b83fa] transition-colors truncate">{getAccountName(account)}</p>
-                                                        <p className="text-[10px] text-[#9aa0a6] font-medium mt-0.5 truncate">{getLocationLine(account) || account.id}</p>
-                                                    </div>
+                                            <td className="py-4 pr-4 min-w-[220px]">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <p className="font-bold text-[13px] text-[#111111] dark:text-white truncate max-w-[200px]">
+                                                        {account.location_name || getAccountName(account)}
+                                                    </p>
+                                                    <p className="text-[10px] font-mono text-[#9aa0a6] truncate max-w-[200px]">
+                                                        {account.location_id || account.active_location_id || '—'}
+                                                    </p>
                                                 </div>
                                             </td>
                                             <td className="py-4 pr-4 text-[12px] font-bold text-[#111111] dark:text-white min-w-[170px]">
@@ -664,45 +669,41 @@ export const AdminAccounts: React.FC = () => {
                                             <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[190px]">{emptyValue(account.email)}</td>
                                             <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[130px]">{emptyValue(account.phone)}</td>
                                             <td className="py-4 pr-4">{roleBadge(account.role)}</td>
-                                            <td className="py-4 pr-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[13px] font-bold text-[#111111] dark:text-white">{(account.credit_balance ?? account.credits ?? 0).toLocaleString()}</span>
-                                                    <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">Balance</span>
-                                                </div>
+                                            <td className="py-4 pr-4 min-w-[110px]">
+                                                {editingCreditId === account.id ? (
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        autoFocus
+                                                        value={editingCreditValue}
+                                                        onChange={e => setEditingCreditValue(e.target.value)}
+                                                        onBlur={() => saveEditCredit(account)}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') saveEditCredit(account);
+                                                            if (e.key === 'Escape') setEditingCreditId(null);
+                                                        }}
+                                                        className="w-24 px-2 py-1 rounded-lg border-2 border-[#2b83fa] bg-white dark:bg-[#0d0e10] text-[13px] font-bold text-[#111111] dark:text-white text-center focus:outline-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                    />
+                                                ) : (
+                                                    <button
+                                                        onClick={() => startEditCredit(account)}
+                                                        title="Click to edit credits"
+                                                        className="flex flex-col items-start hover:bg-[#f0f7ff] dark:hover:bg-blue-900/10 rounded-lg px-2 py-1 transition-colors group/credits"
+                                                    >
+                                                        <span className="text-[13px] font-bold text-[#111111] dark:text-white group-hover/credits:text-[#2b83fa] transition-colors">{(account.credit_balance ?? account.credits ?? 0).toLocaleString()}</span>
+                                                        <span className="text-[9px] text-[#9aa0a6] font-medium uppercase tracking-tight group-hover/credits:text-[#2b83fa]/60 transition-colors">click to edit</span>
+                                                    </button>
+                                                )}
                                             </td>
                                             <td className="py-4 pr-4">{renderFreeUsage(account)}</td>
-                                            <td className="py-4 pr-2 text-right min-w-[190px]">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <button
-                                                        onClick={() => setProfileAccount(account)}
-                                                        className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
-                                                        title="View profile"
-                                                    >
-                                                        <FiEye className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => void fetchReportForAccount(account, true)}
-                                                        disabled={!account.location_id}
-                                                        className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/10 border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30 hover:shadow-sm transition-all disabled:opacity-40 disabled:hover:text-[#6e6e73] disabled:hover:bg-transparent disabled:hover:border-transparent disabled:hover:shadow-none"
-                                                        title={account.location_id ? 'Download report' : 'No location ID available'}
-                                                    >
-                                                        <FiDownload className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => openManageConfig(account)}
-                                                        className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
-                                                        title="Manage credits and sender"
-                                                    >
-                                                        <FiSettings className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={(event) => openActionMenu(account.id, event.currentTarget)}
-                                                        className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
-                                                        title="More actions"
-                                                    >
-                                                        <FiMoreVertical className="w-4 h-4" />
-                                                    </button>
-                                                </div>
+                                            <td className="py-4 pr-2 text-right min-w-[60px]">
+                                                <button
+                                                    onClick={(event) => openActionMenu(account.id, event.currentTarget)}
+                                                    className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
+                                                    title="More actions"
+                                                >
+                                                    <FiMoreVertical className="w-4 h-4" />
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
@@ -732,13 +733,27 @@ export const AdminAccounts: React.FC = () => {
                 <div
                     ref={menuRef}
                     style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999 }}
-                    className="w-48 bg-white dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-100"
+                    className="w-52 bg-white dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-100 py-1"
                 >
                     {(() => {
                         const account = accounts.find(acc => acc.id === actionMenuId);
                         if (!account) return null;
                         return (
                             <>
+                                <button
+                                    onClick={() => { setProfileAccount(account); setActionMenuId(null); }}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#111111] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/[0.04] transition-colors text-left"
+                                >
+                                    <FiEye className="w-3.5 h-3.5 text-[#2b83fa]" /> View Profile
+                                </button>
+                                <button
+                                    onClick={() => { void fetchReportForAccount(account, true); setActionMenuId(null); }}
+                                    disabled={!account.location_id}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#111111] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/[0.04] transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    <FiDownload className="w-3.5 h-3.5 text-emerald-500" /> Download Report
+                                </button>
+                                <div className="my-1 border-t border-[#e5e5e5] dark:border-white/5" />
                                 <button
                                     onClick={() => {
                                         setConfirmAction({ type: 'reset', account });
@@ -816,75 +831,7 @@ export const AdminAccounts: React.FC = () => {
                 </div>
             )}
 
-            {managingAccount && (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between mb-5">
-                            <h3 className="text-[18px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                                <FiSettings className="text-[#2b83fa]" /> Manage Config
-                            </h3>
-                            <button onClick={() => setManagingAccount(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
-                                <FiX className="w-5 h-5" />
-                            </button>
-                        </div>
 
-                        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-5">
-                            Update the credit balance and sender config for <span className="font-semibold text-[#111111] dark:text-white">{getAccountName(managingAccount)}</span>.
-                        </p>
-
-                        <form onSubmit={submitManageSender} className="space-y-6">
-                            <div>
-                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Custom Sender ID</label>
-                                <input
-                                    value={manageSenderId}
-                                    onChange={(event) => setManageSenderId(event.target.value)}
-                                    placeholder="System default"
-                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Credit Balance</label>
-                                <div className="flex items-center gap-2">
-                                    <button type="button" onClick={() => setManageCreditBalance(prev => Math.max(0, prev - 1))} className="w-10 h-10 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] flex items-center justify-center text-[#6e6e73] hover:text-[#2b83fa] transition-colors">
-                                        <FiMinus className="w-4 h-4" />
-                                    </button>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={manageCreditBalance}
-                                        onChange={(event) => setManageCreditBalance(parseInt(event.target.value) || 0)}
-                                        className="flex-1 px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] text-center focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow [&::-webkit-inner-spin-button]:appearance-none"
-                                    />
-                                    <button type="button" onClick={() => setManageCreditBalance(prev => prev + 1)} className="w-10 h-10 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] flex items-center justify-center text-[#6e6e73] hover:text-[#2b83fa] transition-colors">
-                                        <FiPlus className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Free Credits Limit</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={manageFreeCreditsTotal}
-                                    onChange={(event) => setManageFreeCreditsTotal(parseInt(event.target.value) || 0)}
-                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow"
-                                />
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={actionLoading === 'managing'}
-                                className="flex items-center justify-center gap-2 w-full px-5 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50"
-                            >
-                                {actionLoading === 'managing' ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiCheck className="w-4 h-4" />}
-                                Save Config
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
 
             {selectedReportAccount && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">

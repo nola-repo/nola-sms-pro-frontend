@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiAlertCircle, FiX, FiActivity, FiMessageSquare, FiCreditCard, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiArrowRight, FiDownload, FiBriefcase } from 'react-icons/fi';
-import { generateMonthlyReport } from '../../utils/pdfGenerator';
+import { FiUsers, FiSend, FiActivity, FiMessageSquare, FiCreditCard, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiArrowRight, FiBriefcase } from 'react-icons/fi';
+
 import SplitText from './SplitText';
 import FadeContent from './FadeContent';
 import AnimatedContent from './AnimatedContent';
@@ -119,8 +119,6 @@ export const AdminDashboard: React.FC<{
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
-    const [showGlobalReportModal, setShowGlobalReportModal] = useState(false);
-    const [reportSelectedMonth, setReportSelectedMonth] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
     const ITEMS_PER_PAGE = 5;
 
@@ -452,21 +450,12 @@ export const AdminDashboard: React.FC<{
                             <h3 className="text-[14px] font-bold text-[#111111] dark:text-white uppercase tracking-wider flex items-center gap-2">
                                 <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Recent Activity
                             </h3>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setShowGlobalReportModal(true)}
-                                    className="flex items-center gap-2 text-[12px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 py-1.5 px-3 rounded-xl border border-emerald-100 dark:border-emerald-800/30 transition-all active:scale-95"
-                                >
-                                    <FiDownload className="w-3.5 h-3.5" />
-                                    Download Global Report
-                                </button>
-                                <button
-                                    onClick={() => onNavigate('activity')}
-                                    className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                                >
-                                    See All
-                                </button>
-                            </div>
+                            <button
+                                onClick={() => onNavigate('activity')}
+                                className="text-[12px] font-bold text-[#2b83fa] hover:text-[#1a65d1] py-1 px-3 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                            >
+                                See All
+                            </button>
                         </div>
 
                         <div className="flex flex-col gap-3">
@@ -558,68 +547,7 @@ export const AdminDashboard: React.FC<{
                 </AnimatedContent>
             </div>
             </div>
-            {/* Global Report Modal */}
-            {showGlobalReportModal && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex flex-col gap-4">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-[16px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                                    <FiActivity className="w-4 h-4 text-emerald-500" /> Global Report
-                                </h3>
-                                <button onClick={() => setShowGlobalReportModal(false)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
-                                    <FiX className="w-5 h-5" />
-                                </button>
-                            </div>
-                            
-                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6]">
-                                Select a month to download the aggregated credit report across all subaccounts and agencies.
-                            </p>
 
-                            <div className="flex items-center gap-3 pt-2">
-                                <div className="relative flex-1">
-                                    <select
-                                        value={reportSelectedMonth}
-                                        onChange={(e) => setReportSelectedMonth(e.target.value)}
-                                        className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[13px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 transition-all cursor-pointer"
-                                    >
-                                        <option value="All">Full History ({logs.length} records)</option>
-                                        {Array.from(new Set(logs.map(tx => {
-                                            const ds = tx.timestamp || tx.date_created || tx.created_at;
-                                            return ds ? ds.substring(0, 7) : null;
-                                        }).filter(Boolean))).sort().reverse().map(m => {
-                                            const [y, mm] = (m as string).split('-');
-                                            const label = new Date(parseInt(y), parseInt(mm) - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-                                            const count = logs.filter(tx => (tx.timestamp || tx.date_created || tx.created_at || '').startsWith(m as string)).length;
-                                            return <option key={m as string} value={m as string}>{label} ({count})</option>;
-                                        })}
-                                    </select>
-                                    <FiChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9aa0a6] pointer-events-none rotate-90" />
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => generateMonthlyReport(reportSelectedMonth, logs, 'admin', 'Global Platform Summary', {
-                                        accountName: 'Global Platform Summary',
-                                        reportTitle: 'PLATFORM CREDIT REPORT',
-                                        generatedBy: 'System Admin',
-                                    })}
-                                    disabled={logs.length === 0}
-                                    className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:shadow-[0_8px_25px_rgba(16,185,129,0.4)] text-white rounded-xl text-[13px] font-bold transition-all shadow-md shadow-emerald-500/20 active:scale-95 disabled:opacity-50 disabled:hover:shadow-none whitespace-nowrap"
-                                >
-                                    <FiDownload className="w-4 h-4" /> Download PDF
-                                </button>
-                            </div>
-                            
-                            {logs.length === 0 && (
-                                <div className="flex items-center gap-2 pt-1">
-                                    <FiAlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                                    <p className="text-[12px] font-medium text-amber-600 dark:text-amber-400">No data available to generate global report.</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

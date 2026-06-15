@@ -595,18 +595,6 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                             <FiClock className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9aa0a6] pointer-events-none w-3.5 h-3.5" />
                         </div>
 
-                        {/* Download Report */}
-                        <button
-                            onClick={() => generateMonthlyReport(selectedMonth, filtered, 'admin', 'Platform Activity', {
-                                accountName: 'Platform Activity',
-                                reportTitle: 'PLATFORM CREDIT REPORT',
-                                generatedBy: 'System Admin',
-                            })}
-                            className="flex items-center gap-2 px-4 py-2 bg-[#2b83fa] hover:bg-[#2b83fa]/90 text-white rounded-xl text-[12px] font-bold transition-all shadow-md shadow-blue-500/10 active:scale-95"
-                        >
-                            <FiDownload className="w-3.5 h-3.5" /> Download PDF
-                        </button>
-
                         <div className="flex items-center gap-2">
                             <div className="relative w-full sm:w-64">
                                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5" />
