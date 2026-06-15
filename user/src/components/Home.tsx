@@ -353,6 +353,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         companyName: pickReportText(liveReportFields.company_name, liveReportFields.agency_name, cachedReportFields.company_name, cachedReportFields.agency_name),
         companyId: pickReportText(liveReportFields.company_id, cachedReportFields.company_id),
         reportTitle: "SUBACCOUNT CREDIT REPORT",
+        currentBalance: creditStatus?.credit_balance ?? 0,
     };
     const profileInitial = profileDisplayName.charAt(0).toUpperCase();
     const greetingText = subaccountName ? `${getGreeting()}, ${subaccountName}` : getGreeting();

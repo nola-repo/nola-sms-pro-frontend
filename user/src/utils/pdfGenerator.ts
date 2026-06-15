@@ -18,6 +18,7 @@ export type ReportAccountProfile = {
   phone?: string;
   reportTitle?: string;
   generatedBy?: string;
+  currentBalance?: number;
 };
 
 type ReportTransaction = Record<string, any>;
@@ -211,7 +212,9 @@ export const generateMonthlyReport = (
     );
   }
 
-  if (!endingBalance && filteredTransactions.length > 0) {
+  if (typeof profile.currentBalance === 'number') {
+    endingBalance = profile.currentBalance;
+  } else if (!endingBalance && filteredTransactions.length > 0) {
     const last = filteredTransactions[filteredTransactions.length - 1];
     endingBalance = toNumber(last.balance_after, toNumber(last.balance, 0));
   }
@@ -250,13 +253,11 @@ export const generateMonthlyReport = (
   doc.text(formattedMonth, pageWidth - pageMargin - 18, profileY + 42, { align: 'right' });
 
   const detailLines = [
-    ['Owner', profile.ownerName],
     ['Email', profile.email],
     ['Phone', profile.phone],
     ['Location', pickString(profile.locationName, profile.locationId)],
     ['Location ID', profile.locationId],
     ['Agency', pickString(profile.agencyName, profile.companyName)],
-    ['Company ID', profile.companyId],
   ].filter(([, value]) => Boolean(value));
 
   doc.setFont('helvetica', 'normal');
@@ -279,7 +280,7 @@ export const generateMonthlyReport = (
     ['Transactions', filteredTransactions.length.toLocaleString(), [37, 99, 235]],
     ['Credits Added', `+${totalAdded.toLocaleString()}`, [21, 128, 61]],
     ['Credits Used', `-${totalUsed.toLocaleString()}`, [220, 38, 38]],
-    ['Ending Balance', endingBalance.toLocaleString(), [15, 23, 42]],
+    ['Current Balance', endingBalance.toLocaleString(), [15, 23, 42]],
     ...(isWide ? [['Est. Profit', `$${totalProfit.toFixed(4)}`, [21, 128, 61]] as [string, string, number[]]] : []),
   ] as [string, string, number[]][];
 
@@ -339,6 +340,14 @@ export const generateMonthlyReport = (
       4: { cellWidth: 205 },
       5: { cellWidth: 54, halign: 'right' },
       6: { cellWidth: 56, halign: 'right' },
+    },
+    didParseCell: (data: any) => {
+      if (data.section === 'head') {
+        const rightAlignIdx = isWide ? 6 : 5;
+        if (data.column.index >= rightAlignIdx) {
+          data.cell.styles.halign = 'right';
+        }
+      }
     },
     didDrawPage: () => addFooter(doc, pageWidth),
   });

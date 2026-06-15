@@ -1233,6 +1233,7 @@ const CreditsSection: React.FC = () => {
         companyName: pickText(liveProfileFields.company_name, liveProfileFields.agency_name, cachedProfileFields.company_name, cachedProfileFields.agency_name),
         companyId: pickText(liveProfileFields.company_id, cachedProfileFields.company_id),
         reportTitle: 'SUBACCOUNT CREDIT REPORT',
+        currentBalance: creditStatus?.credit_balance ?? 0,
     };
 
     // AUTO_RECHARGE_DISABLED
