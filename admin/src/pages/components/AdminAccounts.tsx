@@ -664,9 +664,6 @@ export const AdminAccounts: React.FC = () => {
                                             PHONE
                                         </th>
                                         <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
-                                            ROLE
-                                        </th>
-                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                             <button
                                                 onClick={() => handleSort('credits')}
                                                 className="flex items-center gap-1 hover:text-[#2b83fa] transition-colors group"
@@ -712,7 +709,6 @@ export const AdminAccounts: React.FC = () => {
                                             </td>
                                             <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[190px]">{emptyValue(account.email)}</td>
                                             <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[130px]">{emptyValue(account.phone)}</td>
-                                            <td className="py-4 pr-4">{roleBadge(account.role)}</td>
                                             <td className="py-4 pr-4 min-w-[110px]">
                                                 {editingCreditId === account.id ? (
                                                     <div
