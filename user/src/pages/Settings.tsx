@@ -1934,7 +1934,7 @@ const CreditsSection: React.FC = () => {
                         </div>
                         <button
                             onClick={() => generateMonthlyReport(txMonth, transactions, 'subaccount', reportAccountName, reportProfile)}
-                            disabled={txLoading}
+                            disabled={txLoading || transactions.length === 0}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ffffff] border border-transparent hover:bg-[#f3f4f6] dark:hover:bg-[#1f2023] disabled:opacity-50 transition-all font-inter"
                         >
                             <FiDownload className="w-3.5 h-3.5" /> Download Report
