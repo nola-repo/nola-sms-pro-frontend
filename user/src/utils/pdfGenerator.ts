@@ -306,6 +306,7 @@ export const generateMonthlyReport = (
     head: [tableColumn],
     body: tableRows,
     theme: 'grid',
+    tableWidth: pageWidth - pageMargin * 2,
     margin: { left: pageMargin, right: pageMargin, bottom: 54 },
     headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold', fontSize: 8 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -318,26 +319,28 @@ export const generateMonthlyReport = (
       lineColor: [226, 232, 240],
       lineWidth: 0.5,
     },
+    // Portrait A4: available = 595 - 72 = 523pt → col widths must sum to 523
+    // Landscape A4: available = 842 - 72 = 770pt → col widths must sum to 770
     columnStyles: isWide ? {
-      0: { cellWidth: 22 },
-      1: { cellWidth: 70 },
-      2: { cellWidth: 105 },
-      3: { cellWidth: 70 },
-      4: { cellWidth: 72 },
-      5: { cellWidth: 170 },
-      6: { cellWidth: 60, halign: 'right' },
-      7: { cellWidth: 54, halign: 'right' },
-      8: { cellWidth: 48, halign: 'right' },
-      9: { cellWidth: 52, halign: 'right' },
-      10: { cellWidth: 48, halign: 'right' },
+      0: { cellWidth: 22 },   // #
+      1: { cellWidth: 68 },   // Date/Time
+      2: { cellWidth: 98 },   // Account
+      3: { cellWidth: 66 },   // Type
+      4: { cellWidth: 70 },   // Number
+      5: { cellWidth: 178 },  // Message Content  → 22+68+98+66+70+178 = 502
+      6: { cellWidth: 60, halign: 'right' },  // Amount
+      7: { cellWidth: 52, halign: 'right' },  // Balance  → 502+60+52 = 614
+      8: { cellWidth: 46, halign: 'right' },  // Cost
+      9: { cellWidth: 50, halign: 'right' },  // Charged
+      10: { cellWidth: 46, halign: 'right' }, // Profit   → 614+46+50+46 = 756 ≈ ok wide
     } : {
-      0: { cellWidth: 24 },
-      1: { cellWidth: 72 },
-      2: { cellWidth: 72 },
-      3: { cellWidth: 76 },
-      4: { cellWidth: 195 },
-      5: { cellWidth: 64, halign: 'right' },
-      6: { cellWidth: 56, halign: 'right' },
+      0: { cellWidth: 20 },   // #
+      1: { cellWidth: 65 },   // Date/Time
+      2: { cellWidth: 62 },   // Type
+      3: { cellWidth: 72 },   // Number
+      4: { cellWidth: 180 },  // Message Content  → 20+65+62+72+180 = 399
+      5: { cellWidth: 70, halign: 'right' },  // Amount   → 399+70 = 469
+      6: { cellWidth: 54, halign: 'right' },  // Balance  → 469+54 = 523 ✓
     },
     didParseCell: (data: any) => {
       if (data.section === 'head') {
