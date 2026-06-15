@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  FiAlertTriangle, FiUsers, FiRotateCcw, FiChevronLeft, FiChevronRight, FiSearch, FiPlus, FiMinus, FiArrowUp, FiArrowDown, FiExternalLink, FiDownload, FiRefreshCw, FiX
+  FiAlertTriangle, FiUsers, FiRotateCcw, FiChevronLeft, FiChevronRight, FiChevronDown, FiSearch, FiPlus, FiMinus, FiArrowUp, FiArrowDown, FiExternalLink, FiDownload, FiRefreshCw, FiX
 } from 'react-icons/fi';
 
 const ADD_SUBACCOUNT_URL =
@@ -200,7 +200,28 @@ const getReportMonthLabel = (month: string): string => {
 };
 
 const getReportMonthCount = (transactions: any[], month: string) =>
-  transactions.filter(tx => getTransactionMonth(tx) === month).length;
+  month === 'All'
+    ? transactions.length
+    : transactions.filter(tx => getTransactionMonth(tx) === month).length;
+
+const getCurrentReportMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const getReportMonthSelection = (transactions: any[]) => {
+  if (transactions.length === 0) return 'All';
+  const currentMonth = getCurrentReportMonth();
+  const months = getReportMonthOptions(transactions);
+  return months.includes(currentMonth) ? currentMonth : months[0] || 'All';
+};
+
+const readReportTransactions = (json: any): any[] => {
+  if (Array.isArray(json)) return json;
+  if (Array.isArray(json?.transactions)) return json.transactions;
+  if (Array.isArray(json?.data)) return json.data;
+  return [];
+};
 
 const buildSubaccountReportProfile = (subaccount: any, agencyId: string | null) => ({
   accountName: subaccount.location_name || subaccount.location_id || 'Subaccount',
@@ -210,6 +231,7 @@ const buildSubaccountReportProfile = (subaccount: any, agencyId: string | null) 
   companyName: subaccount.company_name || subaccount.agency_name,
   companyId: agencyId,
   reportTitle: 'SUBACCOUNT CREDIT REPORT',
+  currentBalance: subaccount.credit_balance ?? subaccount.credits ?? 0,
 });
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
@@ -438,19 +460,34 @@ export const Subaccounts = () => {
     }
 
     setReportSubaccount(subaccount);
-    setReportSelectedMonth('All');
+    setReportSelectedMonth(getCurrentReportMonth());
     setReportTransactions([]);
     setReportLoading(true);
 
     try {
-      const res = await agencyFetch(`${API_BASE}/api/get_credit_transactions.php?location_id=${encodeURIComponent(subaccount.location_id)}`, {
-        credentials: 'include',
+      const params = new URLSearchParams({
+        account_id: 'default',
+        limit: '5000',
+        location_id: subaccount.location_id,
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data.status !== 'success') {
-        throw new Error(data.message || data.error || 'Failed to load transaction history.');
+      const loadTransactions = async (url: string) => {
+        const res = await agencyFetch(url, { credentials: 'include' });
+        const json = await res.json().catch(() => null);
+        return { res, json };
+      };
+
+      let { res, json } = await loadTransactions(`${API_BASE}/api/get_credit_transactions?${params.toString()}`);
+      if (!res.ok || (json?.status && json.status !== 'success')) {
+        ({ res, json } = await loadTransactions(`${API_BASE}/api/get_credit_transactions.php?${params.toString()}`));
       }
-      setReportTransactions(data.data || data.transactions || []);
+
+      if (!res.ok || (json?.status && json.status !== 'success')) {
+        throw new Error(json?.message || json?.error || 'Failed to load transaction history.');
+      }
+
+      const transactions = readReportTransactions(json);
+      setReportTransactions(transactions);
+      setReportSelectedMonth(getReportMonthSelection(transactions));
     } catch (e) {
       setReportTransactions([]);
       showToast(e instanceof Error ? e.message : 'Failed to load transaction history.', 'error');
@@ -523,69 +560,108 @@ export const Subaccounts = () => {
       {upgradeModalOpen && (
         <UpgradeModal onCancel={() => setUpgradeModalOpen(false)} />
       )}
-      {reportSubaccount && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-[fadeIn_0.15s_ease]">
-          <div className="bg-white dark:bg-[#141618] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 animate-[scaleIn_0.2s_ease]">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <div className="text-[16px] font-bold text-[#111111] dark:text-white">Download Report</div>
-                <div className="text-[12.5px] text-[#6b7280] dark:text-[#9aa0a9] mt-1">
-                  {reportSubaccount.location_name || reportSubaccount.location_id}
-                </div>
-              </div>
-              <button
-                onClick={() => setReportSubaccount(null)}
-                className="p-1.5 rounded-full text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                title="Close"
-              >
-                <FiX className="w-5 h-5" />
-              </button>
-            </div>
+      {reportSubaccount && (() => {
+        const monthOptions = getReportMonthOptions(reportTransactions);
+        const selectedEventCount = getReportMonthCount(reportTransactions, reportSelectedMonth);
+        const canDownloadReport = !reportLoading && selectedEventCount > 0;
+        const selectedLabel = reportSelectedMonth === 'All' ? 'All Transactions' : getReportMonthLabel(reportSelectedMonth);
 
-            {reportLoading ? (
-              <div className="py-4 flex items-center justify-center gap-3 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl border border-[#e5e5e5] dark:border-white/5">
-                <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />
-                <p className="text-[13px] font-medium text-[#111111] dark:text-white">Loading transactions...</p>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <select
-                  value={reportSelectedMonth}
-                  onChange={(event) => setReportSelectedMonth(event.target.value)}
-                  className="flex-1 appearance-none px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[13px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer"
-                >
-                  <option value="All">Full History ({reportTransactions.length} events)</option>
-                  {getReportMonthOptions(reportTransactions).map(month => (
-                    <option key={month} value={month}>
-                      {getReportMonthLabel(month)} ({getReportMonthCount(reportTransactions, month)})
-                    </option>
-                  ))}
-                </select>
+        return (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-[fadeIn_0.15s_ease]">
+            <div className="bg-white dark:bg-[#141618] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-[scaleIn_0.2s_ease] overflow-hidden">
+              <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/10 flex items-start justify-between gap-4">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center">
+                    <FiDownload className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[17px] font-bold text-[#111111] dark:text-white leading-tight">Download Report</div>
+                    <div className="text-[12px] font-medium text-[#6b7280] dark:text-[#9aa0a9] mt-0.5 truncate">
+                      {reportSubaccount.location_name || reportSubaccount.location_id}
+                    </div>
+                  </div>
+                </div>
                 <button
-                  type="button"
-                  onClick={() => generateMonthlyReport(
-                    reportSelectedMonth,
-                    reportTransactions,
-                    'subaccount',
-                    reportSubaccount.location_name || reportSubaccount.location_id,
-                    buildSubaccountReportProfile(reportSubaccount, agencyId)
-                  )}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2b83fa] hover:bg-[#1d6bd4] text-white text-[13px] font-bold transition-colors shadow-sm whitespace-nowrap"
+                  onClick={() => setReportSubaccount(null)}
+                  className="p-2 rounded-full text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  title="Close"
                 >
-                  <FiDownload className="w-4 h-4" /> PDF
+                  <FiX className="w-5 h-5" />
                 </button>
               </div>
-            )}
 
-            {!reportLoading && reportTransactions.length === 0 && (
-              <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200/70 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-                <FiAlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                No transaction records were found. The PDF will show an empty report for the selected period.
+              <div className="p-6 space-y-5">
+                {reportLoading ? (
+                  <div className="py-8 flex flex-col items-center justify-center gap-3 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl border border-[#e5e5e5] dark:border-white/5">
+                    <FiRefreshCw className="w-5 h-5 text-[#2b83fa] animate-spin" />
+                    <p className="text-[13px] font-bold text-[#111111] dark:text-white">Loading transaction history...</p>
+                    <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a9]">Fetching the same full history used by the user transaction report.</p>
+                  </div>
+                ) : reportTransactions.length === 0 ? (
+                  <div className="py-8 flex flex-col items-center justify-center gap-3 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl border border-[#e5e5e5] dark:border-white/5 text-center">
+                    <div className="w-11 h-11 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center">
+                      <FiDownload className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-bold text-[#111111] dark:text-white">No reportable events</p>
+                      <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a9] mt-1">PDF download is disabled until this subaccount has credit activity.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 px-4 py-3">
+                        <p className="text-[11px] uppercase tracking-wider font-bold text-[#9aa0a9]">Total Events</p>
+                        <p className="text-[22px] font-black text-[#111111] dark:text-white mt-1">{reportTransactions.length.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 px-4 py-3">
+                        <p className="text-[11px] uppercase tracking-wider font-bold text-[#9aa0a9]">Selected Period</p>
+                        <p className="text-[13px] font-black text-[#111111] dark:text-white mt-1 truncate">{selectedLabel}</p>
+                        <p className="text-[11px] font-semibold text-[#6e6e73] dark:text-[#9aa0a9] mt-1">{selectedEventCount.toLocaleString()} events</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[11px] uppercase tracking-wider font-bold text-[#9aa0a9]">Report Period</label>
+                      <div className="relative">
+                        <select
+                          value={reportSelectedMonth}
+                          onChange={(event) => setReportSelectedMonth(event.target.value)}
+                          className="w-full appearance-none pl-3.5 pr-10 py-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#d8dce3] dark:border-white/10 text-[13px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer"
+                        >
+                          <option value="All">All Transactions ({reportTransactions.length} events)</option>
+                          {monthOptions.map(month => (
+                            <option key={month} value={month}>
+                              {getReportMonthLabel(month)} ({getReportMonthCount(reportTransactions, month)})
+                            </option>
+                          ))}
+                        </select>
+                        <FiChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9aa0a9] pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => generateMonthlyReport(
+                        reportSelectedMonth,
+                        reportTransactions,
+                        'subaccount',
+                        reportSubaccount.location_name || reportSubaccount.location_id,
+                        buildSubaccountReportProfile(reportSubaccount, agencyId)
+                      )}
+                      disabled={!canDownloadReport}
+                      className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#2b83fa] hover:bg-[#1d6bd4] text-white text-[13px] font-bold transition-colors shadow-sm disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-[#2b83fa]"
+                    >
+                      <FiDownload className="w-4 h-4" />
+                      {canDownloadReport ? 'Download PDF' : 'No Events To Download'}
+                    </button>
+                  </>
+                )}
               </div>
-            )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* No Agency ID warning */}
       {!agencyId && (

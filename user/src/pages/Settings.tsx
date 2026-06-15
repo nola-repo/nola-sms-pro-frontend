@@ -6,7 +6,7 @@ import {
     FiSave, FiPlus, FiCheck,
     FiGlobe, FiMapPin, FiBriefcase, FiCheckCircle, FiAlertCircle, FiClock,
     FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown, FiDownload,
-    FiCopy, FiExternalLink, FiSettings, FiShieldOff
+    FiCopy, FiExternalLink, FiSettings, FiShieldOff, FiX
 } from "react-icons/fi";
 import { generateMonthlyReport } from "../utils/pdfGenerator";
 import {
@@ -1190,8 +1190,12 @@ const CreditsSection: React.FC = () => {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
-    const [availableMonths, setAvailableMonths] = useState<{ val: string, label: string }[]>([]);
+    const [availableMonths, setAvailableMonths] = useState<{ val: string, label: string, count: number }[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
+    const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [reportModalMonth, setReportModalMonth] = useState(txMonth);
+    const [reportDownloadLoading, setReportDownloadLoading] = useState(false);
+    const [reportDownloadError, setReportDownloadError] = useState<string | null>(null);
     const itemsPerPage = 5;
 
     const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
@@ -1308,12 +1312,30 @@ const CreditsSection: React.FC = () => {
         const fetchAvailableMonths = async () => {
             const txs = await fetchCreditTransactions('default', 1000, locationId || undefined);
             const months = new Set<string>();
+            const counts = new Map<string, number>();
             // Use current month as a baseline
             months.add(new Date().toISOString().slice(0, 7));
             
             txs.forEach(tx => {
-                const dt = tx.created_at || (tx as CreditTransactionWithFallbacks).timestamp;
-                if (dt) months.add(dt.slice(0, 7));
+                const rawDate = tx.created_at || (tx as CreditTransactionWithFallbacks).timestamp;
+                let monthKey = '';
+                if (rawDate && typeof rawDate === 'object' && 'seconds' in rawDate) {
+                    const date = new Date(Number((rawDate as { seconds?: unknown }).seconds) * 1000);
+                    if (!Number.isNaN(date.getTime())) {
+                        monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    }
+                } else if (rawDate) {
+                    const text = String(rawDate);
+                    const parsed = new Date(text);
+                    monthKey = Number.isNaN(parsed.getTime())
+                        ? text.slice(0, 7)
+                        : `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
+                }
+
+                if (monthKey) {
+                    months.add(monthKey);
+                    counts.set(monthKey, (counts.get(monthKey) || 0) + 1);
+                }
             });
 
             const sorted = Array.from(months)
@@ -1323,10 +1345,11 @@ const CreditsSection: React.FC = () => {
                     const d = new Date(parseInt(y), parseInt(mm) - 1);
                     return {
                         val: m,
-                        label: d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
+                        label: d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' }),
+                        count: counts.get(m) || 0,
                     };
                 });
-            setAvailableMonths([{ val: 'All', label: 'All Transactions' }, ...sorted]);
+            setAvailableMonths([{ val: 'All', label: 'All Transactions', count: txs.length }, ...sorted]);
         };
         fetchAvailableMonths();
     }, [locationId]);
@@ -1398,6 +1421,44 @@ const CreditsSection: React.FC = () => {
             clearCheckoutTimers();
         };
     }, [clearCheckoutTimers, load, refreshCreditsView, resetCheckoutState]);
+
+    const totalReportEventCount = availableMonths.find(month => month.val === 'All')?.count ?? transactions.length;
+    const reportModalOption = availableMonths.find(month => month.val === reportModalMonth);
+    const reportModalEventCount = reportModalOption?.count ?? (reportModalMonth === txMonth ? transactions.length : 0);
+    const reportModalLabel = reportModalOption?.label ?? (reportModalMonth === 'All' ? 'All Transactions' : reportModalMonth);
+
+    const openReportDownloadModal = () => {
+        setReportModalMonth(txMonth);
+        setReportDownloadError(null);
+        setReportModalOpen(true);
+    };
+
+    const confirmReportDownload = async () => {
+        if (reportDownloadLoading || reportModalEventCount <= 0) return;
+
+        setReportDownloadLoading(true);
+        setReportDownloadError(null);
+        try {
+            const reportTransactions = await fetchCreditTransactions(
+                'default',
+                5000,
+                locationId || undefined,
+                reportModalMonth === 'All' ? undefined : reportModalMonth
+            );
+
+            if (reportTransactions.length === 0) {
+                setReportDownloadError('No events were found for the selected period.');
+                return;
+            }
+
+            generateMonthlyReport(reportModalMonth, reportTransactions, 'subaccount', reportAccountName, reportProfile);
+            setReportModalOpen(false);
+        } catch {
+            setReportDownloadError('Failed to prepare the report. Please try again.');
+        } finally {
+            setReportDownloadLoading(false);
+        }
+    };
 
 
     const displayBalance  = creditStatus?.credit_balance ?? 0;
@@ -1632,6 +1693,97 @@ const CreditsSection: React.FC = () => {
     return (
         <div className="space-y-5">
             <SectionHeader title="Credits & Billing" subtitle="Monitor your SMS credit balance and request credits from your agency." />
+            {reportModalOpen && (
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+                        <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/10 flex items-start justify-between gap-4">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-9 h-9 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center">
+                                    <FiDownload className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                    <h3 className="text-[17px] font-bold text-[#111111] dark:text-[#ececf1] leading-tight">Download Report</h3>
+                                    <p className="text-[12px] font-medium text-[#9aa0a6] mt-0.5 truncate">{reportAccountName}</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setReportModalOpen(false)}
+                                className="p-2 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors"
+                                aria-label="Close report download modal"
+                            >
+                                <FiX className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-5">
+                            {totalReportEventCount === 0 ? (
+                                <div className="py-8 flex flex-col items-center justify-center gap-3 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl border border-[#e5e5e5] dark:border-white/5 text-center">
+                                    <div className="w-11 h-11 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center">
+                                        <FiDownload className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[14px] font-bold text-[#111111] dark:text-[#ececf1]">No reportable events</p>
+                                        <p className="text-[12px] text-[#9aa0a6] mt-1">PDF download is disabled until this account has credit activity.</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 px-4 py-3">
+                                            <p className="text-[11px] uppercase tracking-wider font-bold text-[#9aa0a6]">Total Events</p>
+                                            <p className="text-[22px] font-black text-[#111111] dark:text-[#ececf1] mt-1">{totalReportEventCount.toLocaleString()}</p>
+                                        </div>
+                                        <div className="rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 px-4 py-3">
+                                            <p className="text-[11px] uppercase tracking-wider font-bold text-[#9aa0a6]">Selected Period</p>
+                                            <p className="text-[13px] font-black text-[#111111] dark:text-[#ececf1] mt-1 truncate">{reportModalLabel}</p>
+                                            <p className="text-[11px] font-semibold text-[#9aa0a6] mt-1">{reportModalEventCount.toLocaleString()} events</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] uppercase tracking-wider font-bold text-[#9aa0a6]">Report Period</label>
+                                        <div className="relative">
+                                            <select
+                                                value={reportModalMonth}
+                                                onChange={(event) => {
+                                                    setReportModalMonth(event.target.value);
+                                                    setReportDownloadError(null);
+                                                }}
+                                                className="w-full appearance-none pl-3.5 pr-10 py-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#d8dce3] dark:border-white/10 text-[13px] font-bold text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer"
+                                            >
+                                                {availableMonths.map(month => (
+                                                    <option key={month.val} value={month.val}>
+                                                        {month.label} ({month.count} events)
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <FiChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9aa0a6] pointer-events-none" />
+                                        </div>
+                                    </div>
+
+                                    {reportDownloadError && (
+                                        <div className="flex items-start gap-2 rounded-xl border border-red-200/70 bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+                                            <FiAlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                                            {reportDownloadError}
+                                        </div>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        onClick={confirmReportDownload}
+                                        disabled={reportDownloadLoading || reportModalEventCount <= 0}
+                                        className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] text-white rounded-xl text-[13px] font-bold transition-all shadow-md shadow-blue-500/20 active:scale-[0.98] disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:shadow-none"
+                                    >
+                                        {reportDownloadLoading ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiDownload className="w-4 h-4" />}
+                                        {reportDownloadLoading ? 'Preparing PDF...' : reportModalEventCount > 0 ? 'Download PDF' : 'No Events To Download'}
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* ── Request Credits Modal ──────────────────────────────────────── */}
             {reqModalOpen && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1000]" onClick={() => setReqModalOpen(false)}>
@@ -1933,8 +2085,8 @@ const CreditsSection: React.FC = () => {
                             <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#9aa0a6] pointer-events-none" />
                         </div>
                         <button
-                            onClick={() => generateMonthlyReport(txMonth, transactions, 'subaccount', reportAccountName, reportProfile)}
-                            disabled={txLoading || transactions.length === 0}
+                            onClick={openReportDownloadModal}
+                            disabled={txLoading || totalReportEventCount === 0}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ffffff] border border-transparent hover:bg-[#f3f4f6] dark:hover:bg-[#1f2023] disabled:opacity-50 transition-all font-inter"
                         >
                             <FiDownload className="w-3.5 h-3.5" /> Download Report
