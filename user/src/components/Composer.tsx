@@ -1401,17 +1401,24 @@ export const Composer: React.FC<ComposerProps> = ({
                         <div className="flex flex-col gap-0.5 px-2">
                           {filteredContacts.map(contact => {
                             const isSelected = bulkSelectedContacts.some(c => c.id === contact.id);
+                            const hasPhone = !!contact.phone;
                             return (
                               <div
                                 key={contact.id}
-                                onClick={() => isSelected ? handleRemoveBulkContact(contact.id) : handleSelectBulkContact(contact)}
-                                className={`px-3 py-2.5 rounded-xl flex items-center justify-between cursor-pointer transition-all duration-150 ${isSelected
-                                  ? "bg-[#2b83fa]/5 dark:bg-[#2b83fa]/10"
-                                  : "hover:bg-gray-100/50 dark:hover:bg-white/5"
+                                onClick={() => {
+                                  if (!hasPhone) return;
+                                  isSelected ? handleRemoveBulkContact(contact.id) : handleSelectBulkContact(contact);
+                                }}
+                                title={!hasPhone ? 'This contact has no phone number and cannot receive messages' : ''}
+                                className={`px-3 py-2.5 rounded-xl flex items-center justify-between transition-all duration-150 ${!hasPhone
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : isSelected
+                                    ? 'cursor-pointer bg-[#2b83fa]/5 dark:bg-[#2b83fa]/10'
+                                    : 'cursor-pointer hover:bg-gray-100/50 dark:hover:bg-white/5'
                                   }`}
                               >
                                 <div className="flex items-center gap-3 min-w-0">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold ${isSelected ? "bg-[#2b83fa] text-white" : "bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400"}`}>
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold ${isSelected ? 'bg-[#2b83fa] text-white' : !hasPhone ? 'bg-gray-100 dark:bg-white/5 text-gray-400' : 'bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400'}`}>
                                     {(() => {
                                       const resolvedName = getResolvedContactName(contact);
                                       const parts = resolvedName.split(' ').filter(p => p.length > 0);
@@ -1421,11 +1428,20 @@ export const Composer: React.FC<ComposerProps> = ({
                                     })()}
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="font-semibold text-[13px] text-[#111111] dark:text-[#ececf1] truncate">{toProperCase(getResolvedContactName(contact))}</p>
-                                    <p className="text-[11px] text-gray-500 truncate">{contact.phone}</p>
+                                    <p className={`font-semibold text-[13px] truncate ${!hasPhone ? 'text-gray-400 dark:text-gray-500' : 'text-[#111111] dark:text-[#ececf1]'}`}>{toProperCase(getResolvedContactName(contact))}</p>
+                                    {hasPhone ? (
+                                      <p className="text-[11px] text-gray-500 truncate">{contact.phone}</p>
+                                    ) : (
+                                      <p className="text-[11px] text-amber-500 dark:text-amber-400 font-semibold flex items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                        No phone number
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
-                                {isSelected && (
+                                {isSelected && hasPhone && (
                                   <div className="w-5 h-5 rounded-full bg-[#2b83fa] flex items-center justify-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -1521,12 +1537,12 @@ export const Composer: React.FC<ComposerProps> = ({
             <MessageHistorySkeleton />
           ) : !useRawLogView && !shouldUseRawLogFallback && conversationMessages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center">
-              {isNewMessage && !lottieError ? (
+              {!lottieError ? (
                 <DotLottieReact
                   src="https://lottie.host/8bff6661-62db-4473-adb8-7eced34f3649/mii3gOOlir.lottie"
                   loop
                   autoplay
-                className="w-36 h-36 md:w-48 md:h-48 mb-1"
+                  className="w-36 h-36 md:w-48 md:h-48 mb-1"
                   onError={() => setLottieError(true)}
                 />
               ) : (
