@@ -350,7 +350,7 @@ const TopUpModal: React.FC<{
 
 // ─── Billing Page ─────────────────────────────────────────────────────────────
 export const Billing: React.FC = () => {
-  const { agencyId } = useAgency();
+  const { agencyId, agencySession } = useAgency();
   const { toasts, showToast, dismissToast } = useToast();
   const mountedRef = useRef(true);
 
@@ -393,6 +393,22 @@ export const Billing: React.FC = () => {
   const [topUpModalOpen, setTopUpModalOpen] = useState(false);
 
   const effectiveAgencyId = agencyId || AGENCY_ID;
+  const agencyUser = agencySession?.user;
+  const agencyOwnerName = [
+    agencyUser?.firstName,
+    agencyUser?.lastName,
+  ].filter(Boolean).join(' ').trim() || agencyUser?.name || '';
+  const agencyReportName = agencyUser?.company_name || agencyUser?.agency_name || agencyUser?.name || effectiveAgencyId || 'Agency Report';
+  const agencyReportProfile = {
+    accountName: agencyReportName,
+    ownerName: agencyOwnerName,
+    email: agencyUser?.email,
+    phone: agencyUser?.phone,
+    agencyName: agencyUser?.agency_name || agencyUser?.company_name,
+    companyName: agencyUser?.company_name || agencyUser?.agency_name,
+    companyId: agencyUser?.company_id || effectiveAgencyId,
+    reportTitle: 'AGENCY WALLET REPORT',
+  };
 
   // ── Fetch wallet ────────────────────────────────────────────────────────────
   const fetchWallet = useCallback(async () => {
@@ -873,8 +889,8 @@ export const Billing: React.FC = () => {
                   <FiRefreshCw className={`w-4 h-4 ${txLoading ? 'animate-spin' : ''}`} />
                 </button>
                 <button
-                  onClick={() => generateMonthlyReport(txMonth, transactions, 'agency', 'Agency Report')}
-                  disabled={txLoading || transactions.length === 0}
+                  onClick={() => generateMonthlyReport(txMonth, transactions, 'agency', agencyReportName, agencyReportProfile)}
+                  disabled={txLoading}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ffffff] border border-transparent hover:bg-[#f3f4f6] dark:hover:bg-[#1f2023] disabled:opacity-50 transition-all ml-2"
                 >
                   <FiDownload className="w-3.5 h-3.5" /> Download Report

@@ -158,6 +158,9 @@ const getPersonDisplayName = (profile?: {
     );
 };
 
+const pickReportText = (...values: Array<string | null | undefined>): string =>
+    values.find(value => typeof value === "string" && value.trim() !== "")?.trim() || "";
+
 const getStoredProfileDisplayName = (locationId: string): string => {
     for (const key of ["nola_auth_user", "nola_user"]) {
         try {
@@ -335,6 +338,22 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         liveProfileDisplayName ||
         getStoredProfileDisplayName(locationId) ||
         "User";
+    const liveReportProfile = profileMatchesLocation(liveProfile, locationId) ? liveProfile : null;
+    const liveReportFields = (liveReportProfile || {}) as Partial<AccountProfile> & Record<string, string | null | undefined>;
+    const cachedReportFields = (accountProfile || {}) as Partial<AccountProfile> & Record<string, string | null | undefined>;
+    const reportAccountName = subaccountName || profileDisplayName || locationId || "My Account";
+    const reportProfile = {
+        accountName: reportAccountName,
+        ownerName: pickReportText(getPersonDisplayName(liveReportProfile), getPersonDisplayName(accountProfile), getStoredProfileDisplayName(locationId)),
+        email: pickReportText(liveReportFields.email, liveReportFields.email_address, cachedReportFields.email, cachedReportFields.email_address),
+        phone: pickReportText(liveReportFields.phone, liveReportFields.phone_number, cachedReportFields.phone, cachedReportFields.phone_number),
+        locationName: pickReportText(liveReportFields.location_name, cachedReportFields.location_name, subaccountName),
+        locationId,
+        agencyName: pickReportText(liveReportFields.company_name, liveReportFields.agency_name, cachedReportFields.company_name, cachedReportFields.agency_name),
+        companyName: pickReportText(liveReportFields.company_name, liveReportFields.agency_name, cachedReportFields.company_name, cachedReportFields.agency_name),
+        companyId: pickReportText(liveReportFields.company_id, cachedReportFields.company_id),
+        reportTitle: "SUBACCOUNT CREDIT REPORT",
+    };
     const profileInitial = profileDisplayName.charAt(0).toUpperCase();
     const greetingText = subaccountName ? `${getGreeting()}, ${subaccountName}` : getGreeting();
     const creditDisplayLoading = creditLoading && !creditStatus;
@@ -933,7 +952,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                     onClick={async () => {
                                         const currentMonth = new Date().toISOString().slice(0, 7);
                                         const allTxs = await fetchCreditTransactions('default', 5000, locationId || undefined);
-                                        generateMonthlyReport(currentMonth, allTxs, 'subaccount', 'My Account');
+                                        generateMonthlyReport(currentMonth, allTxs, 'subaccount', reportAccountName, reportProfile);
                                     }}
                                     className="text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ffffff] py-1 px-3 border border-transparent rounded-full hover:bg-gray-100 dark:hover:bg-white/5 transition-colors flex items-center gap-1.5"
                                 >

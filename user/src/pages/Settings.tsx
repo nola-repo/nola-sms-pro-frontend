@@ -898,6 +898,16 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
 const resolveProfileEmail = (profile?: Partial<AccountProfile> | null): string =>
     profile?.email || profile?.email_address || "";
 
+const pickText = (...values: Array<string | null | undefined>): string =>
+    values.find(value => typeof value === "string" && value.trim() !== "")?.trim() || "";
+
+const joinProfileName = (profile?: Partial<AccountProfile> | null): string =>
+    pickText(
+        profile?.full_name,
+        profile?.name,
+        [profile?.firstName, profile?.lastName].filter(Boolean).join(" ")
+    );
+
 const NotificationsSection: React.FC = () => {
     const [form, setForm] = useState<NotificationSettings>(getNotificationSettings);
     const [registeredEmail, setRegisteredEmail] = useState("");
@@ -1171,6 +1181,37 @@ const CreditsSection: React.FC = () => {
     const popupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const lastLiveBalanceRef = useRef<number | null>(null);
+    const accountSettings = getAccountSettings();
+    const cachedReportProfile = locationId
+        ? (
+            getCachedAccountProfile(locationId, { includeAuth: false, allowExpired: true }) ||
+            getCachedAccountProfile(locationId, { allowExpired: true })
+        )
+        : null;
+    const activeLiveProfile = liveProfile?.location_id === locationId ? liveProfile : null;
+    const liveProfileFields = (activeLiveProfile || {}) as Partial<AccountProfile> & Record<string, string | null | undefined>;
+    const cachedProfileFields = (cachedReportProfile || {}) as Partial<AccountProfile> & Record<string, string | null | undefined>;
+    const creditStatusFields = (creditStatus || {}) as Record<string, string | number | null | undefined>;
+    const reportAccountName = pickText(
+        typeof creditStatusFields.location_name === "string" ? creditStatusFields.location_name : "",
+        liveProfileFields.location_name,
+        cachedProfileFields.location_name,
+        accountSettings.displayName,
+        locationId,
+        "My Account"
+    );
+    const reportProfile = {
+        accountName: reportAccountName,
+        ownerName: pickText(joinProfileName(activeLiveProfile), joinProfileName(cachedReportProfile), accountSettings.displayName),
+        email: pickText(liveProfileFields.email, liveProfileFields.email_address, cachedProfileFields.email, cachedProfileFields.email_address, accountSettings.email),
+        phone: pickText(liveProfileFields.phone, liveProfileFields.phone_number, cachedProfileFields.phone, cachedProfileFields.phone_number),
+        locationName: pickText(liveProfileFields.location_name, cachedProfileFields.location_name, reportAccountName),
+        locationId,
+        agencyName: pickText(liveProfileFields.company_name, liveProfileFields.agency_name, cachedProfileFields.company_name, cachedProfileFields.agency_name),
+        companyName: pickText(liveProfileFields.company_name, liveProfileFields.agency_name, cachedProfileFields.company_name, cachedProfileFields.agency_name),
+        companyId: pickText(liveProfileFields.company_id, cachedProfileFields.company_id),
+        reportTitle: 'SUBACCOUNT CREDIT REPORT',
+    };
 
     // AUTO_RECHARGE_DISABLED
     // const [arEnabled, setArEnabled] = useState(false);
@@ -1869,8 +1910,8 @@ const CreditsSection: React.FC = () => {
                             <FiChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#9aa0a6] pointer-events-none" />
                         </div>
                         <button
-                            onClick={() => generateMonthlyReport(txMonth, transactions, 'subaccount', 'My Account')}
-                            disabled={txLoading || transactions.length === 0}
+                            onClick={() => generateMonthlyReport(txMonth, transactions, 'subaccount', reportAccountName, reportProfile)}
+                            disabled={txLoading}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-[#ffffff] border border-transparent hover:bg-[#f3f4f6] dark:hover:bg-[#1f2023] disabled:opacity-50 transition-all font-inter"
                         >
                             <FiDownload className="w-3.5 h-3.5" /> Download Report

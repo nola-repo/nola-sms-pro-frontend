@@ -5,7 +5,6 @@ import {
     FiCheck,
     FiChevronLeft,
     FiChevronRight,
-    FiClock,
     FiDownload,
     FiEye,
     FiFilter,
@@ -121,6 +120,46 @@ const getLocationLine = (account: Account) => {
 
 const getAgencyName = (account: Account) =>
     (account.agency_name || account.company_name || account.company_id || '').trim() || 'Unassigned agency';
+
+const getTransactionMonth = (tx: any) => {
+    const raw = tx?.timestamp || tx?.created_at || tx?.createdAt || tx?.date;
+    if (!raw) return '';
+    if (typeof raw === 'object' && raw.seconds) {
+        const date = new Date(Number(raw.seconds) * 1000);
+        return Number.isNaN(date.getTime()) ? '' : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+    const text = String(raw);
+    const parsed = new Date(text);
+    if (!Number.isNaN(parsed.getTime())) {
+        return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
+    }
+    return text.slice(0, 7);
+};
+
+const getReportMonthOptions = (transactions: any[]) =>
+    Array.from(new Set(transactions.map(getTransactionMonth).filter(Boolean))).sort().reverse();
+
+const getReportMonthLabel = (month: string) => {
+    const [year, monthNumber] = month.split('-').map(Number);
+    if (!year || !monthNumber) return month;
+    return new Date(year, monthNumber - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+};
+
+const getReportMonthCount = (transactions: any[], month: string) =>
+    transactions.filter(tx => getTransactionMonth(tx) === month).length;
+
+const buildSubaccountReportProfile = (account: Account) => ({
+    accountName: account.location_name || getAccountName(account),
+    ownerName: getAccountName(account),
+    email: account.email,
+    phone: account.phone,
+    locationName: account.location_name,
+    locationId: account.location_id || account.active_location_id,
+    agencyName: getAgencyName(account),
+    companyName: account.company_name || account.agency_name,
+    companyId: account.company_id,
+    reportTitle: 'SUBACCOUNT CREDIT REPORT',
+});
 
 export const AdminAccounts: React.FC = () => {
     const [accounts, setAccounts] = useState<Account[]>([]);
@@ -297,7 +336,6 @@ export const AdminAccounts: React.FC = () => {
         setManageCreditBalance(account.credit_balance ?? account.credits ?? 0);
         setManageFreeCreditsTotal(account.free_credits_total ?? 10);
         setActionMenuId(null);
-        void fetchReportForAccount(account, false);
     };
 
     const fetchReportForAccount = async (account: Account, showModal = true) => {
@@ -633,14 +671,38 @@ export const AdminAccounts: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="py-4 pr-4">{renderFreeUsage(account)}</td>
-                                            <td className="py-4 pr-2 text-right">
-                                                <button
-                                                    onClick={(event) => openActionMenu(account.id, event.currentTarget)}
-                                                    className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
-                                                    title="Account actions"
-                                                >
-                                                    <FiMoreVertical className="w-4 h-4" />
-                                                </button>
+                                            <td className="py-4 pr-2 text-right min-w-[190px]">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        onClick={() => setProfileAccount(account)}
+                                                        className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
+                                                        title="View profile"
+                                                    >
+                                                        <FiEye className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => void fetchReportForAccount(account, true)}
+                                                        disabled={!account.location_id}
+                                                        className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/10 border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30 hover:shadow-sm transition-all disabled:opacity-40 disabled:hover:text-[#6e6e73] disabled:hover:bg-transparent disabled:hover:border-transparent disabled:hover:shadow-none"
+                                                        title={account.location_id ? 'Download report' : 'No location ID available'}
+                                                    >
+                                                        <FiDownload className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openManageConfig(account)}
+                                                        className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
+                                                        title="Manage credits and sender"
+                                                    >
+                                                        <FiSettings className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(event) => openActionMenu(account.id, event.currentTarget)}
+                                                        className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
+                                                        title="More actions"
+                                                    >
+                                                        <FiMoreVertical className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -670,38 +732,13 @@ export const AdminAccounts: React.FC = () => {
                 <div
                     ref={menuRef}
                     style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999 }}
-                    className="w-52 bg-white dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-100"
+                    className="w-48 bg-white dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-100"
                 >
                     {(() => {
                         const account = accounts.find(acc => acc.id === actionMenuId);
                         if (!account) return null;
                         return (
                             <>
-                                <button
-                                    onClick={() => {
-                                        setProfileAccount(account);
-                                        setActionMenuId(null);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white transition-colors text-left"
-                                >
-                                    <FiEye className="w-3.5 h-3.5" /> View Profile
-                                </button>
-                                <button
-                                    onClick={() => openManageConfig(account)}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white transition-colors text-left"
-                                >
-                                    <FiSettings className="w-3.5 h-3.5" /> Manage Config
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setActionMenuId(null);
-                                        void fetchReportForAccount(account, true);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white transition-colors text-left"
-                                >
-                                    <FiDownload className="w-3.5 h-3.5" /> Download Report
-                                </button>
-                                <div className="border-t border-[#f0f0f0] dark:border-white/5" />
                                 <button
                                     onClick={() => {
                                         setConfirmAction({ type: 'reset', account });
@@ -836,47 +873,6 @@ export const AdminAccounts: React.FC = () => {
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2 flex items-center gap-2">
-                                    <FiDownload className="w-3.5 h-3.5 text-[#2b83fa]" /> Transaction Report
-                                </label>
-
-                                {isLoadingReport ? (
-                                    <div className="py-4 flex items-center gap-3">
-                                        <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />
-                                        <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">History loading...</p>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col gap-2">
-                                        <div className="relative">
-                                            <select
-                                                value={reportSelectedMonth}
-                                                onChange={(event) => setReportSelectedMonth(event.target.value)}
-                                                className="w-full appearance-none pl-4 pr-10 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] font-bold text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer"
-                                            >
-                                                <option value="All">All Transactions ({reportTransactions.length})</option>
-                                                {Array.from(new Set(reportTransactions.map(tx => (tx.timestamp || tx.created_at || '').substring(0, 7)).filter(Boolean))).sort().reverse().map(month => {
-                                                    const [year, monthNumber] = (month as string).split('-');
-                                                    const label = new Date(parseInt(year), parseInt(monthNumber) - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-                                                    const count = reportTransactions.filter(tx => (tx.timestamp || tx.created_at || '').startsWith(month as string)).length;
-                                                    return <option key={month as string} value={month as string}>{label} ({count})</option>;
-                                                })}
-                                            </select>
-                                            <FiClock className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9aa0a6] pointer-events-none w-3.5 h-3.5" />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => generateMonthlyReport(reportSelectedMonth, reportTransactions, 'subaccount', getAccountName(managingAccount), managingAccount.agency_name)}
-                                            disabled={reportTransactions.length === 0}
-                                            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-white dark:bg-[#0d0e10] border-2 border-[#2b83fa]/20 hover:border-[#2b83fa] text-[#2b83fa] rounded-xl font-bold text-[13px] transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
-                                        >
-                                            <FiDownload className="w-3.5 h-3.5" />
-                                            Download {reportSelectedMonth === 'All' ? 'Full History' : 'Monthly Report'}
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
                             <button
                                 type="submit"
                                 disabled={actionLoading === 'managing'}
@@ -919,18 +915,15 @@ export const AdminAccounts: React.FC = () => {
                                         className="flex-1 appearance-none px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[13px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer"
                                     >
                                         <option value="All">Full History ({reportTransactions.length} events)</option>
-                                        {Array.from(new Set(reportTransactions.map(tx => (tx.timestamp || tx.created_at || '').substring(0, 7)).filter(Boolean))).sort().reverse().map(month => {
-                                            const [year, monthNumber] = (month as string).split('-');
-                                            const label = new Date(parseInt(year), parseInt(monthNumber) - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-                                            const count = reportTransactions.filter(tx => (tx.timestamp || tx.created_at || '').startsWith(month as string)).length;
-                                            return <option key={month as string} value={month as string}>{label} ({count})</option>;
+                                        {getReportMonthOptions(reportTransactions).map(month => {
+                                            const count = getReportMonthCount(reportTransactions, month);
+                                            return <option key={month} value={month}>{getReportMonthLabel(month)} ({count})</option>;
                                         })}
                                     </select>
                                     <button
                                         type="button"
-                                        onClick={() => generateMonthlyReport(reportSelectedMonth, reportTransactions, 'subaccount', getAccountName(selectedReportAccount), selectedReportAccount.agency_name)}
-                                        disabled={reportTransactions.length === 0}
-                                        className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl text-[13px] font-bold transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50 disabled:hover:shadow-none whitespace-nowrap"
+                                        onClick={() => generateMonthlyReport(reportSelectedMonth, reportTransactions, 'subaccount', getAccountName(selectedReportAccount), buildSubaccountReportProfile(selectedReportAccount))}
+                                        className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl text-[13px] font-bold transition-all shadow-md shadow-blue-500/20 active:scale-95 whitespace-nowrap"
                                     >
                                         <FiDownload className="w-4 h-4" /> Download PDF
                                     </button>

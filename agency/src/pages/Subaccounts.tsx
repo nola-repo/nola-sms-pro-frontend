@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  FiAlertTriangle, FiUsers, FiRotateCcw, FiChevronLeft, FiChevronRight, FiSearch, FiPlus, FiMinus, FiArrowUp, FiArrowDown, FiExternalLink
+  FiAlertTriangle, FiUsers, FiRotateCcw, FiChevronLeft, FiChevronRight, FiSearch, FiPlus, FiMinus, FiArrowUp, FiArrowDown, FiExternalLink, FiDownload, FiRefreshCw, FiX
 } from 'react-icons/fi';
 
 const ADD_SUBACCOUNT_URL =
@@ -9,6 +9,7 @@ const ADD_SUBACCOUNT_URL =
   '&client_id=6999da2b8f278296d95f7274-mmn30t4f' +
   '&scope=workflows.readonly+conversations%2Fmessage.readonly+conversations.readonly+conversations.write+contacts.readonly+contacts.write+conversations%2Fmessage.write+saas%2Flocation.read+locations.readonly+locations%2Ftags.readonly+locations%2Ftags.write+locations%2FcustomFields.readonly+oauth.write+oauth.readonly' +
   '&version_id=6999da2b8f278296d95f7274';
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from '../services/firebaseConfig.ts';
@@ -23,6 +24,7 @@ import {
   checkInstallStatus,
 } from '../services/api.ts';
 import { agencyFetch } from '../services/agencyApi.ts';
+import { generateMonthlyReport } from '../utils/pdfGenerator';
 
 
 
@@ -166,11 +168,49 @@ const SkeletonRows = ({ count = 5 }) => (
         <td className="px-6 py-4"><div className="skeleton h-[30px] w-24 rounded-lg" /></td>
         <td className="px-6 py-4"><div className="skeleton h-6 w-16 rounded-full" /></td>
         <td className="px-6 py-4"><div className="skeleton h-[30px] w-20 rounded-lg" /></td>
+        <td className="px-6 py-4"><div className="skeleton h-[30px] w-20 rounded-lg" /></td>
         <td className="px-6 py-4 flex justify-end"><div className="skeleton h-6 w-11 rounded-full" /></td>
       </tr>
     ))}
   </>
 );
+
+const getTransactionMonth = (tx: any): string => {
+  const raw = tx?.timestamp || tx?.created_at || tx?.createdAt || tx?.date;
+  if (!raw) return '';
+  if (typeof raw === 'object' && raw.seconds) {
+    const date = new Date(Number(raw.seconds) * 1000);
+    return Number.isNaN(date.getTime()) ? '' : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  }
+  const text = String(raw);
+  const parsed = new Date(text);
+  if (!Number.isNaN(parsed.getTime())) {
+    return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
+  }
+  return text.slice(0, 7);
+};
+
+const getReportMonthOptions = (transactions: any[]): string[] =>
+  Array.from(new Set<string>(transactions.map(getTransactionMonth).filter(Boolean))).sort().reverse();
+
+const getReportMonthLabel = (month: string): string => {
+  const [year, monthNumber] = month.split('-').map(Number);
+  if (!year || !monthNumber) return month;
+  return new Date(year, monthNumber - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+};
+
+const getReportMonthCount = (transactions: any[], month: string) =>
+  transactions.filter(tx => getTransactionMonth(tx) === month).length;
+
+const buildSubaccountReportProfile = (subaccount: any, agencyId: string | null) => ({
+  accountName: subaccount.location_name || subaccount.location_id || 'Subaccount',
+  locationName: subaccount.location_name,
+  locationId: subaccount.location_id,
+  agencyName: subaccount.agency_name || subaccount.company_name,
+  companyName: subaccount.company_name || subaccount.agency_name,
+  companyId: agencyId,
+  reportTitle: 'SUBACCOUNT CREDIT REPORT',
+});
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export const Subaccounts = () => {
@@ -191,6 +231,10 @@ export const Subaccounts = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('location_name');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [reportSubaccount, setReportSubaccount] = useState<any>(null);
+  const [reportTransactions, setReportTransactions] = useState<any[]>([]);
+  const [reportSelectedMonth, setReportSelectedMonth] = useState('All');
+  const [reportLoading, setReportLoading] = useState(false);
 
   // ── Initial load (PHP) ───────────────────────────────────────────────────────
   // The PHP API aggregates richer data (location name, rate limit, credits, etc.)
@@ -202,7 +246,7 @@ export const Subaccounts = () => {
 
     Promise.all([
       getSubaccounts(agencyId),
-      agencyFetch(`${import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io'}/api/billing/subscription.php?agency_id=${encodeURIComponent(agencyId)}`, {
+      agencyFetch(`${API_BASE}/api/billing/subscription.php?agency_id=${encodeURIComponent(agencyId)}`, {
         credentials: 'include',
       }).then(r => r.ok ? r.json() : null).catch(() => null)
     ])
@@ -387,6 +431,34 @@ export const Subaccounts = () => {
     }
   };
 
+  const fetchReportForSubaccount = async (subaccount) => {
+    if (!subaccount?.location_id) {
+      showToast('This subaccount does not have a location ID for reporting.', 'error');
+      return;
+    }
+
+    setReportSubaccount(subaccount);
+    setReportSelectedMonth('All');
+    setReportTransactions([]);
+    setReportLoading(true);
+
+    try {
+      const res = await agencyFetch(`${API_BASE}/api/get_credit_transactions.php?location_id=${encodeURIComponent(subaccount.location_id)}`, {
+        credentials: 'include',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.status !== 'success') {
+        throw new Error(data.message || data.error || 'Failed to load transaction history.');
+      }
+      setReportTransactions(data.data || data.transactions || []);
+    } catch (e) {
+      setReportTransactions([]);
+      showToast(e instanceof Error ? e.message : 'Failed to load transaction history.', 'error');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   // ── Derived stats ──────────────────────────────────────────────────────────
   const active = subaccounts.filter(s => s.toggle_enabled).length;
   const atLimit = subaccounts.filter(s => s.attempt_count >= s.rate_limit).length;
@@ -450,6 +522,69 @@ export const Subaccounts = () => {
       )}
       {upgradeModalOpen && (
         <UpgradeModal onCancel={() => setUpgradeModalOpen(false)} />
+      )}
+      {reportSubaccount && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-[fadeIn_0.15s_ease]">
+          <div className="bg-white dark:bg-[#141618] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 animate-[scaleIn_0.2s_ease]">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="text-[16px] font-bold text-[#111111] dark:text-white">Download Report</div>
+                <div className="text-[12.5px] text-[#6b7280] dark:text-[#9aa0a9] mt-1">
+                  {reportSubaccount.location_name || reportSubaccount.location_id}
+                </div>
+              </div>
+              <button
+                onClick={() => setReportSubaccount(null)}
+                className="p-1.5 rounded-full text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                title="Close"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            {reportLoading ? (
+              <div className="py-4 flex items-center justify-center gap-3 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl border border-[#e5e5e5] dark:border-white/5">
+                <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />
+                <p className="text-[13px] font-medium text-[#111111] dark:text-white">Loading transactions...</p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <select
+                  value={reportSelectedMonth}
+                  onChange={(event) => setReportSelectedMonth(event.target.value)}
+                  className="flex-1 appearance-none px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[13px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer"
+                >
+                  <option value="All">Full History ({reportTransactions.length} events)</option>
+                  {getReportMonthOptions(reportTransactions).map(month => (
+                    <option key={month} value={month}>
+                      {getReportMonthLabel(month)} ({getReportMonthCount(reportTransactions, month)})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => generateMonthlyReport(
+                    reportSelectedMonth,
+                    reportTransactions,
+                    'subaccount',
+                    reportSubaccount.location_name || reportSubaccount.location_id,
+                    buildSubaccountReportProfile(reportSubaccount, agencyId)
+                  )}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2b83fa] hover:bg-[#1d6bd4] text-white text-[13px] font-bold transition-colors shadow-sm whitespace-nowrap"
+                >
+                  <FiDownload className="w-4 h-4" /> PDF
+                </button>
+              </div>
+            )}
+
+            {!reportLoading && reportTransactions.length === 0 && (
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200/70 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                <FiAlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                No transaction records were found. The PDF will show an empty report for the selected period.
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* No Agency ID warning */}
@@ -585,6 +720,7 @@ export const Subaccounts = () => {
                   <th onClick={() => handleSort('attempt_count')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Sends Used <SortIcon field="attempt_count" /></th>
                   <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Credits</th>
                   <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Free Used</th>
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Report</th>
                   <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap text-right">SMS Active</th>
                 </tr>
               </thead>
@@ -664,6 +800,18 @@ export const Subaccounts = () => {
                                   <div className={`h-full ${(sub.free_usage_count ?? 0) >= (sub.free_credits_total ?? 10) ? 'bg-red-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(((sub.free_usage_count ?? 0) / (sub.free_credits_total ?? 10)) * 100, 100)}%` }}></div>
                               </div>
                           </div>
+                        </td>
+
+                        {/* Report Download */}
+                        <td className="px-6 py-4 align-middle">
+                          <button
+                            onClick={() => fetchReportForSubaccount(sub)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold text-[#2b83fa] bg-blue-50 hover:bg-[#2b83fa] hover:text-white dark:bg-blue-900/10 dark:hover:bg-[#2b83fa] border border-blue-100 dark:border-blue-800/30 transition-all shadow-sm"
+                            title="Select a month and download this subaccount report"
+                          >
+                            <FiDownload className="w-3.5 h-3.5" />
+                            Report
+                          </button>
                         </td>
 
                         {/* SMS Active Toggle (Rightmost) */}

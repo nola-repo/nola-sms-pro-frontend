@@ -132,6 +132,44 @@ const getAgencyRows = (json: any) => {
     return [];
 };
 
+const getTransactionMonth = (tx: any) => {
+    const raw = tx?.timestamp || tx?.created_at || tx?.createdAt || tx?.date;
+    if (!raw) return '';
+    if (typeof raw === 'object' && raw.seconds) {
+        const date = new Date(Number(raw.seconds) * 1000);
+        return Number.isNaN(date.getTime()) ? '' : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+    const text = String(raw);
+    const parsed = new Date(text);
+    if (!Number.isNaN(parsed.getTime())) {
+        return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
+    }
+    return text.slice(0, 7);
+};
+
+const getReportMonthOptions = (transactions: any[]) =>
+    Array.from(new Set(transactions.map(getTransactionMonth).filter(Boolean))).sort().reverse();
+
+const getReportMonthLabel = (month: string) => {
+    const [year, monthNumber] = month.split('-').map(Number);
+    if (!year || !monthNumber) return month;
+    return new Date(year, monthNumber - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+};
+
+const getReportMonthCount = (transactions: any[], month: string) =>
+    transactions.filter(tx => getTransactionMonth(tx) === month).length;
+
+const buildAgencyReportProfile = (account: AgencyAccount) => ({
+    accountName: getAgencyDisplayName(account),
+    ownerName: getAgencyDisplayName(account),
+    email: account.email,
+    phone: account.phone,
+    agencyName: getCompanyLabel(account),
+    companyName: account.company_name || account.agency_name,
+    companyId: account.company_id || account.id,
+    reportTitle: 'AGENCY CREDIT REPORT',
+});
+
 
 
 
@@ -248,6 +286,8 @@ export const AdminAgencies: React.FC = () => {
             const json = await res.json();
             if (json.status === 'success') {
                 setReportTransactions(json.data || json.transactions || []);
+            } else {
+                showToast(json.message || 'Failed to load transaction history.', 'error');
             }
         } catch {
             showToast('Failed to load transaction history.', 'error');
@@ -553,23 +593,17 @@ export const AdminAgencies: React.FC = () => {
                                             className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[13px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer"
                                         >
                                             <option value="All">Full History ({reportTransactions.length} events)</option>
-                                            {Array.from(new Set(reportTransactions.map(tx => {
-                                                const ds = tx.timestamp || tx.created_at;
-                                                return ds ? ds.substring(0, 7) : null;
-                                            }).filter(Boolean))).sort().reverse().map(m => {
-                                                const [y, mm] = (m as string).split('-');
-                                                const label = new Date(parseInt(y), parseInt(mm) - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-                                                const count = reportTransactions.filter(tx => (tx.timestamp || tx.created_at || '').startsWith(m as string)).length;
-                                                return <option key={m as string} value={m as string}>{label} ({count})</option>;
+                                            {getReportMonthOptions(reportTransactions).map(month => {
+                                                const count = getReportMonthCount(reportTransactions, month);
+                                                return <option key={month} value={month}>{getReportMonthLabel(month)} ({count})</option>;
                                             })}
                                         </select>
                                         <FiChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9aa0a6] pointer-events-none rotate-90" />
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={() => generateMonthlyReport(reportSelectedMonth, reportTransactions, 'agency', getAgencyDisplayName(selectedReportAccount))}
-                                        disabled={reportTransactions.length === 0}
-                                        className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl text-[13px] font-bold transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50 disabled:hover:shadow-none whitespace-nowrap"
+                                        onClick={() => generateMonthlyReport(reportSelectedMonth, reportTransactions, 'agency', getAgencyDisplayName(selectedReportAccount), buildAgencyReportProfile(selectedReportAccount))}
+                                        className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl text-[13px] font-bold transition-all shadow-md shadow-blue-500/20 active:scale-95 whitespace-nowrap"
                                     >
                                         <FiDownload className="w-4 h-4" /> Download PDF
                                     </button>
