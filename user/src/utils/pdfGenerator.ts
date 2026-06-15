@@ -21,7 +21,50 @@ export type ReportAccountProfile = {
   currentBalance?: number;
 };
 
-type ReportTransaction = Record<string, any>;
+interface ReportTransaction {
+  timestamp?: unknown;
+  created_at?: unknown;
+  createdAt?: unknown;
+  date?: unknown;
+  type?: unknown;
+  event_type?: unknown;
+  kind?: unknown;
+  amount?: unknown;
+  message_body?: unknown;
+  message?: unknown;
+  body?: unknown;
+  content?: unknown;
+  description?: unknown;
+  note?: unknown;
+  memo?: unknown;
+  reason?: unknown;
+  chars?: unknown;
+  to_number?: unknown;
+  number?: unknown;
+  phone?: unknown;
+  recipient?: unknown;
+  to?: unknown;
+  balance_after?: unknown;
+  balance?: unknown;
+  subaccount_name?: unknown;
+  location_name?: unknown;
+  agency_name?: unknown;
+  company_name?: unknown;
+  provider_cost?: unknown;
+  charged?: unknown;
+  profit?: unknown;
+  account_name?: unknown;
+  owner_name?: unknown;
+  name?: unknown;
+  full_name?: unknown;
+  location_id?: unknown;
+  active_location_id?: unknown;
+  company_id?: unknown;
+  agency_id?: unknown;
+  email?: unknown;
+  email_address?: unknown;
+  phone_number?: unknown;
+}
 
 const pickString = (...values: unknown[]): string => {
   for (const value of values) {
