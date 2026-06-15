@@ -8,6 +8,7 @@ import {
 } from "react-icons/fi";
 import type { UseOnboardingReturn } from "./useOnboarding";
 import { submitSenderRequest } from "../../api/senderRequests";
+import type { SenderProvider } from "../../api/senderRequests";
 import { fetchCreditPackages, type CreditPackage } from "../../api/credits";
 import { getAccountSettings } from "../../utils/settingsStorage";
 import { useGhlLocation } from "../../hooks/useGhlLocation";
@@ -168,6 +169,7 @@ const Step3 = () => (
 
 const Step4 = () => {
   const [newId, setNewId] = useState("");
+  const [provider, setProvider] = useState<SenderProvider>("unisms");
   const [newPurpose, setNewPurpose] = useState("");
   const [newSample, setNewSample] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -190,7 +192,7 @@ const Step4 = () => {
     setIsSubmitting(true);
     setError(null);
     try {
-      await submitSenderRequest(trimmedId, newPurpose.trim(), newSample.trim());
+      await submitSenderRequest(trimmedId, newPurpose.trim(), newSample.trim(), provider);
       setIsSubmitted(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit request.");
@@ -227,6 +229,29 @@ const Step4 = () => {
             <p className="text-[12px] text-red-600 dark:text-red-400 font-bold">{error}</p>
           </div>
         )}
+        <div className="group">
+          <label className="block text-[11px] font-black text-[#9aa0a6] uppercase tracking-widest mb-1.5 ml-1 transition-colors group-focus-within:text-[#2b83fa]">Provider</label>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { id: "unisms", label: "UniSMS" },
+              { id: "semaphore", label: "Semaphore" },
+            ].map(option => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setProvider(option.id as SenderProvider)}
+                disabled={isSubmitting}
+                className={`px-4 py-2.5 rounded-xl text-[12px] font-black border transition-all ${
+                  provider === option.id
+                    ? "border-[#2b83fa] bg-[#2b83fa]/10 text-[#2b83fa]"
+                    : "border-black/[0.06] dark:border-white/[0.08] bg-[#fcfcfd] dark:bg-black/20 text-[#6e6e73] dark:text-[#9aa0a6]"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="group">
           <label className="block text-[11px] font-black text-[#9aa0a6] uppercase tracking-widest mb-1.5 ml-1 transition-colors group-focus-within:text-[#2b83fa]">Sender Name</label>
           <input

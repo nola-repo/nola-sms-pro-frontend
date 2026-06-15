@@ -2,6 +2,7 @@ import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
 import type { Template } from "../types/Template";
 import { getCachedTemplates, setCachedTemplates, invalidateTemplateCache } from "../utils/templateCache";
+import { apiFetch } from "../utils/apiFetch";
 
 const API_URL = API_CONFIG.templates;
 const DEFAULT_CATEGORY = "General";
@@ -67,7 +68,7 @@ export const fetchTemplates = async (explicitLocationId?: string, forceRefresh =
       url += `?location_id=${encodeURIComponent(locationId)}`;
     }
 
-    const res = await fetch(url, { headers: getHeaders(locationId) });
+    const res = await apiFetch(url, { headers: getHeaders(locationId) });
     
     // Handle mock mode for when backend doesn't exist yet
     if (res.status === 404) {
@@ -97,7 +98,7 @@ export const fetchTemplates = async (explicitLocationId?: string, forceRefresh =
 export const createTemplate = async (name: string, content: string, category: string = DEFAULT_CATEGORY): Promise<Template> => {
   const activeLocationId = getAccountSettings().ghlLocationId || undefined;
   try {
-    const res = await fetch(API_URL, {
+    const res = await apiFetch(API_URL, {
       method: 'POST',
       headers: getHeaders(activeLocationId),
       body: JSON.stringify({ name, content, category }),
@@ -154,7 +155,7 @@ export const createTemplate = async (name: string, content: string, category: st
 export const updateTemplate = async (id: string, name: string, content: string, category: string = DEFAULT_CATEGORY): Promise<Template> => {
   const activeLocationId = getAccountSettings().ghlLocationId || undefined;
   try {
-    const res = await fetch(API_URL, {
+    const res = await apiFetch(API_URL, {
       method: 'PUT',
       headers: getHeaders(activeLocationId),
       body: JSON.stringify({ id, name, content, category }),
@@ -208,7 +209,7 @@ export const updateTemplate = async (id: string, name: string, content: string, 
 export const deleteTemplate = async (id: string): Promise<void> => {
   const activeLocationId = getAccountSettings().ghlLocationId || undefined;
   try {
-    const res = await fetch(`${API_URL}?id=${encodeURIComponent(id)}`, {
+    const res = await apiFetch(`${API_URL}?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getHeaders(activeLocationId),
     });

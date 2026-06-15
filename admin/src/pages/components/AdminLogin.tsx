@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FiEye, FiEyeOff, FiAlertTriangle, FiClock, FiRefreshCw, FiCheckCircle, FiShield, FiLock, FiArrowRight } from 'react-icons/fi';
+import { apiFetch } from '../../utils/apiFetch';
 // @ts-ignore
 import defaultLogo from '../../assets/NOLA SMS PRO Logo.png';
 
@@ -94,7 +95,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
     setError(null);
 
     try {
-        const res = await fetch('/api/admin_auth.php', {
+        const res = await apiFetch('/api/admin_auth.php', {
             method: 'POST',
             headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: trimmedEmail, username: trimmedEmail, password, remember_me: rememberMe })
@@ -130,7 +131,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/forgot_password_otp.php', {
+      const res = await apiFetch('/api/auth/forgot_password_otp.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmedEmail }),
@@ -159,7 +160,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/forgot_password_otp.php', {
+      const res = await apiFetch('/api/auth/forgot_password_otp.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail }),
@@ -250,7 +251,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/reset_password_otp.php', {
+      const res = await apiFetch('/api/auth/reset_password_otp.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail, otp: verifiedOtp, new_password: newPassword }),

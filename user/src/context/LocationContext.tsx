@@ -15,6 +15,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 import { safeStorage } from '../utils/safeStorage';
 import { getSession, clearAuthSession, saveSession } from '../services/authService';
+import { apiFetch } from '../utils/apiFetch';
 
 interface LocationContextValue {
   locationId: string;
@@ -197,7 +198,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       );
 
       const autoLoginParams = new URLSearchParams({ location_id: locationId });
-      fetch(`/api/auth/ghl_autologin?${autoLoginParams.toString()}`, {
+      apiFetch(`/api/auth/ghl_autologin?${autoLoginParams.toString()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

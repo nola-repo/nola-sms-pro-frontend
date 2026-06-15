@@ -6,6 +6,7 @@ import { useLocationId } from "../context/LocationContext";
 import { getSession } from "../services/authService";
 import { safeStorage } from "../utils/safeStorage";
 import { getNotificationSettings } from "../utils/settingsStorage";
+import { apiFetch } from "../utils/apiFetch";
 
 const POLL_INTERVAL = 60_000;
 const NOTIFICATIONS_API = `${API_CONFIG.base}/api/notifications`;
@@ -156,7 +157,7 @@ async function fetchRemoteNotifications(locationId: string, readIds: Set<string>
   });
   const url = `${NOTIFICATIONS_API}?${params.toString()}`;
   try {
-    const res = await fetch(url, { headers });
+    const res = await apiFetch(url, { headers });
     if (!res.ok) return null;
 
     const json = await res.json();
@@ -182,7 +183,7 @@ async function postNotificationAction(
   if (!headers) return;
 
   try {
-    await fetch(NOTIFICATIONS_API, {
+    await apiFetch(NOTIFICATIONS_API, {
       method: "POST",
       headers: {
         ...headers,

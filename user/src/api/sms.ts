@@ -4,6 +4,7 @@ import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
 import { getAuthHeaders } from "../utils/authHeaders";
 import { devLog } from "../utils/devLog";
+import { apiFetch } from "../utils/apiFetch";
 
 const WEBHOOK_URL = API_CONFIG.messages;
 
@@ -30,6 +31,34 @@ interface SendSmsResponse {
   /** Message IDs returned by the backend for status polling */
   messageIds?: string[];
 }
+
+const createClientRequestId = (): string => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+};
+
+const createSmsIdempotencyKey = (locationId: string | null): string =>
+  `sms_${locationId || "unknown"}_${createClientRequestId()}`;
+
+const SMS_ERROR_MESSAGES: Record<string, string> = {
+  invalid_phone: "A valid Philippine mobile number is required.",
+  insufficient_credits: "Insufficient credits. Please top up or request more credits.",
+  agency_master_lock: "SMS sending is paused by your agency wallet settings.",
+  rate_limit_reached: "This subaccount has reached its sending limit.",
+  sms_disabled: "SMS sending is currently disabled for this subaccount.",
+  install_blocked: "The GoHighLevel app installation must be completed before sending.",
+  duplicate_request: "This SMS request is already being processed.",
+  idempotency_key_conflict: "This send request conflicts with a previous request. Please try again.",
+  credit_deduction_failed: "Credits could not be deducted. Please try again.",
+  provider_unavailable: "The SMS provider is currently unavailable. Please try again shortly.",
+};
+
+const resolveSmsErrorMessage = (data: any, fallback = "SMS sending failed"): string => {
+  const code = String(data?.error || data?.code || "").trim();
+  return data?.message || SMS_ERROR_MESSAGES[code] || fallback;
+};
 
 /**
  * Normalize Philippine phone numbers to 09XXXXXXXXX
@@ -87,7 +116,7 @@ export const fetchSmsLogs = async (phoneNumber?: string, explicitLocationId?: st
     if (locationId) {
       url += `&location_id=${encodeURIComponent(locationId)}`;
     }
-    const res = await fetch(url, { headers });
+    const res = await apiFetch(url, { headers });
     if (!res.ok) throw new Error("Failed to fetch message history");
     const data = await res.json();
 
@@ -193,12 +222,13 @@ export const sendSms = async (
     if (accountSettings.ghlLocationId) {
       headers['X-GHL-Location-ID'] = accountSettings.ghlLocationId;
     }
+    headers['Idempotency-Key'] = createSmsIdempotencyKey(accountSettings.ghlLocationId || null);
 
     const SEND_SMS_URL = accountSettings.ghlLocationId 
       ? `${API_CONFIG.sms}?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`
       : API_CONFIG.sms;
 
-    const res = await fetch(SEND_SMS_URL, {
+    const res = await apiFetch(SEND_SMS_URL, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
@@ -206,7 +236,17 @@ export const sendSms = async (
 
     if (!res.ok) {
       const errorText = await res.text();
-      throw new Error(`HTTP ${res.status}: ${errorText}`);
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(errorText);
+      } catch {
+        parsed = null;
+      }
+      return {
+        success: false,
+        error: parsed?.error,
+        message: parsed ? resolveSmsErrorMessage(parsed, `SMS request failed (${res.status})`) : (errorText || `SMS request failed (${res.status})`),
+      };
     }
 
     const data = await res.json();
@@ -214,7 +254,8 @@ export const sendSms = async (
     if (data?.status === "error" || data?.status === "failed") {
       return {
         success: false,
-        message: data.message || "SMS sending failed",
+        error: data.error,
+        message: resolveSmsErrorMessage(data),
       };
     }
 
@@ -278,7 +319,7 @@ export const checkMessageStatus = async (
     let url = `${API_CONFIG.check_message_status}?message_ids=${encodeURIComponent(messageIds.join(','))}`;
     if (locationId) url += `&location_id=${encodeURIComponent(locationId)}`;
 
-    const res = await fetch(url, { headers });
+    const res = await apiFetch(url, { headers });
     if (!res.ok) return {};
     const data = await res.json();
 
@@ -371,7 +412,7 @@ export const fetchBatchMessages = async (batchId: string): Promise<SmsLog[]> => 
     if (accountSettings.ghlLocationId) {
       url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
     }
-    const res = await fetch(url, { headers });
+    const res = await apiFetch(url, { headers });
     if (!res.ok) throw new Error("Failed to fetch batch messages");
     const data = await res.json();
     return data.data || [];
@@ -443,7 +484,7 @@ export const fetchMessagesByConversationId = async (
   const fetchCandidate = async (candidateId: string) => {
     let res: Response;
     try {
-      res = await fetch(buildMessagesUrl(candidateId), { headers });
+      res = await apiFetch(buildMessagesUrl(candidateId), { headers });
     } catch (err) {
       devLog.error("[fetchMessagesByConversationId] Network error:", err);
       throw new ConversationMessagesError(
@@ -600,7 +641,7 @@ export const fetchConversations = async (explicitLocationId?: string): Promise<C
     if (locationId) {
       CONVERSATIONS_URL += `?location_id=${encodeURIComponent(locationId)}`;
     }
-    const res = await fetch(CONVERSATIONS_URL, { headers });
+    const res = await apiFetch(CONVERSATIONS_URL, { headers });
     if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
     const data = await res.json();
     const raw = (Array.isArray(data) ? data : (data.data || data.conversations || [])) as Conversation[];
@@ -678,7 +719,7 @@ export const fetchMessagesByRecipientKey = async (recipientKey: string, explicit
     if (locationId) {
       url += `&location_id=${encodeURIComponent(locationId)}`;
     }
-    const res = await fetch(url, { headers });
+    const res = await apiFetch(url, { headers });
     if (!res.ok) throw new Error("Failed to fetch messages by recipient_key");
     const data = await res.json();
     // Handle both array response and {data: [...]} response
@@ -703,7 +744,7 @@ export const fetchAllBulkMessages = async (explicitLocationId?: string): Promise
     if (locationId) {
       BULK_CAMPAIGNS_URL += `?location_id=${encodeURIComponent(locationId)}`;
     }
-    const res = await fetch(BULK_CAMPAIGNS_URL, { headers });
+    const res = await apiFetch(BULK_CAMPAIGNS_URL, { headers });
     if (!res.ok) {
       const errorText = await res.text();
       devLog.error('[fetchAllBulkMessages] Error response:', errorText);
@@ -764,7 +805,7 @@ export const renameConversation = async (conversationId: string, newName: string
       url += `?location_id=${encodeURIComponent(locationId)}`;
     }
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method: 'PUT',
       headers,
       body: JSON.stringify({ id: conversationId, name: newName }),
@@ -796,7 +837,7 @@ export const deleteConversation = async (conversationId: string): Promise<boolea
       url += `&location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`;
     }
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method: 'DELETE',
       headers,
     });

@@ -27,6 +27,33 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     );
 };
 
+const normalizeProvider = (req: any): 'system' | 'semaphore' | 'unisms' => {
+    const provider = String(req?.provider || req?.provider_preference || '').toLowerCase();
+    if (provider.includes('unisms')) return 'unisms';
+    if (provider.includes('semaphore')) return 'semaphore';
+    return 'semaphore';
+};
+
+const providerLabel = (provider: string) => {
+    if (provider === 'unisms') return 'UniSMS';
+    if (provider === 'system') return 'System';
+    return 'Semaphore';
+};
+
+const ProviderBadge: React.FC<{ provider: string }> = ({ provider }) => {
+    const normalized = provider === 'unisms' ? 'unisms' : provider === 'system' ? 'system' : 'semaphore';
+    const styles: Record<string, string> = {
+        unisms: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/10 dark:text-indigo-400 dark:border-indigo-800/30',
+        semaphore: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30',
+        system: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-white/5 dark:text-slate-400 dark:border-white/10',
+    };
+    return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${styles[normalized]}`}>
+            {providerLabel(normalized)}
+        </span>
+    );
+};
+
 export const AdminSenderRequests: React.FC = () => {
     const [requests, setRequests] = useState<SenderRequest[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
@@ -269,6 +296,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                             <span className="font-black text-[15px] text-[#2b83fa] dark:text-[#4da3ff] font-mono leading-none">{req.requested_id}</span>
                                                             <StatusBadge status={req.status} />
+                                                            <ProviderBadge provider={normalizeProvider(req)} />
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <p className="text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] truncate uppercase tracking-tight max-w-[150px]">{locName}</p>
@@ -407,6 +435,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                     <p className="font-black text-[18px] text-[#2b83fa] dark:text-[#4da3ff] font-mono truncate">{req.requested_id}</p>
                                                 </div>
                                                 <StatusBadge status={req.status} />
+                                                <ProviderBadge provider={normalizeProvider(req)} />
                                             </div>
 
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-4 border-t border-[#e5e5e5] dark:border-white/5">
@@ -565,6 +594,11 @@ export const AdminSenderRequests: React.FC = () => {
                 if (!req) return null;
                 const isApprove = actionPrompt.action === 'approved';
                 const isActing = actionLoading?.startsWith(req.id);
+                const reqProvider = normalizeProvider(req);
+                const providerName = providerLabel(reqProvider);
+                const requiresKey = reqProvider === 'semaphore';
+                const apiKey = apiKeyInput.trim();
+                const canApprove = reqProvider === 'unisms' || apiKey.length > 0;
 
                 return (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -586,14 +620,27 @@ export const AdminSenderRequests: React.FC = () => {
 
                             {isApprove ? (
                                 <div className="space-y-4">
+                                    <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] px-4 py-3">
+                                        <p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Provider</p>
+                                        <div className="flex items-center justify-between gap-3">
+                                            <ProviderBadge provider={reqProvider} />
+                                            <p className="text-[11px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6] text-right">
+                                                {reqProvider === 'unisms'
+                                                    ? 'Leave key blank to use the system UniSMS account.'
+                                                    : 'Semaphore approvals require a custom key.'}
+                                            </p>
+                                        </div>
+                                    </div>
                                     <div>
-                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Semaphore API Key</label>
+                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">
+                                            {providerName} API Key {requiresKey ? '' : '(optional)'}
+                                        </label>
                                         <div className="relative">
                                             <input
                                                 type={showInputKey ? "text" : "password"}
                                                 value={apiKeyInput}
                                                 onChange={e => setApiKeyInput(e.target.value)}
-                                                placeholder="Required to approve"
+                                                placeholder={requiresKey ? "Required to approve" : "Optional custom key"}
                                                 className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 transition-shadow font-mono"
                                             />
                                             <button
@@ -606,8 +653,11 @@ export const AdminSenderRequests: React.FC = () => {
                                         </div>
                                     </div>
                                     <button
-                                        disabled={!apiKeyInput.trim() || !!isActing}
-                                        onClick={() => doAction('approved', req.id, { api_key: apiKeyInput.trim() })}
+                                        disabled={!canApprove || !!isActing}
+                                        onClick={() => doAction('approved', req.id, {
+                                            provider: reqProvider,
+                                            ...(apiKey ? { api_key: apiKey } : {}),
+                                        })}
                                         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
                                     >
                                         <FiCheck className="w-4 h-4" />

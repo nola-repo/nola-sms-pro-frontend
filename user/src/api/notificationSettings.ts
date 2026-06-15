@@ -6,6 +6,7 @@ import {
   type NotificationSettings,
 } from "../utils/settingsStorage";
 import { getAuthHeaders } from "../utils/authHeaders";
+import { apiFetch } from "../utils/apiFetch";
 
 const API_URL = API_CONFIG.notificationSettings;
 
@@ -45,7 +46,7 @@ export const fetchNotificationSettings = async (): Promise<NotificationSettings>
   }
 
   try {
-    const res = await fetch(API_URL, { headers: getHeaders() });
+    const res = await apiFetch(API_URL, { headers: getHeaders() });
 
     if (res.status === 404) {
       return getNotificationSettings();
@@ -73,7 +74,7 @@ export const saveNotificationSettings = async (data: NotificationSettings): Prom
   }
 
   try {
-    const res = await fetch(API_URL, {
+    const res = await apiFetch(API_URL, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({

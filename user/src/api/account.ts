@@ -2,6 +2,7 @@ import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
 import { getAuthHeaders } from "../utils/authHeaders";
 import { safeStorage } from "../utils/safeStorage";
+import { apiFetch } from "../utils/apiFetch";
 
 export interface AccountProfile {
     location_id: string;
@@ -180,7 +181,7 @@ export const fetchAccountProfile = async (
     url += `?location_id=${encodeURIComponent(locationId)}`;
 
     const request = (async () => {
-        const res = await fetch(url, { headers });
+        const res = await apiFetch(url, { headers });
         if (!res.ok) {
             console.error("[fetchAccountProfile] Error:", res.status);
             if (options.allowStaleOnError) {
@@ -222,7 +223,7 @@ export const updateAccountProfile = async (
     const trimmedPhone = payload.phone.trim();
     const { firstName, lastName } = splitDisplayName(trimmedName);
 
-    const res = await fetch(API_CONFIG.account, {
+    const res = await apiFetch(API_CONFIG.account, {
         method: "POST",
         headers,
         body: JSON.stringify({

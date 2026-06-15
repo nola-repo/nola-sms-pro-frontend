@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getSession, SESSION_KEYS, redirectToLogin } from '../services/authService';
 import { safeStorage } from '../utils/safeStorage';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
+import { apiFetch } from '../utils/apiFetch';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -125,7 +126,7 @@ export const useUserProfile = () => {
           return;
         }
 
-        const res = await fetch(`${API_BASE}/api/auth/me`, {
+        const res = await apiFetch(`${API_BASE}/api/auth/me`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,

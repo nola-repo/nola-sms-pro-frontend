@@ -25,6 +25,15 @@ export const AdminSettings: React.FC = () => {
     const [pollInterval, setPollInterval] = useState(localStorage.getItem('admin_setting_poll_interval') || '15');
     const [providerCost, setProviderCost] = useState(localStorage.getItem('admin_setting_provider_cost') || '0.02');
     const [chargedRate, setChargedRate] = useState(localStorage.getItem('admin_setting_charged_rate') || '0.05');
+    const [activeProvider, setActiveProvider] = useState(localStorage.getItem('admin_setting_active_provider') || 'unisms');
+    const [unismsConfigured, setUnismsConfigured] = useState(false);
+    const [unismsMaskedKey, setUnismsMaskedKey] = useState('');
+    const [unismsKeyInput, setUnismsKeyInput] = useState('');
+    const [unismsSenderId, setUnismsSenderId] = useState(localStorage.getItem('admin_setting_unisms_sender') || 'NOLASMSPro');
+    const [unismsEndpoint, setUnismsEndpoint] = useState(localStorage.getItem('admin_setting_unisms_endpoint') || 'https://unismsapi.com/api');
+    const [unismsTimeout, setUnismsTimeout] = useState(localStorage.getItem('admin_setting_unisms_timeout') || '15');
+    const [failoverTimeout, setFailoverTimeout] = useState(localStorage.getItem('admin_setting_failover_timeout') || '8');
+    const [failoverLogEnabled, setFailoverLogEnabled] = useState(localStorage.getItem('admin_setting_failover_log') !== 'false');
 
     // Load settings from backend on mount
     useEffect(() => {
@@ -41,6 +50,17 @@ export const AdminSettings: React.FC = () => {
                         if (d.poll_interval !== undefined) setPollInterval(String(d.poll_interval));
                         if (d.provider_cost !== undefined) setProviderCost(String(d.provider_cost));
                         if (d.charged_rate !== undefined) setChargedRate(String(d.charged_rate));
+                        if (d.sms_provider) {
+                            const provider = d.sms_provider;
+                            if (provider.active_provider !== undefined) setActiveProvider(provider.active_provider);
+                            if (provider.unisms_configured !== undefined) setUnismsConfigured(Boolean(provider.unisms_configured));
+                            if (provider.unisms_api_key_masked !== undefined) setUnismsMaskedKey(provider.unisms_api_key_masked || '');
+                            if (provider.unisms_sender_id !== undefined) setUnismsSenderId(provider.unisms_sender_id || 'NOLASMSPro');
+                            if (provider.unisms_endpoint !== undefined) setUnismsEndpoint(provider.unisms_endpoint || 'https://unismsapi.com/api');
+                            if (provider.unisms_timeout_seconds !== undefined) setUnismsTimeout(String(provider.unisms_timeout_seconds));
+                            if (provider.failover_timeout_seconds !== undefined) setFailoverTimeout(String(provider.failover_timeout_seconds));
+                            if (provider.failover_log_enabled !== undefined) setFailoverLogEnabled(Boolean(provider.failover_log_enabled));
+                        }
                     }
                 }
                 // If API not deployed yet, keep localStorage values (already seeded above)
@@ -63,6 +83,15 @@ export const AdminSettings: React.FC = () => {
             poll_interval: parseInt(pollInterval, 10) || 15,
             provider_cost: parseFloat(providerCost) || 0,
             charged_rate: parseFloat(chargedRate) || 0,
+            sms_provider: {
+                active_provider: activeProvider,
+                unisms_sender_id: unismsSenderId.trim(),
+                unisms_endpoint: unismsEndpoint.trim(),
+                unisms_timeout_seconds: parseInt(unismsTimeout, 10) || 15,
+                failover_timeout_seconds: parseInt(failoverTimeout, 10) || 8,
+                failover_log_enabled: failoverLogEnabled,
+                ...(unismsKeyInput.trim() ? { unisms_api_key: unismsKeyInput.trim() } : {}),
+            },
         };
         try {
             const res = await adminFetch('/api/admin_settings.php', {
@@ -87,6 +116,13 @@ export const AdminSettings: React.FC = () => {
         localStorage.setItem('admin_setting_poll_interval', pollInterval);
         localStorage.setItem('admin_setting_provider_cost', providerCost);
         localStorage.setItem('admin_setting_charged_rate', chargedRate);
+        localStorage.setItem('admin_setting_active_provider', activeProvider);
+        localStorage.setItem('admin_setting_unisms_sender', unismsSenderId);
+        localStorage.setItem('admin_setting_unisms_endpoint', unismsEndpoint);
+        localStorage.setItem('admin_setting_unisms_timeout', unismsTimeout);
+        localStorage.setItem('admin_setting_failover_timeout', failoverTimeout);
+        localStorage.setItem('admin_setting_failover_log', String(failoverLogEnabled));
+        setUnismsKeyInput('');
         setSaving(false);
         setSaved(true);
         setTimeout(() => setSaved(false), 3500);
@@ -194,6 +230,84 @@ export const AdminSettings: React.FC = () => {
                         suffix="s"
                     />
                 </Field>
+            </Section>
+
+            {/* SMS Provider Settings */}
+            <Section title="SMS Provider" icon={<FiKey className="w-4 h-4" />}>
+                <Field label="Active Provider" help="Controls the system-level SMS route used by the backend. Browser sends still go through /api/sms only.">
+                    <select
+                        value={activeProvider}
+                        onChange={e => setActiveProvider(e.target.value)}
+                        className="w-full max-w-[280px] px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-bold"
+                    >
+                        <option value="unisms">UniSMS</option>
+                        <option value="semaphore">Semaphore</option>
+                        <option value="system">System Default</option>
+                    </select>
+                </Field>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    <Field label="UniSMS Sender ID" help="Default sender used when routing through the master UniSMS account.">
+                        <input
+                            value={unismsSenderId}
+                            onChange={e => setUnismsSenderId(e.target.value)}
+                            placeholder="NOLASMSPro"
+                            className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
+                        />
+                    </Field>
+
+                    <Field label="UniSMS API Key" help="Paste a new key only when rotating it. Saved keys are shown masked by the backend.">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-[12px] font-bold">
+                                <span className={`px-2.5 py-1 rounded-full ${unismsConfigured ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/10 dark:text-emerald-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/10 dark:text-amber-400'}`}>
+                                    {unismsConfigured ? 'Configured' : 'Not configured'}
+                                </span>
+                                {unismsMaskedKey && <span className="font-mono text-[#6e6e73] dark:text-[#9aa0a6]">{unismsMaskedKey}</span>}
+                            </div>
+                            <input
+                                type="password"
+                                value={unismsKeyInput}
+                                onChange={e => setUnismsKeyInput(e.target.value)}
+                                placeholder="Enter replacement UniSMS key"
+                                autoComplete="off"
+                                className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
+                            />
+                        </div>
+                    </Field>
+                </div>
+
+                <Field label="UniSMS Endpoint" help="Backend UniSMS API base URL. Keep the default unless the provider changes it.">
+                    <input
+                        value={unismsEndpoint}
+                        onChange={e => setUnismsEndpoint(e.target.value)}
+                        placeholder="https://unismsapi.com/api"
+                        className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow font-mono"
+                    />
+                </Field>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <Field label="UniSMS Timeout" help="Provider request timeout in seconds.">
+                        <ValueAdjuster value={unismsTimeout} onChange={setUnismsTimeout} min={3} max={120} step={1} suffix="s" />
+                    </Field>
+                    <Field label="Failover Timeout" help="How long to wait before backend failover handling.">
+                        <ValueAdjuster value={failoverTimeout} onChange={setFailoverTimeout} min={3} max={120} step={1} suffix="s" />
+                    </Field>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                    <div>
+                        <p className="text-[14px] font-bold text-[#111111] dark:text-white">Failover Logging</p>
+                        <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Record provider failover events for support and audit review.</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setFailoverLogEnabled(v => !v)}
+                        className={`relative flex-shrink-0 w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2b83fa]/50 ${failoverLogEnabled ? 'bg-[#2b83fa]' : 'bg-gray-200 dark:bg-white/10'}`}
+                        aria-label="Toggle failover logging"
+                    >
+                        <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${failoverLogEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                    </button>
+                </div>
             </Section>
 
             {/* Platform Settings */}

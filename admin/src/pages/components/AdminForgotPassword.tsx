@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiEye, FiEyeOff, FiAlertTriangle, FiClock, FiRefreshCw, FiCheckCircle, FiArrowLeft, FiMail, FiShield, FiLock, FiArrowRight } from 'react-icons/fi';
+import { apiFetch } from '../../utils/apiFetch';
 // @ts-ignore
 import defaultLogo from '../../assets/NOLA SMS PRO Logo.png';
 
@@ -63,7 +64,7 @@ export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMo
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/forgot_password_otp.php', {
+      const res = await apiFetch('/api/auth/forgot_password_otp.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmedEmail }),
@@ -89,7 +90,7 @@ export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMo
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/forgot_password_otp.php', {
+      const res = await apiFetch('/api/auth/forgot_password_otp.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail }),
@@ -155,7 +156,7 @@ export const AdminForgotPassword: React.FC<AdminForgotPasswordProps> = ({ darkMo
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/reset_password_otp.php', {
+      const res = await apiFetch('/api/auth/reset_password_otp.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail, otp: verifiedOtp, new_password: newPassword }),

@@ -1,5 +1,6 @@
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
+import { apiFetch } from "../utils/apiFetch";
 
 interface CreateGhlConversationResponse {
   success: boolean;
@@ -38,7 +39,7 @@ export const createGhlConversation = async (
       ? `${API_CONFIG.ghl_conversations}?location_id=${encodeURIComponent(accountSettings.ghlLocationId)}`
       : API_CONFIG.ghl_conversations;
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify({

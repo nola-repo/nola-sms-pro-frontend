@@ -35,6 +35,7 @@ import {
 } from "../config";
 import { safeStorage } from "../utils/safeStorage";
 import { sessionSafeStorage } from "../utils/sessionSafeStorage";
+import { apiFetch } from "../utils/apiFetch";
 
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -674,10 +675,24 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
 
     const systemDefault = config?.system_default_sender || "NOLASMSPro";
     const freeUsageCount = config?.free_usage_count || 0;
-    const freeLimit = 10;
+    const freeLimit = config?.free_credits_total || 10;
+    const providerLabel = (value?: string | null) => {
+        if (value?.startsWith("unisms")) return "UniSMS";
+        if (value?.startsWith("semaphore")) return "Semaphore";
+        return "System";
+    };
+    const configuredKeyLabel = config?.provider_preference?.startsWith("unisms")
+        ? config?.unisms_api_key_configured
+            ? `Key configured${config.unisms_api_key_masked ? ` (${config.unisms_api_key_masked})` : ""}`
+            : "System UniSMS account"
+        : config?.provider_preference?.startsWith("semaphore")
+            ? config?.semaphore_api_key_configured || config?.nola_pro_api_key_configured
+                ? `Key configured${config.semaphore_api_key_masked || config.nola_pro_api_key_masked ? ` (${config.semaphore_api_key_masked || config.nola_pro_api_key_masked})` : ""}`
+                : "System Semaphore account"
+            : "System sender";
 
     // Build display list: system default + API-fetched requests
-    const displayItems: { id: string; name: string; description: string; status: "approved" | "pending" | "rejected" | "revoked"; color: string; isSystem: boolean; submittedAt?: string; adminNotes?: string; sampleMessage?: string }[] = [
+    const displayItems: { id: string; name: string; description: string; status: "approved" | "pending" | "rejected" | "revoked"; color: string; isSystem: boolean; submittedAt?: string; adminNotes?: string; sampleMessage?: string; provider?: string }[] = [
         { id: "system-default", name: systemDefault, description: "System Default (Free Tier)", status: "approved", color: "bg-blue-500", isSystem: true },
     ];
 
@@ -686,10 +701,11 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
         displayItems.push({
             id: "approved-custom",
             name: config.approved_sender_id,
-            description: "Your Approved Sender",
+            description: `${providerLabel(config.provider_preference)} - ${configuredKeyLabel}`,
             status: "approved",
             color: "bg-emerald-500",
             isSystem: false,
+            provider: providerLabel(config.provider_preference),
         });
     }
 
@@ -707,6 +723,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
             submittedAt: req.created_at,
             adminNotes: req.admin_notes,
             sampleMessage: req.sample_message,
+            provider: providerLabel(req.provider_preference || req.provider),
         });
     }
 
@@ -828,6 +845,11 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                                                     : "bg-gray-200 dark:bg-gray-800 text-gray-500"
                                                 }`}>
                                                     System • {freeUsageCount}/{freeLimit} Free
+                                                </span>
+                                            )}
+                                            {sid.provider && !sid.isSystem && (
+                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500">
+                                                    {sid.provider}
                                                 </span>
                                             )}
                                         </div>
@@ -1393,7 +1415,7 @@ const CreditsSection: React.FC = () => {
     // const saveAutoRecharge = async () => {
     //     setArSaving(true);
     //     try {
-    //         await fetch(`${API_BASE_URL}/api/billing/subaccount_wallet.php`, {
+    //         await apiFetch(`${API_BASE_URL}/api/billing/subaccount_wallet.php`, {
     //             method: 'POST',
     //             headers: { 'Content-Type': 'application/json' },
     //             credentials: 'include',
@@ -1408,7 +1430,7 @@ const CreditsSection: React.FC = () => {
         if (reqAmount <= 0) return;
         setReqLoading(true);
         try {
-            const res = await fetch(`${API_BASE_URL}/api/billing/subaccount_wallet.php`, {
+            const res = await apiFetch(`${API_BASE_URL}/api/billing/subaccount_wallet.php`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

@@ -1,5 +1,6 @@
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
+import { apiFetch } from "../utils/apiFetch";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 export interface SenderRequest {
@@ -10,14 +11,32 @@ export interface SenderRequest {
     purpose?: string;
     sample_message?: string;
     admin_notes?: string;
+    provider?: SenderProvider;
+    provider_preference?: ProviderPreference;
+    unisms_sender_id?: string;
     created_at: string;
 }
 
+export type SenderProvider = "system" | "semaphore" | "unisms";
+export type ProviderPreference = "system" | "semaphore" | "semaphore_custom" | "unisms" | "unisms_custom";
+
 export interface AccountSenderConfig {
+    sender_id?: string | null;
+    verified?: boolean;
     approved_sender_id: string | null;
-    nola_pro_api_key: string | null;     // Preferred field (new)
-    semaphore_api_key: string | null;    // Legacy fallback
+    nola_pro_api_key: null;
+    nola_pro_api_key_masked?: string | null;
+    nola_pro_api_key_configured?: boolean;
+    semaphore_api_key: null;
+    semaphore_api_key_masked?: string | null;
+    semaphore_api_key_configured?: boolean;
+    unisms_api_key: null;
+    unisms_api_key_masked?: string | null;
+    unisms_api_key_configured?: boolean;
+    unisms_sender_id?: string | null;
+    provider_preference?: ProviderPreference;
     free_usage_count: number;
+    free_credits_total?: number;
     system_default_sender: string;
     toggle_enabled?: boolean;
 }
@@ -41,17 +60,19 @@ function getLocationHeaders(explicitLocationId?: string): { headers: Record<stri
 export const submitSenderRequest = async (
     requestedId: string,
     purpose: string,
-    sampleMessage: string
+    sampleMessage: string,
+    provider: SenderProvider = "unisms"
 ): Promise<SenderRequest> => {
     const { headers, locationId } = getLocationHeaders();
     const normalizedId = requestedId.trim().toUpperCase();
 
-    const res = await fetch(API_CONFIG.sender_requests, {
+    const res = await apiFetch(API_CONFIG.sender_requests, {
         method: "POST",
         headers,
         body: JSON.stringify({
             location_id: locationId,
             requested_id: normalizedId,
+            provider,
             purpose: purpose.trim(),
             sample_message: sampleMessage.trim(),
         }),
@@ -83,7 +104,7 @@ export const fetchSenderRequests = async (explicitLocationId?: string): Promise<
         url += `?location_id=${encodeURIComponent(locationId)}`;
     }
 
-    const res = await fetch(url, { headers });
+    const res = await apiFetch(url, { headers });
     if (!res.ok) {
         console.error("[fetchSenderRequests] Error:", res.status);
         return [];
@@ -101,7 +122,7 @@ export const cancelSenderRequest = async (requestId: string, explicitLocationId?
         url += `?location_id=${encodeURIComponent(locationId)}`;
     }
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
         method: "DELETE",
         headers,
         body: JSON.stringify({ request_id: requestId }),
@@ -132,7 +153,10 @@ export const fetchAccountSenderConfig = async (explicitLocationId?: string): Pro
         approved_sender_id: null,
         nola_pro_api_key: null,
         semaphore_api_key: null,
+        unisms_api_key: null,
+        provider_preference: "system",
         free_usage_count: 0,
+        free_credits_total: 10,
         system_default_sender: "NOLASMSPro",
         toggle_enabled: true,
     };
@@ -143,7 +167,7 @@ export const fetchAccountSenderConfig = async (explicitLocationId?: string): Pro
     }
 
     try {
-        const res = await fetch(url, { headers });
+        const res = await apiFetch(url, { headers });
         if (!res.ok) {
             console.error("[fetchAccountSenderConfig] Error:", res.status);
             return DEFAULT_CONFIG;
@@ -161,11 +185,12 @@ export const fetchAccountSenderConfig = async (explicitLocationId?: string): Pro
             );
 
             if (!stillApproved) {
-                return {
+            return {
                     ...config,
                     approved_sender_id: null,
                     nola_pro_api_key: null,
                     semaphore_api_key: null,
+                    unisms_api_key: null,
                 };
             }
         }
@@ -180,17 +205,29 @@ export const fetchAccountSenderConfig = async (explicitLocationId?: string): Pro
 /**
  * Save/update the user's Semaphore API key.
  */
-export const saveAccountApiKey = async (apiKey: string): Promise<boolean> => {
+export const saveAccountApiKey = async (apiKey: string, provider: "semaphore" | "unisms" = "semaphore"): Promise<boolean> => {
     const { headers, locationId } = getLocationHeaders();
 
     try {
-        const res = await fetch(API_CONFIG.account_sender, {
+        const providerPayload = provider === "unisms"
+            ? {
+                provider_preference: "unisms_custom",
+                provider: "unisms",
+                unisms_api_key: apiKey,
+            }
+            : {
+                provider_preference: "semaphore_custom",
+                provider: "semaphore",
+                semaphore_api_key: apiKey,
+                nola_pro_api_key: apiKey,
+            };
+
+        const res = await apiFetch(API_CONFIG.account_sender, {
             method: "POST",
             headers,
             body: JSON.stringify({
                 location_id: locationId,
-                semaphore_api_key: apiKey,  // Current backend field
-                nola_pro_api_key: apiKey,   // Future standardized field
+                ...providerPayload,
             }),
         });
 

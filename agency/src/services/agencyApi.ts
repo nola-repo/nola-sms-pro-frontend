@@ -1,6 +1,7 @@
 import { SESSION_KEYS } from './agencyAuthHelper';
 import { safeStorage } from '../utils/safeStorage';
 import { sessionSafeStorage } from '../utils/sessionSafeStorage';
+import { apiFetch, withRequestId } from '../utils/apiFetch';
 
 export const getAgencyToken = (): string => (
   sessionSafeStorage.getItem(SESSION_KEYS.token) ||
@@ -28,7 +29,7 @@ export const getAgencyAuthHeaders = (includeJson = false): Record<string, string
 };
 
 export const agencyFetch = (input: RequestInfo | URL, init: RequestInit = {}) => {
-  const incomingHeaders = new Headers(init.headers);
+  const incomingHeaders = withRequestId(init.headers);
   const authHeaders = getAgencyAuthHeaders(
     Boolean(init.body) || incomingHeaders.has('Content-Type')
   );
@@ -37,7 +38,7 @@ export const agencyFetch = (input: RequestInfo | URL, init: RequestInit = {}) =>
     if (!incomingHeaders.has(key)) incomingHeaders.set(key, value);
   });
 
-  return fetch(input, {
+  return apiFetch(input, {
     ...init,
     headers: incomingHeaders,
   });

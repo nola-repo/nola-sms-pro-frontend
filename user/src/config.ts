@@ -42,7 +42,7 @@ export const API_CONFIG = {
     templates: `${API_BASE}/api/templates`,
     tickets: `${API_BASE}/api/tickets`,
     notificationSettings: `${API_BASE}/api/notification-settings`,
-    check_message_status: `${API_BASE}/api/check_message_status`,
+    check_message_status: `${API_BASE}/api/check_message_status.php`,
 };
 
 export default API_CONFIG;

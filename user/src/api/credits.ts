@@ -1,5 +1,6 @@
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
+import { apiFetch } from "../utils/apiFetch";
 
 // ─── Credit Status (Three-Tier Billing) ──────────────────────────────────────
 export interface CreditStatus {
@@ -33,7 +34,7 @@ export async function fetchCreditStatus(explicitLocationId?: string): Promise<Cr
         }
         const url = `${API_CONFIG.credits}?${params.toString()}`;
 
-        const res = await fetch(url, { headers });
+        const res = await apiFetch(url, { headers });
         if (!res.ok) return null;
         const data = await res.json();
 
@@ -108,7 +109,7 @@ export async function fetchCreditTransactions(
             url += `&month=${encodeURIComponent(month)}`;
         }
 
-        const res = await fetch(url, { headers });
+        const res = await apiFetch(url, { headers });
         if (!res.ok) return [];
         const data = await res.json();
 

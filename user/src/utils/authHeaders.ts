@@ -1,12 +1,12 @@
 /**
  * authHeaders.ts
  * Shared helper that builds the Authorization header from the current session.
- * Import and spread into every fetch() options.headers instead of hand-rolling
+ * Import and spread into every apiFetch() options.headers instead of hand-rolling
  * the Bearer token string in every API file.
  *
  * Usage:
  *   import { getAuthHeaders } from '../utils/authHeaders';
- *   const res = await fetch(url, {
+ *   const res = await apiFetch(url, {
  *     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
  *   });
  */

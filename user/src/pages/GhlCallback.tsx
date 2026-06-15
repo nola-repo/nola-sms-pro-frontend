@@ -7,6 +7,7 @@ import {
 } from '../config';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 import { safeStorage } from '../utils/safeStorage';
+import { apiFetch } from '../utils/apiFetch';
 
 // Change this to match the Redirect URI you set in GHL Marketplace
 const REDIRECT_URI = window.location.origin + window.location.pathname; // If they go to /?code=...
@@ -47,7 +48,7 @@ export const GhlCallback: React.FC = () => {
                 const accountSettings = getAccountSettings();
 
                 // Call our PHP backend to exchange code for token
-                const response = await fetch(`${API_CONFIG.base}/api/ghl_oauth`, {
+                const response = await apiFetch(`${API_CONFIG.base}/api/ghl_oauth`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code, redirectUri: REDIRECT_URI })

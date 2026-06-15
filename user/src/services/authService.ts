@@ -1,6 +1,7 @@
 import { safeStorage } from '../utils/safeStorage';
 import { sessionSafeStorage } from '../utils/sessionSafeStorage';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
+import { apiFetch } from '../utils/apiFetch';
 /**
  * authService.ts
  * Centralized auth API calls and localStorage session management.
@@ -212,7 +213,7 @@ export const redirectToLogin = (): void => {
 
 // ── API calls ───────────────────────────────────────────────────────────────
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
-  const res = await fetch(`${BASE}/login.php`, {
+  const res = await apiFetch(`${BASE}/login.php`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ email, password, remember_me: true }),
@@ -224,7 +225,7 @@ export const login = async (email: string, password: string): Promise<LoginRespo
 };
 
 export const register = async (payload: RegisterPayload): Promise<{ status: string; message: string }> => {
-  const res = await fetch(`${BASE}/register.php`, {
+  const res = await apiFetch(`${BASE}/register.php`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(payload),
@@ -238,7 +239,7 @@ export const linkCompany = async (companyId: string): Promise<void> => {
   const token = safeStorage.getItem(SESSION_KEYS.token);
   if (!token) throw new Error('Not authenticated');
 
-  const res = await fetch('/api/agency/link_company.php', {
+  const res = await apiFetch('/api/agency/link_company.php', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

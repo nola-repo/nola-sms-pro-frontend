@@ -2,6 +2,7 @@ import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
 import { getSession, redirectToLogin, type AuthSession } from "../services/authService";
 import type { Contact } from "../types/Contact";
+import { apiFetch } from "../utils/apiFetch";
 
 // Use the GHL contacts proxy endpoint (calls GoHighLevel API directly)
 const CONTACTS_API_URL = API_CONFIG.ghl_contacts;
@@ -52,13 +53,6 @@ const isJwtExpired = (token: string): boolean => {
   return exp !== null && exp * 1000 <= Date.now();
 };
 
-const createRequestId = () => {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-};
-
 const getContactContext = (explicitLocationId?: string): {
   session: AuthSession | null;
   locationId: string;
@@ -79,7 +73,6 @@ const getContactContext = (explicitLocationId?: string): {
     Accept: 'application/json',
     'Content-Type': 'application/json',
     'X-GHL-Location-ID': locationId,
-    'X-Request-ID': createRequestId(),
   };
 
   if (session?.token) {
@@ -203,7 +196,7 @@ export const fetchContactsMeta = async (explicitLocationId?: string): Promise<Fe
 
     const params = new URLSearchParams({ location_id: contactContext.locationId });
     const url = `${CONTACTS_API_URL}?${params.toString()}`;
-    const res = await fetch(url, { headers: contactContext.headers });
+    const res = await apiFetch(url, { headers: contactContext.headers });
 
     if (!res.ok) {
       const errorBody = await readJsonOrText(res);
@@ -266,7 +259,7 @@ export const addContact = async (params: AddContactParams): Promise<Contact | nu
     if (params.email) body.email = params.email;
 
     const url = `${CONTACTS_API_URL}?${new URLSearchParams({ location_id: contactContext.locationId }).toString()}`;
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method: 'POST',
       headers: contactContext.headers,
       body: JSON.stringify(body),
@@ -309,7 +302,7 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
     if (params.email) body.email = params.email;
 
     const url = `${CONTACTS_API_URL}?${new URLSearchParams({ location_id: contactContext.locationId }).toString()}`;
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method: 'PUT',
       headers: contactContext.headers,
       body: JSON.stringify(body),
@@ -345,7 +338,7 @@ export const deleteContact = async (id: string): Promise<boolean> => {
       location_id: contactContext.locationId,
     }).toString()}`;
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method: 'DELETE',
       headers: contactContext.headers,
     });

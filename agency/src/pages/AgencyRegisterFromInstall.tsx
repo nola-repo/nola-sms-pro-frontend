@@ -6,6 +6,7 @@ import defaultLogo from '../assets/NOLA SMS PRO Logo.png';
 import { SESSION_KEYS } from '../services/agencyAuthHelper';
 import { safeStorage } from '../utils/safeStorage';
 import { sessionSafeStorage } from '../utils/sessionSafeStorage';
+import { apiFetch } from '../utils/apiFetch';
 
 // Same-origin relative URLs — nginx proxy handles routing (matches agencyAuthHelper pattern)
 const API_BASE = '';
@@ -141,7 +142,7 @@ const AgencyRegisterFromInstall: React.FC = () => {
 
     const verify = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/auth/verify-install-token?token=${encodeURIComponent(installToken)}`);
+        const res = await apiFetch(`${API_BASE}/api/auth/verify-install-token?token=${encodeURIComponent(installToken)}`);
         
         let data;
         try {
@@ -198,7 +199,7 @@ const AgencyRegisterFromInstall: React.FC = () => {
     setApiError(null);
 
     try {
-      const res = await fetch(`${API_BASE}/api/auth/register-from-install`, {
+      const res = await apiFetch(`${API_BASE}/api/auth/register-from-install`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

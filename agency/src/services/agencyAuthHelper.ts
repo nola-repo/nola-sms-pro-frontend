@@ -1,5 +1,6 @@
 import { safeStorage } from '../utils/safeStorage';
 import { sessionSafeStorage } from '../utils/sessionSafeStorage';
+import { apiFetch } from '../utils/apiFetch';
 /**
  * agencyAuthHelper.ts
  * Auth session helper for the Agency panel.
@@ -98,7 +99,7 @@ export const linkCompany = async (companyId: string): Promise<void> => {
   const token = getAuthToken();
   if (!token) throw new Error('Not authenticated');
 
-  const res = await fetch('/api/agency/link_company.php', {
+  const res = await apiFetch('/api/agency/link_company.php', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -122,7 +123,7 @@ export const linkCompany = async (companyId: string): Promise<void> => {
 
 export const exchangeOAuthCode = async (code: string): Promise<string> => {
   const redirectUri = import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolasmspro.com/oauth/callback';
-  const res = await fetch('/api/ghl/oauth_exchange.php', {
+  const res = await apiFetch('/api/ghl/oauth_exchange.php', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, redirect_uri: redirectUri }),
@@ -144,7 +145,7 @@ export const exchangeOAuthCode = async (code: string): Promise<string> => {
  * and issues a signed JWT.
  */
 export const ghlAutoLogin = async (companyId: string): Promise<AgencySession> => {
-  const res = await fetch('/api/agency/ghl_autologin', {
+  const res = await apiFetch('/api/agency/ghl_autologin', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ company_id: companyId }),
@@ -253,7 +254,7 @@ export const fetchAgencyProfile = async (): Promise<AgencyAuthUser | null> => {
   const token = getAuthToken();
   if (!token) return null;
 
-  const res = await fetch('/api/agency/profile.php', {
+  const res = await apiFetch('/api/agency/profile.php', {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -280,7 +281,7 @@ export const fetchAgencyProfile = async (): Promise<AgencyAuthUser | null> => {
 };
 
 export const login = async (email: string, password: string, rememberMe = true): Promise<any> => {
-  const res = await fetch(`/api/auth/login.php`, {
+  const res = await apiFetch(`/api/auth/login.php`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ email, password, remember_me: rememberMe }),
@@ -321,7 +322,7 @@ export const login = async (email: string, password: string, rememberMe = true):
 };
 
 export const requestPasswordOtp = async (email: string): Promise<{ status: string; message: string }> => {
-  const res = await fetch('/api/auth/forgot_password_otp.php', {
+  const res = await apiFetch('/api/auth/forgot_password_otp.php', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ email }),
@@ -337,7 +338,7 @@ export const resetPasswordWithOtp = async (
   otp: string,
   newPassword: string,
 ): Promise<{ status: string; message: string }> => {
-  const res = await fetch('/api/auth/reset_password_otp.php', {
+  const res = await apiFetch('/api/auth/reset_password_otp.php', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ email, otp, new_password: newPassword }),

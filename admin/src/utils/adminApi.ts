@@ -1,4 +1,5 @@
 import { getAdminAuthHeaders } from './adminAuthHeaders';
+import { apiFetch, withRequestId } from './apiFetch';
 
 export const ADMIN_AUTH_REQUIRED_EVENT = 'nola-admin-auth-required';
 
@@ -46,7 +47,7 @@ const emitAdminAuthRequired = () => {
 };
 
 const mergeAdminHeaders = (headers?: HeadersInit) => {
-  const merged = new Headers(headers);
+  const merged = withRequestId(headers);
 
   Object.entries(getAdminAuthHeaders()).forEach(([key, value]) => {
     if (!merged.has(key)) merged.set(key, value);
@@ -56,7 +57,7 @@ const mergeAdminHeaders = (headers?: HeadersInit) => {
 };
 
 export const adminFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
-  const response = await fetch(input, {
+  const response = await apiFetch(input, {
     ...init,
     headers: mergeAdminHeaders(init.headers),
   });

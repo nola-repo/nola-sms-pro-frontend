@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { safeStorage } from '../utils/safeStorage';
+import { apiFetch } from '../utils/apiFetch';
 
 export interface GhlCompanyState {
   companyId: string | null;
@@ -126,7 +127,7 @@ export function useGhlCompany(): GhlCompanyState {
         raw.payload
       ) {
         try {
-          const res = await fetch('/api/agency/ghl_sso_decrypt.php', {
+          const res = await apiFetch('/api/agency/ghl_sso_decrypt.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ encryptedPayload: raw.payload }),

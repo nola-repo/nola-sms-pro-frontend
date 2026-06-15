@@ -86,10 +86,15 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
         // Approved sender (if any)
         const approvedId = approvedSenderId || config?.approved_sender_id;
         if (approvedId) {
+            const providerLabel = config?.provider_preference?.startsWith("unisms")
+                ? "UniSMS"
+                : config?.provider_preference?.startsWith("semaphore")
+                    ? "Semaphore"
+                    : "Custom";
             options.push({
                 id: approvedId,
                 name: approvedId,
-                description: "Your Approved Sender",
+                description: `Your Approved Sender (${providerLabel})`,
                 icon: <FiCheckCircle />,
                 color: "bg-emerald-500",
             });
