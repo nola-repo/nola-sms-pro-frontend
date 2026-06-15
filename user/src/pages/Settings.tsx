@@ -1967,16 +1967,23 @@ const CreditsSection: React.FC = () => {
                     <>
                         <div className="space-y-0 min-h-[250px]">
                             {transactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((tx) => {
-                                const isCredit = tx.type === 'top_up' || tx.type === 'refund' || tx.type === 'manual_adjustment';
+                                const isAdjustment = tx.type === 'manual_adjustment' || tx.type === 'admin_adjustment' || tx.type === 'agency_adjustment';
+                                const isCredit = tx.type === 'top_up' || tx.type === 'refund' || tx.type === 'credit_purchase' || (isAdjustment && tx.amount >= 0);
                                 const sign = isCredit ? '+' : '−';
                                 const absAmount = Math.abs(tx.amount);
+                                
+                                let displayDescription = tx.description;
+                                if (isAdjustment) {
+                                    displayDescription = `Manual credit adjustment (Applied ${tx.amount >= 0 ? '+' : '-'}${absAmount} credits)`;
+                                }
+
                                 return (
                                     <div key={tx.transaction_id} className="flex items-center gap-3 py-2.5 border-b border-[#f0f0f0] dark:border-[#2a2b32] last:border-0 hover:bg-gray-50 dark:hover:bg-white/5 px-2 rounded-xl transition-colors">
                                         <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold ${isCredit ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-900/20 text-red-500'}`}>
                                             {sign}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[13px] font-medium text-[#111111] dark:text-[#ececf1] truncate">{tx.description}</p>
+                                            <p className="text-[13px] font-medium text-[#111111] dark:text-[#ececf1] truncate">{displayDescription}</p>
                                             <p className="text-[11px] text-[#9aa0a6]">{formatTxDate(tx.created_at)}</p>
                                         </div>
                                         <div className="flex flex-col items-end flex-shrink-0">
@@ -1991,29 +1998,80 @@ const CreditsSection: React.FC = () => {
                         </div>
                         
                         {/* Pagination Controls */}
-                        {transactions.length > itemsPerPage && (
-                            <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#f0f0f0] dark:border-[#2a2b32]">
-                                <span className="text-[12px] font-medium text-[#9aa0a6]">
-                                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, transactions.length)} of {transactions.length}
-                                </span>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                        disabled={currentPage === 1}
-                                        className="p-1.5 rounded-lg border border-[#e5e5e5] dark:border-[#2a2b32] text-[#6e6e73] dark:text-[#94959b] hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                    >
-                                        <FiChevronLeft className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(transactions.length / itemsPerPage), p + 1))}
-                                        disabled={currentPage === Math.ceil(transactions.length / itemsPerPage)}
-                                        className="p-1.5 rounded-lg border border-[#e5e5e5] dark:border-[#2a2b32] text-[#6e6e73] dark:text-[#94959b] hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                    >
-                                        <FiChevronRight className="w-4 h-4" />
-                                    </button>
+                        {transactions.length > itemsPerPage && (() => {
+                            const totalPages = Math.ceil(transactions.length / itemsPerPage);
+                            
+                            const getPageNumbers = () => {
+                                const pages = [];
+                                const maxVisiblePages = 5;
+                                
+                                if (totalPages <= maxVisiblePages) {
+                                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                                } else {
+                                    if (currentPage <= 3) {
+                                        for (let i = 1; i <= 4; i++) pages.push(i);
+                                        pages.push('...');
+                                        pages.push(totalPages);
+                                    } else if (currentPage >= totalPages - 2) {
+                                        pages.push(1);
+                                        pages.push('...');
+                                        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+                                    } else {
+                                        pages.push(1);
+                                        pages.push('...');
+                                        pages.push(currentPage - 1);
+                                        pages.push(currentPage);
+                                        pages.push(currentPage + 1);
+                                        pages.push('...');
+                                        pages.push(totalPages);
+                                    }
+                                }
+                                return pages;
+                            };
+
+                            return (
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-6 pt-4 border-t border-[#f0f0f0] dark:border-[#2a2b32] gap-4">
+                                    <span className="text-[12px] font-medium text-[#9aa0a6] text-center sm:text-left">
+                                        Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, transactions.length)} of {transactions.length}
+                                    </span>
+                                    <div className="flex items-center justify-center gap-1.5">
+                                        <button
+                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                            disabled={currentPage === 1}
+                                            className="p-1.5 rounded-lg border border-[#e5e5e5] dark:border-[#2a2b32] text-[#6e6e73] dark:text-[#94959b] hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                        >
+                                            <FiChevronLeft className="w-4 h-4" />
+                                        </button>
+                                        
+                                        {getPageNumbers().map((page, idx) => (
+                                            page === '...' ? (
+                                                <span key={`ellipsis-${idx}`} className="px-1 text-[12px] font-medium text-[#9aa0a6]">...</span>
+                                            ) : (
+                                                <button
+                                                    key={`page-${page}`}
+                                                    onClick={() => setCurrentPage(page as number)}
+                                                    className={`min-w-[28px] h-7 rounded-lg text-[12px] font-bold transition-all ${
+                                                        currentPage === page
+                                                            ? 'bg-[#2b83fa] text-white border border-[#2b83fa]'
+                                                            : 'border border-[#e5e5e5] dark:border-[#2a2b32] text-[#6e6e73] dark:text-[#94959b] hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32]'
+                                                    }`}
+                                                >
+                                                    {page}
+                                                </button>
+                                            )
+                                        ))}
+
+                                        <button
+                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                            disabled={currentPage === totalPages}
+                                            className="p-1.5 rounded-lg border border-[#e5e5e5] dark:border-[#2a2b32] text-[#6e6e73] dark:text-[#94959b] hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                        >
+                                            <FiChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
                     </>
                 )}
             </Card>

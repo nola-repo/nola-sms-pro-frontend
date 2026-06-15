@@ -380,7 +380,8 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         const date = toDate(log.created_at);
         if (!date) return;
         const index = creditUsageIndex.get(dayKey(date));
-        const isUsage = log.type !== 'top_up' && log.type !== 'refund' && log.type !== 'manual_adjustment' && log.type !== 'credit_purchase';
+        const isAdjustment = log.type === 'manual_adjustment' || log.type === 'admin_adjustment' || log.type === 'agency_adjustment';
+        const isUsage = log.type !== 'top_up' && log.type !== 'refund' && !isAdjustment && log.type !== 'credit_purchase';
         if (index !== undefined && isUsage && dayKey(date) >= trendStartKey) {
             creditUsageSeries[index].value += Math.abs(log.amount || 0);
         }
@@ -392,7 +393,8 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
         const date = toDate(log.created_at);
         if (!date) return;
         const index = sentTodayIndex.get(dayKey(date));
-        const isUsage = log.type !== 'top_up' && log.type !== 'refund' && log.type !== 'manual_adjustment' && log.type !== 'credit_purchase';
+        const isAdjustment = log.type === 'manual_adjustment' || log.type === 'admin_adjustment' || log.type === 'agency_adjustment';
+        const isUsage = log.type !== 'top_up' && log.type !== 'refund' && !isAdjustment && log.type !== 'credit_purchase';
         if (index !== undefined && isUsage && dayKey(date) >= trendStartKey) {
             sentTodaySeries[index].value += 1;
         }
@@ -983,7 +985,8 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                 ))
                             ) : transactions.length > 0 ? (
                                 transactions.slice(0, 4).map((tx: HomeCreditTransaction, idx) => {
-                                    const isCredit = tx.type === 'top_up' || tx.type === 'refund' || tx.type === 'manual_adjustment' || tx.type === 'credit_purchase';
+                                    const isAdjustment = tx.type === 'manual_adjustment' || tx.type === 'admin_adjustment' || tx.type === 'agency_adjustment';
+                                    const isCredit = tx.type === 'top_up' || tx.type === 'refund' || tx.type === 'credit_purchase' || (isAdjustment && (tx.amount || 0) >= 0);
                                     const isUsage = !isCredit;
                                     const timeString = tx.created_at ? new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
                                     const dateString = tx.created_at ? new Date(tx.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
@@ -996,7 +999,9 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between mb-1 gap-2">
                                                     <p className="text-[14px] font-bold text-[#111111] dark:text-white leading-tight truncate">
-                                                        {tx.description || (isUsage ? 'Credits Used' : 'Credits Purchased')}
+                                                        {isAdjustment
+                                                            ? `Manual credit adjustment (Applied ${tx.amount && tx.amount >= 0 ? '+' : '-'}${Math.abs(tx.amount || 0)} credits)`
+                                                            : (tx.description || (isUsage ? 'Credits Used' : 'Credits Purchased'))}
                                                     </p>
                                                     <span className="text-[11px] uppercase font-bold text-[#9aa0a6] tracking-wider whitespace-nowrap flex-shrink-0">
                                                         {dateString}{timeString ? ` - ${timeString}` : ''}

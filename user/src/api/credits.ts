@@ -54,7 +54,7 @@ export async function fetchCreditStatus(explicitLocationId?: string): Promise<Cr
 export interface CreditTransaction {
     transaction_id: string;
     account_id: string;
-    type: 'deduction' | 'top_up' | 'refund' | 'manual_adjustment';
+    type: 'deduction' | 'top_up' | 'refund' | 'manual_adjustment' | 'admin_adjustment' | 'agency_adjustment' | 'credit_purchase';
     amount: number;         // negative for deductions, positive for credits
     balance_after: number;
     reference_id?: string;
