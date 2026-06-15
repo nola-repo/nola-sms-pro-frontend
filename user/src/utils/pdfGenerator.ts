@@ -67,13 +67,13 @@ const formatDateTime = (tx: ReportTransaction): string => {
   const rawDate = pickString(tx.timestamp, tx.created_at, tx.createdAt, tx.date);
   const date = toDate(rawDate);
   if (!date) return rawDate || '-';
-  return `${date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}\n${date.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+  return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}\n${date.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
 };
 
 const normalizeType = (tx: ReportTransaction): string => {
   const type = pickString(tx.type, tx.event_type, tx.kind).replace(/_/g, ' ').trim();
   const amount = toNumber(tx.amount);
-  if (/sms usage/i.test(type)) return amount < 0 ? 'SMS SENT' : 'SMS';
+  if (/sms usage/i.test(type)) return amount < 0 ? 'SMS\n(SENT)' : 'SMS';
   if (/admin adjustment/i.test(type)) return 'ADMIN ADJUSTMENT';
   if (/top up/i.test(type)) return 'TOP UP';
   if (/credit distribution/i.test(type)) return 'CREDIT DISTRIBUTION';
@@ -187,7 +187,7 @@ export const generateMonthlyReport = (
       normalizeType(tx),
       normalizeRecipient(tx),
       normalizeMessage(tx),
-      amount > 0 ? `+${amount.toLocaleString()}` : amount.toLocaleString(),
+      amount > 0 ? `+${amount.toLocaleString()} credits` : `${amount.toLocaleString()} credits`,
       balance.toLocaleString(),
     ];
 
@@ -255,9 +255,7 @@ export const generateMonthlyReport = (
   const detailLines = [
     ['Email', profile.email],
     ['Phone', profile.phone],
-    ['Location', pickString(profile.locationName, profile.locationId)],
     ['Location ID', profile.locationId],
-    ['Agency', pickString(profile.agencyName, profile.companyName)],
   ].filter(([, value]) => Boolean(value));
 
   doc.setFont('helvetica', 'normal');
@@ -300,8 +298,8 @@ export const generateMonthlyReport = (
   });
 
   const tableColumn = isWide
-    ? ['#', 'Date/Time', 'Account', 'Type', 'Number', 'Details', 'Credits', 'Balance', 'Cost', 'Charged', 'Profit']
-    : ['#', 'Date/Time', 'Type', 'Number', 'Details', 'Credits', 'Balance'];
+    ? ['#', 'Date/Time', 'Account', 'Type', 'Number', 'Message Content', 'Amount', 'Balance', 'Cost', 'Charged', 'Profit']
+    : ['#', 'Date/Time', 'Type', 'Number', 'Message Content', 'Amount', 'Balance'];
 
   autoTable(doc, {
     startY: summaryY + 66,
@@ -326,8 +324,8 @@ export const generateMonthlyReport = (
       2: { cellWidth: 105 },
       3: { cellWidth: 70 },
       4: { cellWidth: 72 },
-      5: { cellWidth: 178 },
-      6: { cellWidth: 52, halign: 'right' },
+      5: { cellWidth: 170 },
+      6: { cellWidth: 60, halign: 'right' },
       7: { cellWidth: 54, halign: 'right' },
       8: { cellWidth: 48, halign: 'right' },
       9: { cellWidth: 52, halign: 'right' },
@@ -337,8 +335,8 @@ export const generateMonthlyReport = (
       1: { cellWidth: 72 },
       2: { cellWidth: 72 },
       3: { cellWidth: 76 },
-      4: { cellWidth: 205 },
-      5: { cellWidth: 54, halign: 'right' },
+      4: { cellWidth: 195 },
+      5: { cellWidth: 64, halign: 'right' },
       6: { cellWidth: 56, halign: 'right' },
     },
     didParseCell: (data: any) => {
