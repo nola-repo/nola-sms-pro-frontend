@@ -59,8 +59,8 @@ const createRequestId = () => {
   return `req-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-const getProtectedContactContext = (explicitLocationId?: string): {
-  session: AuthSession;
+const getContactContext = (explicitLocationId?: string): {
+  session: AuthSession | null;
   locationId: string;
   headers: Record<string, string>;
 } | null => {
@@ -68,25 +68,28 @@ const getProtectedContactContext = (explicitLocationId?: string): {
   const accountSettings = getAccountSettings();
   const locationId = explicitLocationId || session?.locationId || accountSettings.ghlLocationId || '';
 
-  if (!session?.token || isJwtExpired(session.token)) {
-    if (session?.token && isJwtExpired(session.token)) {
-      redirectToLogin();
-    }
+  if (session?.token && isJwtExpired(session.token)) {
+    redirectToLogin();
     return null;
   }
 
   if (!locationId) return null;
 
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    'X-GHL-Location-ID': locationId,
+    'X-Request-ID': createRequestId(),
+  };
+
+  if (session?.token) {
+    headers.Authorization = `Bearer ${session.token}`;
+  }
+
   return {
     session,
     locationId,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.token}`,
-      'X-GHL-Location-ID': locationId,
-      'X-Request-ID': createRequestId(),
-    },
+    headers,
   };
 };
 
@@ -117,8 +120,8 @@ const getErrorMessage = (body: ErrorBody, fallback: string): string => {
 const isReconnectResponse = (status: number, body: ErrorBody): boolean =>
   status === 401 && isRecord(body) && body.requires_reconnect === true;
 
-const handleUnauthorizedResponse = (status: number, body: ErrorBody) => {
-  if (status === 401 && !isReconnectResponse(status, body)) {
+const handleUnauthorizedResponse = (status: number, body: ErrorBody, hasAuthToken: boolean) => {
+  if (status === 401 && hasAuthToken && !isReconnectResponse(status, body)) {
     redirectToLogin();
   }
 };
@@ -191,11 +194,11 @@ const normalizeContacts = (data: unknown): Contact[] => {
 
 export const fetchContactsMeta = async (explicitLocationId?: string): Promise<FetchContactsResult> => {
   try {
-    const contactContext = getProtectedContactContext(explicitLocationId);
+    const contactContext = getContactContext(explicitLocationId);
 
     if (!contactContext) {
-      console.warn('NOLA SMS: Contacts fetch skipped until auth token and location are available.');
-      return { ok: false, contacts: [], kind: 'other', message: 'Authentication or location is not ready', status: 401 };
+      console.warn('NOLA SMS: Contacts fetch skipped until location is available.');
+      return { ok: false, contacts: [], kind: 'other', message: 'Location is not ready', status: 400 };
     }
 
     const params = new URLSearchParams({ location_id: contactContext.locationId });
@@ -205,7 +208,7 @@ export const fetchContactsMeta = async (explicitLocationId?: string): Promise<Fe
     if (!res.ok) {
       const errorBody = await readJsonOrText(res);
       console.error('NOLA SMS: Contacts API error:', res.status, res.statusText, errorBody);
-      handleUnauthorizedResponse(res.status, errorBody);
+      handleUnauthorizedResponse(res.status, errorBody, Boolean(contactContext.session?.token));
 
       if (isReconnectResponse(res.status, errorBody)) {
         return {
@@ -253,7 +256,7 @@ export interface AddContactParams {
 
 export const addContact = async (params: AddContactParams): Promise<Contact | null> => {
   try {
-    const contactContext = getProtectedContactContext();
+    const contactContext = getContactContext();
     if (!contactContext) {
       throw new Error('Authentication or location is not ready.');
     }
@@ -272,7 +275,7 @@ export const addContact = async (params: AddContactParams): Promise<Contact | nu
     if (!res.ok) {
       const error = await readJsonOrText(res);
       console.error('Failed to add contact:', error);
-      handleUnauthorizedResponse(res.status, error);
+      handleUnauthorizedResponse(res.status, error, Boolean(contactContext.session?.token));
       if (isReconnectResponse(res.status, error)) {
         throw new GhlReconnectError(getErrorMessage(error, 'GoHighLevel connection expired'), res.status);
       }
@@ -296,7 +299,7 @@ export interface UpdateContactParams {
 
 export const updateContact = async (params: UpdateContactParams): Promise<Contact | null> => {
   try {
-    const contactContext = getProtectedContactContext();
+    const contactContext = getContactContext();
     if (!contactContext) {
       throw new Error('Authentication or location is not ready.');
     }
@@ -315,7 +318,7 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
     if (!res.ok) {
       const error = await readJsonOrText(res);
       console.error('Failed to update contact:', error);
-      handleUnauthorizedResponse(res.status, error);
+      handleUnauthorizedResponse(res.status, error, Boolean(contactContext.session?.token));
       if (isReconnectResponse(res.status, error)) {
         throw new GhlReconnectError(getErrorMessage(error, 'GoHighLevel connection expired'), res.status);
       }
@@ -332,7 +335,7 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
 
 export const deleteContact = async (id: string): Promise<boolean> => {
   try {
-    const contactContext = getProtectedContactContext();
+    const contactContext = getContactContext();
     if (!contactContext) {
       throw new Error('Authentication or location is not ready.');
     }
@@ -350,7 +353,7 @@ export const deleteContact = async (id: string): Promise<boolean> => {
     if (!res.ok) {
       const error = await readJsonOrText(res);
       console.error('Failed to delete contact:', error);
-      handleUnauthorizedResponse(res.status, error);
+      handleUnauthorizedResponse(res.status, error, Boolean(contactContext.session?.token));
       if (isReconnectResponse(res.status, error)) {
         throw new GhlReconnectError(getErrorMessage(error, 'GoHighLevel connection expired'), res.status);
       }

@@ -196,15 +196,23 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }`
       );
 
-      fetch('/api/auth/ghl_autologin', {
+      const autoLoginParams = new URLSearchParams({ location_id: locationId });
+      fetch(`/api/auth/ghl_autologin?${autoLoginParams.toString()}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location_id: locationId }),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-GHL-Location-ID': locationId,
+        },
+        body: JSON.stringify({
+          location_id: locationId,
+          locationId,
+          active_location_id: locationId,
+        }),
       })
         .then(async (res) => {
+          const data = await res.json().catch(() => null);
           if (res.ok) {
-            const data = await res.json();
-            if (data.token) {
+            if (data?.token) {
               console.log(`[LocationContext] Silent auto-login succeeded for ${locationId}. Saving session and reloading.`);
               clearAuthSession();
               saveSession(data);
@@ -213,7 +221,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
           }
 
-          console.warn(`[LocationContext] Silent auto-login failed for location ${locationId}. Status: ${res.status}`);
+          const message = data?.message || data?.error || data?.details || res.statusText;
+          console.warn(`[LocationContext] Silent auto-login failed for location ${locationId}. Status: ${res.status}`, message);
           autoLoginInFlightRef.current = false;
 
           if (isMismatch) {

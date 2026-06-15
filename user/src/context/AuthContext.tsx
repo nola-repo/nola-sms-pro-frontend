@@ -38,8 +38,15 @@ const persistSessionHintsFromToken = (token: string) => {
   if (!payload) return;
 
   const role = typeof payload.role === 'string' ? payload.role : 'user';
-  const companyId = typeof payload.company_id === 'string' ? payload.company_id : null;
-  const locationId = typeof payload.location_id === 'string' ? payload.location_id : null;
+  const companyId =
+    typeof payload.company_id === 'string' ? payload.company_id :
+    typeof payload.companyId === 'string' ? payload.companyId :
+    null;
+  const locationId =
+    typeof payload.location_id === 'string' ? payload.location_id :
+    typeof payload.locationId === 'string' ? payload.locationId :
+    typeof payload.active_location_id === 'string' ? payload.active_location_id :
+    null;
 
   safeStorage.setItem(SESSION_KEYS.role, role);
 

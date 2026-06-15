@@ -23,6 +23,9 @@ export interface AuthUser {
   name:  string;
   email: string;
   phone?: string;
+  location_id?: string;
+  active_location_id?: string;
+  company_id?: string;
   location_name?: string;
   company_name?:  string;
 }
@@ -36,8 +39,9 @@ export interface AuthSession {
 }
 
 export interface LoginResponse extends AuthSession {
-  company_id:  string | null;
-  location_id: string | null;
+  company_id?:  string | null;
+  location_id?: string | null;
+  active_location_id?: string | null;
 }
 
 export interface RegisterPayload {
@@ -67,6 +71,13 @@ const isTokenExpired = (token: string): boolean => {
   return exp !== null && exp * 1000 <= Date.now();
 };
 
+const firstString = (...values: unknown[]): string | null => {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+  return null;
+};
+
 // ── Session helpers ─────────────────────────────────────────────────────────
 export const getSession = (): AuthSession | null => {
   // Try getting token from sessionStorage first, then fall back to localStorage (safeStorage)
@@ -80,9 +91,22 @@ export const getSession = (): AuthSession | null => {
   if (!token || isTokenExpired(token)) return null;
 
   const payload = decodeJwtPayload(token);
+  const storedUser = JSON.parse(safeStorage.getItem(SESSION_KEYS.user) ?? 'null');
   const role = safeStorage.getItem(SESSION_KEYS.role) || (typeof payload?.role === 'string' ? payload.role : 'user');
-  const companyId = safeStorage.getItem(SESSION_KEYS.companyId) || (typeof payload?.company_id === 'string' ? payload.company_id : null);
-  const locationId = safeStorage.getItem(SESSION_KEYS.locationId) || (typeof payload?.location_id === 'string' ? payload.location_id : null);
+  const companyId = firstString(
+    safeStorage.getItem(SESSION_KEYS.companyId),
+    payload?.company_id,
+    payload?.companyId,
+    storedUser?.company_id
+  );
+  const locationId = firstString(
+    safeStorage.getItem(SESSION_KEYS.locationId),
+    payload?.location_id,
+    payload?.locationId,
+    payload?.active_location_id,
+    storedUser?.location_id,
+    storedUser?.active_location_id
+  );
 
   if (role) safeStorage.setItem(SESSION_KEYS.role, role);
   if (companyId) safeStorage.setItem(SESSION_KEYS.companyId, companyId);
@@ -93,7 +117,7 @@ export const getSession = (): AuthSession | null => {
     role:       (role as 'agency' | 'user') ?? 'user',
     companyId,
     locationId,
-    user:       JSON.parse(safeStorage.getItem(SESSION_KEYS.user) ?? 'null'),
+    user:       storedUser,
   };
 };
 
@@ -112,34 +136,52 @@ export const saveSession = (data: LoginResponse): void => {
   // Token goes into both sessionStorage and localStorage (safeStorage)
   sessionSafeStorage.setItem(SESSION_KEYS.token, data.token);
   safeStorage.setItem(SESSION_KEYS.token, data.token);
-  safeStorage.setItem(SESSION_KEYS.role, data.role);
+  const payload = decodeJwtPayload(data.token);
+  const role = firstString(data.role, payload?.role) || 'user';
+  const companyId = firstString(data.company_id, data.companyId, payload?.company_id, payload?.companyId, data.user?.company_id);
+  const locationId = firstString(
+    data.location_id,
+    data.locationId,
+    data.active_location_id,
+    payload?.location_id,
+    payload?.locationId,
+    payload?.active_location_id,
+    data.user?.location_id,
+    data.user?.active_location_id
+  );
 
-  if (data.company_id) {
-    safeStorage.setItem(SESSION_KEYS.companyId, data.company_id);
+  safeStorage.setItem(SESSION_KEYS.role, role);
+
+  if (companyId) {
+    safeStorage.setItem(SESSION_KEYS.companyId, companyId);
   } else {
     safeStorage.removeItem(SESSION_KEYS.companyId);
   }
 
-  if (data.location_id) {
-    safeStorage.setItem(SESSION_KEYS.locationId, data.location_id);
+  if (locationId) {
+    safeStorage.setItem(SESSION_KEYS.locationId, locationId);
   } else {
     safeStorage.removeItem(SESSION_KEYS.locationId);
   }
 
   if (data.user) {
-    safeStorage.setItem(SESSION_KEYS.user, JSON.stringify(data.user));
-    safeStorage.setItem('nola_user', JSON.stringify(data.user));
+    const user = {
+      ...data.user,
+      ...(companyId ? { company_id: companyId } : {}),
+      ...(locationId ? { location_id: locationId, active_location_id: data.user.active_location_id || locationId } : {}),
+    };
+    safeStorage.setItem(SESSION_KEYS.user, JSON.stringify(user));
+    safeStorage.setItem('nola_user', JSON.stringify(user));
   } else {
     safeStorage.removeItem(SESSION_KEYS.user);
   }
 
-  const locationId = data.location_id ?? (data.user as any)?.location_id ?? null;
   if (locationId) {
     const current = getAccountSettings();
     saveAccountSettings({
       ...current,
       ghlLocationId: locationId,
-      displayName: (data.user as any)?.location_name || current.displayName,
+      displayName: data.user?.location_name || current.displayName,
     });
   }
 };
@@ -210,7 +252,9 @@ export const linkCompany = async (companyId: string): Promise<void> => {
     try {
       const data = await res.json();
       if (data.error) errorMsg = data.error;
-    } catch (e) {}
+    } catch {
+      // Keep the generic message when the backend does not return JSON.
+    }
     throw new Error(errorMsg);
   }
 
