@@ -10,6 +10,8 @@ import {
     FiEye,
     FiFilter,
     FiMoreVertical,
+    FiMinus,
+    FiPlus,
     FiRefreshCw,
     FiSearch,
     FiTrash2,
@@ -166,8 +168,9 @@ export const AdminAccounts: React.FC = () => {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [agencyFilter, setAgencyFilter] = useState('all');
-    const [sortBy, setSortBy] = useState('name_az');
-    const [subaccountSortDir, setSubaccountSortDir] = useState<'az' | 'za'>('az');
+    const [sortField, setSortField] = useState<'subaccount' | 'agency' | 'credits'>('subaccount');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+    const editContainerRef = useRef<HTMLDivElement>(null);
     const [filterMenuOpen, setFilterMenuOpen] = useState(false);
     const [editingCreditId, setEditingCreditId] = useState<string | null>(null);
     const [editingCreditValue, setEditingCreditValue] = useState<string>('');
@@ -191,7 +194,7 @@ export const AdminAccounts: React.FC = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, agencyFilter, sortBy]);
+    }, [searchTerm, agencyFilter, sortField, sortDir]);
 
     useEffect(() => {
         if (!filterMenuOpen) return;
@@ -214,6 +217,22 @@ export const AdminAccounts: React.FC = () => {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [actionMenuId]);
+
+    useEffect(() => {
+        if (editingCreditId === null) return;
+        const handler = (event: MouseEvent) => {
+            if (editContainerRef.current && !editContainerRef.current.contains(event.target as Node)) {
+                const account = accounts.find(acc => acc.id === editingCreditId);
+                if (account) {
+                    void saveEditCredit(account);
+                } else {
+                    setEditingCreditId(null);
+                }
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [editingCreditId, editingCreditValue, accounts]);
 
     const fetchAccounts = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
@@ -295,26 +314,24 @@ export const AdminAccounts: React.FC = () => {
         });
 
         return [...matches].sort((a, b) => {
-            if (sortBy === 'subaccount_col') {
+            if (sortField === 'subaccount') {
                 const aName = (a.location_name || getAccountName(a)).toLowerCase();
                 const bName = (b.location_name || getAccountName(b)).toLowerCase();
-                return subaccountSortDir === 'az' ? aName.localeCompare(bName) : bName.localeCompare(aName);
+                return sortDir === 'asc' ? aName.localeCompare(bName) : bName.localeCompare(aName);
             }
-            if (sortBy === 'agency_az') {
-                return getAgencyName(a).localeCompare(getAgencyName(b)) || getAccountName(a).localeCompare(getAccountName(b));
+            if (sortField === 'agency') {
+                const aName = getAgencyName(a).toLowerCase();
+                const bName = getAgencyName(b).toLowerCase();
+                return sortDir === 'asc' ? aName.localeCompare(bName) : bName.localeCompare(aName);
             }
-            if (sortBy === 'credits_high') {
-                return (b.credit_balance ?? b.credits ?? 0) - (a.credit_balance ?? a.credits ?? 0);
-            }
-            if (sortBy === 'credits_low') {
-                return (a.credit_balance ?? a.credits ?? 0) - (b.credit_balance ?? b.credits ?? 0);
-            }
-            if (sortBy === 'name_az') {
-                return getAccountName(a).localeCompare(getAccountName(b));
+            if (sortField === 'credits') {
+                const aVal = a.credit_balance ?? a.credits ?? 0;
+                const bVal = b.credit_balance ?? b.credits ?? 0;
+                return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
             }
             return 0;
         });
-    }, [accounts, searchTerm, agencyFilter, sortBy]);
+    }, [accounts, searchTerm, agencyFilter, sortField, sortDir]);
 
     const totalPages = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
     const currentAccounts = filteredAccounts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -453,12 +470,12 @@ export const AdminAccounts: React.FC = () => {
         );
     };
 
-    const handleSubaccountSortToggle = () => {
-        if (sortBy === 'subaccount_col') {
-            setSubaccountSortDir(prev => prev === 'az' ? 'za' : 'az');
+    const handleSort = (field: 'subaccount' | 'agency' | 'credits') => {
+        if (sortField === field) {
+            setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
         } else {
-            setSortBy('subaccount_col');
-            setSubaccountSortDir('az');
+            setSortField(field);
+            setSortDir('asc');
         }
     };
 
@@ -567,20 +584,7 @@ export const AdminAccounts: React.FC = () => {
                                                 </select>
                                             </label>
 
-                                            <label className="block">
-                                                <span className="block text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] mb-1.5 uppercase tracking-wider">Sort</span>
-                                                <select
-                                                    value={sortBy}
-                                                    onChange={e => setSortBy(e.target.value)}
-                                                    className="w-full px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
-                                                >
-                                                    <option value="subaccount_col">Sort by subaccount name</option>
-                                                    <option value="agency_az">Sort by agency</option>
-                                                    <option value="name_az">Sort by name</option>
-                                                    <option value="credits_high">Credits high to low</option>
-                                                    <option value="credits_low">Credits low to high</option>
-                                                </select>
-                                            </label>
+                                            {/* Sorting is managed directly by clicking column headers */}
                                         </div>
                                     </div>
                                 )}
@@ -625,24 +629,64 @@ export const AdminAccounts: React.FC = () => {
                                     <tr className="border-b border-[#e5e5e5] dark:border-white/5">
                                         <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                             <button
-                                                onClick={handleSubaccountSortToggle}
+                                                onClick={() => handleSort('subaccount')}
                                                 className="flex items-center gap-1 hover:text-[#2b83fa] transition-colors group"
                                             >
-                                                Subaccount
+                                                SUBACCOUNT
                                                 <span className="opacity-50 group-hover:opacity-100 transition-opacity">
-                                                    {sortBy === 'subaccount_col' ? (
-                                                        subaccountSortDir === 'az' ? <FiChevronUp className="w-3 h-3" /> : <FiChevronDown className="w-3 h-3" />
+                                                    {sortField === 'subaccount' ? (
+                                                        sortDir === 'asc' ? <FiChevronUp className="w-3 h-3" /> : <FiChevronDown className="w-3 h-3" />
                                                     ) : (
                                                         <FiChevronUp className="w-3 h-3 opacity-40" />
                                                     )}
                                                 </span>
                                             </button>
                                         </th>
-                                        {['Agency', 'Email', 'Phone', 'Role', 'Credits', 'Free Used', 'Actions'].map(header => (
-                                            <th key={header} className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
-                                                {header}
-                                            </th>
-                                        ))}
+                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                            <button
+                                                onClick={() => handleSort('agency')}
+                                                className="flex items-center gap-1 hover:text-[#2b83fa] transition-colors group"
+                                            >
+                                                AGENCY
+                                                <span className="opacity-50 group-hover:opacity-100 transition-opacity">
+                                                    {sortField === 'agency' ? (
+                                                        sortDir === 'asc' ? <FiChevronUp className="w-3 h-3" /> : <FiChevronDown className="w-3 h-3" />
+                                                    ) : (
+                                                        <FiChevronUp className="w-3 h-3 opacity-40" />
+                                                    )}
+                                                </span>
+                                            </button>
+                                        </th>
+                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                            EMAIL
+                                        </th>
+                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                            PHONE
+                                        </th>
+                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                            ROLE
+                                        </th>
+                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                            <button
+                                                onClick={() => handleSort('credits')}
+                                                className="flex items-center gap-1 hover:text-[#2b83fa] transition-colors group"
+                                            >
+                                                CREDITS
+                                                <span className="opacity-50 group-hover:opacity-100 transition-opacity">
+                                                    {sortField === 'credits' ? (
+                                                        sortDir === 'asc' ? <FiChevronUp className="w-3 h-3" /> : <FiChevronDown className="w-3 h-3" />
+                                                    ) : (
+                                                        <FiChevronUp className="w-3 h-3 opacity-40" />
+                                                    )}
+                                                </span>
+                                            </button>
+                                        </th>
+                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                            FREE USED
+                                        </th>
+                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                            ACTIONS
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
@@ -671,19 +715,37 @@ export const AdminAccounts: React.FC = () => {
                                             <td className="py-4 pr-4">{roleBadge(account.role)}</td>
                                             <td className="py-4 pr-4 min-w-[110px]">
                                                 {editingCreditId === account.id ? (
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        autoFocus
-                                                        value={editingCreditValue}
-                                                        onChange={e => setEditingCreditValue(e.target.value)}
-                                                        onBlur={() => saveEditCredit(account)}
-                                                        onKeyDown={e => {
-                                                            if (e.key === 'Enter') saveEditCredit(account);
-                                                            if (e.key === 'Escape') setEditingCreditId(null);
-                                                        }}
-                                                        className="w-24 px-2 py-1 rounded-lg border-2 border-[#2b83fa] bg-white dark:bg-[#0d0e10] text-[13px] font-bold text-[#111111] dark:text-white text-center focus:outline-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                    />
+                                                    <div
+                                                        ref={editContainerRef}
+                                                        className="inline-flex items-center rounded-xl border border-[#e0e0e0] dark:border-white/10 bg-[#f7f7f7] dark:bg-[#0d0e10] overflow-hidden shadow-sm"
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setEditingCreditValue(prev => String(Math.max(0, (parseInt(prev) || 0) - 1)))}
+                                                            className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-white dark:hover:bg-white/5 transition-colors border-r border-[#e0e0e0] dark:border-white/10 flex items-center justify-center cursor-pointer"
+                                                        >
+                                                            <FiMinus className="w-3 h-3" />
+                                                        </button>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            autoFocus
+                                                            value={editingCreditValue}
+                                                            onChange={e => setEditingCreditValue(e.target.value)}
+                                                            onKeyDown={e => {
+                                                                if (e.key === 'Enter') saveEditCredit(account);
+                                                                if (e.key === 'Escape') setEditingCreditId(null);
+                                                            }}
+                                                            className="w-12 text-center text-[13px] font-bold bg-transparent text-[#111111] dark:text-white focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setEditingCreditValue(prev => String((parseInt(prev) || 0) + 1))}
+                                                            className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-white dark:hover:bg-white/5 transition-colors border-l border-[#e0e0e0] dark:border-white/10 flex items-center justify-center cursor-pointer"
+                                                        >
+                                                            <FiPlus className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
                                                 ) : (
                                                     <button
                                                         onClick={() => startEditCredit(account)}
