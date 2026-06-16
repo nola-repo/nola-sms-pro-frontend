@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiShieldOff, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiFilter } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
@@ -67,6 +67,33 @@ const ProviderBadge: React.FC<{ provider: string }> = ({ provider }) => {
     );
 };
 
+const RowStatus: React.FC<{ status: string }> = ({ status }) => {
+    const normalized = String(status || 'pending').toLowerCase();
+    const isApproved = normalized === 'approved';
+    const isRejected = normalized === 'rejected';
+    const isRevoked = normalized === 'revoked';
+
+    if (isApproved) {
+        return (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-black text-emerald-600 dark:text-emerald-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]" />
+                Active
+            </span>
+        );
+    }
+
+    if (isRejected || isRevoked) {
+        return (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-black text-red-600 dark:text-red-400">
+                <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.12)]" />
+                {isRevoked ? 'Revoked' : 'Rejected'}
+            </span>
+        );
+    }
+
+    return null;
+};
+
 export const AdminSenderRequests: React.FC = () => {
     const [requests, setRequests] = useState<SenderRequest[]>([]);
     const [accounts, setAccounts] = useState<Account[]>([]);
@@ -81,8 +108,11 @@ export const AdminSenderRequests: React.FC = () => {
     const [providerFilter, setProviderFilter] = useState<'all' | 'semaphore' | 'unisms' | 'system'>('all');
     const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'sender' | 'account'>('newest');
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+    const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [revokeConfirmId, setRevokeConfirmId] = useState<string | null>(null);
+    const filterMenuRef = useRef<HTMLDivElement>(null);
     const { toasts, showToast, dismissToast } = useToast();
 
     const [currentPage, setCurrentPage] = useState(1);
@@ -91,6 +121,24 @@ export const AdminSenderRequests: React.FC = () => {
     useEffect(() => {
         setCurrentPage(1);
     }, [filter, providerFilter, sortBy, searchTerm]);
+
+    useEffect(() => {
+        if (!filterMenuOpen) return;
+        const handleClick = (event: MouseEvent) => {
+            if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+                setFilterMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, [filterMenuOpen]);
+
+    useEffect(() => {
+        if (!openActionMenuId) return;
+        const closeMenu = () => setOpenActionMenuId(null);
+        document.addEventListener('mousedown', closeMenu);
+        return () => document.removeEventListener('mousedown', closeMenu);
+    }, [openActionMenuId]);
 
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
@@ -260,6 +308,70 @@ export const AdminSenderRequests: React.FC = () => {
                             </button>
                         )}
                     </div>
+                    <div ref={filterMenuRef} className="relative flex-shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setFilterMenuOpen(open => !open)}
+                            className={`relative h-9 w-9 rounded-xl border flex items-center justify-center transition-all ${
+                                filterMenuOpen || filter !== 'all' || providerFilter !== 'all' || sortBy !== 'newest'
+                                    ? 'bg-[#111111] text-white border-[#111111] dark:bg-white dark:text-[#111111] dark:border-white'
+                                    : 'bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e5e5e5] dark:border-white/5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10'
+                            }`}
+                            aria-label="Filter sender requests"
+                            aria-expanded={filterMenuOpen}
+                        >
+                            <FiFilter className="w-3.5 h-3.5" />
+                            {(filter !== 'all' || providerFilter !== 'all' || sortBy !== 'newest') && (
+                                <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#2b83fa] ring-2 ring-white dark:ring-[#1a1b1e]" />
+                            )}
+                        </button>
+                        {filterMenuOpen && (
+                            <div className="absolute right-0 top-full z-30 mt-2 w-72 rounded-2xl border border-[#e5e5e5] dark:border-white/10 bg-white dark:bg-[#1a1b1e] p-3 shadow-xl shadow-black/10 dark:shadow-black/40">
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-[#9aa0a6] mb-1.5">Status</label>
+                                        <select
+                                            value={filter}
+                                            onChange={(event) => setFilter(event.target.value as any)}
+                                            className="w-full appearance-none px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
+                                        >
+                                            <option value="all">All Requests</option>
+                                            <option value="pending">Pending</option>
+                                            <option value="approved">Approved</option>
+                                            <option value="rejected">Rejected</option>
+                                            <option value="revoked">Revoked</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-[#9aa0a6] mb-1.5">Provider</label>
+                                        <select
+                                            value={providerFilter}
+                                            onChange={(event) => setProviderFilter(event.target.value as any)}
+                                            className="w-full appearance-none px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
+                                        >
+                                            <option value="all">All Providers</option>
+                                            <option value="semaphore">Semaphore</option>
+                                            <option value="unisms">UniSMS</option>
+                                            <option value="system">System</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black uppercase tracking-widest text-[#9aa0a6] mb-1.5">Sort</label>
+                                        <select
+                                            value={sortBy}
+                                            onChange={(event) => setSortBy(event.target.value as any)}
+                                            className="w-full appearance-none px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
+                                        >
+                                            <option value="newest">Newest first</option>
+                                            <option value="oldest">Oldest first</option>
+                                            <option value="sender">Sender A-Z</option>
+                                            <option value="account">Account A-Z</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                     <button onClick={() => fetchRequests(true)} className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10]">
                         <FiRefreshCw className={`w-3.5 h-3.5 ${loading && !requests.length ? 'animate-spin' : ''}`} />
                     </button>
@@ -287,67 +399,6 @@ export const AdminSenderRequests: React.FC = () => {
                 ))}
             </div>
 
-            {/* Filter Pills with Improved UI */}
-            <div className="mb-6 rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#111214] p-3">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 custom-scrollbar no-scrollbar">
-                        {[
-                            { id: 'all', label: 'All', icon: null, color: 'blue' },
-                            { id: 'pending', label: 'Pending', icon: <FiClock size={12} />, color: 'amber' },
-                            { id: 'approved', label: 'Approved', icon: <FiCheck size={12} />, color: 'emerald' },
-                            { id: 'rejected', label: 'Rejected', icon: <FiX size={12} />, color: 'red' },
-                            { id: 'revoked', label: 'Revoked', icon: <FiShieldOff size={12} />, color: 'slate' },
-                        ].map(pill => {
-                            const isActive = filter === pill.id;
-                            const count = pill.id === 'all' ? requests.length : requests.filter(r => r.status === pill.id).length;
-                            return (
-                                <button
-                                    key={pill.id}
-                                    onClick={() => { setFilter(pill.id as any); setCurrentPage(1); }}
-                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-bold transition-all whitespace-nowrap border ${
-                                        isActive
-                                            ? 'bg-[#111111] text-white dark:bg-white dark:text-[#111111] border-transparent shadow-sm'
-                                            : 'bg-white dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] border-[#e5e5e5] dark:border-white/5 hover:text-[#111111] dark:hover:text-white'
-                                    }`}
-                                >
-                                    {pill.icon}
-                                    <span>{pill.label}</span>
-                                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black min-w-[20px] ${isActive ? 'bg-white/20' : 'bg-black/5 dark:bg-white/10'}`}>
-                                        {count}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                        <div className="relative">
-                            <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5 pointer-events-none" />
-                            <select
-                                value={providerFilter}
-                                onChange={(event) => setProviderFilter(event.target.value as any)}
-                                className="appearance-none pl-8 pr-8 py-2 rounded-xl bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
-                            >
-                                <option value="all">All Providers</option>
-                                <option value="semaphore">Semaphore</option>
-                                <option value="unisms">UniSMS</option>
-                                <option value="system">System</option>
-                            </select>
-                        </div>
-                        <select
-                            value={sortBy}
-                            onChange={(event) => setSortBy(event.target.value as any)}
-                            className="appearance-none px-3 py-2 rounded-xl bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
-                        >
-                            <option value="newest">Newest first</option>
-                            <option value="oldest">Oldest first</option>
-                            <option value="sender">Sender A-Z</option>
-                            <option value="account">Account A-Z</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-
             {loading ? (
                 <div className="space-y-3">
                     {[1, 2, 3].map(i => (
@@ -370,11 +421,11 @@ export const AdminSenderRequests: React.FC = () => {
                                     const associatedAccount = accounts.find(a => a.location_id === req.location_id);
                                     const locName = associatedAccount?.location_name || req.location_name || 'Unknown Account';
                                     const agencyName = req.agency_name || req.company_id;
-                                    const reqProvider = normalizeProvider(req);
                                     const isActing = actionLoading?.startsWith(req.id);
+                                    const showProvider = req.status !== 'pending';
                                     
                                     return (
-                                        <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all hover:border-[#2b83fa]/30 dark:hover:border-[#2b83fa]/40 hover:shadow-sm">
+                                        <div key={req.id} className="relative border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-visible transition-all hover:border-[#2b83fa]/30 dark:hover:border-[#2b83fa]/40 hover:shadow-sm">
                                             {/* Row Header */}
                                             <div
                                                 className="flex flex-col lg:flex-row lg:items-center gap-4 px-4 py-3 bg-[#fafafa] dark:bg-[#111214] cursor-pointer hover:bg-[#f0f0f0] dark:hover:bg-[#161718] transition-colors"
@@ -387,8 +438,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                     <div className="flex flex-col min-w-0">
                                                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                             <span className="font-black text-[15px] text-[#2b83fa] dark:text-[#4da3ff] font-mono leading-none">{req.requested_id}</span>
-                                                            <StatusBadge status={req.status} />
-                                                            <ProviderBadge provider={normalizeProvider(req)} />
+                                                            {showProvider && <ProviderBadge provider={normalizeProvider(req)} />}
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <p className="text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] truncate uppercase tracking-tight max-w-[150px]">{locName}</p>
@@ -407,10 +457,6 @@ export const AdminSenderRequests: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center justify-between lg:justify-end gap-2 flex-shrink-0 w-full lg:w-auto">
-                                                    <div className="hidden md:flex flex-col items-end mr-2">
-                                                        <span className="text-[11px] font-bold text-[#111111] dark:text-white">{formatRequestDate(req.created_at || req.createdAt || req.updated_at)}</span>
-                                                        <span className="text-[10px] text-[#9aa0a6]">{providerLabel(reqProvider)} route</span>
-                                                    </div>
                                                     {req.status === 'pending' && (
                                                         <>
                                                             <button
@@ -440,34 +486,46 @@ export const AdminSenderRequests: React.FC = () => {
                                                             </button>
                                                         </>
                                                     )}
-                                                    {req.status === 'approved' && (
-                                                        <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/10 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/30">
-                                                            <FiKey className="w-3 h-3 inline mr-1" />Active
-                                                        </span>
-                                                    )}
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); openRequest(req.id); }}
-                                                        className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-black/5 dark:hover:bg-white/5 transition-all"
-                                                        title="View Details"
-                                                    >
-                                                        <FiEye className="w-4 h-4" />
-                                                    </button>
-                                                    {req.status === 'approved' && (
+                                                    {req.status !== 'pending' && <RowStatus status={req.status} />}
+                                                    <div className="relative" onMouseDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
                                                         <button
-                                                            onClick={(e) => { e.stopPropagation(); setRevokeConfirmId(req.id); }}
-                                                            className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/10 transition-all"
-                                                            title="Revoke Sender"
+                                                            type="button"
+                                                            onClick={() => setOpenActionMenuId(openActionMenuId === req.id ? null : req.id)}
+                                                            className="p-1.5 rounded-lg text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+                                                            title="More options"
+                                                            aria-label="More options"
+                                                            aria-expanded={openActionMenuId === req.id}
                                                         >
-                                                            <FiShieldOff className="w-4 h-4" />
+                                                            <FiMoreVertical className="w-4 h-4" />
                                                         </button>
-                                                    )}
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(req.id); }}
-                                                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-                                                        title="Delete Request"
-                                                    >
-                                                        <FiTrash2 className="w-4 h-4" />
-                                                    </button>
+                                                        {openActionMenuId === req.id && (
+                                                            <div className="absolute right-0 top-full z-40 mt-2 w-44 rounded-xl border border-[#e5e5e5] dark:border-white/10 bg-white dark:bg-[#1a1b1e] p-1.5 shadow-xl shadow-black/10 dark:shadow-black/40">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => { setOpenActionMenuId(null); openRequest(req.id); }}
+                                                                    className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] font-bold text-[#111111] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/5"
+                                                                >
+                                                                    <FiEye className="w-3.5 h-3.5 text-[#6e6e73]" /> View details
+                                                                </button>
+                                                                {req.status === 'approved' && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => { setOpenActionMenuId(null); setRevokeConfirmId(req.id); }}
+                                                                        className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] font-bold text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/10"
+                                                                    >
+                                                                        <FiShieldOff className="w-3.5 h-3.5" /> Revoke
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => { setOpenActionMenuId(null); setDeleteConfirmId(req.id); }}
+                                                                    className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                                >
+                                                                    <FiTrash2 className="w-3.5 h-3.5" /> Delete
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -528,6 +586,7 @@ export const AdminSenderRequests: React.FC = () => {
                             const isActing = actionLoading?.startsWith(req.id);
                             const associatedAccount = accounts.find(a => a.location_id === req.location_id);
                             const isFormatValid = /^[a-zA-Z0-9]{3,11}$/.test(req.requested_id || '');
+                            const showProvider = req.status !== 'pending';
                             
                             return (
                                 <>
@@ -549,50 +608,52 @@ export const AdminSenderRequests: React.FC = () => {
                                     </div>
 
                                     <div className="space-y-4 max-h-[72vh] overflow-y-auto custom-scrollbar pr-1">
-                                        <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#111214] p-4">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Requested Sender</p>
-                                                    <p className="font-black text-[18px] text-[#2b83fa] dark:text-[#4da3ff] font-mono truncate">{req.requested_id}</p>
+                                        <div className="space-y-3">
+                                            <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#111214] p-4">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Requested Sender</p>
+                                                        <p className="font-black text-[20px] text-[#2b83fa] dark:text-[#4da3ff] font-mono truncate">{req.requested_id}</p>
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center justify-end gap-2">
+                                                        <StatusBadge status={req.status} />
+                                                        {showProvider && <ProviderBadge provider={normalizeProvider(req)} />}
+                                                    </div>
                                                 </div>
-                                                <StatusBadge status={req.status} />
-                                                <ProviderBadge provider={normalizeProvider(req)} />
                                             </div>
 
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 pt-4 border-t border-[#e5e5e5] dark:border-white/5">
-                                                <div className="min-w-0">
-                                                    <p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Account</p>
-                                                    <p className="text-[13px] font-bold text-[#111111] dark:text-white truncate">{associatedAccount?.location_name || req.location_name || 'Unknown Account'}</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] p-4 min-w-0">
+                                                    <p className="text-[10px] font-black text-[#9aa0a6] uppercase tracking-widest mb-2">Account</p>
+                                                    <p className="text-[14px] font-black text-[#111111] dark:text-white truncate">{associatedAccount?.location_name || req.location_name || 'Unknown Account'}</p>
                                                     <p className="text-[11px] font-mono text-[#6e6e73] dark:text-[#9aa0a6] truncate mt-1" title={req.location_id}>{req.location_id}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Submitted</p>
-                                                    <p className="text-[13px] font-medium text-[#111111] dark:text-white">{req.created_at || 'Unknown'}</p>
                                                     {(req.agency_name || req.company_id) && (
-                                                        <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mt-1">{req.agency_name || req.company_id}</p>
+                                                        <p className="text-[11px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6] truncate mt-2">{req.agency_name || req.company_id}</p>
                                                     )}
                                                 </div>
+                                                <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] p-4">
+                                                    <p className="text-[10px] font-black text-[#9aa0a6] uppercase tracking-widest mb-2">Submitted</p>
+                                                    <p className="text-[14px] font-black text-[#111111] dark:text-white">{formatRequestDate(req.created_at || req.createdAt || req.updated_at)}</p>
+                                                    <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">Request timestamp</p>
+                                                </div>
                                             </div>
 
-
-                                            {req.purpose && (
-                                                <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
-                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Purpose</p>
-                                                    <p className="text-[13px] text-[#111111] dark:text-white leading-relaxed">{req.purpose}</p>
-                                                </div>
-                                            )}
+                                            <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] p-4">
+                                                <p className="text-[10px] font-black text-[#9aa0a6] uppercase tracking-widest mb-2">Purpose</p>
+                                                <p className="text-[13px] text-[#111111] dark:text-white leading-relaxed">{req.purpose || 'No purpose provided.'}</p>
+                                            </div>
                                             
-                                            {req.sample_message && (
-                                                <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
-                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Sample Message</p>
-                                                    <p className="text-[13px] text-[#111111] dark:text-white italic bg-white dark:bg-[#1a1b1e] p-3 rounded-lg border border-[#e5e5e5] dark:border-white/5">"{req.sample_message}"</p>
-                                                </div>
-                                            )}
+                                            <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] p-4">
+                                                <p className="text-[10px] font-black text-[#9aa0a6] uppercase tracking-widest mb-2">Sample Message</p>
+                                                <p className="text-[13px] text-[#111111] dark:text-white italic bg-[#f7f7f7] dark:bg-[#0d0e10] p-3 rounded-lg border border-[#e5e5e5] dark:border-white/5">
+                                                    "{req.sample_message || 'No sample message provided.'}"
+                                                </p>
+                                            </div>
 
                                             {req.admin_notes && (
-                                                <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5">
-                                                    <p className="text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1">Admin Note</p>
-                                                    <p className="text-[13px] text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/10 p-3 rounded-lg border border-red-100 dark:border-red-800/30">{req.admin_notes}</p>
+                                                <div className="rounded-xl border border-red-100 dark:border-red-800/30 bg-red-50 dark:bg-red-900/10 p-4">
+                                                    <p className="text-[10px] font-black text-red-500 dark:text-red-300 uppercase tracking-widest mb-2">Admin Note</p>
+                                                    <p className="text-[13px] text-red-700 dark:text-red-300 leading-relaxed">{req.admin_notes}</p>
                                                 </div>
                                             )}
                                         </div>

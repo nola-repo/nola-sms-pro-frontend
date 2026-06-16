@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiActivity, FiMessageSquare, FiCreditCard, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiArrowRight, FiBriefcase } from 'react-icons/fi';
+import { FiUsers, FiSend, FiActivity, FiMessageSquare, FiCreditCard, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiArrowRight, FiBriefcase, FiUser } from 'react-icons/fi';
 
 import SplitText from './SplitText';
 import FadeContent from './FadeContent';
@@ -288,12 +288,15 @@ export const AdminDashboard: React.FC<{
                                 </div>
                             )}
                         </div>
-                        <div
-                            className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-black/10 border-2 border-white/20 flex-shrink-0 text-white font-bold text-[14px] bg-gradient-to-br from-[#13c8a3] to-[#2dd4bf]"
-                            title="Admin"
+                        <button
+                            type="button"
+                            onClick={() => onNavigate('profile')}
+                            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-black/10 border border-white/25 flex-shrink-0 text-white bg-white/10 hover:bg-white/20 active:scale-95 transition-all"
+                            title="Admin Profile"
+                            aria-label="Open admin profile"
                         >
-                            A
-                        </div>
+                            <FiUser className="w-4 h-4" />
+                        </button>
                         {topControls}
                     </div>
                 </div>
