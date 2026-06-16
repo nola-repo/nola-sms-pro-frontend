@@ -192,8 +192,8 @@ export const generateMonthlyReport = (
   entityName: string = '',
   parentNameOrProfile: string | ReportAccountProfile = ''
 ) => {
-  const isWide = scope === 'agency' || scope === 'admin';
-  const doc = new jsPDF(isWide ? 'l' : 'p', 'pt', 'a4');
+  const isAdminWideReport = scope === 'admin';
+  const doc = new jsPDF(isAdminWideReport ? 'l' : 'p', 'pt', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageMargin = 36;
   const profile = normalizeProfile(scope, entityName, parentNameOrProfile, transactions);
@@ -217,7 +217,7 @@ export const generateMonthlyReport = (
     const balance = toNumber(tx.balance_after, toNumber(tx.balance, 0));
     const subName = pickString(tx.subaccount_name, tx.location_name, profile.locationName, profile.accountName);
     const agencyName = pickString(tx.agency_name, tx.company_name, profile.agencyName, profile.companyName);
-    const accountDisplay = scope === 'subaccount' ? '' : [subName, agencyName ? `Agency: ${agencyName}` : ''].filter(Boolean).join('\n');
+    const accountDisplay = isAdminWideReport ? [subName, agencyName ? `Agency: ${agencyName}` : ''].filter(Boolean).join('\n') : '';
 
     if (amount > 0) totalAdded += amount;
     if (amount < 0) totalUsed += Math.abs(amount);
@@ -234,9 +234,9 @@ export const generateMonthlyReport = (
       balance.toLocaleString(),
     ];
 
-    if (scope === 'subaccount') row.splice(2, 1);
+    if (!isAdminWideReport) row.splice(2, 1);
 
-    if (isWide) {
+    if (isAdminWideReport) {
       const providerCost = toNumber(tx.provider_cost);
       const charged = toNumber(tx.charged);
       const profit = toNumber(tx.profit);
@@ -249,7 +249,7 @@ export const generateMonthlyReport = (
 
   if (filteredTransactions.length === 0) {
     tableRows.push(
-      isWide
+      isAdminWideReport
         ? ['-', '-', '-', 'NO DATA', '-', `No transactions found for ${formattedMonth}.`, '-', '-', '-', '-', '-']
         : ['-', '-', 'NO DATA', '-', `No transactions found for ${formattedMonth}.`, '-', '-']
     );
@@ -315,14 +315,14 @@ export const generateMonthlyReport = (
 
   const summaryY = profileY + profileHeight + 14;
   const cardGap = 10;
-  const cardCount = isWide ? 5 : 4;
+  const cardCount = isAdminWideReport ? 5 : 4;
   const cardWidth = (pageWidth - pageMargin * 2 - cardGap * (cardCount - 1)) / cardCount;
   const summaryCards = [
     ['Transactions', filteredTransactions.length.toLocaleString(), [37, 99, 235]],
     ['Credits Added', `+${totalAdded.toLocaleString()}`, [21, 128, 61]],
     ['Credits Used', `-${totalUsed.toLocaleString()}`, [220, 38, 38]],
     ['Current Balance', endingBalance.toLocaleString(), [15, 23, 42]],
-    ...(isWide ? [['Est. Profit', `$${totalProfit.toFixed(4)}`, [21, 128, 61]] as [string, string, number[]]] : []),
+    ...(isAdminWideReport ? [['Est. Profit', `$${totalProfit.toFixed(4)}`, [21, 128, 61]] as [string, string, number[]]] : []),
   ] as [string, string, number[]][];
 
   summaryCards.forEach(([label, value, color], index) => {
@@ -340,7 +340,7 @@ export const generateMonthlyReport = (
     doc.text(value, x + 10, summaryY + 36);
   });
 
-  const tableColumn = isWide
+  const tableColumn = isAdminWideReport
     ? ['#', 'Date/Time', 'Account', 'Type', 'Number', 'Message Content', 'Amount', 'Balance', 'Cost', 'Charged', 'Profit']
     : ['#', 'Date/Time', 'Type', 'Number', 'Message Content', 'Amount', 'Balance'];
 
@@ -354,7 +354,7 @@ export const generateMonthlyReport = (
     headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold', fontSize: 8 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     styles: {
-      fontSize: isWide ? 7.2 : 8,
+      fontSize: isAdminWideReport ? 7.2 : 8,
       cellPadding: 5,
       overflow: 'linebreak',
       valign: 'top',
@@ -364,7 +364,7 @@ export const generateMonthlyReport = (
     },
     // Portrait A4: available = 595 - 72 = 523pt → col widths must sum to 523
     // Landscape A4: available = 842 - 72 = 770pt → col widths must sum to 770
-    columnStyles: isWide ? {
+    columnStyles: isAdminWideReport ? {
       0: { cellWidth: 22 },   // #
       1: { cellWidth: 68 },   // Date/Time
       2: { cellWidth: 98 },   // Account
@@ -387,7 +387,7 @@ export const generateMonthlyReport = (
     },
     didParseCell: (data: CellHookData) => {
       if (data.section === 'head') {
-        const rightAlignIdx = isWide ? 6 : 5;
+        const rightAlignIdx = isAdminWideReport ? 6 : 5;
         if (data.column.index >= rightAlignIdx) {
           data.cell.styles.halign = 'right';
         }
