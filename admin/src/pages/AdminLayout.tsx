@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { FiUsers, FiSend, FiLogOut, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX, FiBriefcase } from 'react-icons/fi';
+import { FiUsers, FiSend, FiLogOut, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX, FiBriefcase, FiUser } from 'react-icons/fi';
 import { NotificationBell } from '../components/ui/NotificationBell';
 import faviconLogo from '../assets/FAV ICON - NOLA SMS PRO.png';
 
@@ -13,6 +13,7 @@ import { AdminAccounts } from './components/AdminAccounts';
 import { AdminTeamManagement } from './components/AdminUsersManagement';
 import { AdminLogs } from './components/SystemSettings';
 import { AdminAgencies } from './components/AdminAgencies';
+import { AdminProfile } from './components/AdminProfile';
 import { ADMIN_AUTH_REQUIRED_EVENT } from '../utils/adminApi';
 
 const NAV_ITEMS = [
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
     { path: '/activity',   label: 'Platform Activity', icon: <FiActivity /> },
     { path: '/accounts',   label: 'All Subaccounts',  icon: <FiUsers /> },
     { path: '/agencies',   label: 'All Agencies',     icon: <FiBriefcase /> },
+    { path: '/profile',    label: 'Admin Profile',    icon: <FiUser /> },
     { path: '/admins',     label: 'Admin Users',      icon: <FiShield /> },
     // { path: '/settings',   label: 'System Settings',  icon: <FiSettings /> },
 ] as const;
@@ -45,6 +47,10 @@ const PAGE_HEADERS = {
     admins: {
         title: 'Admin Users',
         subtitle: 'Manage admin access, permissions, and team membership.',
+    },
+    profile: {
+        title: 'Admin Profile',
+        subtitle: 'Review your account identity, session security, and authentication settings.',
     },
     // settings: {
     //     title: 'System Settings',
@@ -344,6 +350,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                         <Route path="/activity" element={renderPage(<AdminLogs />, 'activity')} />
                         <Route path="/accounts" element={renderPage(<AdminAccounts />, 'accounts')} />
                         <Route path="/agencies" element={renderPage(<AdminAgencies />, 'agencies')} />
+                        <Route path="/profile" element={renderPage(<AdminProfile />, 'profile')} />
                         <Route path="/admins" element={renderPage(<AdminTeamManagement />, 'admins')} />
                         <Route path="/settings" element={<Navigate to="/dashboard" replace />} />
                         <Route path="*" element={<Navigate to="/dashboard" replace />} />

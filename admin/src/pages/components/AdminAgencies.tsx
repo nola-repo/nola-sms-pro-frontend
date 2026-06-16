@@ -212,11 +212,14 @@ const normalizeAgencyWalletTransaction = (tx: any, account: AgencyAccount) => ({
 
 const buildPlanReportTransactions = (plans: any[], account: AgencyAccount) =>
     plans.map((plan, index) => {
-        const planName = formatPlanLabel(plan.plan || plan.name || plan.id);
-        const status = formatPlanLabel(plan.status || 'active');
-        const limit = plan.subaccount_limit === -1 ? 'Unlimited' : plan.subaccount_limit ?? plan.limit ?? 'Unknown';
-        const used = plan.subaccounts_used ?? plan.used;
-        const expires = plan.expires_at || plan.renews_at || plan.current_period_end;
+        const nestedSubscription = plan.subscription || {};
+        const nestedLimits = plan.limits || {};
+        const planName = formatPlanLabel(plan.plan || nestedSubscription.plan || plan.name || plan.id);
+        const status = formatPlanLabel(plan.status || nestedSubscription.status || 'active');
+        const rawLimit = plan.subaccount_limit ?? plan.max_active_subaccounts ?? nestedSubscription.max_active_subaccounts ?? nestedLimits.max_active_subaccounts ?? plan.limit;
+        const limit = rawLimit === -1 ? 'Unlimited' : rawLimit ?? 'Unknown';
+        const used = plan.subaccounts_used ?? plan.used ?? nestedSubscription.subaccounts_used;
+        const expires = plan.expires_at || plan.renews_at || plan.current_period_end || nestedSubscription.current_period_end;
         const details = [
             `Current plan: ${planName}`,
             `Status: ${status}`,

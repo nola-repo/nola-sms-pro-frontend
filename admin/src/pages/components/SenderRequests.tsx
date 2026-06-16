@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiShieldOff, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiShieldOff, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiFilter } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 import { useToast } from '../../hooks/useToast';
@@ -40,6 +40,19 @@ const providerLabel = (provider: string) => {
     return 'Semaphore';
 };
 
+const getRequestTimestamp = (req: any) => {
+    const raw = req.created_at || req.createdAt || req.updated_at || req.date_created || '';
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+};
+
+const formatRequestDate = (value?: string) => {
+    if (!value) return 'Unknown';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
 const ProviderBadge: React.FC<{ provider: string }> = ({ provider }) => {
     const normalized = provider === 'unisms' ? 'unisms' : provider === 'system' ? 'system' : 'semaphore';
     const styles: Record<string, string> = {
@@ -65,6 +78,8 @@ export const AdminSenderRequests: React.FC = () => {
     const [showInputKey, setShowInputKey] = useState(false);
     const [actionPrompt, setActionPrompt] = useState<{ requestId: string; action: 'approved' | 'rejected' } | null>(null);
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'revoked'>('all');
+    const [providerFilter, setProviderFilter] = useState<'all' | 'semaphore' | 'unisms' | 'system'>('all');
+    const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'sender' | 'account'>('newest');
     const [searchTerm, setSearchTerm] = useState('');
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [revokeConfirmId, setRevokeConfirmId] = useState<string | null>(null);
@@ -75,7 +90,7 @@ export const AdminSenderRequests: React.FC = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [filter, searchTerm]);
+    }, [filter, providerFilter, sortBy, searchTerm]);
 
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
@@ -153,6 +168,64 @@ export const AdminSenderRequests: React.FC = () => {
         setActionPrompt(null);
     };
 
+    const requestStats = useMemo(() => {
+        const byStatus = requests.reduce((acc: Record<string, number>, req: any) => {
+            acc[req.status || 'pending'] = (acc[req.status || 'pending'] || 0) + 1;
+            return acc;
+        }, {});
+        const byProvider = requests.reduce((acc: Record<string, number>, req: any) => {
+            const provider = normalizeProvider(req);
+            acc[provider] = (acc[provider] || 0) + 1;
+            return acc;
+        }, {});
+        return {
+            pending: byStatus.pending || 0,
+            approved: byStatus.approved || 0,
+            rejected: byStatus.rejected || 0,
+            revoked: byStatus.revoked || 0,
+            semaphore: byProvider.semaphore || 0,
+            unisms: byProvider.unisms || 0,
+            system: byProvider.system || 0,
+        };
+    }, [requests]);
+
+    const filteredRequests = useMemo(() => {
+        const lowSearch = searchTerm.toLowerCase().trim();
+        const matched = requests.filter((req: any) => {
+            const isStatusMatch = filter === 'all' || req.status === filter;
+            const isProviderMatch = providerFilter === 'all' || normalizeProvider(req) === providerFilter;
+            if (!isStatusMatch || !isProviderMatch) return false;
+
+            if (!lowSearch) return true;
+            const associatedAccount = accounts.find((a: any) => a.location_id === req.location_id);
+            const locName = associatedAccount?.location_name || req.location_name || '';
+            const agencyName = req.agency_name || req.company_id || '';
+
+            return [
+                req.requested_id,
+                req.location_id,
+                locName,
+                agencyName,
+                normalizeProvider(req),
+                req.status,
+            ].filter(Boolean).join(' ').toLowerCase().includes(lowSearch);
+        });
+
+        return [...matched].sort((a: any, b: any) => {
+            if (sortBy === 'oldest') return getRequestTimestamp(a) - getRequestTimestamp(b);
+            if (sortBy === 'sender') return String(a.requested_id || '').localeCompare(String(b.requested_id || ''));
+            if (sortBy === 'account') {
+                const aAccount = accounts.find((acc: any) => acc.location_id === a.location_id);
+                const bAccount = accounts.find((acc: any) => acc.location_id === b.location_id);
+                return String(aAccount?.location_name || a.location_name || '').localeCompare(String(bAccount?.location_name || b.location_name || ''));
+            }
+            return getRequestTimestamp(b) - getRequestTimestamp(a);
+        });
+    }, [accounts, filter, providerFilter, requests, searchTerm, sortBy]);
+
+    const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
+    const currentRequests = filteredRequests.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
@@ -163,7 +236,7 @@ export const AdminSenderRequests: React.FC = () => {
                     </span>
                 )}
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
                 <div>
                     <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">Sender ID Requests</h3>
                     <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Review, approve, or reject sender name registration requests.</p>
@@ -193,50 +266,85 @@ export const AdminSenderRequests: React.FC = () => {
                 </div>
             </div>
 
-            {/* Filter Pills with Improved UI */}
-            <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 custom-scrollbar no-scrollbar">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
                 {[
-                    { id: 'all', label: 'All', icon: null, color: 'blue' },
-                    { id: 'pending', label: 'Pending', icon: <FiClock size={12} />, color: 'amber' },
-                    { id: 'approved', label: 'Approved', icon: <FiCheck size={12} />, color: 'emerald' },
-                    { id: 'rejected', label: 'Rejected', icon: <FiX size={12} />, color: 'red' },
-                    { id: 'revoked', label: 'Revoked', icon: <FiShieldOff size={12} />, color: 'slate' },
-                ].map(pill => {
-                    const isActive = filter === pill.id;
-                    const count = pill.id === 'all' ? requests.length : requests.filter(r => r.status === pill.id).length;
-                    
-                    const colorMap: Record<string, any> = {
-                        blue: { active: 'bg-blue-600 text-white shadow-blue-500/25', inactive: 'bg-blue-50/50 dark:bg-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-500/10 hover:bg-blue-100/50' },
-                        amber: { active: 'bg-amber-500 text-white shadow-amber-500/25', inactive: 'bg-amber-50/50 dark:bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/10 hover:bg-amber-100/50' },
-                        emerald: { active: 'bg-emerald-600 text-white shadow-emerald-500/25', inactive: 'bg-emerald-50/50 dark:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/10 hover:bg-emerald-100/50' },
-                        red: { active: 'bg-red-600 text-white shadow-red-500/25', inactive: 'bg-red-50/50 dark:bg-red-500/5 text-red-600 dark:text-red-400 border-red-100 dark:border-red-500/10 hover:bg-red-100/50' },
-                        slate: { active: 'bg-slate-700 text-white shadow-slate-500/25', inactive: 'bg-slate-100/80 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:bg-slate-200/70' },
-                    };
+                    { label: 'Pending Review', value: requestStats.pending, icon: <FiClock />, tone: 'text-amber-600 bg-amber-50 border-amber-100 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800/30' },
+                    { label: 'Active Senders', value: requestStats.approved, icon: <FiShield />, tone: 'text-emerald-600 bg-emerald-50 border-emerald-100 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' },
+                    { label: 'Semaphore', value: requestStats.semaphore, icon: <FiKey />, tone: 'text-blue-600 bg-blue-50 border-blue-100 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30' },
+                    { label: 'UniSMS', value: requestStats.unisms, icon: <FiSend />, tone: 'text-indigo-600 bg-indigo-50 border-indigo-100 dark:bg-indigo-900/10 dark:text-indigo-400 dark:border-indigo-800/30' },
+                ].map(card => (
+                    <div key={card.label} className={`rounded-xl border px-4 py-3 ${card.tone}`}>
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-wider opacity-75">{card.label}</p>
+                                <p className="text-[22px] font-black text-[#111111] dark:text-white mt-1">{card.value.toLocaleString()}</p>
+                            </div>
+                            <div className="w-9 h-9 rounded-xl bg-white/70 dark:bg-white/5 flex items-center justify-center text-[17px]">
+                                {card.icon}
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
 
-                    const theme = colorMap[pill.color];
-
-                    return (
-                        <button
-                            key={pill.id}
-                            onClick={() => { setFilter(pill.id as any); setCurrentPage(1); }}
-                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[12px] font-bold transition-all whitespace-nowrap border ${
-                                isActive 
-                                    ? `${theme.active} border-transparent scale-[1.02]` 
-                                    : `${theme.inactive} opacity-80 hover:opacity-100`
-                            }`}
+            {/* Filter Pills with Improved UI */}
+            <div className="mb-6 rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#111214] p-3">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 custom-scrollbar no-scrollbar">
+                        {[
+                            { id: 'all', label: 'All', icon: null, color: 'blue' },
+                            { id: 'pending', label: 'Pending', icon: <FiClock size={12} />, color: 'amber' },
+                            { id: 'approved', label: 'Approved', icon: <FiCheck size={12} />, color: 'emerald' },
+                            { id: 'rejected', label: 'Rejected', icon: <FiX size={12} />, color: 'red' },
+                            { id: 'revoked', label: 'Revoked', icon: <FiShieldOff size={12} />, color: 'slate' },
+                        ].map(pill => {
+                            const isActive = filter === pill.id;
+                            const count = pill.id === 'all' ? requests.length : requests.filter(r => r.status === pill.id).length;
+                            return (
+                                <button
+                                    key={pill.id}
+                                    onClick={() => { setFilter(pill.id as any); setCurrentPage(1); }}
+                                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-bold transition-all whitespace-nowrap border ${
+                                        isActive
+                                            ? 'bg-[#111111] text-white dark:bg-white dark:text-[#111111] border-transparent shadow-sm'
+                                            : 'bg-white dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] border-[#e5e5e5] dark:border-white/5 hover:text-[#111111] dark:hover:text-white'
+                                    }`}
+                                >
+                                    {pill.icon}
+                                    <span>{pill.label}</span>
+                                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black min-w-[20px] ${isActive ? 'bg-white/20' : 'bg-black/5 dark:bg-white/10'}`}>
+                                        {count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <div className="relative">
+                            <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5 pointer-events-none" />
+                            <select
+                                value={providerFilter}
+                                onChange={(event) => setProviderFilter(event.target.value as any)}
+                                className="appearance-none pl-8 pr-8 py-2 rounded-xl bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
+                            >
+                                <option value="all">All Providers</option>
+                                <option value="semaphore">Semaphore</option>
+                                <option value="unisms">UniSMS</option>
+                                <option value="system">System</option>
+                            </select>
+                        </div>
+                        <select
+                            value={sortBy}
+                            onChange={(event) => setSortBy(event.target.value as any)}
+                            className="appearance-none px-3 py-2 rounded-xl bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
                         >
-                            {pill.icon}
-                            <span>{pill.label}</span>
-                            <span className={`flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-black min-w-[20px] ${
-                                isActive 
-                                    ? 'bg-white/20 text-white' 
-                                    : 'bg-black/5 dark:bg-white/10 text-current opacity-70'
-                            }`}>
-                                {count}
-                            </span>
-                        </button>
-                    );
-                })}
+                            <option value="newest">Newest first</option>
+                            <option value="oldest">Oldest first</option>
+                            <option value="sender">Sender A-Z</option>
+                            <option value="account">Account A-Z</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
 
@@ -251,44 +359,28 @@ export const AdminSenderRequests: React.FC = () => {
                     <FiSend className="w-8 h-8 mx-auto mb-3 opacity-30" />
                     <p className="text-[14px] font-semibold">No sender requests found.</p>
                 </div>
+            ) : filteredRequests.length === 0 ? (
+                <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
+                    <FiSearch className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                    <p className="text-[14px] font-semibold">No requests match the current filters.</p>
+                </div>
             ) : (
                 <div className="space-y-3">
-                    {(() => {
-                        const lowSearch = searchTerm.toLowerCase().trim();
-                        const filteredRequests = requests.filter(req => {
-                            const isStatusMatch = filter === 'all' || req.status === filter;
-                            if (!isStatusMatch) return false;
-                            
-                            if (!lowSearch) return true;
-                            const associatedAccount = accounts.find(a => a.location_id === req.location_id);
-                            const locName = associatedAccount?.location_name || req.location_name || '';
-                            const agencyName = req.agency_name || req.company_id || '';
-                            
-                            return (
-                                req.requested_id.toLowerCase().includes(lowSearch) ||
-                                req.location_id.toLowerCase().includes(lowSearch) ||
-                                locName.toLowerCase().includes(lowSearch) ||
-                                agencyName.toLowerCase().includes(lowSearch)
-                            );
-                        });
-                        const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
-                        const currentRequests = filteredRequests.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-
-                        return (
-                            <>
-                                {currentRequests.map(req => {
+                    {currentRequests.map(req => {
                                     const associatedAccount = accounts.find(a => a.location_id === req.location_id);
                                     const locName = associatedAccount?.location_name || req.location_name || 'Unknown Account';
                                     const agencyName = req.agency_name || req.company_id;
+                                    const reqProvider = normalizeProvider(req);
+                                    const isActing = actionLoading?.startsWith(req.id);
                                     
                                     return (
-                                        <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all">
+                                        <div key={req.id} className="border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-hidden transition-all hover:border-[#2b83fa]/30 dark:hover:border-[#2b83fa]/40 hover:shadow-sm">
                                             {/* Row Header */}
                                             <div
-                                                className="flex items-center gap-4 px-4 py-3 bg-[#fafafa] dark:bg-[#111214] cursor-pointer hover:bg-[#f0f0f0] dark:hover:bg-[#161718] transition-colors"
+                                                className="flex flex-col lg:flex-row lg:items-center gap-4 px-4 py-3 bg-[#fafafa] dark:bg-[#111214] cursor-pointer hover:bg-[#f0f0f0] dark:hover:bg-[#161718] transition-colors"
                                                 onClick={() => openRequest(req.id)}
                                             >
-                                                <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                                                <div className="flex items-center gap-3.5 flex-1 min-w-0 w-full">
                                                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] shadow-sm flex items-center justify-center text-[12px] font-black text-white flex-shrink-0 font-mono tracking-tighter">
                                                         {req.requested_id.substring(0, 2).toUpperCase()}
                                                     </div>
@@ -314,8 +406,40 @@ export const AdminSenderRequests: React.FC = () => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    {/* Approved: show masked key inline */}
+                                                <div className="flex items-center justify-between lg:justify-end gap-2 flex-shrink-0 w-full lg:w-auto">
+                                                    <div className="hidden md:flex flex-col items-end mr-2">
+                                                        <span className="text-[11px] font-bold text-[#111111] dark:text-white">{formatRequestDate(req.created_at || req.createdAt || req.updated_at)}</span>
+                                                        <span className="text-[10px] text-[#9aa0a6]">{providerLabel(reqProvider)} route</span>
+                                                    </div>
+                                                    {req.status === 'pending' && (
+                                                        <>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setApiKeyInput('');
+                                                                    setShowInputKey(false);
+                                                                    setActionPrompt({ requestId: req.id, action: 'approved' });
+                                                                }}
+                                                                disabled={!!isActing}
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-[11px] font-black hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+                                                                title="Approve sender"
+                                                            >
+                                                                <FiCheck className="w-3.5 h-3.5" /> Approve
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setRejectNote(req.admin_notes || '');
+                                                                    setActionPrompt({ requestId: req.id, action: 'rejected' });
+                                                                }}
+                                                                disabled={!!isActing}
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30 text-[11px] font-black hover:bg-red-100 dark:hover:bg-red-900/20 disabled:opacity-50 transition-colors"
+                                                                title="Reject sender"
+                                                            >
+                                                                <FiX className="w-3.5 h-3.5" /> Reject
+                                                            </button>
+                                                        </>
+                                                    )}
                                                     {req.status === 'approved' && (
                                                         <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/10 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/30">
                                                             <FiKey className="w-3 h-3 inline mr-1" />Active
@@ -348,52 +472,49 @@ export const AdminSenderRequests: React.FC = () => {
                                             </div>
                                         </div>
                                     );
-                                })}
+                    })}
 
-                                {/* Pagination Controls */}
-                                {totalPages > 1 && (
-                                    <div className="flex items-center justify-between px-2 py-2 mt-4 bg-transparent">
-                                        <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] font-medium">
-                                            Showing <span className="font-bold text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-bold text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, filteredRequests.length)}</span> of <span className="font-bold text-[#111111] dark:text-white">{filteredRequests.length}</span> entries
-                                        </div>
-                                        <div className="flex items-center gap-1.5">
-                                            <button
-                                                disabled={currentPage === 1}
-                                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                                className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                                            >
-                                                <FiChevronLeft className="w-4 h-4" />
-                                            </button>
-                                            
-                                            <div className="flex items-center gap-1">
-                                                {Array.from({ length: Math.min(5, totalPages - Math.floor((currentPage - 1) / 5) * 5) }, (_, i) => Math.floor((currentPage - 1) / 5) * 5 + 1 + i).map(page => (
-                                                    <button
-                                                        key={page}
-                                                        onClick={() => setCurrentPage(page)}
-                                                        className={`w-7 h-7 rounded-lg text-[12px] font-bold flex items-center justify-center transition-all ${
-                                                            currentPage === page
-                                                                ? 'bg-[#2b83fa] text-white shadow-sm'
-                                                                : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5'
-                                                        }`}
-                                                    >
-                                                        {page}
-                                                    </button>
-                                                ))}
-                                            </div>
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-2 py-2 mt-4 bg-transparent">
+                            <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] font-medium">
+                                Showing <span className="font-bold text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-bold text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, filteredRequests.length)}</span> of <span className="font-bold text-[#111111] dark:text-white">{filteredRequests.length}</span> entries
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                >
+                                    <FiChevronLeft className="w-4 h-4" />
+                                </button>
 
-                                            <button
-                                                disabled={currentPage === totalPages}
-                                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                                className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                                            >
-                                                <FiChevronRight className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        );
-                    })()}
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: Math.min(5, totalPages - Math.floor((currentPage - 1) / 5) * 5) }, (_, i) => Math.floor((currentPage - 1) / 5) * 5 + 1 + i).map(page => (
+                                        <button
+                                            key={page}
+                                            onClick={() => setCurrentPage(page)}
+                                            className={`w-7 h-7 rounded-lg text-[12px] font-bold flex items-center justify-center transition-all ${
+                                                currentPage === page
+                                                    ? 'bg-[#2b83fa] text-white shadow-sm'
+                                                    : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5'
+                                            }`}
+                                        >
+                                            {page}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <button
+                                    disabled={currentPage === totalPages}
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    className="p-1.5 rounded-lg text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                >
+                                    <FiChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

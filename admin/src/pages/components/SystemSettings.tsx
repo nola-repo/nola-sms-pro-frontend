@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiDownload } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiDownload, FiFilter } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 import { generateMonthlyReport } from '../../utils/pdfGenerator';
@@ -356,6 +356,7 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
 
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'message' | 'sender_request' | 'credit_purchase' | 'credit_usage'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'successful' | 'pending' | 'failed'>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedLog, setSelectedLog] = useState<any | null>(null);
     const [copiedContent, setCopiedContent] = useState(false);
@@ -368,7 +369,7 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
         return () => clearTimeout(t);
     }, [searchTerm]);
 
-    useEffect(() => { setCurrentPage(1); }, [debouncedSearch, filterType, selectedMonth]);
+    useEffect(() => { setCurrentPage(1); }, [debouncedSearch, filterType, statusFilter, selectedMonth]);
 
     const fetchLogs = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
@@ -411,9 +412,18 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
         return log.type || 'message';
     };
 
+    const getStatusGroup = (log: any) => {
+        const status = String(log.status || log.delivery_status || '').toLowerCase();
+        if (['sent', 'delivered', 'approved', 'completed', 'paid', 'success', 'successful'].includes(status)) return 'successful';
+        if (['pending', 'queued', 'processing', 'requested'].includes(status)) return 'pending';
+        if (['failed', 'rejected', 'revoked', 'error', 'denied'].includes(status)) return 'failed';
+        return status ? 'pending' : 'successful';
+    };
+
     const filtered = logs.filter(log => {
         const type = getType(log);
         if (filterType !== 'all' && type !== filterType) return false;
+        if (statusFilter !== 'all' && getStatusGroup(log) !== statusFilter) return false;
         
         // Month Filter
         if (selectedMonth !== 'All') {
@@ -429,6 +439,22 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
         return true;
     });
 
+    const activityStats = useMemo(() => {
+        const counts = logs.reduce((acc: Record<string, number>, log: any) => {
+            const type = getType(log);
+            acc[type] = (acc[type] || 0) + 1;
+            acc[getStatusGroup(log)] = (acc[getStatusGroup(log)] || 0) + 1;
+            return acc;
+        }, {});
+        return {
+            total: logs.length,
+            messages: counts.message || 0,
+            credits: (counts.credit_purchase || 0) + (counts.credit_usage || 0),
+            senderRequests: counts.sender_request || 0,
+            needsAttention: (counts.pending || 0) + (counts.failed || 0),
+        };
+    }, [logs]);
+
     const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
     const currentLogs = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
@@ -440,6 +466,7 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
     const pills = [
         { id: 'all', label: 'All', color: 'blue' },
         { id: 'message', label: 'SMS History', icon: <FiMessageSquare size={11} />, color: 'blue' },
+        { id: 'sender_request', label: 'Sender Requests', icon: <FiSend size={11} />, color: 'amber' },
         { id: 'credit_purchase', label: 'Credits Added', icon: <FiCreditCard size={11} />, color: 'emerald' },
         { id: 'credit_usage', label: 'Credits Used', icon: <FiActivity size={11} />, color: 'purple' },
     ] as const;
@@ -517,6 +544,36 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                                     {(log.message || '').length} <span className="opacity-70 text-[9px]">chars</span>
                                 </span>
                                 {log.sendername && <span className="text-[10px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-1.5 py-0.5 rounded">Via: {log.sendername}</span>}
+                                {subAccountPill}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        if (type === 'sender_request') {
+            const requestStatus = log.status || 'pending';
+            return (
+                <div key={log.id} className={base} onClick={handleClick}>
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400">
+                        <FiSend className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <div className="flex items-center justify-between mb-1 gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
+                                    Sender Request <span className="font-mono text-[#2b83fa]">{log.requested_id || log.sender_id || log.sendername || ''}</span>
+                                </p>
+                                <div className="flex-shrink-0 scale-90 origin-left">{statusBadge(requestStatus)}</div>
+                            </div>
+                            <div className="text-right flex-shrink-0"><span className="block text-[11px] font-bold text-[#111111] dark:text-white">{date}</span><span className="block text-[10px] uppercase text-[#9aa0a6]">{time}</span></div>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">
+                                {log.location_name || log.account_name || 'Account'} requested sender approval{log.provider ? ` via ${log.provider}` : ''}.
+                            </p>
+                            <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
                                 {subAccountPill}
                             </div>
                         </div>
@@ -614,22 +671,59 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                     </div>
                 </div>
 
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+                    {[
+                        { label: 'Events', value: activityStats.total, icon: <FiActivity />, tone: 'text-blue-600 bg-blue-50 border-blue-100 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30' },
+                        { label: 'SMS', value: activityStats.messages, icon: <FiMessageSquare />, tone: 'text-sky-600 bg-sky-50 border-sky-100 dark:bg-sky-900/10 dark:text-sky-400 dark:border-sky-800/30' },
+                        { label: 'Credits', value: activityStats.credits, icon: <FiCreditCard />, tone: 'text-emerald-600 bg-emerald-50 border-emerald-100 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' },
+                        { label: 'Senders', value: activityStats.senderRequests, icon: <FiSend />, tone: 'text-amber-600 bg-amber-50 border-amber-100 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800/30' },
+                        { label: 'Review', value: activityStats.needsAttention, icon: <FiAlertCircle />, tone: 'text-red-600 bg-red-50 border-red-100 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30' },
+                    ].map(card => (
+                        <div key={card.label} className={`rounded-xl border px-3.5 py-3 ${card.tone}`}>
+                            <div className="flex items-center justify-between gap-2">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-wider opacity-75">{card.label}</p>
+                                    <p className="text-[20px] font-black text-[#111111] dark:text-white mt-1">{card.value.toLocaleString()}</p>
+                                </div>
+                                <div className="w-8 h-8 rounded-lg bg-white/70 dark:bg-white/5 flex items-center justify-center">{card.icon}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
                 {/* Type Pill Filters */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                    {pills.map(pill => {
-                        const isActive = filterType === pill.id;
-                        const theme = pillColors[pill.color];
-                        const count = pill.id === 'all' ? logs.length : logs.filter(l => getType(l) === pill.id).length;
-                        return (
-                            <button key={pill.id} onClick={() => { setFilterType(pill.id as any); setCurrentPage(1); }}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap border opacity-80 hover:opacity-100 ${ isActive ? theme.active : theme.inactive }`}
+                <div className="rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#111214] p-3">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
+                            {pills.map(pill => {
+                                const isActive = filterType === pill.id;
+                                const theme = pillColors[pill.color];
+                                const count = pill.id === 'all' ? logs.length : logs.filter(l => getType(l) === pill.id).length;
+                                return (
+                                    <button key={pill.id} onClick={() => { setFilterType(pill.id as any); setCurrentPage(1); }}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap border opacity-90 hover:opacity-100 ${ isActive ? theme.active : theme.inactive }`}
+                                    >
+                                        {'icon' in pill ? pill.icon : null}
+                                        <span>{pill.label}</span>
+                                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black min-w-[18px] text-center ${isActive ? 'bg-white/20' : 'opacity-60'}`}>{count}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div className="relative">
+                            <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5 pointer-events-none" />
+                            <select
+                                value={statusFilter}
+                                onChange={(event) => setStatusFilter(event.target.value as any)}
+                                className="appearance-none pl-8 pr-8 py-2 rounded-xl bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
                             >
-                                {'icon' in pill ? pill.icon : null}
-                                <span>{pill.label}</span>
-                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black min-w-[18px] text-center ${isActive ? 'bg-white/20' : 'opacity-60'}`}>{count}</span>
-                            </button>
-                        );
-                    })}
+                                <option value="all">All Statuses</option>
+                                <option value="successful">Successful</option>
+                                <option value="pending">Pending</option>
+                                <option value="failed">Failed or Rejected</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
             )}
