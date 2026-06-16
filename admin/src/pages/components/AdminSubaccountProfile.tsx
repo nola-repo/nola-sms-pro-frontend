@@ -214,8 +214,8 @@ export const AdminSubaccountProfile = ({ account, onClose, onSaved, onToggleActi
 
                     <div className="flex items-center justify-between gap-4 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 px-4 py-3">
                         <div>
-                            <p className="text-[13px] font-bold text-[#111111] dark:text-white">Active Status</p>
-                            <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">Control whether this profile is marked active.</p>
+                            <p className="text-[13px] font-bold text-[#111111] dark:text-white">Toggle Activation Status</p>
+                            <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">Enable or disable this subaccount profile.</p>
                         </div>
                         <button
                             type="button"

@@ -277,13 +277,6 @@ export const AdminSenderRequests: React.FC = () => {
     return (
         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl p-6 shadow-sm">
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-            <div className="flex items-center justify-end mb-2">
-                {!loading && (
-                    <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
-                        Updated: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    </span>
-                )}
-            </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
                 <div>
                     <h3 className="text-[16px] font-bold text-[#111111] dark:text-white">Sender ID Requests</h3>
@@ -328,20 +321,6 @@ export const AdminSenderRequests: React.FC = () => {
                         {filterMenuOpen && (
                             <div className="absolute right-0 top-full z-30 mt-2 w-72 rounded-2xl border border-[#e5e5e5] dark:border-white/10 bg-white dark:bg-[#1a1b1e] p-3 shadow-xl shadow-black/10 dark:shadow-black/40">
                                 <div className="space-y-3">
-                                    <div>
-                                        <label className="block text-[10px] font-black uppercase tracking-widest text-[#9aa0a6] mb-1.5">Status</label>
-                                        <select
-                                            value={filter}
-                                            onChange={(event) => setFilter(event.target.value as any)}
-                                            className="w-full appearance-none px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
-                                        >
-                                            <option value="all">All Requests</option>
-                                            <option value="pending">Pending</option>
-                                            <option value="approved">Approved</option>
-                                            <option value="rejected">Rejected</option>
-                                            <option value="revoked">Revoked</option>
-                                        </select>
-                                    </div>
                                     <div>
                                         <label className="block text-[10px] font-black uppercase tracking-widest text-[#9aa0a6] mb-1.5">Provider</label>
                                         <select
@@ -397,6 +376,35 @@ export const AdminSenderRequests: React.FC = () => {
                         </div>
                     </div>
                 ))}
+            </div>
+
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-4 custom-scrollbar no-scrollbar">
+                {[
+                    { id: 'all', label: 'All' },
+                    { id: 'pending', label: 'Pending' },
+                    { id: 'approved', label: 'Approved' },
+                    { id: 'rejected', label: 'Rejected' },
+                    { id: 'revoked', label: 'Revoked' },
+                ].map(pill => {
+                    const isActive = filter === pill.id;
+                    const count = pill.id === 'all' ? requests.length : requests.filter(r => r.status === pill.id).length;
+                    return (
+                        <button
+                            key={pill.id}
+                            onClick={() => { setFilter(pill.id as any); setCurrentPage(1); }}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-bold transition-all whitespace-nowrap border ${
+                                isActive
+                                    ? 'bg-[#111111] text-white dark:bg-white dark:text-[#111111] border-transparent shadow-sm'
+                                    : 'bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] border-[#e5e5e5] dark:border-white/5 hover:text-[#111111] dark:hover:text-white'
+                            }`}
+                        >
+                            <span>{pill.label}</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black min-w-[20px] ${isActive ? 'bg-white/20' : 'bg-black/5 dark:bg-white/10'}`}>
+                                {count}
+                            </span>
+                        </button>
+                    );
+                })}
             </div>
 
             {loading ? (
@@ -777,7 +785,6 @@ export const AdminSenderRequests: React.FC = () => {
                 const isApprove = actionPrompt.action === 'approved';
                 const isActing = actionLoading?.startsWith(req.id);
                 const reqProvider = normalizeProvider(req);
-                const providerName = providerLabel(reqProvider);
                 const requiresKey = reqProvider === 'semaphore';
                 const apiKey = apiKeyInput.trim();
                 const canApprove = reqProvider === 'unisms' || apiKey.length > 0;
@@ -786,11 +793,11 @@ export const AdminSenderRequests: React.FC = () => {
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                             <div className="flex items-center justify-between mb-5">
-                                <div>
+                                <div className="min-w-0">
                                     <h3 className="text-[17px] font-bold text-[#111111] dark:text-white">
                                         {isApprove ? 'Approve Sender ID' : 'Reject Sender ID'}
                                     </h3>
-                                    <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1 font-mono">{req.requested_id}</p>
+                                    <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1 font-semibold truncate">{req.requested_id}</p>
                                 </div>
                                 <button
                                     onClick={() => { setActionPrompt(null); setShowInputKey(false); }}
@@ -802,20 +809,15 @@ export const AdminSenderRequests: React.FC = () => {
 
                             {isApprove ? (
                                 <div className="space-y-4">
-                                    <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] px-4 py-3">
-                                        <p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Provider</p>
-                                        <div className="flex items-center justify-between gap-3">
-                                            <ProviderBadge provider={reqProvider} />
-                                            <p className="text-[11px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6] text-right">
-                                                {reqProvider === 'unisms'
-                                                    ? 'Leave key blank to use the system UniSMS account.'
-                                                    : 'Semaphore approvals require a custom key.'}
-                                            </p>
-                                        </div>
+                                    <div className="rounded-xl border border-emerald-100 dark:border-emerald-800/30 bg-emerald-50 dark:bg-emerald-900/10 px-4 py-3">
+                                        <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">Ready to approve</p>
+                                        <p className="text-[12px] font-medium text-emerald-700/75 dark:text-emerald-300/75 mt-1 leading-relaxed">
+                                            This will activate the requested sender ID for the selected account.
+                                        </p>
                                     </div>
                                     <div>
                                         <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">
-                                            {providerName} API Key {requiresKey ? '' : '(optional)'}
+                                            API Key {requiresKey ? '' : '(optional)'}
                                         </label>
                                         <div className="relative">
                                             <input
@@ -823,7 +825,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                 value={apiKeyInput}
                                                 onChange={e => setApiKeyInput(e.target.value)}
                                                 placeholder={requiresKey ? "Required to approve" : "Optional custom key"}
-                                                className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 transition-shadow font-mono"
+                                                className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 transition-shadow font-semibold"
                                             />
                                             <button
                                                 type="button"
@@ -848,6 +850,12 @@ export const AdminSenderRequests: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="space-y-4">
+                                    <div className="rounded-xl border border-red-100 dark:border-red-800/30 bg-red-50 dark:bg-red-900/10 px-4 py-3">
+                                        <p className="text-[12px] font-bold text-red-700 dark:text-red-300">Reject request</p>
+                                        <p className="text-[12px] font-medium text-red-700/75 dark:text-red-300/75 mt-1 leading-relaxed">
+                                            Add a clear customer-facing reason before rejecting this sender ID.
+                                        </p>
+                                    </div>
                                     <div>
                                         <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Customer Note</label>
                                         <textarea
@@ -855,7 +863,7 @@ export const AdminSenderRequests: React.FC = () => {
                                             onChange={e => setRejectNote(e.target.value)}
                                             rows={3}
                                             placeholder="Reason sent to the customer..."
-                                            className="w-full px-4 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow"
+                                            className="w-full px-4 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow font-medium"
                                         />
                                     </div>
                                     <button

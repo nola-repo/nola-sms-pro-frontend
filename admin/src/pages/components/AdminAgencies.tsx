@@ -279,6 +279,9 @@ export const AdminAgencies: React.FC = () => {
     const [isLoadingReport, setIsLoadingReport] = useState(false);
     const [reportSelectedMonth, setReportSelectedMonth] = useState('All');
     const [selectedReportAccount, setSelectedReportAccount] = useState<AgencyAccount | null>(null);
+    const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
+    const [editingBalanceId, setEditingBalanceId] = useState<string | null>(null);
+    const [editingBalanceValue, setEditingBalanceValue] = useState('');
 
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
@@ -286,6 +289,13 @@ export const AdminAgencies: React.FC = () => {
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm]);
+
+    useEffect(() => {
+        if (!openActionMenuId) return;
+        const closeMenu = () => setOpenActionMenuId(null);
+        document.addEventListener('mousedown', closeMenu);
+        return () => document.removeEventListener('mousedown', closeMenu);
+    }, [openActionMenuId]);
 
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
@@ -443,6 +453,47 @@ export const AdminAgencies: React.FC = () => {
         }
     };
 
+    const startEditBalance = (account: AgencyAccount) => {
+        setEditingBalanceId(account.id);
+        setEditingBalanceValue(String(account.balance ?? account.credit_balance ?? account.credits ?? 0));
+    };
+
+    const saveEditBalance = async (account: AgencyAccount) => {
+        const newVal = parseInt(editingBalanceValue) || 0;
+        setEditingBalanceId(null);
+        if (newVal === (account.balance ?? account.credit_balance ?? account.credits ?? 0)) return;
+        setAccounts(prev => prev.map(acc => acc.id === account.id ? {
+            ...acc,
+            balance: newVal,
+            credit_balance: newVal,
+            credits: newVal,
+        } : acc));
+        setActionLoading(`balance:${account.id}`);
+        try {
+            const res = await adminFetch(ADMIN_API, {
+                method: 'POST',
+                headers: getAdminAuthHeaders(),
+                body: JSON.stringify({
+                    action: 'manage_agency',
+                    user_id: account.id,
+                    company_id: account.company_id,
+                    balance: newVal,
+                    credit_balance: newVal,
+                }),
+            });
+            const json = await res.json();
+            if (json.status === 'success') {
+                showToast('Agency balance updated.', 'success');
+            } else {
+                showToast(json.message || 'Failed to update agency balance.', 'error');
+            }
+        } catch {
+            showToast('Network error updating agency balance.', 'error');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
 
 
     return (
@@ -532,30 +583,77 @@ export const AdminAgencies: React.FC = () => {
                                     <td className="py-4 pr-4 w-[14%] text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] whitespace-nowrap">{emptyValue(acc.phone)}</td>
                                     <td className="py-4 pr-4 w-[12%]">{roleBadge(acc.role)}</td>
                                     <td className="py-4 pr-4 w-[10%]">
-                                        <div className="flex flex-col">
-                                            <span className="text-[13px] font-bold text-[#111111] dark:text-white">{(acc.balance ?? acc.credit_balance ?? acc.credits ?? 0).toLocaleString()}</span>
-                                            <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">Balance</span>
-                                        </div>
+                                        {editingBalanceId === acc.id ? (
+                                            <div className="inline-flex items-center rounded-lg border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] overflow-hidden shadow-sm">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditingBalanceValue(prev => String(Math.max(0, (parseInt(prev) || 0) - 1)))}
+                                                    className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors border-r border-[#e0e0e0] dark:border-white/10"
+                                                >
+                                                    <FiMinus className="w-3 h-3" />
+                                                </button>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    autoFocus
+                                                    value={editingBalanceValue}
+                                                    onChange={e => setEditingBalanceValue(e.target.value)}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Enter') saveEditBalance(acc);
+                                                        if (e.key === 'Escape') setEditingBalanceId(null);
+                                                    }}
+                                                    className="w-14 text-center text-[13px] font-bold bg-transparent text-[#111111] dark:text-white focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditingBalanceValue(prev => String((parseInt(prev) || 0) + 1))}
+                                                    className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors border-l border-[#e0e0e0] dark:border-white/10"
+                                                >
+                                                    <FiPlus className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => startEditBalance(acc)}
+                                                title="Click to edit balance"
+                                                className="flex flex-col items-start hover:bg-[#f0f7ff] dark:hover:bg-blue-900/10 rounded-lg px-2 py-1 transition-colors group/balance"
+                                            >
+                                                <span className="text-[13px] font-bold text-[#111111] dark:text-white group-hover/balance:text-[#2b83fa] transition-colors">{(acc.balance ?? acc.credit_balance ?? acc.credits ?? 0).toLocaleString()}</span>
+                                                <span className="text-[9px] text-[#9aa0a6] font-medium uppercase tracking-tight group-hover/balance:text-[#2b83fa]/60 transition-colors">click to edit</span>
+                                            </button>
+                                        )}
                                     </td>
                                     <td className="py-4 pr-2 w-[8%]">
-                                        <div className="flex items-center justify-end gap-1">
+                                        <div className="relative flex items-center justify-end" onMouseDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
                                             <button
-                                                onClick={() => fetchReportForAccount(acc)}
-                                                className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
-                                                title="Download Agency Report"
+                                                type="button"
+                                                onClick={() => setOpenActionMenuId(openActionMenuId === acc.id ? null : acc.id)}
+                                                className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
+                                                title="More actions"
+                                                aria-label="More actions"
+                                                aria-expanded={openActionMenuId === acc.id}
                                             >
-                                                <FiDownload className="w-4 h-4" />
+                                                <FiMoreVertical className="w-4 h-4" />
                                             </button>
-                                            <button
-                                                onClick={() => {
-                                                    setManagingAccount(acc);
-                                                    setManageCreditBalance(acc.balance ?? acc.credit_balance ?? acc.credits ?? 0);
-                                                }}
-                                                className="p-2 rounded-xl text-[#6e6e73] hover:text-[#2b83fa] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-transparent hover:border-blue-100 dark:hover:border-blue-800/30"
-                                                title="Manage Agency"
-                                            >
-                                                <FiSettings className="w-4 h-4" />
-                                            </button>
+                                            {openActionMenuId === acc.id && (
+                                                <div className="absolute right-0 top-full z-40 mt-2 w-44 rounded-xl border border-[#e5e5e5] dark:border-white/10 bg-white dark:bg-[#1a1b1e] p-1.5 shadow-xl shadow-black/10 dark:shadow-black/40">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setOpenActionMenuId(null); setManagingAccount(acc); }}
+                                                        className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] font-bold text-[#111111] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/5"
+                                                    >
+                                                        <FiEye className="w-3.5 h-3.5 text-[#6e6e73]" /> View details
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setOpenActionMenuId(null); fetchReportForAccount(acc); }}
+                                                        className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] font-bold text-[#111111] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/5"
+                                                    >
+                                                        <FiDownload className="w-3.5 h-3.5 text-emerald-500" /> Download report
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -606,65 +704,42 @@ export const AdminAgencies: React.FC = () => {
                 </div>
             )}
 
-            {/* Manage Sender Modal */}
+            {/* Agency Details Modal */}
             {managingAccount && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex items-center justify-between mb-5">
                             <h3 className="text-[18px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                                <FiSettings className="text-[#2b83fa]" /> Manage Agency Config
+                                <FiBriefcase className="text-[#2b83fa]" /> Agency Details
                             </h3>
                             <button onClick={() => setManagingAccount(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
                                 <FiX className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mb-5">
-                             Update the credit balance for <span className="font-semibold text-[#111111] dark:text-white">{getAgencyDisplayName(managingAccount)}</span>.
-                         </p>
-
-                        <form onSubmit={submitManageSender} className="space-y-4">
-                            <div className="pt-1">
-                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Credit Balance</label>
-                                <div className="flex items-center gap-2">
-                                    <button 
-                                        type="button"
-                                        onClick={() => setManageCreditBalance(prev => Math.max(0, prev - 1))}
-                                        className="w-10 h-10 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] flex items-center justify-center text-[#6e6e73] hover:text-[#2b83fa] transition-colors"
-                                    >
-                                        <FiMinus className="w-4 h-4" />
-                                    </button>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={manageCreditBalance}
-                                        onChange={(e) => setManageCreditBalance(parseInt(e.target.value) || 0)}
-                                        className="flex-1 px-4 py-2.5 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] text-center focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow [&::-webkit-inner-spin-button]:appearance-none"
-                                    />
-                                    <button 
-                                        type="button"
-                                        onClick={() => setManageCreditBalance(prev => prev + 1)}
-                                        className="w-10 h-10 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] flex items-center justify-center text-[#6e6e73] hover:text-[#2b83fa] transition-colors"
-                                    >
-                                        <FiPlus className="w-4 h-4" />
-                                    </button>
-                                </div>
-                                <p className="text-[11px] text-[#9aa0a6] mt-2">Adjust the agency's total SMS credits balance.</p>
+                        <div className="space-y-4">
+                            <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#111214] p-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-[#9aa0a6] mb-1">Agency</p>
+                                <p className="text-[17px] font-black text-[#111111] dark:text-white">{getAgencyDisplayName(managingAccount)}</p>
+                                <p className="text-[12px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6] mt-1">{getCompanyLabel(managingAccount)}</p>
                             </div>
 
-                            <div className="pt-4 flex flex-col gap-3">
-                                <button
-                                    type="submit"
-                                    disabled={actionLoading === 'managing'}
-                                    className="flex items-center justify-center gap-2 w-full px-5 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[14px] transition-all shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50"
-                                >
-                                    {actionLoading === 'managing' ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiCheck className="w-4 h-4" />}
-                                    Save Changes
-                                </button>
-                                
-
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {[
+                                    ['Email', emptyValue(managingAccount.email)],
+                                    ['Phone', emptyValue(managingAccount.phone)],
+                                    ['Role', managingAccount.role || 'agency'],
+                                    ['Balance', `${(managingAccount.balance ?? managingAccount.credit_balance ?? managingAccount.credits ?? 0).toLocaleString()} credits`],
+                                    ['Company ID', managingAccount.company_id || managingAccount.id],
+                                    ['Status', managingAccount.active !== false ? 'Active' : 'Inactive'],
+                                ].map(([label, value]) => (
+                                    <div key={label} className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] px-4 py-3">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-[#9aa0a6] mb-1">{label}</p>
+                                        <p className="text-[13px] font-bold text-[#111111] dark:text-white break-words">{value}</p>
+                                    </div>
+                                ))}
                             </div>
-                        </form>
+                        </div>
                     </div>
                 </div>
             )}

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiDownload, FiFilter } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
@@ -357,12 +357,14 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'message' | 'sender_request' | 'credit_purchase' | 'credit_usage'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'successful' | 'pending' | 'failed'>('all');
+    const [filterMenuOpen, setFilterMenuOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedLog, setSelectedLog] = useState<any | null>(null);
     const [copiedContent, setCopiedContent] = useState(false);
     const ITEMS_PER_PAGE = 10;
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
     const [selectedMonth, setSelectedMonth] = useState<string>('All');
+    const filterMenuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const t = setTimeout(() => setDebouncedSearch(searchTerm), 300);
@@ -370,6 +372,17 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
     }, [searchTerm]);
 
     useEffect(() => { setCurrentPage(1); }, [debouncedSearch, filterType, statusFilter, selectedMonth]);
+
+    useEffect(() => {
+        if (!filterMenuOpen) return;
+        const handleClick = (event: MouseEvent) => {
+            if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+                setFilterMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, [filterMenuOpen]);
 
     const fetchLogs = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
@@ -464,18 +477,18 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
     }).filter(Boolean))).sort().reverse() as string[];
 
     const pills = [
-        { id: 'all', label: 'All', color: 'blue' },
-        { id: 'message', label: 'SMS History', icon: <FiMessageSquare size={11} />, color: 'blue' },
-        { id: 'sender_request', label: 'Sender Requests', icon: <FiSend size={11} />, color: 'amber' },
-        { id: 'credit_purchase', label: 'Credits Added', icon: <FiCreditCard size={11} />, color: 'emerald' },
-        { id: 'credit_usage', label: 'Credits Used', icon: <FiActivity size={11} />, color: 'purple' },
+        { id: 'all', label: 'All' },
+        { id: 'message', label: 'SMS History', icon: <FiMessageSquare size={11} /> },
+        { id: 'sender_request', label: 'Sender Requests', icon: <FiSend size={11} /> },
+        { id: 'credit_purchase', label: 'Credits Added', icon: <FiCreditCard size={11} /> },
+        { id: 'credit_usage', label: 'Credits Used', icon: <FiActivity size={11} /> },
     ] as const;
 
     const pillColors: Record<string, { active: string; inactive: string }> = {
-        blue:    { active: 'bg-blue-600 text-white border-transparent shadow-sm',    inactive: 'bg-blue-50/50 dark:bg-blue-500/5 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-500/10 hover:opacity-100' },
-        amber:   { active: 'bg-amber-500 text-white border-transparent shadow-sm',   inactive: 'bg-amber-50/50 dark:bg-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/10 hover:opacity-100' },
-        emerald: { active: 'bg-emerald-600 text-white border-transparent shadow-sm', inactive: 'bg-emerald-50/50 dark:bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/10 hover:opacity-100' },
-        purple:  { active: 'bg-purple-600 text-white border-transparent shadow-sm',  inactive: 'bg-purple-50/50 dark:bg-purple-500/5 text-purple-600 dark:text-purple-400 border-purple-100 dark:border-purple-500/10 hover:opacity-100' },
+        neutral: {
+            active: 'bg-[#111111] text-white dark:bg-white dark:text-[#111111] border-transparent shadow-sm',
+            inactive: 'bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] border-[#e5e5e5] dark:border-white/5 hover:text-[#111111] dark:hover:text-white',
+        },
     };
 
     const statusBadge = (status: string) => {
@@ -620,13 +633,6 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
             {/* Header */}
             {!hideHeader && (
             <div className="px-6 pt-6 pb-5 border-b border-[#e5e5e5] dark:border-white/5">
-                <div className="flex items-center justify-end mb-2">
-                    {!loading && (
-                        <span className="text-[10px] text-[#9aa0a6] font-medium uppercase tracking-tight">
-                            Updated: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        </span>
-                    )}
-                </div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
                     <div>
                         <h3 className="text-[16px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
@@ -635,23 +641,6 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                         <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">Platform-wide activity logs across all accounts.</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        {/* Month Selector */}
-                        <div className="relative hover:scale-[1.02] transition-transform">
-                            <select
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(e.target.value)}
-                                className="appearance-none pl-3 pr-8 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer shadow-sm"
-                            >
-                                <option value="All">All Transactions</option>
-                                {availableMonths.map(m => {
-                                    const [y, mm] = m.split('-');
-                                    const label = new Date(parseInt(y), parseInt(mm) - 1).toLocaleString('default', { month: 'short', year: 'numeric' });
-                                    return <option key={m} value={m}>{label}</option>;
-                                })}
-                            </select>
-                            <FiClock className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9aa0a6] pointer-events-none w-3.5 h-3.5" />
-                        </div>
-
                         <div className="flex items-center gap-2">
                             <div className="relative w-full sm:w-64">
                                 <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5" />
@@ -663,6 +652,58 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                                     className="w-full pl-9 pr-8 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all font-medium"
                                 />
                                 {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white transition-colors"><FiX className="w-3 h-3" /></button>}
+                            </div>
+                            <div ref={filterMenuRef} className="relative flex-shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setFilterMenuOpen(open => !open)}
+                                    className={`relative h-9 w-9 rounded-xl border flex items-center justify-center transition-all ${
+                                        filterMenuOpen || selectedMonth !== 'All' || statusFilter !== 'all'
+                                            ? 'bg-[#111111] text-white border-[#111111] dark:bg-white dark:text-[#111111] dark:border-white'
+                                            : 'bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e5e5e5] dark:border-white/5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10'
+                                    }`}
+                                    aria-label="Filter platform activity"
+                                    aria-expanded={filterMenuOpen}
+                                >
+                                    <FiFilter className="w-3.5 h-3.5" />
+                                    {(selectedMonth !== 'All' || statusFilter !== 'all') && (
+                                        <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#2b83fa] ring-2 ring-white dark:ring-[#1a1b1e]" />
+                                    )}
+                                </button>
+                                {filterMenuOpen && (
+                                    <div className="absolute right-0 top-full z-30 mt-2 w-72 rounded-2xl border border-[#e5e5e5] dark:border-white/10 bg-white dark:bg-[#1a1b1e] p-3 shadow-xl shadow-black/10 dark:shadow-black/40">
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-[#9aa0a6] mb-1.5">Transactions</label>
+                                                <select
+                                                    value={selectedMonth}
+                                                    onChange={(e) => setSelectedMonth(e.target.value)}
+                                                    className="w-full appearance-none px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
+                                                >
+                                                    <option value="All">All Transactions</option>
+                                                    {availableMonths.map(m => {
+                                                        const [y, mm] = m.split('-');
+                                                        const label = new Date(parseInt(y), parseInt(mm) - 1).toLocaleString('default', { month: 'short', year: 'numeric' });
+                                                        return <option key={m} value={m}>{label}</option>;
+                                                    })}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black uppercase tracking-widest text-[#9aa0a6] mb-1.5">Status</label>
+                                                <select
+                                                    value={statusFilter}
+                                                    onChange={(event) => setStatusFilter(event.target.value as any)}
+                                                    className="w-full appearance-none px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
+                                                >
+                                                    <option value="all">All Statuses</option>
+                                                    <option value="successful">Successful</option>
+                                                    <option value="pending">Pending</option>
+                                                    <option value="failed">Failed or Rejected</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <button onClick={() => fetchLogs(true)} className="p-2 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl flex-shrink-0">
                                 <FiRefreshCw className={`w-3.5 h-3.5 ${loading && !logs.length ? 'animate-spin' : ''}`} />
@@ -697,7 +738,7 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                         <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
                             {pills.map(pill => {
                                 const isActive = filterType === pill.id;
-                                const theme = pillColors[pill.color];
+                                const theme = pillColors.neutral;
                                 const count = pill.id === 'all' ? logs.length : logs.filter(l => getType(l) === pill.id).length;
                                 return (
                                     <button key={pill.id} onClick={() => { setFilterType(pill.id as any); setCurrentPage(1); }}
@@ -709,19 +750,6 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                                     </button>
                                 );
                             })}
-                        </div>
-                        <div className="relative">
-                            <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] w-3.5 h-3.5 pointer-events-none" />
-                            <select
-                                value={statusFilter}
-                                onChange={(event) => setStatusFilter(event.target.value as any)}
-                                className="appearance-none pl-8 pr-8 py-2 rounded-xl bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
-                            >
-                                <option value="all">All Statuses</option>
-                                <option value="successful">Successful</option>
-                                <option value="pending">Pending</option>
-                                <option value="failed">Failed or Rejected</option>
-                            </select>
                         </div>
                     </div>
                 </div>
