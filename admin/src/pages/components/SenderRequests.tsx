@@ -378,33 +378,35 @@ export const AdminSenderRequests: React.FC = () => {
                 ))}
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-4 custom-scrollbar no-scrollbar">
-                {[
-                    { id: 'all', label: 'All' },
-                    { id: 'pending', label: 'Pending' },
-                    { id: 'approved', label: 'Approved' },
-                    { id: 'rejected', label: 'Rejected' },
-                    { id: 'revoked', label: 'Revoked' },
-                ].map(pill => {
-                    const isActive = filter === pill.id;
-                    const count = pill.id === 'all' ? requests.length : requests.filter(r => r.status === pill.id).length;
-                    return (
-                        <button
-                            key={pill.id}
-                            onClick={() => { setFilter(pill.id as any); setCurrentPage(1); }}
-                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-[12px] font-bold transition-all whitespace-nowrap ${
-                                isActive
-                                    ? 'bg-[#111111] text-white dark:bg-white dark:text-[#111111] shadow-sm'
-                                    : 'bg-[#f7f7f7] dark:bg-[#101113] text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#eeeeee] dark:hover:bg-[#15171a]'
-                            }`}
-                        >
-                            <span>{pill.label}</span>
-                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black min-w-[20px] ${isActive ? 'bg-white/20' : 'bg-black/5 dark:bg-white/10'}`}>
-                                {count}
-                            </span>
-                        </button>
-                    );
-                })}
+            <div className="rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#111214] p-3 mb-4">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 custom-scrollbar no-scrollbar">
+                    {[
+                        { id: 'all', label: 'All' },
+                        { id: 'pending', label: 'Pending' },
+                        { id: 'approved', label: 'Approved' },
+                        { id: 'rejected', label: 'Rejected' },
+                        { id: 'revoked', label: 'Revoked' },
+                    ].map(pill => {
+                        const isActive = filter === pill.id;
+                        const count = pill.id === 'all' ? requests.length : requests.filter(r => r.status === pill.id).length;
+                        return (
+                            <button
+                                key={pill.id}
+                                onClick={() => { setFilter(pill.id as any); setCurrentPage(1); }}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap border opacity-90 hover:opacity-100 ${
+                                    isActive
+                                        ? 'bg-[#111111] text-white dark:bg-white dark:text-[#111111] border-transparent shadow-sm'
+                                        : 'bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] border-[#e5e5e5] dark:border-white/5 hover:text-[#111111] dark:hover:text-white'
+                                }`}
+                            >
+                                <span>{pill.label}</span>
+                                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black min-w-[18px] text-center ${isActive ? 'bg-white/20' : 'opacity-60'}`}>
+                                    {count}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             {loading ? (
