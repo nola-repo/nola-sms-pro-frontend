@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiBriefcase, FiDownload } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronDown, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiBriefcase, FiDownload } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 import { useToast } from '../../hooks/useToast';
@@ -157,7 +157,90 @@ const getReportMonthLabel = (month: string) => {
 };
 
 const getReportMonthCount = (transactions: any[], month: string) =>
-    transactions.filter(tx => getTransactionMonth(tx) === month).length;
+    month === 'All'
+        ? transactions.length
+        : transactions.filter(tx => getTransactionMonth(tx) === month).length;
+
+const getCurrentReportMonth = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const getReportMonthSelection = (transactions: any[]) => {
+    if (transactions.length === 0) return 'All';
+    const currentMonth = getCurrentReportMonth();
+    const months = getReportMonthOptions(transactions);
+    return months.includes(currentMonth) ? currentMonth : months[0] || 'All';
+};
+
+const readReportTransactions = (json: any): any[] => {
+    if (Array.isArray(json)) return json;
+    if (Array.isArray(json?.transactions)) return json.transactions;
+    if (Array.isArray(json?.data)) return json.data;
+    if (Array.isArray(json?.results)) return json.results;
+    return [];
+};
+
+const readSubscriptionPlans = (json: any): any[] => {
+    if (!json) return [];
+    if (Array.isArray(json)) return json;
+    if (Array.isArray(json?.plans)) return json.plans;
+    if (Array.isArray(json?.subscriptions)) return json.subscriptions;
+    if (Array.isArray(json?.data)) return json.data;
+    return json.plan || json.status || json.subaccount_limit ? [json] : [];
+};
+
+const formatPlanLabel = (value: any) => {
+    const text = String(value || 'starter').replace(/_/g, ' ');
+    return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
+const normalizeAgencyWalletTransaction = (tx: any, account: AgencyAccount) => ({
+    ...tx,
+    timestamp: tx.timestamp || tx.created_at || tx.createdAt || tx.date,
+    created_at: tx.created_at || tx.timestamp || tx.createdAt || tx.date,
+    type: tx.type || tx.event_type || tx.kind || 'wallet_transaction',
+    amount: normalizeNumber(tx.amount, 0),
+    balance_after: normalizeNumber(tx.balance_after ?? tx.balance, account.balance ?? account.credit_balance ?? account.credits ?? 0),
+    description: tx.description || tx.note || tx.memo || tx.reason || 'Agency wallet transaction',
+    message: tx.message || tx.description || tx.note || tx.memo || tx.reason || 'Agency wallet transaction',
+    location_name: tx.location_name || tx.subaccount_name || getAgencyDisplayName(account),
+    agency_name: tx.agency_name || tx.company_name || getCompanyLabel(account),
+    company_name: tx.company_name || tx.agency_name || getCompanyLabel(account),
+    company_id: tx.company_id || tx.agency_id || account.company_id || account.id,
+});
+
+const buildPlanReportTransactions = (plans: any[], account: AgencyAccount) =>
+    plans.map((plan, index) => {
+        const planName = formatPlanLabel(plan.plan || plan.name || plan.id);
+        const status = formatPlanLabel(plan.status || 'active');
+        const limit = plan.subaccount_limit === -1 ? 'Unlimited' : plan.subaccount_limit ?? plan.limit ?? 'Unknown';
+        const used = plan.subaccounts_used ?? plan.used;
+        const expires = plan.expires_at || plan.renews_at || plan.current_period_end;
+        const details = [
+            `Current plan: ${planName}`,
+            `Status: ${status}`,
+            `Subaccount limit: ${limit}`,
+            used !== undefined ? `Subaccounts used: ${used}` : '',
+            expires ? `Renews/expires: ${formatAgencyDate(expires)}` : '',
+        ].filter(Boolean).join('. ');
+
+        return {
+            id: `plan-${plan.id || plan.plan || index}`,
+            timestamp: plan.updated_at || plan.created_at || plan.started_at || expires || new Date().toISOString(),
+            created_at: plan.updated_at || plan.created_at || plan.started_at || expires || new Date().toISOString(),
+            type: 'subscription_plan',
+            event_type: 'subscription_plan',
+            amount: 0,
+            balance_after: account.balance ?? account.credit_balance ?? account.credits ?? 0,
+            description: details,
+            message: details,
+            location_name: getAgencyDisplayName(account),
+            agency_name: getCompanyLabel(account),
+            company_name: getCompanyLabel(account),
+            company_id: account.company_id || account.id,
+        };
+    });
 
 const buildAgencyReportProfile = (account: AgencyAccount) => ({
     accountName: getAgencyDisplayName(account),
@@ -167,7 +250,8 @@ const buildAgencyReportProfile = (account: AgencyAccount) => ({
     agencyName: getCompanyLabel(account),
     companyName: account.company_name || account.agency_name,
     companyId: account.company_id || account.id,
-    reportTitle: 'AGENCY CREDIT REPORT',
+    reportTitle: 'AGENCY WALLET & PLAN REPORT',
+    currentBalance: account.balance ?? account.credit_balance ?? account.credits ?? 0,
 });
 
 
@@ -279,18 +363,40 @@ export const AdminAgencies: React.FC = () => {
 
         setSelectedReportAccount(acc);
         setIsLoadingReport(true);
-        setReportSelectedMonth('All');
+        setReportSelectedMonth(getCurrentReportMonth());
         setReportTransactions([]);
         try {
-            const res = await adminFetch(`/api/get_credit_transactions.php?location_id=${encodeURIComponent(reportKey)}`, { headers: getAdminAuthHeaders() });
-            const json = await res.json();
-            if (json.status === 'success') {
-                setReportTransactions(json.data || json.transactions || []);
+            const [transactionsResult, subscriptionResult] = await Promise.allSettled([
+                adminFetch(`/api/billing/transactions.php?scope=agency&agency_id=${encodeURIComponent(reportKey)}&limit=5000`, { headers: getAdminAuthHeaders() }),
+                adminFetch(`/api/billing/subscription.php?agency_id=${encodeURIComponent(reportKey)}`, { headers: getAdminAuthHeaders() }),
+            ]);
+
+            const reportRows: any[] = [];
+            let loadError = '';
+
+            if (transactionsResult.status === 'fulfilled' && transactionsResult.value.ok) {
+                const json = await transactionsResult.value.json().catch(() => null);
+                reportRows.push(...readReportTransactions(json).map(tx => normalizeAgencyWalletTransaction(tx, acc)));
             } else {
-                showToast(json.message || 'Failed to load transaction history.', 'error');
+                loadError = 'Wallet transactions could not be loaded.';
+            }
+
+            if (subscriptionResult.status === 'fulfilled' && subscriptionResult.value.ok) {
+                const json = await subscriptionResult.value.json().catch(() => null);
+                reportRows.push(...buildPlanReportTransactions(readSubscriptionPlans(json), acc));
+            } else {
+                loadError = loadError || 'Subscription plan could not be loaded.';
+            }
+
+            setReportTransactions(reportRows);
+            setReportSelectedMonth(getReportMonthSelection(reportRows));
+            if (loadError && reportRows.length === 0) {
+                showToast(loadError, 'error');
+            } else if (loadError) {
+                showToast(`${loadError} Showing available report data.`, 'info');
             }
         } catch {
-            showToast('Failed to load transaction history.', 'error');
+            showToast('Failed to load agency report data.', 'error');
         } finally {
             setIsLoadingReport(false);
         }
@@ -562,63 +668,99 @@ export const AdminAgencies: React.FC = () => {
             </div>
 
             {/* Standalone Report Modal */}
-            {selectedReportAccount && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex flex-col gap-4">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-[16px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
-                                    <FiActivity className="w-4 h-4 text-[#2b83fa]" /> Download Report
-                                </h3>
-                                <button onClick={() => setSelectedReportAccount(null)} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
+            {selectedReportAccount && (() => {
+                const monthOptions = getReportMonthOptions(reportTransactions);
+                const selectedEventCount = getReportMonthCount(reportTransactions, reportSelectedMonth);
+                const canDownloadReport = !isLoadingReport && selectedEventCount > 0;
+                const selectedLabel = reportSelectedMonth === 'All' ? 'All Wallet & Plan Events' : getReportMonthLabel(reportSelectedMonth);
+
+                return (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+                            <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/10 flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2.5 text-[#111111] dark:text-white">
+                                        <div className="w-9 h-9 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center">
+                                            <FiDownload className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-[17px] font-bold leading-tight">Download Report</h3>
+                                            <p className="text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5 truncate">
+                                                {getAgencyDisplayName(selectedReportAccount)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button onClick={() => setSelectedReportAccount(null)} className="p-2 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors">
                                     <FiX className="w-5 h-5" />
                                 </button>
                             </div>
-                            
-                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6]">
-                                Select a month to download the credit report for <span className="font-semibold text-[#111111] dark:text-white">{getAgencyDisplayName(selectedReportAccount)}</span>.
-                            </p>
 
-                            {isLoadingReport ? (
-                                <div className="py-4 flex items-center justify-center gap-3 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl border border-[#e5e5e5] dark:border-white/5">
-                                    <FiRefreshCw className="w-4 h-4 text-[#2b83fa] animate-spin" />
-                                    <p className="text-[13px] font-medium text-[#111111] dark:text-white">Loading transactions...</p>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-3 pt-2">
-                                    <div className="relative flex-1">
-                                        <select
-                                            value={reportSelectedMonth}
-                                            onChange={(e) => setReportSelectedMonth(e.target.value)}
-                                            className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[13px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer"
-                                        >
-                                            <option value="All">Full History ({reportTransactions.length} events)</option>
-                                            {getReportMonthOptions(reportTransactions).map(month => {
-                                                const count = getReportMonthCount(reportTransactions, month);
-                                                return <option key={month} value={month}>{getReportMonthLabel(month)} ({count})</option>;
-                                            })}
-                                        </select>
-                                        <FiChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9aa0a6] pointer-events-none rotate-90" />
+                            <div className="p-6 space-y-5">
+                                {isLoadingReport ? (
+                                    <div className="py-8 flex flex-col items-center justify-center gap-3 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl border border-[#e5e5e5] dark:border-white/5">
+                                        <FiRefreshCw className="w-5 h-5 text-[#2b83fa] animate-spin" />
+                                        <p className="text-[13px] font-bold text-[#111111] dark:text-white">Loading agency report data...</p>
+                                        <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">Fetching wallet transactions and current plan details.</p>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => generateMonthlyReport(reportSelectedMonth, reportTransactions, 'agency', getAgencyDisplayName(selectedReportAccount), buildAgencyReportProfile(selectedReportAccount))}
-                                        className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl text-[13px] font-bold transition-all shadow-md shadow-blue-500/20 active:scale-95 whitespace-nowrap"
-                                    >
-                                        <FiDownload className="w-4 h-4" /> Download PDF
-                                    </button>
-                                </div>
-                            )}
-                            {!isLoadingReport && reportTransactions.length === 0 && (
-                                <div className="flex items-center gap-2 pt-1">
-                                    <FiAlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                                    <p className="text-[12px] font-medium text-amber-600 dark:text-amber-400">No usage data found for this agency.</p>
-                                </div>
-                            )}
+                                ) : reportTransactions.length === 0 ? (
+                                    <div className="py-8 flex flex-col items-center justify-center gap-3 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl border border-[#e5e5e5] dark:border-white/5 text-center">
+                                        <div className="w-11 h-11 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center">
+                                            <FiDownload className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[14px] font-bold text-[#111111] dark:text-white">No reportable agency activity</p>
+                                            <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">PDF download is disabled until wallet transactions or plan data are available.</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 px-4 py-3">
+                                                <p className="text-[11px] uppercase tracking-wider font-bold text-[#9aa0a6]">Total Events</p>
+                                                <p className="text-[22px] font-black text-[#111111] dark:text-white mt-1">{reportTransactions.length.toLocaleString()}</p>
+                                            </div>
+                                            <div className="rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 px-4 py-3">
+                                                <p className="text-[11px] uppercase tracking-wider font-bold text-[#9aa0a6]">Selected Period</p>
+                                                <p className="text-[13px] font-black text-[#111111] dark:text-white mt-1 truncate">{selectedLabel}</p>
+                                                <p className="text-[11px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6] mt-1">{selectedEventCount.toLocaleString()} events</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] uppercase tracking-wider font-bold text-[#9aa0a6]">Report Period</label>
+                                            <div className="relative">
+                                                <select
+                                                    value={reportSelectedMonth}
+                                                    onChange={(event) => setReportSelectedMonth(event.target.value)}
+                                                    className="w-full appearance-none pl-3.5 pr-10 py-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#d8dce3] dark:border-white/10 text-[13px] font-bold text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all cursor-pointer"
+                                                >
+                                                    <option value="All">All Wallet & Plan Events ({reportTransactions.length} events)</option>
+                                                    {monthOptions.map(month => {
+                                                        const count = getReportMonthCount(reportTransactions, month);
+                                                        return <option key={month} value={month}>{getReportMonthLabel(month)} ({count})</option>;
+                                                    })}
+                                                </select>
+                                                <FiChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9aa0a6] pointer-events-none" />
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => generateMonthlyReport(reportSelectedMonth, reportTransactions, 'agency', getAgencyDisplayName(selectedReportAccount), buildAgencyReportProfile(selectedReportAccount))}
+                                            disabled={!canDownloadReport}
+                                            className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] text-white rounded-xl text-[13px] font-bold transition-all shadow-md shadow-blue-500/20 active:scale-[0.98] disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:shadow-none"
+                                        >
+                                            <FiDownload className="w-4 h-4" />
+                                            {canDownloadReport ? 'Download PDF' : 'No Events To Download'}
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 };
