@@ -751,12 +751,12 @@ export const AdminAccounts: React.FC = () => {
                                                 {editingCreditId === account.id ? (
                                                     <div
                                                         ref={editContainerRef}
-                                                        className="inline-flex items-center rounded-xl border border-[#e0e0e0] dark:border-white/10 bg-[#f7f7f7] dark:bg-[#0d0e10] overflow-hidden shadow-sm"
+                                                        className="inline-flex items-center rounded-lg border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] overflow-hidden shadow-sm"
                                                     >
                                                         <button
                                                             type="button"
                                                             onClick={() => setEditingCreditValue(prev => String(Math.max(0, (parseInt(prev) || 0) - 1)))}
-                                                            className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-white dark:hover:bg-white/5 transition-colors border-r border-[#e0e0e0] dark:border-white/10 flex items-center justify-center cursor-pointer"
+                                                            className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors border-r border-[#e0e0e0] dark:border-white/10"
                                                         >
                                                             <FiMinus className="w-3 h-3" />
                                                         </button>
@@ -770,12 +770,12 @@ export const AdminAccounts: React.FC = () => {
                                                                 if (e.key === 'Enter') saveEditCredit(account);
                                                                 if (e.key === 'Escape') setEditingCreditId(null);
                                                             }}
-                                                            className="w-12 text-center text-[13px] font-bold bg-transparent text-[#111111] dark:text-white focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                            className="w-14 text-center text-[13px] font-bold bg-transparent text-[#111111] dark:text-white focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                                                         />
                                                         <button
                                                             type="button"
                                                             onClick={() => setEditingCreditValue(prev => String((parseInt(prev) || 0) + 1))}
-                                                            className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-white dark:hover:bg-white/5 transition-colors border-l border-[#e0e0e0] dark:border-white/10 flex items-center justify-center cursor-pointer"
+                                                            className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors border-l border-[#e0e0e0] dark:border-white/10"
                                                         >
                                                             <FiPlus className="w-3 h-3" />
                                                         </button>

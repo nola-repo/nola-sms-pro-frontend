@@ -497,7 +497,7 @@ export const AdminAgencies: React.FC = () => {
 
 
     return (
-        <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] dark:shadow-[0_2px_15px_rgba(0,0,0,0.2)] overflow-hidden">
+        <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] dark:shadow-[0_2px_15px_rgba(0,0,0,0.2)] overflow-visible">
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
             {/* Header */}
@@ -528,7 +528,7 @@ export const AdminAgencies: React.FC = () => {
                 </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-6 overflow-visible">
             {error && (
                 <div className="flex items-center gap-2 px-4 py-3 mb-5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30 text-amber-700 dark:text-amber-400 text-[12px] font-medium">
                     <FiAlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -551,7 +551,7 @@ export const AdminAgencies: React.FC = () => {
                     <p className="text-[14px] font-semibold">No agencies match your search.</p>
                 </div>
             ) : (
-                <div className="pb-4">
+                <div className="pb-4 overflow-visible">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-[#e5e5e5] dark:border-white/5">
