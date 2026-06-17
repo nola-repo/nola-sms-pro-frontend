@@ -4,10 +4,11 @@ import { FiGrid, FiToggleLeft, FiLogOut, FiSun, FiMoon, FiUser, FiSettings, FiMe
 import { useAgency } from '../../context/AgencyContext.tsx';
 import faviconLogo from '../../assets/FAV ICON - NOLA SMS PRO.png';
 
-export const AgencyLayout = ({ children, title, subtitle, topActions = null }) => {
+export const AgencyLayout = ({ children, title, subtitle, topActions = null, variant = 'default' }) => {
   const { agencyId, agencySession, logout, darkMode, toggleDarkMode, isGhlFrame } = useAgency();
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const isDashboard = variant === 'dashboard';
 
   const userName = agencySession?.user
     ? `${agencySession.user.firstName} ${agencySession.user.lastName}`.trim()
@@ -167,11 +168,11 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null }) =
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-        <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#f3f4f6] dark:bg-[#09090b]">
+        <main className={`flex-1 overflow-y-auto custom-scrollbar ${isDashboard ? 'bg-[#050607]' : 'bg-[#f3f4f6] dark:bg-[#09090b]'}`}>
           <div className="relative min-h-full">
-            <div className="absolute left-0 top-0 h-[132px] w-full rounded-b-[28px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] pointer-events-none" />
+            <div className={`absolute left-0 top-0 w-full bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] pointer-events-none ${isDashboard ? 'h-[340px] rounded-b-[40px]' : 'h-[132px] rounded-b-[28px]'}`} />
             <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-              <div className="mb-14 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className={`flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between ${isDashboard ? 'mb-8' : 'mb-14'}`}>
                 <div className="flex items-start gap-3 text-white">
                   {renderMobileMenuButton(true)}
                   <div className="min-w-0">
@@ -189,7 +190,7 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null }) =
                   {topControls}
                 </div>
               </div>
-              <div className="pb-8">
+              <div className={isDashboard ? 'pb-10' : 'pb-8'}>
                 {children}
               </div>
             </div>
