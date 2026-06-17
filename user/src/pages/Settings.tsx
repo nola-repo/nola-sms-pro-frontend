@@ -6,7 +6,7 @@ import {
     FiSave, FiPlus, FiCheck,
     FiGlobe, FiMapPin, FiBriefcase, FiCheckCircle, FiAlertCircle, FiClock,
     FiRefreshCw, FiZap, FiChevronLeft, FiChevronRight, FiGift, FiChevronDown, FiDownload,
-    FiCopy, FiExternalLink, FiSettings, FiShieldOff, FiX
+    FiCopy, FiExternalLink, FiSettings, FiShieldOff, FiX, FiCamera, FiEdit3, FiLock, FiTrash2, FiEye, FiEyeOff
 } from "react-icons/fi";
 import { generateMonthlyReport } from "../utils/pdfGenerator";
 import {
@@ -165,8 +165,17 @@ const AccountSection: React.FC = () => {
         return initialLocationIdRef.current;
     });
     const [profileForm, setProfileForm] = useState({ name: "", email: "", phone: "" });
+    const [profileImage, setProfileImage] = useState("");
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [profileSaveStatus, setProfileSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+    const [passwordPanelOpen, setPasswordPanelOpen] = useState(false);
+    const [passwordStep, setPasswordStep] = useState<"idle" | "code_sent">("idle");
+    const [passwordForm, setPasswordForm] = useState({ otp: "", newPassword: "", confirmPassword: "" });
+    const [passwordBusy, setPasswordBusy] = useState(false);
+    const [passwordStatus, setPasswordStatus] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const profileImageInputRef = useRef<HTMLInputElement | null>(null);
 
     const getEditableProfileValues = useCallback(() => {
         const safeValue = (value?: string | null) => (value && value !== "N/A" ? value : "");
@@ -192,6 +201,12 @@ const AccountSection: React.FC = () => {
     useEffect(() => {
         setProfileForm(getEditableProfileValues());
     }, [getEditableProfileValues]);
+
+    const profileImageKey = `nola_profile_image_${encodeURIComponent(inputLocationId || initialLocationIdRef.current || "default")}`;
+
+    useEffect(() => {
+        setProfileImage(safeStorage.getItem(profileImageKey) || "");
+    }, [profileImageKey]);
 
     // Synchronize context state with local variables if needed
     useEffect(() => {
@@ -350,6 +365,112 @@ const AccountSection: React.FC = () => {
         }
     };
 
+    const handleProfileImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            setProfileSaveStatus({ type: "error", message: "Please upload an image file." });
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            setProfileSaveStatus({ type: "error", message: "Profile picture must be under 2MB." });
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            const dataUrl = typeof reader.result === "string" ? reader.result : "";
+            if (!dataUrl) return;
+            try {
+                safeStorage.setItem(profileImageKey, dataUrl);
+                setProfileImage(dataUrl);
+                setProfileSaveStatus({ type: "success", message: "Profile picture updated." });
+            } catch {
+                setProfileSaveStatus({ type: "error", message: "Could not save this image. Try a smaller file." });
+            }
+        };
+        reader.readAsDataURL(file);
+        event.target.value = "";
+    };
+
+    const handleRemoveProfileImage = () => {
+        safeStorage.removeItem(profileImageKey);
+        setProfileImage("");
+        setProfileSaveStatus({ type: "success", message: "Profile picture removed." });
+    };
+
+    const requestPasswordOtp = async () => {
+        const email = profileForm.email.trim();
+        if (!email) {
+            setPasswordStatus({ type: "error", message: "Save an email address before requesting a reset code." });
+            return;
+        }
+
+        setPasswordBusy(true);
+        setPasswordStatus(null);
+        try {
+            const res = await apiFetch('/api/auth/forgot_password_otp.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.error || json.message || 'Could not send reset code.');
+            setPasswordStep("code_sent");
+            setPasswordStatus({ type: "success", message: `Reset code sent to ${email}.` });
+        } catch (err) {
+            setPasswordStatus({
+                type: "error",
+                message: err instanceof Error ? err.message : "Could not send reset code.",
+            });
+        } finally {
+            setPasswordBusy(false);
+        }
+    };
+
+    const handlePasswordReset = async () => {
+        const email = profileForm.email.trim();
+        const otp = passwordForm.otp.trim();
+        const newPassword = passwordForm.newPassword;
+
+        if (!email || !otp || !newPassword || !passwordForm.confirmPassword) {
+            setPasswordStatus({ type: "error", message: "Enter the code and your new password." });
+            return;
+        }
+        if (newPassword.length < 8) {
+            setPasswordStatus({ type: "error", message: "Use at least 8 characters for the new password." });
+            return;
+        }
+        if (newPassword !== passwordForm.confirmPassword) {
+            setPasswordStatus({ type: "error", message: "Passwords do not match." });
+            return;
+        }
+
+        setPasswordBusy(true);
+        setPasswordStatus(null);
+        try {
+            const res = await apiFetch('/api/auth/reset_password_otp.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, otp, new_password: newPassword }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json.error || json.message || 'Could not update password.');
+            setPasswordForm({ otp: "", newPassword: "", confirmPassword: "" });
+            setPasswordStep("idle");
+            setPasswordPanelOpen(false);
+            setPasswordStatus({ type: "success", message: "Password updated successfully." });
+            setProfileSaveStatus({ type: "success", message: "Password updated successfully." });
+        } catch (err) {
+            setPasswordStatus({
+                type: "error",
+                message: err instanceof Error ? err.message : "Could not update password.",
+            });
+        } finally {
+            setPasswordBusy(false);
+        }
+    };
+
 
     // Derived values
     // subaccountName: use the fetchedName if it's a real value, otherwise fallback to profile cache
@@ -367,6 +488,8 @@ const AccountSection: React.FC = () => {
     const resolvedLocationId = ghlLocationIdFromHook || liveProfile?.location_id || inputLocationId || '';
     const showPersonalSkeleton = isFetchingLocation && (fullName === 'N/A' || displayEmail === 'N/A');
     const showWorkspaceSkeleton = isFetchingLocation && (subaccountName === 'Not Found' || subaccountName === 'N/A');
+    const profileDisplayName = profileForm.name || fullName || "User";
+    const profileInitial = (profileDisplayName || "U").trim().charAt(0).toUpperCase();
 
     return (
         <div className="space-y-5">
@@ -401,78 +524,105 @@ const AccountSection: React.FC = () => {
             </div>
 
             {/* Personal Details */}
-            <Card>
-                <div className="flex items-center gap-4 mb-5">
-                    <div className="w-12 h-12 rounded-2xl bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
-                        <FiUser className="w-6 h-6" />
+            <Card className="p-5 sm:p-6">
+                <input
+                    ref={profileImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleProfileImageChange}
+                />
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 mb-7">
+                    <div className="relative w-20 h-20 rounded-full overflow-hidden ring-4 ring-white dark:ring-[#25282c] shadow-lg bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center text-white text-3xl font-black">
+                        {profileImage ? (
+                            <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            profileInitial
+                        )}
+                        <span className="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full bg-emerald-400 ring-2 ring-white dark:ring-[#25282c]" />
                     </div>
-                    <div className="flex-1">
+
+                    <div className="flex-1 min-w-0">
                         {showPersonalSkeleton ? (
                             <div className="space-y-2">
-                                <Skeleton className="h-5 w-32" />
-                                <Skeleton className="h-3 w-48" />
+                                <Skeleton className="h-6 w-44" />
+                                <Skeleton className="h-3 w-56" />
                             </div>
                         ) : (
                             <>
-                                <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1]">{profileForm.name || fullName}</h3>
-                                <p className="text-[12px] text-[#9aa0a6]">{profileForm.email || displayEmail}</p>
+                                <h3 className="text-[22px] sm:text-[24px] font-black tracking-tight text-[#111111] dark:text-white truncate">{profileDisplayName}</h3>
+                                <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5 truncate">{profileForm.email || displayEmail}</p>
                             </>
                         )}
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                            <button
+                                type="button"
+                                onClick={() => profileImageInputRef.current?.click()}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[12px] font-bold shadow-md shadow-blue-500/20 hover:shadow-[0_8px_20px_rgba(43,131,250,0.35)] active:scale-95 transition-all"
+                            >
+                                <FiCamera className="w-3.5 h-3.5" />
+                                Upload New Picture
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleRemoveProfileImage}
+                                disabled={!profileImage}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/10 text-[#111111] dark:text-white text-[12px] font-bold hover:bg-[#f7f7f7] dark:hover:bg-white/5 disabled:opacity-45 disabled:cursor-not-allowed transition-all"
+                            >
+                                <FiTrash2 className="w-3.5 h-3.5" />
+                                Delete
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <div className="space-y-3.5 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
-                    <div>
-                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Full Name</label>
-                        {showPersonalSkeleton ? (
-                            <Skeleton className="h-9 w-full rounded-xl" />
-                        ) : (
-                            <input
-                                type="text"
-                                value={profileForm.name}
-                                onChange={(e) => {
-                                    setProfileForm(prev => ({ ...prev, name: e.target.value }));
-                                    setProfileSaveStatus(null);
-                                }}
-                                placeholder="Full name"
-                                className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 focus:border-[#2b83fa]/60 transition-all"
-                            />
-                        )}
-                    </div>
-                    <div>
-                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Email Address</label>
-                        {showPersonalSkeleton ? (
-                            <Skeleton className="h-9 w-full rounded-xl" />
-                        ) : (
-                            <input
-                                type="email"
-                                value={profileForm.email}
-                                onChange={(e) => {
-                                    setProfileForm(prev => ({ ...prev, email: e.target.value }));
-                                    setProfileSaveStatus(null);
-                                }}
-                                placeholder="Email address"
-                                className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 focus:border-[#2b83fa]/60 transition-all"
-                            />
-                        )}
-                    </div>
-                    <div>
-                        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">Phone Number</label>
-                        {showPersonalSkeleton ? (
-                            <Skeleton className="h-9 w-full rounded-xl" />
-                        ) : (
-                            <input
-                                type="tel"
-                                value={profileForm.phone}
-                                onChange={(e) => {
-                                    setProfileForm(prev => ({ ...prev, phone: e.target.value }));
-                                    setProfileSaveStatus(null);
-                                }}
-                                placeholder="Phone number"
-                                className="w-full px-4 py-2.5 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 focus:border-[#2b83fa]/60 transition-all"
-                            />
-                        )}
-                    </div>
+                <div className="space-y-4">
+                    {[
+                        {
+                            label: "Full Name",
+                            type: "text",
+                            value: profileForm.name,
+                            placeholder: "Full name",
+                            onChange: (value: string) => setProfileForm(prev => ({ ...prev, name: value })),
+                        },
+                        {
+                            label: "Email Address",
+                            type: "email",
+                            value: profileForm.email,
+                            placeholder: "Email address",
+                            onChange: (value: string) => setProfileForm(prev => ({ ...prev, email: value })),
+                        },
+                        {
+                            label: "Phone Number",
+                            type: "tel",
+                            value: profileForm.phone,
+                            placeholder: "Phone number",
+                            onChange: (value: string) => setProfileForm(prev => ({ ...prev, phone: value })),
+                        },
+                    ].map(field => (
+                        <div key={field.label}>
+                            <label className="sr-only">{field.label}</label>
+                            {showPersonalSkeleton ? (
+                                <Skeleton className="h-12 w-full rounded-xl" />
+                            ) : (
+                                <div className="relative">
+                                    <input
+                                        type={field.type}
+                                        value={field.value}
+                                        onChange={(e) => {
+                                            field.onChange(e.target.value);
+                                            setProfileSaveStatus(null);
+                                        }}
+                                        placeholder={field.placeholder}
+                                        className="w-full h-12 pl-4 pr-12 rounded-xl bg-[#f5f5f6] dark:bg-[#0d0e10] border border-transparent dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 focus:border-[#2b83fa]/60 transition-all"
+                                    />
+                                    <FiEdit3 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6e6e73] dark:text-[#9aa0a6]" />
+                                </div>
+                            )}
+                        </div>
+                    ))}
+
                     {profileSaveStatus && (
                         <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold ${
                             profileSaveStatus.type === "success"
@@ -483,17 +633,144 @@ const AccountSection: React.FC = () => {
                             {profileSaveStatus.message}
                         </div>
                     )}
-                    <div className="flex justify-end pt-1">
-                        <button
-                            onClick={handleSaveProfile}
-                            disabled={showPersonalSkeleton || isSavingProfile || !profileForm.name.trim() || !profileForm.email.trim()}
-                            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[13px] font-bold hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                        >
-                            {isSavingProfile ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiSave className="w-4 h-4" />}
-                            {isSavingProfile ? "Saving..." : "Save Profile"}
-                        </button>
-                    </div>
+
+                    <button
+                        onClick={handleSaveProfile}
+                        disabled={showPersonalSkeleton || isSavingProfile || !profileForm.name.trim() || !profileForm.email.trim()}
+                        className="w-full h-12 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[13px] font-black hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                        {isSavingProfile ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiSave className="w-4 h-4" />}
+                        {isSavingProfile ? "Updating..." : "Update"}
+                    </button>
                 </div>
+            </Card>
+
+            <Card>
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                        <div className="w-11 h-11 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center shrink-0">
+                            <FiLock className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h3 className="text-[15px] font-bold text-[#111111] dark:text-white">Account Management</h3>
+                            <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1 leading-relaxed">
+                                Send a reset code to your profile email, then set a new password securely.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setPasswordPanelOpen(prev => !prev);
+                            setPasswordStatus(null);
+                            if (passwordPanelOpen) {
+                                setPasswordStep("idle");
+                                setPasswordForm({ otp: "", newPassword: "", confirmPassword: "" });
+                                setShowNewPassword(false);
+                                setShowConfirmPassword(false);
+                            }
+                        }}
+                        className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#f5f5f6] dark:bg-[#0d0e10] border border-transparent dark:border-white/10 text-[#111111] dark:text-white text-[12.5px] font-bold hover:border-[#2b83fa]/30 transition-all"
+                    >
+                        <FiLock className="w-4 h-4" />
+                        {passwordPanelOpen ? "Close" : "Reset / Change Password"}
+                    </button>
+                </div>
+
+                {passwordPanelOpen && (
+                    <div className="mt-5 pt-5 border-t border-[#f0f0f0] dark:border-[#ffffff05] space-y-3.5">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <button
+                                type="button"
+                                onClick={requestPasswordOtp}
+                                disabled={passwordBusy || !profileForm.email.trim()}
+                                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[12.5px] font-bold shadow-md shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                            >
+                                {passwordBusy && passwordStep === "idle" ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiSend className="w-4 h-4" />}
+                                {passwordStep === "code_sent" ? "Resend Code" : "Send Reset Code"}
+                            </button>
+                            <div className="flex-1 px-4 py-2.5 rounded-xl bg-[#f5f5f6] dark:bg-[#0d0e10] text-[12.5px] text-[#6e6e73] dark:text-[#9aa0a6] font-semibold">
+                                {profileForm.email || "Add an email address first"}
+                            </div>
+                        </div>
+
+                        {passwordStep === "code_sent" && (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={passwordForm.otp}
+                                    onChange={(e) => setPasswordForm(prev => ({ ...prev, otp: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                                    placeholder="6-digit code"
+                                    className="h-11 px-4 rounded-xl bg-[#f5f5f6] dark:bg-[#0d0e10] border border-transparent dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
+                                />
+                                <div className="relative">
+                                    <input
+                                        type={showNewPassword ? "text" : "password"}
+                                        value={passwordForm.newPassword}
+                                        onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                                        placeholder="New password"
+                                        autoComplete="new-password"
+                                        className="w-full h-11 pl-4 pr-10 rounded-xl bg-[#f5f5f6] dark:bg-[#0d0e10] border border-transparent dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowNewPassword(prev => !prev)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] hover:text-[#2b83fa]"
+                                        aria-label="Toggle new password visibility"
+                                    >
+                                        {showNewPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                                <div className="relative">
+                                    <input
+                                        type={showConfirmPassword ? "text" : "password"}
+                                        value={passwordForm.confirmPassword}
+                                        onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                                        placeholder="Confirm password"
+                                        autoComplete="new-password"
+                                        className="w-full h-11 pl-4 pr-10 rounded-xl bg-[#f5f5f6] dark:bg-[#0d0e10] border border-transparent dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirmPassword(prev => !prev)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] hover:text-[#2b83fa]"
+                                        aria-label="Toggle confirm password visibility"
+                                    >
+                                        {showConfirmPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {passwordStatus && (
+                            <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold ${
+                                passwordStatus.type === "success"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20"
+                                    : passwordStatus.type === "info"
+                                        ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20"
+                                        : "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20"
+                            }`}>
+                                {passwordStatus.type === "success" ? <FiCheck className="w-4 h-4" /> : <FiAlertCircle className="w-4 h-4" />}
+                                {passwordStatus.message}
+                            </div>
+                        )}
+
+                        {passwordStep === "code_sent" && (
+                            <div className="flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={handlePasswordReset}
+                                    disabled={passwordBusy || !passwordForm.otp || !passwordForm.newPassword || !passwordForm.confirmPassword}
+                                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#111111] dark:bg-white text-white dark:text-[#111111] text-[12.5px] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    {passwordBusy ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiCheck className="w-4 h-4" />}
+                                    Update Password
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
             </Card>
 
             {/* Workspace / GHL Info */}
