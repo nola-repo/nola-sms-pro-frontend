@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { FiGrid, FiToggleLeft, FiLogOut, FiSun, FiMoon, FiUser, FiMenu, FiX, FiCreditCard, FiAward, FiBell } from 'react-icons/fi';
+import { FiGrid, FiToggleLeft, FiLogOut, FiSun, FiMoon, FiUser, FiMenu, FiX, FiCreditCard, FiAward, FiBell, FiAlertTriangle, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
 import { useAgency } from '../../context/AgencyContext.tsx';
+import { getSubaccounts } from '../../services/api.ts';
 import faviconLogo from '../../assets/FAV ICON - NOLA SMS PRO.png';
 
 export const AgencyLayout = ({ children, title, subtitle, topActions = null, variant = 'default' }) => {
@@ -10,6 +11,10 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
   const navigate = useNavigate();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState('');
+  const [notificationItems, setNotificationItems] = useState<any[]>([]);
+  const notificationsRef = useRef<HTMLDivElement | null>(null);
   const isDashboard = variant === 'dashboard';
 
   const userName = agencySession?.user
@@ -25,6 +30,107 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
     { to: '/billing', label: 'Credits & Billing', icon: <FiCreditCard /> },
     { to: '/subscription', label: 'Subscription', icon: <FiAward /> },
   ];
+
+  const loadAgencyNotifications = async () => {
+    if (!agencyId) {
+      setNotificationItems([
+        {
+          id: 'missing-agency',
+          title: 'GHL company not linked',
+          description: 'Connect your GoHighLevel agency to load subaccount health.',
+          tone: 'warning',
+          path: '/settings',
+        },
+      ]);
+      return;
+    }
+
+    setNotificationsLoading(true);
+    setNotificationsError('');
+    try {
+      const data = await getSubaccounts(agencyId);
+      const subaccounts = Array.isArray(data?.subaccounts) ? data.subaccounts : [];
+      const active = subaccounts.filter((s: any) => s.toggle_enabled).length;
+      const inactive = subaccounts.length - active;
+      const atLimit = subaccounts.filter((s: any) => Number(s.attempt_count || 0) >= Number(s.rate_limit || 0) && Number(s.rate_limit || 0) > 0).length;
+      const nearLimit = subaccounts.filter((s: any) => {
+        const attempts = Number(s.attempt_count || 0);
+        const limit = Number(s.rate_limit || 0);
+        return limit > 0 && attempts < limit && attempts >= limit * 0.8;
+      }).length;
+
+      const nextItems = [];
+      if (atLimit > 0) {
+        nextItems.push({
+          id: 'rate-limit',
+          title: `${atLimit} subaccount${atLimit === 1 ? '' : 's'} at rate limit`,
+          description: 'Review blocked sending counters in Subaccounts.',
+          tone: 'danger',
+          path: '/subaccounts',
+        });
+      }
+      if (nearLimit > 0) {
+        nextItems.push({
+          id: 'near-limit',
+          title: `${nearLimit} subaccount${nearLimit === 1 ? '' : 's'} near limit`,
+          description: 'Usage is close to the configured send cap.',
+          tone: 'warning',
+          path: '/subaccounts',
+        });
+      }
+      if (inactive > 0) {
+        nextItems.push({
+          id: 'inactive-sms',
+          title: `${inactive} SMS toggle${inactive === 1 ? ' is' : 's are'} off`,
+          description: 'Some subaccounts are currently inactive for SMS.',
+          tone: 'info',
+          path: '/subaccounts',
+        });
+      }
+      if (nextItems.length === 0) {
+        nextItems.push({
+          id: 'healthy',
+          title: subaccounts.length > 0 ? `${active}/${subaccounts.length} subaccounts active` : 'No subaccounts yet',
+          description: subaccounts.length > 0 ? 'Agency SMS health looks good.' : 'Add or link subaccounts to begin monitoring.',
+          tone: subaccounts.length > 0 ? 'success' : 'info',
+          path: '/subaccounts',
+        });
+      }
+
+      setNotificationItems(nextItems);
+    } catch (error) {
+      setNotificationsError(error instanceof Error ? error.message : 'Failed to load agency notifications.');
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAgencyNotifications();
+  }, [agencyId]);
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+    const handleOutside = (event: MouseEvent) => {
+      if (notificationsRef.current && event.target instanceof Node && !notificationsRef.current.contains(event.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [notificationsOpen]);
+
+  const actionableNotificationCount = useMemo(
+    () => notificationItems.filter((item) => item.tone === 'danger' || item.tone === 'warning').length,
+    [notificationItems]
+  );
+
+  const notificationToneClass = (tone: string) => {
+    if (tone === 'danger') return 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300';
+    if (tone === 'warning') return 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300';
+    if (tone === 'success') return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300';
+    return 'bg-blue-50 text-[#2b83fa] dark:bg-blue-500/10 dark:text-blue-300';
+  };
 
   const SidebarContent = () => (
     <>
@@ -143,7 +249,7 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
   );
 
   const topControls = (
-    <div className="relative flex items-center gap-2">
+    <div className="relative flex items-center gap-2" ref={notificationsRef}>
       {topActions}
       <button
         type="button"
@@ -156,12 +262,20 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
       </button>
       <button
         type="button"
-        onClick={() => setNotificationsOpen(prev => !prev)}
-        className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/20 text-white shadow-sm hover:bg-white/20 active:scale-95 transition-all"
+        onClick={() => {
+          setNotificationsOpen(prev => !prev);
+          if (!notificationsOpen) loadAgencyNotifications();
+        }}
+        className="relative hidden sm:flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/20 text-white shadow-sm hover:bg-white/20 active:scale-95 transition-all"
         aria-label="Open notifications"
         title="Notifications"
       >
         <FiBell className="w-4 h-4" />
+        {actionableNotificationCount > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#2b83fa]">
+            {actionableNotificationCount}
+          </span>
+        )}
       </button>
       <button
         type="button"
@@ -173,14 +287,59 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
         {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
       </button>
       {notificationsOpen && (
-        <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-white/10 bg-[#1a1b1e]/95 p-4 text-white shadow-2xl backdrop-blur-xl z-50">
-          <div className="flex items-center gap-2 mb-2">
-            <FiBell className="w-4 h-4 text-[#60a5fa]" />
-            <p className="text-[13px] font-bold">Notifications</p>
+        <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white/95 text-[#111111] shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#1a1b1e]/95 dark:text-white">
+          <div className="flex items-center justify-between gap-3 border-b border-[#e5e5e5] px-4 py-3 dark:border-white/10">
+            <div className="flex items-center gap-2">
+              <FiBell className="w-4 h-4 text-[#2b83fa]" />
+              <p className="text-[13px] font-bold">Notifications</p>
+            </div>
+            <button
+              type="button"
+              onClick={loadAgencyNotifications}
+              className="flex h-8 w-8 items-center justify-center rounded-xl text-[#6e6e73] hover:bg-black/[0.04] hover:text-[#111111] dark:text-[#9aa0a6] dark:hover:bg-white/10 dark:hover:text-white"
+              aria-label="Refresh notifications"
+              title="Refresh"
+            >
+              <FiRefreshCw className={`h-4 w-4 ${notificationsLoading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
-          <p className="text-[12px] leading-relaxed text-white/70">
-            No agency notifications yet.
-          </p>
+          <div className="max-h-80 overflow-y-auto p-2 custom-scrollbar">
+            {notificationsError ? (
+              <div className="rounded-xl bg-red-50 px-3 py-3 text-[12px] font-semibold text-red-600 dark:bg-red-500/10 dark:text-red-300">
+                {notificationsError}
+              </div>
+            ) : notificationsLoading && notificationItems.length === 0 ? (
+              <div className="space-y-2 p-2">
+                {[1, 2, 3].map(item => (
+                  <div key={item} className="h-14 rounded-xl bg-[#f1f3f4] dark:bg-white/[0.06] animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              notificationItems.map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setNotificationsOpen(false);
+                    navigate(item.path);
+                  }}
+                  className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+                >
+                  <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${notificationToneClass(item.tone)}`}>
+                    {item.tone === 'success' ? <FiCheckCircle className="h-4 w-4" /> : item.tone === 'info' ? <FiBell className="h-4 w-4" /> : <FiAlertTriangle className="h-4 w-4" />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-extrabold text-[#111111] dark:text-white">
+                      {item.title}
+                    </span>
+                    <span className="mt-0.5 block text-[11.5px] font-medium leading-relaxed text-[#6e6e73] dark:text-[#9aa0a6]">
+                      {item.description}
+                    </span>
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -215,7 +374,7 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-        <main className={`flex-1 overflow-y-auto custom-scrollbar ${isDashboard ? 'bg-[#050607]' : 'bg-[#f3f4f6] dark:bg-[#09090b]'}`}>
+        <main className={`flex-1 overflow-y-auto custom-scrollbar ${isDashboard ? 'bg-[#f3f4f6] dark:bg-[#050607]' : 'bg-[#f3f4f6] dark:bg-[#09090b]'}`}>
           <div className="relative min-h-full">
             <div className={`absolute left-0 top-0 w-full bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] pointer-events-none ${isDashboard ? 'h-[340px] rounded-b-[40px]' : 'h-[132px] rounded-b-[28px]'}`} />
             <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
