@@ -169,12 +169,13 @@ const AccountSection: React.FC = () => {
     const [profileSaveStatus, setProfileSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [passwordPanelOpen, setPasswordPanelOpen] = useState(false);
-    const [passwordStep, setPasswordStep] = useState<"idle" | "code_sent">("idle");
+    const [passwordStep, setPasswordStep] = useState<"send_code" | "enter_code" | "change_password">("send_code");
     const [passwordForm, setPasswordForm] = useState({ otp: "", newPassword: "", confirmPassword: "" });
     const [passwordBusy, setPasswordBusy] = useState(false);
     const [passwordStatus, setPasswordStatus] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
     const getEditableProfileValues = useCallback(() => {
         const safeValue = (value?: string | null) => (value && value !== "N/A" ? value : "");
@@ -200,6 +201,17 @@ const AccountSection: React.FC = () => {
     useEffect(() => {
         setProfileForm(getEditableProfileValues());
     }, [getEditableProfileValues]);
+
+    useEffect(() => {
+        if (!profileMenuOpen) return;
+        const closeOnOutsideClick = (event: MouseEvent) => {
+            if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+                setProfileMenuOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", closeOnOutsideClick);
+        return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+    }, [profileMenuOpen]);
 
     // Synchronize context state with local variables if needed
     useEffect(() => {
@@ -375,7 +387,7 @@ const AccountSection: React.FC = () => {
             });
             const json = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(json.error || json.message || 'Could not send reset code.');
-            setPasswordStep("code_sent");
+            setPasswordStep("enter_code");
             setPasswordStatus({ type: "success", message: `Reset code sent to ${email}.` });
         } catch (err) {
             setPasswordStatus({
@@ -385,6 +397,20 @@ const AccountSection: React.FC = () => {
         } finally {
             setPasswordBusy(false);
         }
+    };
+
+    const handlePasswordCodeContinue = () => {
+        const otp = passwordForm.otp.trim();
+        if (!otp) {
+            setPasswordStatus({ type: "error", message: "Enter the verification code." });
+            return;
+        }
+        if (otp.length < 4) {
+            setPasswordStatus({ type: "error", message: "Enter the full verification code." });
+            return;
+        }
+        setPasswordStatus(null);
+        setPasswordStep("change_password");
     };
 
     const handlePasswordReset = async () => {
@@ -416,7 +442,7 @@ const AccountSection: React.FC = () => {
             const json = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(json.error || json.message || 'Could not update password.');
             setPasswordForm({ otp: "", newPassword: "", confirmPassword: "" });
-            setPasswordStep("idle");
+            setPasswordStep("send_code");
             setPasswordPanelOpen(false);
             setPasswordStatus({ type: "success", message: "Password updated successfully." });
             setProfileSaveStatus({ type: "success", message: "Password updated successfully." });
@@ -428,6 +454,24 @@ const AccountSection: React.FC = () => {
         } finally {
             setPasswordBusy(false);
         }
+    };
+
+    const openPasswordModal = () => {
+        setPasswordPanelOpen(true);
+        setPasswordStep("send_code");
+        setPasswordStatus(null);
+        setPasswordForm({ otp: "", newPassword: "", confirmPassword: "" });
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
+    };
+
+    const closePasswordModal = () => {
+        setPasswordPanelOpen(false);
+        setPasswordStep("send_code");
+        setPasswordStatus(null);
+        setPasswordForm({ otp: "", newPassword: "", confirmPassword: "" });
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
     };
 
 
@@ -508,7 +552,7 @@ const AccountSection: React.FC = () => {
                         )}
                     </div>
 
-                    <div className="relative self-start sm:self-center">
+                    <div className="relative self-start sm:self-center" ref={profileMenuRef}>
                         <button
                             type="button"
                             onClick={() => setProfileMenuOpen(prev => !prev)}
@@ -524,8 +568,7 @@ const AccountSection: React.FC = () => {
                                     type="button"
                                     onClick={() => {
                                         setProfileMenuOpen(false);
-                                        setPasswordPanelOpen(true);
-                                        setPasswordStatus(null);
+                                        openPasswordModal();
                                     }}
                                     className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-bold text-[#111111] dark:text-white hover:bg-[#f5f5f6] dark:hover:bg-white/5 transition-colors"
                                 >
@@ -713,7 +756,12 @@ const AccountSection: React.FC = () => {
             </Card>
 
             {passwordPanelOpen && (
-                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 backdrop-blur-sm px-4 py-6">
+                <div
+                    className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 backdrop-blur-sm px-4 py-6"
+                    onMouseDown={(event) => {
+                        if (event.target === event.currentTarget) closePasswordModal();
+                    }}
+                >
                     <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 shadow-2xl overflow-hidden">
                         <div className="flex items-start justify-between gap-4 p-5 border-b border-[#f0f0f0] dark:border-[#ffffff08]">
                             <div className="flex items-start gap-3">
@@ -721,24 +769,23 @@ const AccountSection: React.FC = () => {
                                     <FiLock className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="text-[16px] font-black text-[#111111] dark:text-white">Change Password</h3>
+                                    <h3 className="text-[16px] font-black text-[#111111] dark:text-white">
+                                        {passwordStep === "send_code" && "Send Verification Code"}
+                                        {passwordStep === "enter_code" && "Enter Verification Code"}
+                                        {passwordStep === "change_password" && "Change Password"}
+                                    </h3>
                                     <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1 leading-relaxed">
-                                        Send a verification code, enter it, then set a new password.
+                                        {passwordStep === "send_code" && "We'll email a verification code to your profile email."}
+                                        {passwordStep === "enter_code" && "Enter the code you received before setting a new password."}
+                                        {passwordStep === "change_password" && "Create and confirm your new password."}
                                     </p>
                                 </div>
                             </div>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setPasswordPanelOpen(false);
-                                    setPasswordStep("idle");
-                                    setPasswordForm({ otp: "", newPassword: "", confirmPassword: "" });
-                                    setPasswordStatus(null);
-                                    setShowNewPassword(false);
-                                    setShowConfirmPassword(false);
-                                }}
+                                onClick={closePasswordModal}
                                 className="h-9 w-9 rounded-xl inline-flex items-center justify-center text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f5f5f6] dark:hover:bg-white/5 hover:text-red-500 transition-colors"
-                                aria-label="Close change password modal"
+                                aria-label="Close account management modal"
                             >
                                 <FiX className="w-4 h-4" />
                             </button>
@@ -746,36 +793,42 @@ const AccountSection: React.FC = () => {
 
                         <div className="p-5 space-y-4">
                             <div className="grid grid-cols-3 gap-2 text-[11px] font-black uppercase tracking-wide">
-                                {["Send Code", "Enter Code", "Change Password"].map((step, index) => (
+                                {[
+                                    { key: "send_code", label: "Send Code" },
+                                    { key: "enter_code", label: "Enter Code" },
+                                    { key: "change_password", label: "Change Password" },
+                                ].map((step) => (
                                     <div
-                                        key={step}
+                                        key={step.key}
                                         className={`rounded-xl px-2 py-2 text-center ${
-                                            index === 0 || passwordStep === "code_sent"
+                                            passwordStep === step.key
                                                 ? "bg-[#2b83fa]/10 text-[#2b83fa]"
                                                 : "bg-[#f5f5f6] dark:bg-[#0d0e10] text-[#9aa0a6]"
                                         }`}
                                     >
-                                        {step}
+                                        {step.label}
                                     </div>
                                 ))}
                             </div>
 
-                            <div className="flex flex-col sm:flex-row gap-3">
-                                <button
-                                    type="button"
-                                    onClick={requestPasswordOtp}
-                                    disabled={passwordBusy || !profileForm.email.trim()}
-                                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[12.5px] font-bold shadow-md shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                >
-                                    {passwordBusy && passwordStep === "idle" ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiSend className="w-4 h-4" />}
-                                    {passwordStep === "code_sent" ? "Resend Code" : "Send Verification Code"}
-                                </button>
-                                <div className="flex-1 px-4 py-2.5 rounded-xl bg-[#f5f5f6] dark:bg-[#0d0e10] text-[12.5px] text-[#6e6e73] dark:text-[#9aa0a6] font-semibold">
-                                    {profileForm.email || "Add an email address first"}
+                            {passwordStep === "send_code" && (
+                                <div className="space-y-3">
+                                    <div className="px-4 py-3 rounded-xl bg-[#f5f5f6] dark:bg-[#0d0e10] text-[12.5px] text-[#6e6e73] dark:text-[#9aa0a6] font-semibold">
+                                        {profileForm.email || "Add an email address first"}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={requestPasswordOtp}
+                                        disabled={passwordBusy || !profileForm.email.trim()}
+                                        className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[12.5px] font-bold shadow-md shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        {passwordBusy ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiSend className="w-4 h-4" />}
+                                        Send Verification Code
+                                    </button>
                                 </div>
-                            </div>
+                            )}
 
-                            {passwordStep === "code_sent" && (
+                            {passwordStep === "enter_code" && (
                                 <div className="space-y-3">
                                     <input
                                         type="text"
@@ -785,6 +838,30 @@ const AccountSection: React.FC = () => {
                                         placeholder="Verification code"
                                         className="h-11 w-full px-4 rounded-xl bg-[#f5f5f6] dark:bg-[#0d0e10] border border-transparent dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30"
                                     />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={requestPasswordOtp}
+                                            disabled={passwordBusy || !profileForm.email.trim()}
+                                            className="h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-[#f5f5f6] dark:bg-[#0d0e10] text-[#111111] dark:text-white text-[12.5px] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                        >
+                                            {passwordBusy ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiSend className="w-4 h-4" />}
+                                            Resend Code
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handlePasswordCodeContinue}
+                                            disabled={!passwordForm.otp.trim()}
+                                            className="h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[12.5px] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                        >
+                                            Continue
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {passwordStep === "change_password" && (
+                                <div className="space-y-3">
                                     <div className="relative">
                                         <input
                                             type={showNewPassword ? "text" : "password"}
@@ -821,6 +898,15 @@ const AccountSection: React.FC = () => {
                                             {showConfirmPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
                                         </button>
                                     </div>
+                                    <button
+                                        type="button"
+                                        onClick={handlePasswordReset}
+                                        disabled={passwordBusy || !passwordForm.newPassword || !passwordForm.confirmPassword}
+                                        className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-[#111111] dark:bg-white text-white dark:text-[#111111] text-[12.5px] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        {passwordBusy ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiCheck className="w-4 h-4" />}
+                                        Change Password
+                                    </button>
                                 </div>
                             )}
 
@@ -835,18 +921,6 @@ const AccountSection: React.FC = () => {
                                     {passwordStatus.type === "success" ? <FiCheck className="w-4 h-4" /> : <FiAlertCircle className="w-4 h-4" />}
                                     {passwordStatus.message}
                                 </div>
-                            )}
-
-                            {passwordStep === "code_sent" && (
-                                <button
-                                    type="button"
-                                    onClick={handlePasswordReset}
-                                    disabled={passwordBusy || !passwordForm.otp || !passwordForm.newPassword || !passwordForm.confirmPassword}
-                                    className="w-full h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-[#111111] dark:bg-white text-white dark:text-[#111111] text-[12.5px] font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                >
-                                    {passwordBusy ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiCheck className="w-4 h-4" />}
-                                    Change Password
-                                </button>
                             )}
                         </div>
                     </div>
