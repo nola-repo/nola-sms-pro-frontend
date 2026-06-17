@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { FiGrid, FiToggleLeft, FiLogOut, FiSun, FiMoon, FiUser, FiMenu, FiX, FiCreditCard, FiAward, FiBell, FiAlertTriangle, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
+import { FiGrid, FiToggleLeft, FiLogOut, FiSun, FiMoon, FiMenu, FiX, FiCreditCard, FiAward, FiBell, FiAlertTriangle, FiCheckCircle } from 'react-icons/fi';
 import { useAgency } from '../../context/AgencyContext.tsx';
 import { getSubaccounts } from '../../services/api.ts';
 import faviconLogo from '../../assets/FAV ICON - NOLA SMS PRO.png';
@@ -254,11 +254,11 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
       <button
         type="button"
         onClick={() => navigate('/settings')}
-        className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/20 text-white shadow-sm hover:bg-white/20 active:scale-95 transition-all"
+        className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-white/25 to-white/10 border border-white/35 text-white shadow-sm hover:bg-white/20 active:scale-95 transition-all text-[13px] font-black"
         aria-label="Open agency profile"
         title="Agency profile"
       >
-        <FiUser className="w-4 h-4" />
+        {profileInitial}
       </button>
       <button
         type="button"
@@ -266,14 +266,16 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
           setNotificationsOpen(prev => !prev);
           if (!notificationsOpen) loadAgencyNotifications();
         }}
-        className="relative hidden sm:flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/20 text-white shadow-sm hover:bg-white/20 active:scale-95 transition-all"
+        className={`relative hidden sm:flex h-10 w-10 items-center justify-center rounded-xl border text-white shadow-sm active:scale-95 transition-all ${
+          notificationsOpen ? 'bg-white/25 border-white/30' : 'bg-white/10 border-white/20 hover:bg-white/20'
+        }`}
         aria-label="Open notifications"
         title="Notifications"
       >
-        <FiBell className="w-4 h-4" />
+        <FiBell className={`w-4 h-4 ${actionableNotificationCount > 0 ? 'animate-[ring_1.5s_ease-in-out_infinite]' : ''}`} />
         {actionableNotificationCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#2b83fa]">
-            {actionableNotificationCount}
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-white text-[9px] font-black flex items-center justify-center shadow-md border-2 border-white dark:border-[#111111] bg-amber-500">
+            {actionableNotificationCount > 9 ? '9+' : actionableNotificationCount}
           </span>
         )}
       </button>
@@ -287,32 +289,51 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
         {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
       </button>
       {notificationsOpen && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white/95 text-[#111111] shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#1a1b1e]/95 dark:text-white">
-          <div className="flex items-center justify-between gap-3 border-b border-[#e5e5e5] px-4 py-3 dark:border-white/10">
+        <div className="absolute right-0 top-[calc(100%+8px)] z-[150] w-[360px] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white text-[#111111] shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-200 dark:border-white/10 dark:bg-[#1a1b1e] dark:text-white">
+          <div className="flex items-center justify-between gap-3 border-b border-[#e5e5e5] px-4 py-3.5 dark:border-white/5">
             <div className="flex items-center gap-2">
               <FiBell className="w-4 h-4 text-[#2b83fa]" />
-              <p className="text-[13px] font-bold">Notifications</p>
+              <span className="text-[13.5px] font-bold text-[#111111] dark:text-white">Notifications</span>
+              {actionableNotificationCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-black uppercase tracking-wide">
+                  {actionableNotificationCount} new
+                </span>
+              )}
             </div>
             <button
               type="button"
-              onClick={loadAgencyNotifications}
-              className="flex h-8 w-8 items-center justify-center rounded-xl text-[#6e6e73] hover:bg-black/[0.04] hover:text-[#111111] dark:text-[#9aa0a6] dark:hover:bg-white/10 dark:hover:text-white"
-              aria-label="Refresh notifications"
-              title="Refresh"
+              onClick={() => setNotificationsOpen(false)}
+              className="p-1 rounded-lg text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors"
+              aria-label="Close notifications"
+              title="Close"
             >
-              <FiRefreshCw className={`h-4 w-4 ${notificationsLoading ? 'animate-spin' : ''}`} />
+              <FiX className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="max-h-80 overflow-y-auto p-2 custom-scrollbar">
+          <div className="max-h-[420px] overflow-y-auto divide-y divide-[#f0f0f0] dark:divide-white/[0.04]">
             {notificationsError ? (
-              <div className="rounded-xl bg-red-50 px-3 py-3 text-[12px] font-semibold text-red-600 dark:bg-red-500/10 dark:text-red-300">
+              <div className="m-3 rounded-xl bg-red-50 px-3 py-3 text-[12px] font-semibold text-red-600 dark:bg-red-500/10 dark:text-red-300">
                 {notificationsError}
               </div>
             ) : notificationsLoading && notificationItems.length === 0 ? (
-              <div className="space-y-2 p-2">
+              <div className="space-y-0.5 p-3">
                 {[1, 2, 3].map(item => (
-                  <div key={item} className="h-14 rounded-xl bg-[#f1f3f4] dark:bg-white/[0.06] animate-pulse" />
+                  <div key={item} className="flex items-start gap-3 p-3">
+                    <div className="w-8 h-8 rounded-xl bg-[#f0f0f0] dark:bg-[#2a2b2e] animate-pulse flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 w-3/4 rounded bg-[#f0f0f0] dark:bg-[#2a2b2e] animate-pulse" />
+                      <div className="h-2.5 w-full rounded bg-[#f0f0f0] dark:bg-[#2a2b2e] animate-pulse opacity-60" />
+                    </div>
+                  </div>
                 ))}
+              </div>
+            ) : notificationItems.length === 0 ? (
+              <div className="py-14 text-center">
+                <FiBell className="w-8 h-8 mx-auto mb-3 text-[#d0d0d5] dark:text-[#3a3b3f]" />
+                <p className="text-[13px] font-semibold text-[#9aa0a6]">No notifications yet</p>
+                <p className="text-[11px] text-[#9aa0a6] mt-1 font-medium">
+                  Agency health alerts will appear here
+                </p>
               </div>
             ) : (
               notificationItems.map(item => (
@@ -323,23 +344,36 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
                     setNotificationsOpen(false);
                     navigate(item.path);
                   }}
-                  className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+                  className="relative flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-[#f7f7f7] dark:hover:bg-white/[0.03]"
                 >
-                  <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${notificationToneClass(item.tone)}`}>
+                  <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${notificationToneClass(item.tone)}`}>
                     {item.tone === 'success' ? <FiCheckCircle className="h-4 w-4" /> : item.tone === 'info' ? <FiBell className="h-4 w-4" /> : <FiAlertTriangle className="h-4 w-4" />}
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[13px] font-extrabold text-[#111111] dark:text-white">
+                    <span className="block text-[12.5px] font-bold leading-snug text-[#111111] dark:text-white">
                       {item.title}
                     </span>
-                    <span className="mt-0.5 block text-[11.5px] font-medium leading-relaxed text-[#6e6e73] dark:text-[#9aa0a6]">
+                    <span className="mt-0.5 block text-[11.5px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
                       {item.description}
                     </span>
+                    <span className="mt-0.5 block text-[10px] font-medium uppercase tracking-wide text-[#9aa0a6]">
+                      Agency health
+                    </span>
                   </span>
+                  {(item.tone === 'danger' || item.tone === 'warning') && (
+                    <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0 bg-amber-500 animate-pulse" />
+                  )}
                 </button>
               ))
             )}
           </div>
+          {notificationItems.length > 0 && (
+            <div className="px-4 py-2.5 border-t border-[#f0f0f0] dark:border-white/5 bg-[#fafafa] dark:bg-black/20">
+              <p className="text-[10.5px] text-center text-[#9aa0a6] font-medium">
+                Showing {notificationItems.length} agency notification{notificationItems.length !== 1 ? 's' : ''} - Updates when opened
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -376,7 +410,7 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
         <main className={`flex-1 overflow-y-auto custom-scrollbar ${isDashboard ? 'bg-[#f3f4f6] dark:bg-[#050607]' : 'bg-[#f3f4f6] dark:bg-[#09090b]'}`}>
           <div className="relative min-h-full">
-            <div className={`absolute left-0 top-0 w-full bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] pointer-events-none ${isDashboard ? 'h-[340px] rounded-b-[40px]' : 'h-[132px] rounded-b-[28px]'}`} />
+            <div className={`absolute left-0 top-0 w-full bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] pointer-events-none ${isDashboard ? 'h-[390px] rounded-b-[40px]' : 'h-[132px] rounded-b-[28px]'}`} />
             <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
               <div className={`flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between ${isDashboard ? 'mb-8' : 'mb-14'}`}>
                 <div className="flex items-start gap-3 text-white">

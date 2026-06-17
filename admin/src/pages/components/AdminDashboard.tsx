@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiActivity, FiMessageSquare, FiCreditCard, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiArrowRight, FiBriefcase, FiUser } from 'react-icons/fi';
+import { FiUsers, FiSend, FiActivity, FiMessageSquare, FiCreditCard, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiArrowRight, FiBriefcase } from 'react-icons/fi';
 
 import SplitText from './SplitText';
 import FadeContent from './FadeContent';
@@ -10,6 +10,26 @@ import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 15000; // 15 seconds real-time sync
+
+const readAdminTopbarInitial = () => {
+    const token = sessionStorage.getItem('nola_admin_token') || localStorage.getItem('nola_admin_token') || '';
+    const storedUser = sessionStorage.getItem('nola_admin_user') || localStorage.getItem('nola_admin_user') || '';
+    let display = storedUser || 'Admin';
+
+    try {
+        const payload = token.split('.')[1];
+        if (payload) {
+            const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+            const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
+            const claims = JSON.parse(atob(padded));
+            display = claims.name || claims.full_name || claims.display_name || claims.email || claims.username || display;
+        }
+    } catch {
+        // Stored username remains the fallback.
+    }
+
+    return String(display || 'A').charAt(0).toUpperCase();
+};
 
 const normalizeNumber = (value: unknown, fallback = 0) => {
     const parsed = Number(value);
@@ -112,6 +132,7 @@ export const AdminDashboard: React.FC<{
     topControls?: React.ReactNode;
     mobileMenuButton?: React.ReactNode;
 }> = ({ onNavigate, topControls, mobileMenuButton }) => {
+    const adminInitial = readAdminTopbarInitial();
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [requests, setRequests] = useState<SenderRequest[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
@@ -291,11 +312,11 @@ export const AdminDashboard: React.FC<{
                         <button
                             type="button"
                             onClick={() => onNavigate('profile')}
-                            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-black/10 border border-white/25 flex-shrink-0 text-white bg-white/10 hover:bg-white/20 active:scale-95 transition-all"
+                            className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-black/10 border border-white/35 flex-shrink-0 text-white bg-gradient-to-br from-white/25 to-white/10 hover:bg-white/20 active:scale-95 transition-all text-[13px] font-black"
                             title="Admin Profile"
                             aria-label="Open admin profile"
                         >
-                            <FiUser className="w-4 h-4" />
+                            {adminInitial}
                         </button>
                         {topControls}
                     </div>

@@ -322,7 +322,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
             <NotificationBell variant="light" />
             <button
                 onClick={toggleDarkMode}
-                className="p-2 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all shadow-sm"
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all shadow-sm"
                 aria-label="Toggle theme"
                 title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             >

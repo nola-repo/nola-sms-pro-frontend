@@ -204,7 +204,7 @@ export const NotificationBell: React.FC<{ variant?: 'default' | 'light' }> = ({ 
                 id="admin-notification-bell"
                 onClick={() => setOpen(o => !o)}
                 className={`
-                    relative p-2 rounded-xl border transition-all shadow-sm
+                    relative flex h-10 w-10 items-center justify-center rounded-xl border transition-all shadow-sm
                     ${variant === 'light'
                         ? open
                             ? 'bg-white/25 border-white/30 text-white'
