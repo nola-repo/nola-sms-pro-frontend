@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { fetchCreditTransactions, fetchCreditPackages } from "../api/credits";
 import type { CreditTransaction, CreditPackage } from "../api/credits";
 import {
@@ -573,7 +574,7 @@ const AccountSection: React.FC = () => {
                                     className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-bold text-[#111111] dark:text-white hover:bg-[#f5f5f6] dark:hover:bg-white/5 transition-colors"
                                 >
                                     <FiLock className="w-4 h-4 text-[#2b83fa]" />
-                                    Account Management
+                                    Change Password
                                 </button>
                             </div>
                         )}
@@ -605,7 +606,9 @@ const AccountSection: React.FC = () => {
                         },
                     ].map(field => (
                         <div key={field.label}>
-                            <label className="sr-only">{field.label}</label>
+                            <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">
+                                {field.label}
+                            </label>
                             {showPersonalSkeleton ? (
                                 <Skeleton className="h-12 w-full rounded-xl" />
                             ) : (
@@ -755,9 +758,9 @@ const AccountSection: React.FC = () => {
                 </div>
             </Card>
 
-            {passwordPanelOpen && (
+            {passwordPanelOpen && typeof document !== "undefined" && createPortal((
                 <div
-                    className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 backdrop-blur-sm px-4 py-6"
+                    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 backdrop-blur-md px-4 py-6"
                     onMouseDown={(event) => {
                         if (event.target === event.currentTarget) closePasswordModal();
                     }}
@@ -792,25 +795,6 @@ const AccountSection: React.FC = () => {
                         </div>
 
                         <div className="p-5 space-y-4">
-                            <div className="grid grid-cols-3 gap-2 text-[11px] font-black uppercase tracking-wide">
-                                {[
-                                    { key: "send_code", label: "Send Code" },
-                                    { key: "enter_code", label: "Enter Code" },
-                                    { key: "change_password", label: "Change Password" },
-                                ].map((step) => (
-                                    <div
-                                        key={step.key}
-                                        className={`rounded-xl px-2 py-2 text-center ${
-                                            passwordStep === step.key
-                                                ? "bg-[#2b83fa]/10 text-[#2b83fa]"
-                                                : "bg-[#f5f5f6] dark:bg-[#0d0e10] text-[#9aa0a6]"
-                                        }`}
-                                    >
-                                        {step.label}
-                                    </div>
-                                ))}
-                            </div>
-
                             {passwordStep === "send_code" && (
                                 <div className="space-y-3">
                                     <div className="px-4 py-3 rounded-xl bg-[#f5f5f6] dark:bg-[#0d0e10] text-[12.5px] text-[#6e6e73] dark:text-[#9aa0a6] font-semibold">
@@ -925,7 +909,7 @@ const AccountSection: React.FC = () => {
                         </div>
                     </div>
                 </div>
-            )}
+            ), document.body)}
 
             {window.self === window.top && (
                 <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20">
