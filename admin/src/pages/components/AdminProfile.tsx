@@ -30,6 +30,18 @@ const formatDateTime = (value?: string | number) => {
 
 const roleLabel = (role?: string) => (role || 'viewer').replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
 
+const FieldRow = ({ label, value, icon }: { label: string; value: React.ReactNode; icon?: React.ReactNode }) => (
+    <div>
+        <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-[#9aa0a6]">
+            {label}
+        </label>
+        <div className="flex min-h-[46px] items-center justify-between gap-3 rounded-xl border border-[#e0e0e0] bg-[#f7f7f7] px-4 py-2.5 text-[13px] font-bold text-[#111111] dark:border-[#ffffff0a] dark:bg-[#0d0e10] dark:text-[#ececf1]">
+            <span className="min-w-0 break-words">{value || <span className="font-normal text-[#9aa0a6]">Not available</span>}</span>
+            {icon && <span className="shrink-0 text-[#2b83fa]">{icon}</span>}
+        </div>
+    </div>
+);
+
 export const AdminProfile: React.FC = () => {
     const [admins, setAdmins] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -46,6 +58,11 @@ export const AdminProfile: React.FC = () => {
     const email = String(claims.email || claims.username || storedUser || '').toLowerCase();
     const currentAdmin = admins.find(admin => String(admin.email || admin.username || '').toLowerCase() === email);
     const displayRole = currentAdmin?.role || claims.role || 'viewer';
+    const displayName = String(currentAdmin?.name || currentAdmin?.full_name || claims.name || email || 'Admin Account')
+        .replace(/^[^@]+@.*$/, match => match.split('@')[0])
+        .replace(/[._-]+/g, ' ')
+        .replace(/\b\w/g, char => char.toUpperCase());
+    const initial = (displayName || email || 'A').charAt(0).toUpperCase();
     const isRemembered = localStorage.getItem(REMEMBER_KEY) === 'true';
     const expiresAt = claims.exp ? formatDateTime(claims.exp) : 'Session only';
     const issuedAt = claims.iat ? formatDateTime(claims.iat) : 'Not available';
@@ -102,90 +119,59 @@ export const AdminProfile: React.FC = () => {
     };
 
     return (
-        <div className="space-y-5">
+        <div className="mx-auto w-full max-w-4xl space-y-5">
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-            <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/5 rounded-2xl shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-[#e5e5e5] dark:border-white/5">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-                        <div className="flex items-center gap-4 min-w-0">
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] text-white flex items-center justify-center text-[24px] font-black shadow-sm">
-                                {(email || 'A').charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                                <h3 className="text-[20px] font-black text-[#111111] dark:text-white truncate">{email || 'Admin account'}</h3>
-                                <div className="flex flex-wrap items-center gap-2 mt-2">
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30 text-[10px] font-black uppercase tracking-wider">
-                                        <FiShield className="w-3 h-3" /> {roleLabel(displayRole)}
-                                    </span>
-                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${currentAdmin?.active === false ? 'bg-red-50 text-red-600 border-red-100 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30' : 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30'}`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full ${currentAdmin?.active === false ? 'bg-red-500' : 'bg-emerald-500'}`} />
-                                        {currentAdmin?.active === false ? 'Inactive' : 'Active'}
-                                    </span>
-                                </div>
-                            </div>
+            <div className="overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
+                <div className="p-5 sm:p-6">
+                    <div className="mb-6 flex items-center gap-4">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] text-[24px] font-black text-white shadow-sm shadow-blue-500/20">
+                            {initial}
                         </div>
-                        <div className="grid grid-cols-2 gap-3 text-right">
-                            <div className="rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 px-4 py-3">
-                                <p className="text-[10px] font-black uppercase tracking-wider text-[#9aa0a6]">Session</p>
-                                <p className="text-[13px] font-bold text-[#111111] dark:text-white mt-1">{isRemembered ? 'Remembered' : 'Browser session'}</p>
-                            </div>
-                            <div className="rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 px-4 py-3">
-                                <p className="text-[10px] font-black uppercase tracking-wider text-[#9aa0a6]">Token Expiry</p>
-                                <p className="text-[13px] font-bold text-[#111111] dark:text-white mt-1">{expiresAt}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-0">
-                    <div className="p-6 space-y-5">
-                        <div>
-                            <h4 className="text-[13px] font-black text-[#111111] dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-                                <FiUser className="w-4 h-4 text-[#2b83fa]" /> Account Details
-                            </h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {[
-                                    ['Email', email || 'Not available'],
-                                    ['Role', roleLabel(displayRole)],
-                                    ['Created', formatDateTime(currentAdmin?.created_at)],
-                                    ['Last Login', formatDateTime(currentAdmin?.last_login)],
-                                ].map(([label, value]) => (
-                                    <div key={label} className="rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 px-4 py-3">
-                                        <p className="text-[10px] font-black uppercase tracking-wider text-[#9aa0a6]">{label}</p>
-                                        <p className="text-[13px] font-bold text-[#111111] dark:text-white mt-1 break-words">{value}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div>
-                            <h4 className="text-[13px] font-black text-[#111111] dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-                                <FiLock className="w-4 h-4 text-[#2b83fa]" /> Authentication
-                            </h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                {[
-                                    { label: 'Issued', value: issuedAt, icon: <FiClock /> },
-                                    { label: 'Remember Me', value: isRemembered ? 'Enabled' : 'Disabled', icon: <FiToggleLeft /> },
-                                    { label: 'Profile Source', value: currentAdmin ? 'Admin directory' : 'Session token', icon: loading ? <FiRefreshCw className="animate-spin" /> : <FiShield /> },
-                                ].map(item => (
-                                    <div key={item.label} className="rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 px-4 py-3">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <p className="text-[10px] font-black uppercase tracking-wider text-[#9aa0a6]">{item.label}</p>
-                                            <span className="text-[#2b83fa]">{item.icon}</span>
-                                        </div>
-                                        <p className="text-[13px] font-bold text-[#111111] dark:text-white mt-1">{item.value}</p>
-                                    </div>
-                                ))}
-                            </div>
+                        <div className="min-w-0">
+                            <h3 className="truncate text-[20px] font-black text-[#111111] dark:text-white">{displayName}</h3>
+                            <p className="mt-1 truncate text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">{email || 'Admin account'}</p>
                         </div>
                     </div>
 
-                    <div className="p-6 border-t lg:border-t-0 lg:border-l border-[#e5e5e5] dark:border-white/5 bg-[#fafafa] dark:bg-[#111214]">
-                        <h4 className="text-[13px] font-black text-[#111111] dark:text-white uppercase tracking-wider mb-3 flex items-center gap-2">
-                            <FiKey className="w-4 h-4 text-[#2b83fa]" /> Change Password
-                        </h4>
+                    <div className="space-y-3.5 border-t border-[#f0f0f0] pt-5 dark:border-[#ffffff05]">
+                        <FieldRow label="Display Name" value={displayName} icon={<FiUser className="h-4 w-4" />} />
+                        <FieldRow label="Email Address" value={email || 'Not available'} />
+                        <FieldRow label="Admin Role" value={roleLabel(displayRole)} icon={<FiShield className="h-4 w-4" />} />
+                    </div>
+
+                    <div className="mt-6 rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-4 dark:border-white/5 dark:bg-[#111214]">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2b83fa]/10 text-[#2b83fa]">
+                                <FiLock className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h4 className="text-[14px] font-black text-[#111111] dark:text-white">Account Management</h4>
+                                <p className="text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">Session and authentication details</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <FieldRow label="Session" value={isRemembered ? 'Remembered' : 'Browser session'} icon={<FiToggleLeft className="h-4 w-4" />} />
+                            <FieldRow label="Token Expiry" value={expiresAt} icon={<FiClock className="h-4 w-4" />} />
+                            <FieldRow label="Issued" value={issuedAt} />
+                            <FieldRow label="Profile Source" value={currentAdmin ? 'Admin directory' : 'Session token'} icon={loading ? <FiRefreshCw className="h-4 w-4 animate-spin" /> : <FiShield className="h-4 w-4" />} />
+                            <FieldRow label="Created" value={formatDateTime(currentAdmin?.created_at)} />
+                            <FieldRow label="Last Login" value={formatDateTime(currentAdmin?.last_login)} />
+                        </div>
+                    </div>
+
+                    <div className="mt-6 rounded-2xl border border-[#e5e5e5] bg-[#fafafa] p-4 dark:border-white/5 dark:bg-[#111214]">
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2b83fa]/10 text-[#2b83fa]">
+                                <FiKey className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h4 className="text-[14px] font-black text-[#111111] dark:text-white">Change Password</h4>
+                                <p className="text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">Update this admin account password</p>
+                            </div>
+                        </div>
                         <form onSubmit={handlePasswordReset} className="space-y-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div>
                                 <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">New Password</label>
                                 <div className="relative">
@@ -217,6 +203,7 @@ export const AdminProfile: React.FC = () => {
                                         {showConfirm ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
                                     </button>
                                 </div>
+                            </div>
                             </div>
                             <button
                                 type="submit"

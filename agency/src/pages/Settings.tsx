@@ -82,6 +82,7 @@ export const Settings = () => {
   const companyName = user?.company_name ?? null;
   const savedCompanyId = user?.company_id ?? agencyId ?? '';
   const role = user?.role ?? 'agency';
+  const initial = (fullName || email || 'A').charAt(0).toUpperCase();
 
   const handleSaveCompanyId = async () => {
     if (!localCompanyId.trim()) return;
@@ -112,22 +113,22 @@ export const Settings = () => {
     >
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      <div className="space-y-5 w-full max-w-[672px] mx-auto">
+      <div className="space-y-5 w-full max-w-4xl mx-auto">
         <SectionHeader
-          title="Account Details"
+          title="Agency Profile"
           subtitle="View your agency profile and GoHighLevel company information."
         />
 
-        <Card>
-          <div className="flex items-center gap-4 mb-5">
-            <div className="w-12 h-12 rounded-2xl bg-[#2b83fa]/10 flex items-center justify-center text-[#2b83fa]">
-              <FiUser className="w-6 h-6" />
+        <Card className="p-5 sm:p-6">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] flex items-center justify-center text-white text-[24px] font-black shadow-sm shadow-blue-500/20">
+              {initial}
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1] truncate">
+              <h3 className="text-[20px] font-black text-[#111111] dark:text-[#ececf1] truncate">
                 {fullName || 'Agency Owner'}
               </h3>
-              <p className="text-[12px] text-[#9aa0a6] truncate">{email || 'agency@example.com'}</p>
+              <p className="text-[12px] font-medium text-[#9aa0a6] truncate">{email || 'agency@example.com'}</p>
             </div>
           </div>
 
@@ -135,69 +136,70 @@ export const Settings = () => {
             <FieldRow label="Full Name" value={fullName} />
             <FieldRow label="Email Address" value={email} />
             <FieldRow label="Phone Number" value={phone} />
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center gap-4 mb-5">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-              <FiBriefcase className="w-6 h-6" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1] truncate">
-                {companyName || 'GoHighLevel Agency'}
-              </h3>
-              <p className="text-[12px] text-[#9aa0a6]">Company connection &amp; identifier</p>
-            </div>
+            <FieldRow label="Role" value={String(role).replace(/_/g, ' ')} />
           </div>
 
-          <div className="space-y-3.5 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
-            <FieldRow label="Company Name" value={companyName} />
-
-            <div>
-              <label className="flex text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5 items-center justify-between gap-2">
-                <span>Agency / Company ID</span>
-              </label>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={localCompanyId}
-                  onChange={(e) => setLocalCompanyId(e.target.value)}
-                  placeholder="Enter GHL Company ID"
-                  className={`flex-1 px-4 py-2.5 rounded-xl border text-[13px] font-mono placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all ${
-                    isGhlFrame
-                      ? 'border-transparent bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6]'
-                      : 'border-[#e0e0e0] dark:border-[#ffffff0a] bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#111111] dark:text-[#ececf1] shadow-inner hover:border-[#2b83fa]/50'
-                  }`}
-                  disabled={isGhlFrame}
-                />
-
-                {!isGhlFrame && localCompanyId !== savedCompanyId && (
-                  <button
-                    onClick={handleSaveCompanyId}
-                    disabled={saving || !localCompanyId.trim()}
-                    className="shrink-0 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] transition-all shadow-md flex items-center gap-2 font-semibold disabled:opacity-50 text-[13px]"
-                    title="Save Company ID"
-                  >
-                    {saving ? 'Saving...' : <><FiSave className="w-4 h-4" /> Save</>}
-                  </button>
-                )}
-
-                {savedCompanyId && localCompanyId === savedCompanyId && (
-                  <button
-                    onClick={handleCopyId}
-                    className="shrink-0 p-3 rounded-xl border border-[#e0e0e0] dark:border-[#ffffff0a] bg-white dark:bg-[#25282c] text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#2b83fa] transition-all shadow-sm"
-                    title="Copy Company ID"
-                  >
-                    {copiedId ? <FiCheck className="w-4 h-4 text-emerald-500" /> : <FiCopy className="w-4 h-4" />}
-                  </button>
-                )}
+          <div className="mt-6 rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-[#fafafa] dark:bg-[#111214] p-4">
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                <FiBriefcase className="w-6 h-6" />
               </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-[15px] font-bold text-[#111111] dark:text-[#ececf1] truncate">
+                  GHL Workspace
+                </h3>
+                <p className="text-[12px] text-[#9aa0a6] truncate">{companyName || 'Company connection & identifier'}</p>
+              </div>
+            </div>
 
-              <p className="text-[11px] text-[#9ca3af] mt-2">
-                This ID uniquely identifies your GoHighLevel agency and is required to link subaccounts.
-              </p>
+            <div className="space-y-3.5 pt-4 border-t border-[#f0f0f0] dark:border-[#ffffff05]">
+              <FieldRow label="Company Name" value={companyName} />
+
+              <div>
+                <label className="flex text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5 items-center justify-between gap-2">
+                  <span>Agency / Company ID</span>
+                </label>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={localCompanyId}
+                    onChange={(e) => setLocalCompanyId(e.target.value)}
+                    placeholder="Enter GHL Company ID"
+                    className={`flex-1 px-4 py-2.5 rounded-xl border text-[13px] font-mono placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all ${
+                      isGhlFrame
+                        ? 'border-transparent bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6]'
+                        : 'border-[#e0e0e0] dark:border-[#ffffff0a] bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#111111] dark:text-[#ececf1] shadow-inner hover:border-[#2b83fa]/50'
+                    }`}
+                    disabled={isGhlFrame}
+                  />
+
+                  {!isGhlFrame && localCompanyId !== savedCompanyId && (
+                    <button
+                      onClick={handleSaveCompanyId}
+                      disabled={saving || !localCompanyId.trim()}
+                      className="shrink-0 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] transition-all shadow-md flex items-center gap-2 font-semibold disabled:opacity-50 text-[13px]"
+                      title="Save Company ID"
+                    >
+                      {saving ? 'Saving...' : <><FiSave className="w-4 h-4" /> Save</>}
+                    </button>
+                  )}
+
+                  {savedCompanyId && localCompanyId === savedCompanyId && (
+                    <button
+                      onClick={handleCopyId}
+                      className="shrink-0 p-3 rounded-xl border border-[#e0e0e0] dark:border-[#ffffff0a] bg-white dark:bg-[#25282c] text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#2b83fa] transition-all shadow-sm"
+                      title="Copy Company ID"
+                    >
+                      {copiedId ? <FiCheck className="w-4 h-4 text-emerald-500" /> : <FiCopy className="w-4 h-4" />}
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-[#9ca3af] mt-2">
+                  This ID uniquely identifies your GoHighLevel agency and is required to link subaccounts.
+                </p>
+              </div>
             </div>
           </div>
         </Card>

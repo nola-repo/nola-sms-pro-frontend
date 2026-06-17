@@ -254,7 +254,7 @@ const AppLayout: React.FC = () => {
       home: '/',
       compose: '/compose',
       contacts: '/contacts',
-      settings: '/settings',
+      settings: '/settings/account',
       templates: '/templates',
       tickets: '/tickets',
     };
@@ -338,6 +338,66 @@ const AppLayout: React.FC = () => {
                 darkMode={darkMode}
                 toggleDarkMode={toggleDarkMode}
                 initialView="settings"
+                settingsInitialTab="account"
+                topControls={topControls}
+              />
+            }
+          />
+          <Route
+            path="/settings/account"
+            element={
+              <Dashboard
+                isMobileMenuOpen={isMobileMenuOpen}
+                onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                darkMode={darkMode}
+                toggleDarkMode={toggleDarkMode}
+                initialView="settings"
+                settingsInitialTab="account"
+                topControls={topControls}
+              />
+            }
+          />
+          <Route
+            path="/settings/notifications"
+            element={
+              <Dashboard
+                isMobileMenuOpen={isMobileMenuOpen}
+                onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                darkMode={darkMode}
+                toggleDarkMode={toggleDarkMode}
+                initialView="settings"
+                settingsInitialTab="notifications"
+                topControls={topControls}
+              />
+            }
+          />
+          <Route path="/settings/notification" element={<Navigate to="/settings/notifications" replace />} />
+          <Route
+            path="/settings/sender-id"
+            element={
+              <Dashboard
+                isMobileMenuOpen={isMobileMenuOpen}
+                onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                darkMode={darkMode}
+                toggleDarkMode={toggleDarkMode}
+                initialView="settings"
+                settingsInitialTab="senderIds"
+                topControls={topControls}
+              />
+            }
+          />
+          <Route path="/settings/sender-ids" element={<Navigate to="/settings/sender-id" replace />} />
+          <Route path="/settings/senderIds" element={<Navigate to="/settings/sender-id" replace />} />
+          <Route
+            path="/settings/credits"
+            element={
+              <Dashboard
+                isMobileMenuOpen={isMobileMenuOpen}
+                onMobileMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                darkMode={darkMode}
+                toggleDarkMode={toggleDarkMode}
+                initialView="settings"
+                settingsInitialTab="credits"
                 topControls={topControls}
               />
             }

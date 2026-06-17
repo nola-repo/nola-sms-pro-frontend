@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { fetchCreditTransactions, fetchCreditPackages } from "../api/credits";
 import type { CreditTransaction, CreditPackage } from "../api/credits";
 import {
@@ -40,7 +41,7 @@ import { apiFetch } from "../utils/apiFetch";
 
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-type SettingsTab = "account" | "senderIds" | "notifications" | "credits";
+export type SettingsTab = "account" | "senderIds" | "notifications" | "credits";
 
 interface SettingsProps {
     darkMode: boolean;
@@ -56,6 +57,13 @@ const TABS: { id: SettingsTab; label: string; icon: React.ReactNode; description
     { id: "notifications",label: "Notifications", icon: <FiBell />,         description: "Alert & report preferences" },
     { id: "credits",      label: "Credits",       icon: <FiCreditCard />,   description: "Balance & billing" },
 ];
+
+const SETTINGS_TAB_ROUTES: Record<SettingsTab, string> = {
+    account: "/settings/account",
+    senderIds: "/settings/sender-id",
+    notifications: "/settings/notifications",
+    credits: "/settings/credits",
+};
 
 
 
@@ -2541,7 +2549,18 @@ const CreditsSection: React.FC = () => {
 
 // ─── Main Export ─────────────────────────────────────────────────────────────
 export const Settings: React.FC<SettingsProps> = ({ initialTab, autoOpenAddModal }) => {
+    const navigate = useNavigate();
+    const location = useLocation();
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || "account");
+
+    useEffect(() => {
+        if (initialTab) setActiveTab(initialTab);
+    }, [initialTab]);
+
+    const handleTabSelect = (tab: SettingsTab) => {
+        setActiveTab(tab);
+        navigate({ pathname: SETTINGS_TAB_ROUTES[tab], search: location.search }, { replace: false });
+    };
 
     const renderContent = useCallback(() => {
         switch (activeTab) {
@@ -2576,7 +2595,7 @@ export const Settings: React.FC<SettingsProps> = ({ initialTab, autoOpenAddModal
                                 return (
                                     <button
                                         key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
+                                        onClick={() => handleTabSelect(tab.id)}
                                         className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl border transition-all duration-200 text-left whitespace-nowrap ${
                                             isActive
                                                 ? "bg-white text-[#1d6bd4] border-white shadow-sm"

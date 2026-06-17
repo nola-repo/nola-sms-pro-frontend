@@ -9,7 +9,7 @@ import type { ViewTab } from "../components/Sidebar";
 import { Composer } from "../components/Composer";
 import { ContactsTab } from "../components/ContactsTab";
 import { TemplatesTab } from "../components/TemplatesTab";
-import { Settings } from "./Settings";
+import { Settings, type SettingsTab } from "./Settings";
 import { FiAlertCircle, FiArrowRight, FiCheckCircle, FiMenu, FiRefreshCw, FiSettings } from "react-icons/fi";
 import { Home } from "../components/Home";
 import { TicketsTab } from "../components/TicketsTab";
@@ -27,6 +27,7 @@ interface DashboardProps {
   darkMode?: boolean;
   toggleDarkMode?: () => void;
   initialView?: ViewTab;
+  settingsInitialTab?: SettingsTab;
   topControls?: React.ReactNode;
 }
 
@@ -110,7 +111,14 @@ const RegistrationRequiredState: React.FC<{
   );
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: externalIsMobileMenuOpen, onMobileMenuToggle, darkMode, toggleDarkMode, initialView, topControls }) => {
+const SETTINGS_TAB_ROUTES: Record<SettingsTab, string> = {
+  account: '/settings/account',
+  senderIds: '/settings/sender-id',
+  notifications: '/settings/notifications',
+  credits: '/settings/credits',
+};
+
+export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: externalIsMobileMenuOpen, onMobileMenuToggle, darkMode, toggleDarkMode, initialView, settingsInitialTab, topControls }) => {
   const navigate = useNavigate();
   const onboarding = useOnboarding();
   // Reactive location ID from context — re-renders whenever subaccount changes
@@ -151,7 +159,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const [currentView, setCurrentView] = useState<ViewTab>(
     () => initialView || (safeStorage.getItem('nola_active_tab') as ViewTab) || 'home'
   );
-  const [settingsTab, setSettingsTab] = useState<"account" | "senderIds" | "notifications" | "credits" | undefined>(undefined);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab | undefined>(settingsInitialTab);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [settingsOpen] = useState(false);
   const [autoOpenAddContact, setAutoOpenAddContact] = useState(false);
@@ -239,7 +247,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       home: '/',
       compose: '/compose',
       contacts: '/contacts',
-      settings: '/settings',
+      settings: settingsInitialTab ? SETTINGS_TAB_ROUTES[settingsInitialTab] : '/settings/account',
       templates: '/templates',
       tickets: '/tickets',
     };
@@ -356,8 +364,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
 
   // Handle navigation to settings tabs from CreditBadge
   useEffect(() => {
+    setSettingsTab(settingsInitialTab);
+  }, [settingsInitialTab]);
+
+  useEffect(() => {
     const handleNavigateToSettings = (e: CustomEvent) => {
-      const tab = e.detail?.tab;
+      const tab = e.detail?.tab as SettingsTab | undefined;
       if (e.detail?.reconnect) {
         safeStorage.setItem(GHL_RECONNECT_REQUIRED_STORAGE_KEY, 'true');
       }
@@ -365,6 +377,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         setSettingsTab(tab);
         setCurrentView('settings');
         safeStorage.setItem('nola_active_tab', 'settings');
+        navigate({ pathname: SETTINGS_TAB_ROUTES[tab] || '/settings/account', search: window.location.search }, { replace: false });
       }
     };
 
@@ -372,7 +385,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     return () => {
       window.removeEventListener('navigate-to-settings', handleNavigateToSettings as EventListener);
     };
-  }, []);
+  }, [navigate]);
 
   // When the GHL location / subaccount changes, auto-reset to Home and clear
   // any active selections so the UI always starts fresh for that account.
@@ -598,7 +611,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             <Settings
               darkMode={darkMode ?? false}
               toggleDarkMode={toggleDarkMode ?? (() => { })}
-              initialTab={settingsOpen ? "senderIds" : settingsTab || undefined}
+              initialTab={settingsOpen ? "senderIds" : settingsTab || settingsInitialTab}
               autoOpenAddModal={settingsOpen}
             />
           ) : currentView === 'templates' ? (

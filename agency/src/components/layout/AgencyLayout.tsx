@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { FiGrid, FiToggleLeft, FiLogOut, FiSun, FiMoon, FiUser, FiSettings, FiMenu, FiX, FiCreditCard, FiAward, FiBell } from 'react-icons/fi';
+import { FiGrid, FiToggleLeft, FiLogOut, FiSun, FiMoon, FiUser, FiMenu, FiX, FiCreditCard, FiAward, FiBell } from 'react-icons/fi';
 import { useAgency } from '../../context/AgencyContext.tsx';
 import faviconLogo from '../../assets/FAV ICON - NOLA SMS PRO.png';
 
@@ -13,15 +13,17 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
   const isDashboard = variant === 'dashboard';
 
   const userName = agencySession?.user
-    ? `${agencySession.user.firstName} ${agencySession.user.lastName}`.trim()
+    ? `${agencySession.user.firstName || ''} ${agencySession.user.lastName || ''}`.trim()
     : null;
+  const profileName = userName || agencySession?.user?.name || agencySession?.user?.company_name || 'Agency Profile';
+  const profileEmail = agencySession?.user?.email || (agencyId ? `${agencyId.slice(0, 12)}...` : 'Agency account');
+  const profileInitial = (profileName || profileEmail || 'A').charAt(0).toUpperCase();
 
   const navItems = [
     { to: '/', label: 'Dashboard', icon: <FiGrid /> },
     { to: '/subaccounts', label: 'Subaccounts', icon: <FiToggleLeft /> },
     { to: '/billing', label: 'Credits & Billing', icon: <FiCreditCard /> },
     { to: '/subscription', label: 'Subscription', icon: <FiAward /> },
-    { to: '/settings', label: 'Settings', icon: <FiSettings /> },
   ];
 
   const SidebarContent = () => (
@@ -77,23 +79,6 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
       </nav>
 
       <div className="p-4 border-t border-[#00000005] dark:border-[#ffffff05] flex flex-col gap-2">
-        {/* Logged-in user info */}
-        {userName && !isGhlFrame && (
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <div className="w-7 h-7 rounded-full bg-black/[0.04] dark:bg-white/[0.06] flex items-center justify-center flex-shrink-0">
-              <FiUser className="w-3.5 h-3.5 text-[#5f6368] dark:text-[#b6bac2]" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-[12px] font-semibold text-[#111111] dark:text-white truncate">{userName}</div>
-              <div className="text-[10px] text-[#9aa0a6] truncate">{agencySession?.user?.email}</div>
-            </div>
-          </div>
-        )}
-        {agencyId && !userName && (
-          <div className="px-2 text-[11px] text-[#6e6e73] dark:text-[#94959b]">
-            Agency ID: <span className="font-mono text-[#111111] dark:text-[#ececf1] font-semibold">{agencyId.slice(0, 12)}…</span>
-          </div>
-        )}
         {isGhlFrame ? (
           <div className="px-2 py-1.5 flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
@@ -102,12 +87,42 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
             </span>
           </div>
         ) : (
-          <button
-            onClick={logout}
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-bold text-[#6e6e73] dark:text-[#94959b] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-          >
-            <FiLogOut className="w-4 h-4" /> Sign Out
-          </button>
+          <div className={`flex items-center gap-2 rounded-2xl border px-2.5 py-2 transition-colors ${
+            location.pathname === '/settings'
+              ? 'border-[#2b83fa]/30 bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15'
+              : 'border-transparent hover:bg-black/[0.03] dark:hover:bg-white/[0.04]'
+          }`}>
+            <button
+              type="button"
+              onClick={() => {
+                navigate('/settings');
+                setIsMobileOpen(false);
+              }}
+              className="min-w-0 flex flex-1 items-center gap-2.5 text-left"
+              aria-label="Open agency profile"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] text-[13px] font-black text-white shadow-sm">
+                {profileInitial}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[12.5px] font-extrabold text-[#111111] dark:text-white">
+                  {profileName}
+                </span>
+                <span className="block truncate text-[10.5px] font-medium text-[#6e6e73] dark:text-[#94959b]">
+                  {profileEmail}
+                </span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[#6e6e73] transition-colors hover:bg-red-50 hover:text-red-500 dark:text-[#94959b] dark:hover:bg-red-900/10"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <FiLogOut className="h-4 w-4" />
+            </button>
+          </div>
         )}
       </div>
     </>

@@ -22,7 +22,6 @@ const NAV_ITEMS = [
     { path: '/activity',   label: 'Platform Activity', icon: <FiActivity /> },
     { path: '/accounts',   label: 'All Subaccounts',  icon: <FiUsers /> },
     { path: '/agencies',   label: 'All Agencies',     icon: <FiBriefcase /> },
-    { path: '/profile',    label: 'Admin Profile',    icon: <FiUser /> },
     { path: '/admins',     label: 'Admin Users',      icon: <FiShield /> },
     // { path: '/settings',   label: 'System Settings',  icon: <FiSettings /> },
 ] as const;
@@ -98,6 +97,35 @@ const readRememberedAdminSession = () => {
     return sessionStorage.getItem('nola_admin_auth') === 'true' || remembered;
 };
 
+const readAdminIdentity = () => {
+    const token = sessionStorage.getItem('nola_admin_token') || localStorage.getItem('nola_admin_token') || '';
+    const storedUser = sessionStorage.getItem('nola_admin_user') || localStorage.getItem('nola_admin_user') || '';
+    let email = storedUser;
+    let name = '';
+
+    try {
+        const payload = token.split('.')[1];
+        if (payload) {
+            const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+            const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
+            const claims = JSON.parse(atob(padded));
+            email = claims.email || claims.username || email;
+            name = claims.name || claims.full_name || claims.display_name || '';
+        }
+    } catch {
+        // Stored username remains a useful fallback.
+    }
+
+    const displayEmail = email || 'admin@nolasmspro.com';
+    const displayName = name || displayEmail.split('@')[0]?.replace(/[._-]+/g, ' ') || 'Admin Account';
+
+    return {
+        name: displayName.replace(/\b\w/g, char => char.toUpperCase()),
+        email: displayEmail,
+        initial: (displayName || displayEmail || 'A').charAt(0).toUpperCase(),
+    };
+};
+
 const NavItems = ({ onNav }: { onNav?: () => void }) => {
     const navigate = useNavigate();
     const { pathname } = useLocation();
@@ -133,7 +161,12 @@ const NavItems = ({ onNav }: { onNav?: () => void }) => {
     );
 };
 
-const SidebarContent = ({ onNav, onLogout }: { onNav?: () => void; onLogout: () => void }) => (
+const SidebarContent = ({ onNav, onLogout, identity }: { onNav?: () => void; onLogout: () => void; identity: ReturnType<typeof readAdminIdentity> }) => {
+    const navigate = useNavigate();
+    const { pathname } = useLocation();
+    const isProfileActive = pathname === '/profile';
+
+    return (
     <>
         <div className="px-4 pt-3 pb-2">
             <div className="flex items-center gap-3.5 group cursor-pointer transition-all">
@@ -161,15 +194,43 @@ const SidebarContent = ({ onNav, onLogout }: { onNav?: () => void; onLogout: () 
         </nav>
 
         <div className="p-4 border-t border-[#00000005] dark:border-[#ffffff05]">
-            <button
-                onClick={onLogout}
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13px] font-bold text-[#6e6e73] dark:text-[#94959b] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-            >
-                <FiLogOut /> Logout
-            </button>
+            <div className={`flex items-center gap-2 rounded-2xl border px-2.5 py-2 transition-colors ${
+                isProfileActive
+                    ? 'border-[#2b83fa]/30 bg-[#2b83fa]/10 dark:bg-[#2b83fa]/15'
+                    : 'border-transparent hover:bg-black/[0.03] dark:hover:bg-white/[0.04]'
+            }`}>
+                <button
+                    type="button"
+                    onClick={() => { navigate('/profile'); onNav?.(); }}
+                    className="min-w-0 flex flex-1 items-center gap-2.5 text-left"
+                    aria-label="Open admin profile"
+                >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] text-[13px] font-black text-white shadow-sm">
+                        {identity.initial}
+                    </span>
+                    <span className="min-w-0">
+                        <span className="block truncate text-[12.5px] font-extrabold text-[#111111] dark:text-white">
+                            {identity.name}
+                        </span>
+                        <span className="block truncate text-[10.5px] font-medium text-[#6e6e73] dark:text-[#94959b]">
+                            {identity.email}
+                        </span>
+                    </span>
+                </button>
+                <button
+                    type="button"
+                    onClick={onLogout}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[#6e6e73] transition-colors hover:bg-red-50 hover:text-red-500 dark:text-[#94959b] dark:hover:bg-red-900/10"
+                    aria-label="Log out"
+                    title="Log out"
+                >
+                    <FiLogOut className="h-4 w-4" />
+                </button>
+            </div>
         </div>
     </>
-);
+    );
+};
 
 export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => void }> = ({ darkMode, toggleDarkMode }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(readRememberedAdminSession);
@@ -178,6 +239,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
     const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const navigate = useNavigate();
+    const adminIdentity = readAdminIdentity();
 
     const clearAdminSession = useCallback((includeRemembered = true) => {
         ADMIN_AUTH_KEYS.forEach(key => sessionStorage.removeItem(key));
@@ -303,7 +365,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
     return (
         <div className={`h-screen flex overflow-hidden bg-[#f3f4f6] dark:bg-[#09090b] ${darkMode ? 'dark' : ''}`}>
             <div className="hidden md:flex w-64 bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border-r border-[#0000000a] dark:border-[#ffffff0a] shadow-[1px_0_0_rgba(0,0,0,0.05)] flex-col z-20 flex-shrink-0">
-                <SidebarContent onLogout={() => setShowLogoutConfirm(true)} />
+                <SidebarContent identity={adminIdentity} onLogout={() => setShowLogoutConfirm(true)} />
             </div>
 
             {isMobileOpen && (
@@ -324,6 +386,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                     </button>
                 </div>
                 <SidebarContent
+                    identity={adminIdentity}
                     onNav={() => setIsMobileOpen(false)}
                     onLogout={() => {
                         setIsMobileOpen(false);
