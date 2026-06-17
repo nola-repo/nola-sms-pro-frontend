@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { FiGrid, FiToggleLeft, FiLogOut, FiZap, FiSun, FiMoon, FiUser, FiSettings, FiMenu, FiX, FiCreditCard, FiAward } from 'react-icons/fi';
+import { FiGrid, FiToggleLeft, FiLogOut, FiSun, FiMoon, FiUser, FiSettings, FiMenu, FiX, FiCreditCard, FiAward } from 'react-icons/fi';
 import { useAgency } from '../../context/AgencyContext.tsx';
+import faviconLogo from '../../assets/FAV ICON - NOLA SMS PRO.png';
 
-export const AgencyLayout = ({ children, title, subtitle }) => {
+export const AgencyLayout = ({ children, title, subtitle, topActions = null }) => {
   const { agencyId, agencySession, logout, darkMode, toggleDarkMode, isGhlFrame } = useAgency();
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -24,9 +25,9 @@ export const AgencyLayout = ({ children, title, subtitle }) => {
     <>
       <div className="px-4 pt-3 pb-2">
         <div className="flex items-center gap-3.5 group cursor-pointer transition-all">
-          <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] shadow-md flex items-center justify-center shrink-0 transition-all duration-500 relative overflow-hidden group-hover:rotate-6 group-hover:scale-105 active:scale-95">
+          <div className="w-9 h-9 rounded-[10px] bg-white dark:bg-[#1a1b1e] border border-black/[0.06] dark:border-white/[0.08] shadow-sm flex items-center justify-center shrink-0 transition-all duration-500 relative overflow-hidden group-hover:rotate-3 group-hover:scale-105 active:scale-95">
             <div className="transition-all duration-500 group-hover:rotate-[-6deg]">
-               <FiZap className="w-5 h-5 text-white" />
+               <img src={faviconLogo} alt="NOLA SMS PRO" className="h-7 w-7 object-contain" />
             </div>
           </div>
           <div className="flex flex-col">
@@ -109,8 +110,36 @@ export const AgencyLayout = ({ children, title, subtitle }) => {
     </>
   );
 
+  const renderMobileMenuButton = (light = false) => (
+    <button
+      onClick={() => setIsMobileOpen(true)}
+      className={`md:hidden flex h-10 w-10 items-center justify-center rounded-xl transition-all active:scale-95 ${
+        light
+          ? 'bg-white/10 border border-white/20 text-white hover:bg-white/20'
+          : 'bg-white dark:bg-[#1c1e21] border border-[#e5e5e5] dark:border-white/10 text-[#111111] dark:text-white shadow-sm hover:bg-[#f7f7f7] dark:hover:bg-white/10'
+      }`}
+      aria-label="Open menu"
+    >
+      <FiMenu className="w-5 h-5" />
+    </button>
+  );
+
+  const topControls = (
+    <div className="flex items-center gap-2">
+      {topActions}
+      <button
+        onClick={toggleDarkMode}
+        className="p-2 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all shadow-sm"
+        aria-label="Toggle theme"
+        title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+      >
+        {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
+      </button>
+    </div>
+  );
+
   return (
-    <div className={`h-screen flex overflow-hidden bg-[#f7f7f7] dark:bg-[#111111] ${darkMode ? 'dark' : ''}`}>
+    <div className={`h-screen flex overflow-hidden bg-[#f3f4f6] dark:bg-[#09090b] ${darkMode ? 'dark' : ''}`}>
       {/* Desktop Sidebar */}
       <div className="hidden md:flex w-64 bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border-r border-[#0000000a] dark:border-[#ffffff0a] shadow-[1px_0_0_rgba(0,0,0,0.05)] flex-col z-20 flex-shrink-0">
         <SidebarContent />
@@ -138,40 +167,32 @@ export const AgencyLayout = ({ children, title, subtitle }) => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-        <header className="px-6 py-4 bg-white/80 dark:bg-[#121415]/80 backdrop-blur-2xl border-b border-[#0000000a] dark:border-[#ffffff0a] flex-shrink-0 flex items-center justify-between z-10 shadow-[0_1px_0_rgba(0,0,0,0.04)] dark:shadow-[0_1px_0_rgba(255,255,255,0.03)]">
-          <div className="flex items-center gap-3">
-            {/* Mobile hamburger */}
-            <button
-              onClick={() => setIsMobileOpen(true)}
-              className="md:hidden p-2 -ml-1 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-all"
-              aria-label="Open menu"
-            >
-              <FiMenu className="w-5 h-5" />
-            </button>
-            <div className="flex flex-col">
-              <h2 className="text-[17px] font-bold text-[#111111] dark:text-white capitalize tracking-tight leading-tight">
-                {title || 'Agency Panel'}
-              </h2>
-              {subtitle && (
-                <p className="text-[11.5px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">
-                  {subtitle}
-                </p>
-              )}
+        <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#f3f4f6] dark:bg-[#09090b]">
+          <div className="relative min-h-full">
+            <div className="absolute left-0 top-0 h-[132px] w-full rounded-b-[28px] bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] pointer-events-none" />
+            <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+              <div className="mb-14 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3 text-white">
+                  {renderMobileMenuButton(true)}
+                  <div className="min-w-0">
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight">
+                      {title || 'Agency Panel'}
+                    </h1>
+                    {subtitle && (
+                      <p className="mt-1 max-w-2xl text-[14px] sm:text-[15px] font-semibold text-white/80">
+                        {subtitle}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                  {topControls}
+                </div>
+              </div>
+              <div className="pb-8">
+                {children}
+              </div>
             </div>
-          </div>
-          <button
-            onClick={toggleDarkMode}
-            className="p-2 rounded-xl bg-[#f7f7f7] dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/5 text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#efefef] dark:hover:bg-white/5 transition-all shadow-sm"
-            aria-label="Toggle theme"
-            title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
-          </button>
-        </header>
-
-        <main className="flex-1 overflow-y-auto p-6 bg-[#f7f7f7] dark:bg-[#111111] custom-scrollbar">
-          <div className="max-w-6xl mx-auto">
-            {children}
           </div>
         </main>
       </div>

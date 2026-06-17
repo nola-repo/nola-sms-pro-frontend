@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiToggleLeft, FiUsers, FiCheckCircle, FiAlertTriangle, FiArrowRight, FiSend, FiChevronLeft, FiChevronRight, FiHome } from 'react-icons/fi';
+import { FiToggleLeft, FiUsers, FiCheckCircle, FiAlertTriangle, FiArrowRight, FiSend, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 import { getSubaccounts } from '../services/api.ts';
-import SplitText from '../components/SplitText.tsx';
-import FadeContent from '../components/FadeContent.tsx';
 import AnimatedContent from '../components/AnimatedContent.tsx';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
@@ -129,41 +127,15 @@ export const Dashboard = () => {
       : 'Agency');
 
   return (
-    <AgencyLayout title="Dashboard" subtitle="Agency overview and quick stats">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center shadow-[0_8px_25px_rgba(43,131,250,0.4)] flex-shrink-0 hidden sm:flex">
-                  <FiHome className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                  <SplitText
-                      text={`${getGreeting()}, ${agencyName}`}
-                      className="text-3xl font-extrabold text-[#111111] dark:text-white tracking-tight"
-                      delay={40}
-                      duration={1.2}
-                      ease="power3.out"
-                      splitType="chars"
-                      from={{ opacity: 0, y: 30 }}
-                      to={{ opacity: 1, y: 0 }}
-                      threshold={0.1}
-                      rootMargin="-100px"
-                      textAlign="left"
-                      tag="h1"
-                  />
-                  <FadeContent blur={false} duration={1200} ease="ease-out" initialOpacity={0}>
-                      <p className="text-[#6e6e73] dark:text-[#a0a0ab] font-medium">Welcome back to NOLA SMS PRO</p>
-                  </FadeContent>
-              </div>
-          </div>
-          {!loading && (
-              <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  <span className="text-[11px] text-[#9aa0a6] font-medium bg-white/50 dark:bg-[#1a1b1e]/50 px-3 py-1.5 rounded-full border border-[#0000000a] dark:border-[#ffffff0a]">
-                      Last checked: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                  </span>
-              </div>
-          )}
-      </div>
+    <AgencyLayout
+      title={`${getGreeting()}, ${agencyName}`}
+      subtitle="NOLA SMS PRO is ready for agency operations."
+      topActions={!loading && (
+        <span className="hidden sm:inline-flex text-[11px] font-bold text-white/80 bg-white/10 px-3 py-2 rounded-xl border border-white/20">
+          Last checked: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+        </span>
+      )}
+    >
       {!agencyId && (
         <div className="bg-[#f59e0b]/[0.05] border border-[#f59e0b]/30 rounded-xl p-4 mb-6 shadow-sm flex items-start justify-between gap-4 flex-wrap">
           <div>
