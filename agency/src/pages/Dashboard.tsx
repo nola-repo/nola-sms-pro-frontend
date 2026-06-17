@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiToggleLeft, FiUsers, FiCheckCircle, FiAlertTriangle, FiArrowRight, FiSend, FiChevronLeft, FiChevronRight, FiSearch } from 'react-icons/fi';
+import { FiUsers, FiCheckCircle, FiAlertTriangle, FiSend, FiChevronLeft, FiChevronRight, FiSearch, FiPlus } from 'react-icons/fi';
 import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 import { getSubaccounts } from '../services/api.ts';
@@ -8,6 +8,72 @@ import AnimatedContent from '../components/AnimatedContent.tsx';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth } from '../services/firebaseConfig.ts';
+
+type DashboardMetricCardProps = {
+  label: string;
+  value: number | string;
+  note: string;
+  icon: React.ReactNode;
+  gradient: string;
+  iconClass: string;
+  labelClass: string;
+  valueClass: string;
+  buttonClass: string;
+  actionLabel: string;
+  loading: boolean;
+  index?: number;
+  onClick: () => void;
+};
+
+const DashboardMetricCard = ({
+  label,
+  value,
+  note,
+  icon,
+  gradient,
+  iconClass,
+  labelClass,
+  valueClass,
+  buttonClass,
+  actionLabel,
+  loading,
+  index = 0,
+  onClick,
+}: DashboardMetricCardProps) => (
+  <AnimatedContent delay={0.1 + index * 0.1} distance={50} direction="vertical" className="h-full">
+    <div className={`p-6 rounded-[24px] ${gradient} shadow-xl transition-all group overflow-hidden relative h-full min-h-[184px] border border-white/70 dark:border-white/15 hover:-translate-y-0.5`}>
+      <div className="absolute inset-0 bg-white/10 dark:bg-white/[0.05] pointer-events-none" />
+      <div className="absolute bottom-0 right-0 p-4 opacity-[0.13] dark:opacity-[0.16] group-hover:scale-110 transition-transform duration-500">
+        <div className="w-24 h-24">{icon}</div>
+      </div>
+      <button
+        type="button"
+        onClick={onClick}
+        className={`group/action absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full text-white shadow-[0_10px_24px_rgba(15,23,42,0.22)] ring-1 ring-white/45 hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white transition-all ${buttonClass}`}
+        aria-label={actionLabel}
+        title={actionLabel}
+      >
+        <FiPlus className="h-[18px] w-[18px] stroke-[2.4] transition-transform duration-200 group-hover/action:rotate-90" />
+      </button>
+      <div className="relative z-10 flex h-full flex-col justify-between">
+        <div>
+          <div className={`w-10 h-10 rounded-xl bg-white/70 dark:bg-white/[0.14] flex items-center justify-center mb-4 shadow-sm ring-1 ring-white/40 dark:ring-white/10 ${iconClass}`}>
+            <div className="h-5 w-5">{icon}</div>
+          </div>
+          <p className={`text-[12px] font-bold uppercase tracking-widest mb-1 ${labelClass}`}>
+            {label}
+          </p>
+        </div>
+        <div className="mt-4">
+          <h2 className={`text-3xl sm:text-4xl font-black leading-none ${valueClass}`}>
+            {loading ? <span className="inline-block h-10 w-20 rounded-lg bg-white/40 dark:bg-white/15 animate-pulse" /> : value}
+          </h2>
+          <p className={`mt-2 text-[12px] font-bold ${labelClass}`}>{note}</p>
+        </div>
+      </div>
+    </div>
+  </AnimatedContent>
+);
 
 export const Dashboard = () => {
   const { agencyId, agencySession } = useAgency();
@@ -94,7 +160,6 @@ export const Dashboard = () => {
 
   const total   = subaccounts.length;
   const active  = subaccounts.filter(s => s.toggle_enabled).length;
-  const atLimit = subaccounts.filter(s => s.attempt_count >= s.rate_limit).length;
   const totalSends = subaccounts.reduce((sum, s) => sum + (s.attempt_count || 0), 0);
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
@@ -195,6 +260,7 @@ export const Dashboard = () => {
       title={`${getGreeting()}, ${agencyName}`}
       subtitle="NOLA SMS PRO is ready for agency operations."
       topActions={dashboardTopActions}
+      variant="dashboard"
     >
       {!agencyId && (
         <div className="bg-[#f59e0b]/[0.05] border border-[#f59e0b]/30 rounded-xl p-4 mb-6 shadow-sm flex items-start justify-between gap-4 flex-wrap">
@@ -216,117 +282,57 @@ export const Dashboard = () => {
         </div>
       )}
 
-      {/* Stats - Top Layer */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        {[
-          { label: 'Total Subaccounts', value: total, sub: 'registered under your agency', color: 'from-[#2b83fa] to-[#60a5fa]', icon: <FiUsers className="w-full h-full" /> },
-          { label: 'Total Sends', value: totalSends, sub: 'across all subaccounts', color: 'from-indigo-500 to-purple-600', icon: <FiSend className="w-full h-full" /> },
-        ].map((stat, idx) => (
-          <AnimatedContent key={`top-${idx}`} delay={0.1 + idx * 0.1} distance={50} direction="vertical" className="h-full">
-            <div className={`relative p-5 rounded-3xl bg-gradient-to-br ${stat.color} shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group h-full`}>
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
-                  <div className="w-20 h-20">{stat.icon}</div>
-              </div>
-              <div className="relative z-10 flex flex-col h-full justify-between">
-                  <div>
-                      <div className="w-10 h-10 p-2.5 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-3 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
-                          {stat.icon}
-                      </div>
-                      <div className="text-[12px] font-bold text-white/80 uppercase tracking-widest mb-1.5">{stat.label}</div>
-                  </div>
-                  <div className="mt-auto pt-2 flex items-baseline gap-2">
-                      <div className="text-4xl font-black text-white tracking-tight drop-shadow-sm leading-none">
-                        {loading ? <span className="inline-block w-12 h-10 skeleton rounded-lg bg-white/20" /> : stat.value}
-                      </div>
-                      <div className="text-[11.5px] text-white/70 font-medium leading-none">{stat.sub}</div>
-                  </div>
-              </div>
-            </div>
-          </AnimatedContent>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-14">
+        <DashboardMetricCard
+          index={0}
+          label="Total Subaccounts"
+          value={total.toLocaleString()}
+          note="Registered under your agency"
+          icon={<FiUsers className="w-full h-full" />}
+          gradient="bg-gradient-to-br from-[#e0f2fe] via-[#60a5fa] to-[#06b6d4] dark:from-[#3b82f6] dark:via-[#2584d5] dark:to-[#14a3a1] shadow-blue-500/20 hover:shadow-blue-500/30"
+          iconClass="text-blue-700 dark:text-blue-50"
+          labelClass="text-blue-950/70 dark:text-blue-50/80"
+          valueClass="text-[#082f49] dark:text-white"
+          buttonClass="bg-blue-700 hover:bg-blue-800 dark:bg-blue-500 dark:hover:bg-blue-400"
+          actionLabel="Open subaccounts"
+          loading={loading}
+          onClick={() => navigate('/subaccounts')}
+        />
+        <DashboardMetricCard
+          index={1}
+          label="Total Sends"
+          value={totalSends.toLocaleString()}
+          note="Across all subaccounts"
+          icon={<FiSend className="w-full h-full" />}
+          gradient="bg-gradient-to-br from-[#fae8ff] via-[#c084fc] to-[#7c3aed] dark:from-[#8b5cf6] dark:via-[#7c3aed] dark:to-[#5b5ce2] shadow-purple-500/20 hover:shadow-purple-500/30"
+          iconClass="text-purple-700 dark:text-purple-50"
+          labelClass="text-purple-950/70 dark:text-purple-50/80"
+          valueClass="text-[#3b0764] dark:text-white"
+          buttonClass="bg-purple-700 hover:bg-purple-800 dark:bg-purple-500 dark:hover:bg-purple-400"
+          actionLabel="Open subaccounts"
+          loading={loading}
+          onClick={() => navigate('/subaccounts')}
+        />
+        <DashboardMetricCard
+          index={2}
+          label="Active (SMS ON)"
+          value={active.toLocaleString()}
+          note="Webhook enabled"
+          icon={<FiCheckCircle className="w-full h-full" />}
+          gradient="bg-gradient-to-br from-[#dcfce7] via-[#86efac] to-[#2dd4bf] dark:from-[#10b981] dark:via-[#0ea56f] dark:to-[#0d9488] shadow-emerald-500/20 hover:shadow-emerald-500/30"
+          iconClass="text-emerald-700 dark:text-emerald-50"
+          labelClass="text-emerald-950/70 dark:text-emerald-50/80"
+          valueClass="text-[#022c22] dark:text-white"
+          buttonClass="bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+          actionLabel="Open active subaccounts"
+          loading={loading}
+          onClick={() => navigate('/subaccounts')}
+        />
       </div>
-
-      {/* Stats - Bottom Layer */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        {[
-          { label: 'Active (SMS ON)', value: active, sub: 'webhook enabled', color: 'from-emerald-500 to-teal-600', icon: <FiCheckCircle className="w-full h-full" /> },
-          { label: 'Inactive (SMS OFF)', value: total - active, sub: 'hidden from main admin', color: 'from-slate-400 to-slate-500', icon: <FiUsers className="w-full h-full" /> },
-          { label: 'At Rate Limit', value: atLimit, sub: 'blocked until reset', color: atLimit > 0 ? 'from-amber-500 to-orange-500' : 'from-slate-400 to-slate-500', icon: <FiAlertTriangle className="w-full h-full" /> },
-        ].map((stat, idx) => (
-          <AnimatedContent key={`bottom-${idx}`} delay={0.3 + idx * 0.1} distance={50} direction="vertical" className="h-full">
-            <div className={`relative p-5 rounded-3xl bg-gradient-to-br ${stat.color} shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group h-full`}>
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500 text-white">
-                  <div className="w-16 h-16">{stat.icon}</div>
-              </div>
-              <div className="relative z-10 flex flex-col h-full justify-between">
-                  <div>
-                      <div className="w-10 h-10 p-2.5 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-3 group-hover:rotate-6 transition-transform duration-300 shadow-inner">
-                          {stat.icon}
-                      </div>
-                      <div className="text-[11.5px] font-bold text-white/80 uppercase tracking-widest mb-1.5">{stat.label}</div>
-                  </div>
-                  <div className="mt-auto pt-2 flex items-baseline gap-2">
-                      <div className="text-3xl font-black text-white tracking-tight drop-shadow-sm leading-none">
-                        {loading ? <span className="inline-block w-10 h-8 skeleton rounded-lg bg-white/20" /> : stat.value}
-                      </div>
-                      <div className="text-[11px] text-white/70 font-medium leading-none">{stat.sub}</div>
-                  </div>
-              </div>
-            </div>
-          </AnimatedContent>
-        ))}
-      </div>
-
-      {/* Recent subaccounts at limit */}
-      {!loading && atLimit > 0 && (
-        <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-red-500/50 rounded-2xl shadow-sm overflow-hidden mb-6">
-          <div className="p-6 border-b border-[#00000005] dark:border-[#ffffff05] flex items-start justify-between flex-wrap gap-4">
-            <div>
-              <div className="text-[15px] font-bold text-red-500">
-                ⚠ Subaccounts at Rate Limit ({atLimit})
-              </div>
-              <div className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">These subaccounts are blocked. Reset their counters to re-enable sending.</div>
-            </div>
-            <button 
-              className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-500/10 text-red-500 text-[12.5px] font-bold rounded-lg border border-red-200 dark:border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
-              onClick={() => navigate('/subaccounts')}
-            >
-              Review &amp; Reset <FiArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[#00000005] dark:border-[#ffffff05]">
-                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Subaccount</th>
-                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Attempts</th>
-                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b]">Limit</th>
-                </tr>
-              </thead>
-              <tbody>
-                {subaccounts
-                  .filter(s => s.attempt_count >= s.rate_limit)
-                  .map((s, i) => (
-                    <tr key={s.location_id || i} className="border-b border-[#00000005] dark:border-[#ffffff05] hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
-                      <td className="px-6 py-4 align-middle">
-                        <div className="flex flex-col">
-                          <span className="text-[13.5px] font-semibold text-[#111111] dark:text-[#ececf1]">{s.location_name || s.company_name || 'Unnamed'}</span>
-                          <span className="text-[11px] font-mono text-[#6e6e73] dark:text-[#94959b] mt-0.5">{s.location_id}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 align-middle text-[13.5px] font-bold text-red-500">{s.attempt_count}</td>
-                      <td className="px-6 py-4 align-middle text-[13.5px] text-[#6e6e73] dark:text-[#94959b]">{s.rate_limit}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* All subaccounts summary */}
       {!loading && total > 0 && (
-        <div className="mt-10">
+        <div>
           <AnimatedContent delay={0.4} distance={50} direction="vertical">
             <div className="flex items-center justify-between mb-5">
                 <h3 className="text-[15px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
