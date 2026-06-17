@@ -108,6 +108,43 @@ const Skeleton = ({ className = '' }) => (
   <div className={`animate-pulse rounded-lg bg-gray-200 dark:bg-white/5 ${className}`} />
 );
 
+const DEFAULT_SUBSCRIPTION_STATE: SubscriptionState = {
+  plan: 'starter',
+  status: 'active',
+  subaccount_limit: 1,
+  subaccounts_used: 0,
+  expires_at: null,
+};
+
+const normalizeFiniteNumber = (value: unknown, fallback: number) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeSubscriptionState = (payload: any): SubscriptionState => {
+  const source = payload?.subscription ?? payload?.data?.subscription ?? payload?.data ?? payload ?? {};
+  const plan = PLAN_CATALOG.some(item => item.id === source.plan)
+    ? source.plan
+    : DEFAULT_SUBSCRIPTION_STATE.plan;
+  const status = ['active', 'cancelled', 'past_due'].includes(source.status)
+    ? source.status
+    : DEFAULT_SUBSCRIPTION_STATE.status;
+
+  return {
+    plan,
+    status,
+    subaccount_limit: normalizeFiniteNumber(
+      source.subaccount_limit ?? source.subaccountLimit ?? source.limit,
+      DEFAULT_SUBSCRIPTION_STATE.subaccount_limit
+    ),
+    subaccounts_used: normalizeFiniteNumber(
+      source.subaccounts_used ?? source.subaccountsUsed ?? source.used,
+      DEFAULT_SUBSCRIPTION_STATE.subaccounts_used
+    ),
+    expires_at: typeof source.expires_at === 'string' ? source.expires_at : null,
+  };
+};
+
 export const Subscription: React.FC = () => {
   const { agencyId, agencySession } = useAgency();
   const { toasts, showToast, dismissToast } = useToast();
@@ -130,17 +167,11 @@ export const Subscription: React.FC = () => {
       if (!res.ok) throw new Error('API failed');
       const data = await res.json();
       if (!mountedRef.current) return;
-      setSubState(data);
+      setSubState(normalizeSubscriptionState(data));
     } catch {
       if (!mountedRef.current) return;
       // Mock data if endpoint is not fully implemented yet
-      setSubState({
-        plan: 'starter',
-        status: 'active',
-        subaccount_limit: 1,
-        subaccounts_used: 0,
-        expires_at: null
-      });
+      setSubState(DEFAULT_SUBSCRIPTION_STATE);
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -194,10 +225,16 @@ export const Subscription: React.FC = () => {
     }, 500);
   };
 
-  const getLimitText = (limit: number) => limit === -1 ? 'Unlimited' : limit.toString();
+  const getLimitText = (limit: unknown) => {
+    const normalizedLimit = normalizeFiniteNumber(limit, DEFAULT_SUBSCRIPTION_STATE.subaccount_limit);
+    return normalizedLimit === -1 ? 'Unlimited' : normalizedLimit.toString();
+  };
   const getUsagePercentage = () => {
-    if (!subState || subState.subaccount_limit === -1) return 0;
-    return Math.min(100, (subState.subaccounts_used / subState.subaccount_limit) * 100);
+    if (!subState) return 0;
+    const limit = normalizeFiniteNumber(subState.subaccount_limit, DEFAULT_SUBSCRIPTION_STATE.subaccount_limit);
+    const used = normalizeFiniteNumber(subState.subaccounts_used, DEFAULT_SUBSCRIPTION_STATE.subaccounts_used);
+    if (limit === -1 || limit <= 0) return 0;
+    return Math.min(100, (used / limit) * 100);
   };
 
   return (

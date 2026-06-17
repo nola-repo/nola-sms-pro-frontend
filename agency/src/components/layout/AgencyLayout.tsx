@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { FiGrid, FiToggleLeft, FiLogOut, FiSun, FiMoon, FiUser, FiSettings, FiMenu, FiX, FiCreditCard, FiAward } from 'react-icons/fi';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { FiGrid, FiToggleLeft, FiLogOut, FiSun, FiMoon, FiUser, FiSettings, FiMenu, FiX, FiCreditCard, FiAward, FiBell } from 'react-icons/fi';
 import { useAgency } from '../../context/AgencyContext.tsx';
 import faviconLogo from '../../assets/FAV ICON - NOLA SMS PRO.png';
 
 export const AgencyLayout = ({ children, title, subtitle, topActions = null, variant = 'default' }) => {
   const { agencyId, agencySession, logout, darkMode, toggleDarkMode, isGhlFrame } = useAgency();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const isDashboard = variant === 'dashboard';
 
   const userName = agencySession?.user
@@ -126,16 +128,46 @@ export const AgencyLayout = ({ children, title, subtitle, topActions = null, var
   );
 
   const topControls = (
-    <div className="flex items-center gap-2">
+    <div className="relative flex items-center gap-2">
       {topActions}
       <button
+        type="button"
+        onClick={() => navigate('/settings')}
+        className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/20 text-white shadow-sm hover:bg-white/20 active:scale-95 transition-all"
+        aria-label="Open agency profile"
+        title="Agency profile"
+      >
+        <FiUser className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => setNotificationsOpen(prev => !prev)}
+        className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/20 text-white shadow-sm hover:bg-white/20 active:scale-95 transition-all"
+        aria-label="Open notifications"
+        title="Notifications"
+      >
+        <FiBell className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
         onClick={toggleDarkMode}
-        className="p-2 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all shadow-sm"
+        className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/20 text-white shadow-sm hover:bg-white/20 active:scale-95 transition-all"
         aria-label="Toggle theme"
         title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
       >
         {darkMode ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
       </button>
+      {notificationsOpen && (
+        <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-white/10 bg-[#1a1b1e]/95 p-4 text-white shadow-2xl backdrop-blur-xl z-50">
+          <div className="flex items-center gap-2 mb-2">
+            <FiBell className="w-4 h-4 text-[#60a5fa]" />
+            <p className="text-[13px] font-bold">Notifications</p>
+          </div>
+          <p className="text-[12px] leading-relaxed text-white/70">
+            No agency notifications yet.
+          </p>
+        </div>
+      )}
     </div>
   );
 
