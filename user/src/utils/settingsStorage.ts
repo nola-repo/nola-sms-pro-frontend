@@ -40,6 +40,7 @@ export interface StoredSenderId {
     description: string;
     color: string;
     status: "approved" | "pending" | "rejected";
+    provider?: "system" | "semaphore" | "unisms";
 }
 
 // ─── Defaults ────────────────────────────────────────────────────────────────

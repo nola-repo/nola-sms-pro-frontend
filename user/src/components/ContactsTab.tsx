@@ -27,7 +27,8 @@ const formatDisplayPhone = (phone: string): string => {
 
 // Format input as user types: XXXX XXX XXXX
 const formatPhoneInput = (raw: string): string => {
-  const digits = raw.replace(/\D/g, "").substring(0, 11);
+  const normalized = normalizePHPhone(raw);
+  const digits = normalized.replace(/\D/g, "").substring(0, 11);
   if (digits.length > 7) {
     return `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`;
   } else if (digits.length > 4) {
@@ -35,6 +36,14 @@ const formatPhoneInput = (raw: string): string => {
   }
   return digits;
 };
+
+const normalizeSearchPhone = (value: string): string => value.replace(/\s+/g, "").toLowerCase();
+
+const toProperContactName = (name: string): string =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/\b([a-z])/g, (char) => char.toUpperCase());
 
 type GhlContactsError = {
   kind: 'reconnect' | 'generic';
@@ -213,10 +222,11 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
     }
     if (debouncedSearchQuery) {
       const lowerQ = debouncedSearchQuery.toLowerCase();
+      const phoneQ = normalizeSearchPhone(debouncedSearchQuery);
       result = result.filter(
         (c) =>
           c.name.toLowerCase().includes(lowerQ) ||
-          c.phone.includes(lowerQ)
+          normalizeSearchPhone(c.phone).includes(phoneQ)
       );
     }
     return result;
@@ -288,7 +298,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
       // Send +63 format to GHL API (strip leading 0, prepend +63)
       const ghlPhone = '+63' + normalized.slice(1);
       const newContact = await addContact({
-        name: newContactName.trim(),
+        name: toProperContactName(newContactName),
         phone: ghlPhone,
       });
 
@@ -329,36 +339,59 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
     setError(null);
 
     try {
+      const originalContact = contacts.find((c) => c.id === editingContact.id) || editingContact;
+      const displayName = toProperContactName(editingContact.name);
+      const displayPhone = normalizePHPhone(editingContact.phone);
+
       // Only update if it's a GHL contact (has numeric ID, not starting with 'manual-')
       if (!editingContact.id.startsWith('manual-')) {
         const ghlPhone = '+63' + normalized.slice(1);
         const updated = await updateContact({
           id: editingContact.id,
-          name: editingContact.name.trim(),
+          name: displayName,
           phone: ghlPhone,
+          previousPhone: originalContact.phone,
+          previousName: originalContact.name,
         });
 
         if (updated) {
+          const nextContact = {
+            ...editingContact,
+            ...updated,
+            name: toProperContactName(updated.name || displayName),
+            phone: normalizePHPhone(updated.phone || displayPhone),
+          };
           // Update contact in list
           setContacts((prev) => prev.map((c) =>
-            c.id === editingContact.id ? { ...editingContact, name: updated.name, phone: updated.phone } : c
+            c.id === editingContact.id ? nextContact : c
           ));
 
           // Update selected contacts if this one was selected
           setSelectedContacts((prev) => prev.map((c) =>
-            c.id === editingContact.id ? { ...c, name: updated.name, phone: updated.phone } : c
+            c.id === editingContact.id ? { ...c, ...nextContact } : c
           ));
+          window.dispatchEvent(new CustomEvent('nola-contact-updated', {
+            detail: { contact: nextContact, previous: originalContact, locationId },
+          }));
           setGhlContactsError(null);
         }
       } else {
+        const nextContact = {
+          ...editingContact,
+          name: displayName,
+          phone: displayPhone,
+        };
         // For manual contacts, just update locally
         setContacts((prev) => prev.map((c) =>
-          c.id === editingContact.id ? editingContact : c
+          c.id === editingContact.id ? nextContact : c
         ));
 
         setSelectedContacts((prev) => prev.map((c) =>
-          c.id === editingContact.id ? editingContact : c
+          c.id === editingContact.id ? nextContact : c
         ));
+        window.dispatchEvent(new CustomEvent('nola-contact-updated', {
+          detail: { contact: nextContact, previous: originalContact, locationId },
+        }));
         setGhlContactsError(null);
       }
     } catch (err: unknown) {
@@ -986,6 +1019,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                   type="text"
                   value={editingContact.name}
                   onChange={(e) => setEditingContact({ ...editingContact, name: e.target.value })}
+                  onBlur={() => setEditingContact({ ...editingContact, name: toProperContactName(editingContact.name) })}
                   placeholder="Enter contact name"
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 focus:border-[#2b83fa] transition-all"
                 />
@@ -1018,7 +1052,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
               <button
                 onClick={handleEditContact}
                 disabled={!editingContact.name.trim() || editingContact.phone.replace(/\D/g, "").length < 7 || isSubmitting}
-                className="w-full sm:flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#2b83fa] hover:bg-[#1d6bd4] disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed text-white disabled:text-gray-500 dark:disabled:text-gray-400 rounded-xl font-semibold text-[14px] transition-all duration-200"
+                className="w-full sm:flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] disabled:from-gray-300 disabled:to-gray-300 dark:disabled:from-gray-600 dark:disabled:to-gray-600 disabled:cursor-not-allowed text-white disabled:text-gray-500 dark:disabled:text-gray-400 rounded-xl font-semibold text-[14px] transition-all duration-200 shadow-md shadow-blue-500/20 disabled:shadow-none"
               >
                 {isSubmitting ? (
                   <>

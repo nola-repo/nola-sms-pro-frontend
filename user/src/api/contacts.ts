@@ -288,6 +288,8 @@ export interface UpdateContactParams {
   name: string;
   phone: string;
   email?: string;
+  previousPhone?: string;
+  previousName?: string;
 }
 
 export const updateContact = async (params: UpdateContactParams): Promise<Contact | null> => {
@@ -300,6 +302,8 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
     // Strip empty optional fields; GHL rejects email: "" with "email must be an email"
     const body: Record<string, string> = { id: params.id, name: params.name, phone: params.phone };
     if (params.email) body.email = params.email;
+    if (params.previousPhone) body.previous_phone = params.previousPhone;
+    if (params.previousName) body.previous_name = params.previousName;
 
     const url = `${CONTACTS_API_URL}?${new URLSearchParams({ location_id: contactContext.locationId }).toString()}`;
     const res = await apiFetch(url, {

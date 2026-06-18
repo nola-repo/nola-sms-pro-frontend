@@ -118,6 +118,17 @@ const SETTINGS_TAB_ROUTES: Record<SettingsTab, string> = {
   credits: '/settings/credits',
 };
 
+const contactPhoneKey = (phone?: string | null) => (phone || '').replace(/\D/g, '').slice(-10);
+
+const isSameContactUpdateTarget = (target: Contact, contact: Contact, previous?: Contact | null) => {
+  if (target.id === contact.id || (previous && target.id === previous.id)) return true;
+  const targetPhone = contactPhoneKey(target.phone);
+  return !!targetPhone && (
+    targetPhone === contactPhoneKey(contact.phone) ||
+    targetPhone === contactPhoneKey(previous?.phone)
+  );
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: externalIsMobileMenuOpen, onMobileMenuToggle, darkMode, toggleDarkMode, initialView, settingsInitialTab, topControls }) => {
   const navigate = useNavigate();
   const onboarding = useOnboarding();
@@ -405,6 +416,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     return () => {
       window.removeEventListener('ghl-location-changed', handleLocationChanged);
     };
+  }, []);
+
+  useEffect(() => {
+    const handleContactUpdated = (event: Event) => {
+      const { contact, previous } = (event as CustomEvent<{ contact?: Contact; previous?: Contact }>).detail || {};
+      if (!contact) return;
+
+      setActiveContact((current) => {
+        if (!current || !isSameContactUpdateTarget(current, contact, previous)) return current;
+        const next = { ...current, ...contact };
+        safeStorage.setItem('nola_active_contact', JSON.stringify(next));
+        return next;
+      });
+      setSelectedContacts((current) => current.map((item) =>
+        isSameContactUpdateTarget(item, contact, previous) ? { ...item, ...contact } : item
+      ));
+    };
+
+    window.addEventListener('nola-contact-updated', handleContactUpdated);
+    return () => window.removeEventListener('nola-contact-updated', handleContactUpdated);
   }, []);
 
   const registrationCheckIsCurrent =

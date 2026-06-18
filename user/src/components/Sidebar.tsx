@@ -87,6 +87,17 @@ const asMembers = (value: unknown): string[] => {
   return value.map(asText).filter(Boolean);
 };
 
+const contactPhoneKey = (phone?: string | null) => (phone || '').replace(/\D/g, '').slice(-10);
+
+const matchesContactUpdate = (target: Contact, contact: Contact, previous?: Contact | null) => {
+  if (target.id === contact.id || (previous && target.id === previous.id)) return true;
+  const targetPhone = contactPhoneKey(target.phone);
+  return !!targetPhone && (
+    targetPhone === contactPhoneKey(contact.phone) ||
+    targetPhone === contactPhoneKey(previous?.phone)
+  );
+};
+
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
@@ -172,6 +183,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }, 60000);
 
     return () => clearInterval(interval);
+  }, [loadContacts]);
+
+  useEffect(() => {
+    const handleContactUpdated = (event: Event) => {
+      const { contact, previous } = (event as CustomEvent<{ contact?: Contact; previous?: Contact }>).detail || {};
+      if (!contact) return;
+
+      setContacts(prev => {
+        const next = prev.map(item => matchesContactUpdate(item, contact, previous) ? { ...item, ...contact } : item);
+        contactsRef.current = next;
+        return next;
+      });
+      setDirectHistory(prev => prev.map(item =>
+        matchesContactUpdate(item, contact, previous)
+          ? { ...item, name: contact.name || item.name, phone: contact.phone || item.phone }
+          : item
+      ));
+      loadContacts();
+    };
+
+    window.addEventListener('nola-contact-updated', handleContactUpdated);
+    return () => window.removeEventListener('nola-contact-updated', handleContactUpdated);
   }, [loadContacts]);
 
   const applyConversationRows = useCallback((docRows: Conversation[]) => {

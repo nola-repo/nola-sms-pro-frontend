@@ -113,6 +113,17 @@ const normalizeRecipient = (contact: Contact): Contact => ({
   phone: resolveContactPhone(contact),
 });
 
+const contactPhoneKey = (phone?: string | null) => (phone || "").replace(/\D/g, "").slice(-10);
+
+const matchesContactUpdate = (target: Contact, contact: Contact, previous?: Contact | null) => {
+  if (target.id === contact.id || (previous && target.id === previous.id)) return true;
+  const targetPhone = contactPhoneKey(resolveContactPhone(target));
+  return !!targetPhone && (
+    targetPhone === contactPhoneKey(resolveContactPhone(contact)) ||
+    targetPhone === contactPhoneKey(resolveContactPhone(previous))
+  );
+};
+
 export const Composer: React.FC<ComposerProps> = ({
   selectedContacts,
   isNewMessage = true,
@@ -430,6 +441,24 @@ export const Composer: React.FC<ComposerProps> = ({
     fetchContacts(locationId || undefined).then(setAllContacts).catch(console.error);
   }, [locationId]);
 
+  useEffect(() => {
+    const handleContactUpdated = (event: Event) => {
+      const { contact, previous } = (event as CustomEvent<{ contact?: Contact; previous?: Contact }>).detail || {};
+      if (!contact) return;
+
+      setAllContacts((current) => current.map((item) =>
+        matchesContactUpdate(item, contact, previous) ? { ...item, ...contact } : item
+      ));
+      setBulkSelectedContacts((current) => current.map((item) =>
+        matchesContactUpdate(item, contact, previous) ? { ...item, ...contact } : item
+      ));
+      fetchContacts(locationId || undefined).then(setAllContacts).catch(console.error);
+    };
+
+    window.addEventListener("nola-contact-updated", handleContactUpdated);
+    return () => window.removeEventListener("nola-contact-updated", handleContactUpdated);
+  }, [locationId]);
+
   // Pre-warm template cache on mount/location change
   useEffect(() => {
     const prewarm = async () => {
@@ -470,9 +499,10 @@ export const Composer: React.FC<ComposerProps> = ({
   const filteredContacts = useMemo(() => {
     if (!searchQuery) return allContacts;
     const lowerQ = searchQuery.toLowerCase();
+    const phoneQ = searchQuery.replace(/\s+/g, "").toLowerCase();
     return allContacts.filter(c =>
       c.name.toLowerCase().includes(lowerQ) ||
-      c.phone.includes(lowerQ)
+      c.phone.replace(/\s+/g, "").toLowerCase().includes(phoneQ)
     );
   }, [searchQuery, allContacts]);
 
