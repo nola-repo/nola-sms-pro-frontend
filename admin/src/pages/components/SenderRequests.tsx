@@ -442,18 +442,18 @@ export const AdminSenderRequests: React.FC = () => {
                                                 onClick={() => openRequest(req.id)}
                                             >
                                                 <div className="flex items-center gap-3.5 flex-1 min-w-0 w-full">
-                                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] shadow-sm flex items-center justify-center text-[12px] font-black text-white flex-shrink-0 font-mono tracking-tighter">
+                                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] shadow-sm flex items-center justify-center text-[12px] font-black text-white flex-shrink-0 tracking-tighter">
                                                         {req.requested_id.substring(0, 2).toUpperCase()}
                                                     </div>
                                                     <div className="flex flex-col min-w-0">
                                                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                            <span className="font-black text-[15px] text-[#2b83fa] dark:text-[#4da3ff] font-mono leading-none">{req.requested_id}</span>
+                                                            <span className="font-black text-[15px] text-[#2b83fa] dark:text-[#4da3ff] leading-none">{req.requested_id}</span>
                                                             {showProvider && <ProviderBadge provider={normalizeProvider(req)} />}
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <p className="text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] truncate uppercase tracking-tight max-w-[150px]">{locName}</p>
                                                             <span className="w-1 h-1 rounded-full bg-[#d1d5db]/50 dark:bg-gray-700/50"></span>
-                                                            <p className="text-[10px] text-[#9aa0a6] font-mono truncate opacity-70">{req.location_id}</p>
+                                                            <p className="text-[10px] text-[#9aa0a6] truncate opacity-70">{req.location_id}</p>
                                                             {agencyName && (
                                                                 <>
                                                                     <span className="w-1 h-1 rounded-full bg-[#d1d5db]/50 dark:bg-gray-700/50"></span>
@@ -606,7 +606,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                 <FiSend className="w-5 h-5 text-blue-500" />
                                             </div>
                                             <div>
-                                                <h3 className="text-[16px] font-bold text-[#111111] dark:text-white font-mono leading-none">{req.requested_id}</h3>
+                                                <h3 className="text-[16px] font-bold text-[#111111] dark:text-white leading-none">{req.requested_id}</h3>
                                                 <p className="text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] mt-1 uppercase tracking-wide">
                                                     {associatedAccount?.location_name || req.location_name || 'Unknown Account'}
                                                 </p>
@@ -623,7 +623,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                 <div className="flex items-start justify-between gap-3">
                                                     <div className="min-w-0">
                                                         <p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Requested Sender</p>
-                                                        <p className="font-black text-[20px] text-[#2b83fa] dark:text-[#4da3ff] font-mono truncate">{req.requested_id}</p>
+                                                        <p className="font-black text-[20px] text-[#2b83fa] dark:text-[#4da3ff] truncate">{req.requested_id}</p>
                                                     </div>
                                                     <div className="flex flex-wrap items-center justify-end gap-2">
                                                         <StatusBadge status={req.status} />
@@ -636,7 +636,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                 <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] p-4 min-w-0">
                                                     <p className="text-[10px] font-black text-[#9aa0a6] uppercase tracking-widest mb-2">Account</p>
                                                     <p className="text-[14px] font-black text-[#111111] dark:text-white truncate">{associatedAccount?.location_name || req.location_name || 'Unknown Account'}</p>
-                                                    <p className="text-[11px] font-mono text-[#6e6e73] dark:text-[#9aa0a6] truncate mt-1" title={req.location_id}>{req.location_id}</p>
+                                                    <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mt-1" title={req.location_id}>{req.location_id}</p>
                                                     {(req.agency_name || req.company_id) && (
                                                         <p className="text-[11px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6] truncate mt-2">{req.agency_name || req.company_id}</p>
                                                     )}

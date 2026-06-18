@@ -47,6 +47,7 @@ const ToggleSwitch = ({ id, checked, onChange, disabled }) => (
 // ─── Rate Limit Input ──────────────────────────────────────────────────────────
 const RateLimitInput = ({ locationId, value, onSave, disabled }) => {
   const [local, setLocal] = useState(value);
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { setLocal(value); }, [value]);
@@ -55,46 +56,77 @@ const RateLimitInput = ({ locationId, value, onSave, disabled }) => {
     let parsed = parseInt(newVal, 10);
     if (isNaN(parsed) || parsed < 1) parsed = 1;
     setLocal(parsed);
+    setEditing(false);
     if (parsed === value) return;
-    setSaving(true);
-    await onSave(locationId, parsed);
-    setSaving(false);
+    try {
+      setSaving(true);
+      await onSave(locationId, parsed);
+    } catch {
+      setLocal(value);
+    } finally {
+      setSaving(false);
+    }
   };
-
-  const handleBlur = () => commitChange(local);
 
   const adjust = (delta) => {
     if (disabled || saving) return;
     let parsed = parseInt(local, 10);
     if (isNaN(parsed)) parsed = value;
-    commitChange(parsed + delta);
+    setLocal(Math.max(1, parsed + delta));
   };
 
-  return (
-    <div className="inline-flex items-center bg-[#f0f2f8] dark:bg-[#1c1e21] border border-[rgba(0,0,0,0.07)] dark:border-[rgba(255,255,255,0.07)] rounded-lg overflow-hidden">
+  if (!editing) {
+    return (
       <button
+        type="button"
+        onClick={() => !disabled && setEditing(true)}
+        disabled={disabled || saving}
+        title="Click to edit credit limit"
+        className="flex flex-col items-start hover:bg-[#f0f2f8] dark:hover:bg-white/5 rounded-lg px-2 py-1 transition-colors group/limit disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <span className="text-[13px] font-bold text-[#111111] dark:text-white group-hover/limit:text-[#2b83fa] transition-colors">{Number(value || 0).toLocaleString()}</span>
+        <span className="text-[9px] text-[#9aa0a6] font-medium uppercase tracking-tight group-hover/limit:text-[#2b83fa]/60 transition-colors">click to edit</span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="inline-flex items-center rounded-lg border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] overflow-hidden shadow-sm">
+      <button
+        type="button"
+        onMouseDown={event => event.preventDefault()}
         onClick={() => adjust(-1)}
         disabled={disabled || saving || local <= 1}
-        className="px-2.5 py-1.5 text-[#6b7280] dark:text-[#9aa0a9] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-r border-[#00000010] dark:border-[#ffffff10]"
+        className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-r border-[#e0e0e0] dark:border-white/10"
       >
         <FiMinus className="w-3.5 h-3.5" />
       </button>
       <input
         id={`rate-${locationId}`}
         type="number"
-        className="w-[50px] py-1.5 bg-transparent text-[#111827] dark:text-[#f1f2f4] text-[13px] font-bold text-center focus:outline-none focus:bg-white dark:focus:bg-[#121415] transition-all"
+        className="w-14 py-1.5 bg-transparent text-[#111827] dark:text-[#f1f2f4] text-[13px] font-bold text-center focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         value={local}
         min={1}
         max={9999}
         onChange={e => setLocal(e.target.value)}
-        onBlur={handleBlur}
+        onBlur={() => commitChange(local)}
+        onKeyDown={event => {
+          if (event.key === 'Enter') commitChange(local);
+          if (event.key === 'Escape') {
+            setLocal(value);
+            setEditing(false);
+          }
+        }}
         disabled={disabled || saving}
+        autoFocus
         title="Auto-saves on blur"
       />
       <button
+        type="button"
+        onMouseDown={event => event.preventDefault()}
         onClick={() => adjust(1)}
         disabled={disabled || saving}
-        className="px-2.5 py-1.5 text-[#6b7280] dark:text-[#9aa0a9] hover:bg-black/5 dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-l border-[#00000010] dark:border-[#ffffff10]"
+        className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-l border-[#e0e0e0] dark:border-white/10"
       >
         <FiPlus className="w-3.5 h-3.5" />
       </button>
@@ -423,6 +455,7 @@ export const Subaccounts = () => {
       showToast('Credit limit updated.', 'success');
     } catch (e) {
       showToast(`Failed to update credit limit: ${e.message}`, 'error');
+      throw e;
     }
   };
 
@@ -733,7 +766,7 @@ export const Subaccounts = () => {
               href={ADD_SUBACCOUNT_URL}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#2b83fa] hover:bg-[#1d6bd4] text-white text-[13px] font-bold rounded-xl transition-all shadow-md shadow-[#2b83fa]/25 hover:shadow-[#2b83fa]/40"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] text-[#111111] dark:text-white hover:bg-[#f3f4f6] dark:hover:bg-white/5 text-[13px] font-bold transition-colors shadow-sm"
             >
               <FiPlus className="w-4 h-4" />
               Add Subaccount
@@ -775,7 +808,7 @@ export const Subaccounts = () => {
                   href={ADD_SUBACCOUNT_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#2b83fa] hover:bg-[#1d6bd4] text-white text-[12.5px] font-bold rounded-lg transition-all shadow-sm shadow-[#2b83fa]/20 hover:shadow-[#2b83fa]/40 whitespace-nowrap"
+                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] text-[#111111] dark:text-white hover:bg-[#f3f4f6] dark:hover:bg-white/5 text-[12.5px] font-bold transition-colors shadow-sm whitespace-nowrap"
                   title="Connect a new GHL location as a subaccount"
                 >
                   <FiPlus className="w-3.5 h-3.5" />
@@ -882,11 +915,11 @@ export const Subaccounts = () => {
                         <td className="px-6 py-4 align-middle">
                           <button
                             onClick={() => fetchReportForSubaccount(sub)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold text-[#2b83fa] bg-blue-50 hover:bg-[#2b83fa] hover:text-white dark:bg-blue-900/10 dark:hover:bg-[#2b83fa] border border-blue-100 dark:border-blue-800/30 transition-all shadow-sm"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#f3f4f6] dark:hover:bg-white/5 transition-colors shadow-sm"
                             title="Select a month and download this subaccount report"
+                            aria-label={`Download report for ${sub.location_name || sub.location_id}`}
                           >
                             <FiDownload className="w-3.5 h-3.5" />
-                            Report
                           </button>
                         </td>
 
