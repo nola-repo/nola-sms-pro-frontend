@@ -446,7 +446,18 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
 
         if (debouncedSearch) {
             const q = debouncedSearch.toLowerCase();
-            const s = [log.number, log.to, log.message, log.requested_id, log.location_id, log.sendername, log.status].filter(Boolean).join(' ').toLowerCase();
+            const s = [
+                log.number,
+                log.to,
+                log.message,
+                log.requested_id,
+                log.location_id,
+                log.sender_name,
+                log.sendername,
+                log.provider_message_id,
+                log.provider_reference_id,
+                log.status,
+            ].filter(Boolean).join(' ').toLowerCase();
             if (!s.includes(q)) return false;
         }
         return true;
@@ -556,7 +567,7 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                                  <span className="text-[10px] font-medium text-gray-500 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-1.5 py-0.5 rounded-md shadow-sm">
                                     {(log.message || '').length} <span className="opacity-70 text-[9px]">chars</span>
                                 </span>
-                                {log.sendername && <span className="text-[10px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-1.5 py-0.5 rounded">Via: {log.sendername}</span>}
+                                {(log.sender_name || log.sendername) && <span className="text-[10px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-1.5 py-0.5 rounded">Via: {log.sender_name || log.sendername}</span>}
                                 {subAccountPill}
                             </div>
                         </div>
@@ -795,6 +806,7 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                 const log = selectedLog;
                 const type = getType(log);
                 const ts = log.timestamp || log.date_created || log.created_at;
+                const providerMessageId = log.provider_message_id || log.provider_reference_id;
                 const dtStr = ts ? new Date(ts).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—';
                 return (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -814,9 +826,10 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                                             <div><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Status</p>{statusBadge(log.status || 'unknown')}</div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4 pt-3 border-t border-[#e5e5e5] dark:border-white/5">
-                                            <div><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Sender Name</p><p className="text-[13px] font-mono text-[#111111] dark:text-white">{log.sendername || 'System'}</p></div>
+                                            <div><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Sender Name</p><p className="text-[13px] font-mono text-[#111111] dark:text-white">{log.sender_name || log.sendername || 'System'}</p></div>
                                             <div><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Date</p><p className="text-[13px] text-[#111111] dark:text-white">{dtStr}</p></div>
                                         </div>
+                                        {providerMessageId && <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5"><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Provider Message ID</p><p className="text-[12px] font-mono text-[#6e6e73] dark:text-[#9aa0a6] break-all">{providerMessageId}</p></div>}
                                         {log.location_id && <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5"><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Location ID</p><p className="text-[12px] font-mono text-[#6e6e73] dark:text-[#9aa0a6]">{log.location_id}</p></div>}
                                     </div>
                                     <div>

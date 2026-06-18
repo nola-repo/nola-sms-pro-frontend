@@ -201,6 +201,7 @@ export const AdminSubaccountProfile = ({ account, onClose, onSaved, onToggleActi
                             ['Role', displayValue(account?.role || 'user')],
                             ['Location Name', displayValue(account?.location_name)],
                             ['Location ID', displayValue(account?.location_id || account?.active_location_id)],
+                            ['Provider', displayValue(account?.approved_provider || account?.provider)],
                             ['Source', displayValue(account?.source)],
                             ['Created At', formatDate(account?.created_at)],
                             ['User ID', displayValue(account?.id)],

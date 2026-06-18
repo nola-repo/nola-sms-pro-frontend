@@ -50,6 +50,8 @@ type Account = {
     source?: string;
     created_at?: string;
     approved_sender_id?: string | null;
+    provider?: 'system' | 'semaphore' | 'unisms' | string | null;
+    approved_provider?: 'system' | 'semaphore' | 'unisms' | string | null;
     credit_balance?: number;
     credits?: number;
     free_usage_count?: number;
@@ -84,6 +86,8 @@ const normalizeAccount = (item: any): Account => {
         free_usage_count: normalizeNumber(raw.free_usage_count, 0),
         free_credits_total: normalizeNumber(raw.free_credits_total, 10),
         approved_sender_id: raw.approved_sender_id || null,
+        provider: raw.provider || null,
+        approved_provider: raw.approved_provider || raw.provider || null,
     };
 };
 

@@ -59,6 +59,8 @@ const normalizeAccount = (item: any) => {
         free_usage_count: normalizeNumber(raw.free_usage_count, 0),
         free_credits_total: normalizeNumber(raw.free_credits_total, 10),
         approved_sender_id: raw.approved_sender_id || null,
+        provider: raw.provider || null,
+        approved_provider: raw.approved_provider || raw.provider || null,
     };
 };
 
@@ -539,7 +541,7 @@ export const AdminDashboard: React.FC<{
                                                 <div className="flex items-center justify-between gap-3">
                                                     <p className="text-[13px] text-gray-500 dark:text-gray-400 flex-1 leading-snug">
                                                         {account?.location_name || (locId ? locId.substring(0, 12) + '...' : 'System')}
-                                                        {log.sendername ? ` - via ${log.sendername}` : ''}
+                                                        {log.sender_name || log.sendername ? ` - via ${log.sender_name || log.sendername}` : ''}
                                                     </p>
                                                     <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
                                                         <span className="text-[10px] font-bold text-[#111111] dark:text-white uppercase tracking-wider">{date}</span>

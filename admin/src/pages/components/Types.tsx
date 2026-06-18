@@ -28,6 +28,8 @@ export interface Account {
     unisms_api_key_masked?: string;
     unisms_api_key_configured?: boolean;
     unisms_sender_id?: string;
+    provider?: 'system' | 'semaphore' | 'unisms';
+    approved_provider?: 'system' | 'semaphore' | 'unisms';
     provider_preference?: 'system' | 'semaphore' | 'semaphore_custom' | 'unisms' | 'unisms_custom';
     credits?: number;
     credit_balance?: number;

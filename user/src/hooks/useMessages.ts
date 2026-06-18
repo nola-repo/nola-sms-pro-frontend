@@ -35,7 +35,7 @@ export const useMessages = (phoneNumber: string | undefined) => {
             id: log.message_id || `msg-${Date.now()}-${Math.random()}`,
             text: log.message || '',
             timestamp: date,
-            senderName: log.sender_id || 'NOLASMSPro',
+            senderName: log.sender_name || log.sender_id || 'NOLASMSPro',
             status: (() => {
                 let status = (log.status || 'sending').toLowerCase();
                 
@@ -50,6 +50,8 @@ export const useMessages = (phoneNumber: string | undefined) => {
                 return status as Message['status'];
             })(),
             errorReason: log.error_reason,
+            providerMessageId: log.provider_message_id || log.provider_reference_id,
+            providerReferenceId: log.provider_reference_id,
         };
     }, []);
 
@@ -130,6 +132,7 @@ export const useMessages = (phoneNumber: string | undefined) => {
                             numbers: d.numbers ?? [],
                             message: d.message ?? '',
                             sender_id: d.sender_id ?? 'NOLASMSPro',
+                            sender_name: d.sender_name ?? null,
                             status: d.status ?? 'Sending',
                             date_created: d.date_created ?? null,
                             source: d.source ?? 'semaphore',
@@ -138,6 +141,8 @@ export const useMessages = (phoneNumber: string | undefined) => {
                             credits_used: d.credits_used ?? 0,
                             conversation_id: d.conversation_id ?? null,
                             error_reason: d.error_reason ?? null,
+                            provider_message_id: d.provider_message_id ?? null,
+                            provider_reference_id: d.provider_reference_id ?? null,
                         } as SmsLog;
                     });
                     processAndMergeLogs(logs);

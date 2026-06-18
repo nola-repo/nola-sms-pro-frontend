@@ -87,10 +87,13 @@ interface DatabaseMessageRow {
     created_at?: unknown;
     date_created?: unknown;
     sender_id?: string;
+    sender_name?: string;
     status?: string;
     batch_id?: string;
     recipient_key?: string;
     error_reason?: string;
+    provider_message_id?: string;
+    provider_reference_id?: string;
 }
 
 /**
@@ -148,13 +151,15 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 number: row.number,
                 text: row.message || "",
                 timestamp: parseFirestoreDate(row.created_at || row.date_created),
-                senderName: row.sender_id || "NOLASMSPro",
+                senderName: row.sender_name || row.sender_id || "NOLASMSPro",
                 status: status as Message["status"],
 
                 batch_id: row.batch_id,
                 recipient_key: row.recipient_key,
                 message: row.message,
                 errorReason: row.error_reason,
+                providerMessageId: row.provider_message_id || row.provider_reference_id,
+                providerReferenceId: row.provider_reference_id,
             };
         });
 

@@ -13,6 +13,7 @@ export interface FirestoreMessage {
   message: string;
   direction: 'inbound' | 'outbound';
   sender_id: string;
+  sender_name?: string;
   status: string;
   batch_id?: string;
   recipient_key?: string;
@@ -20,6 +21,8 @@ export interface FirestoreMessage {
   name?: string;
   location_id?: string;
   error_reason?: string;
+  provider_message_id?: string;
+  provider_reference_id?: string;
 }
 
 /** One row from the `conversations` Firestore collection */
@@ -56,6 +59,7 @@ export interface SmsLog {
   numbers: string[];
   message: string;
   sender_id: string;
+  sender_name?: string;
   status: string;
   date_created?: string | { _seconds: number; _nanoseconds: number };
   source?: string;
@@ -64,6 +68,8 @@ export interface SmsLog {
   recipient_key?: string;
   location_id?: string;
   error_reason?: string;
+  provider_message_id?: string;
+  provider_reference_id?: string;
 }
 
 export interface Message {
@@ -73,6 +79,8 @@ export interface Message {
   senderName: string;
   status: 'sending' | 'sent' | 'delivered' | 'failed';
   errorReason?: string;
+  providerMessageId?: string;
+  providerReferenceId?: string;
   // Extra fields for compatibility
   batch_id?: string;
   conversation_id?: string;

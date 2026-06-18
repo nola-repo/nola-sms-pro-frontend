@@ -576,11 +576,14 @@ export const fetchMessagesByConversationId = async (
       message: log.message || "",
       direction: log.direction || 'outbound',
       sender_id: log.sender_id || "NOLASMSPro",
+      sender_name: log.sender_name,
       status: log.status || "sent",
       batch_id: log.batch_id || bulkBatchId,
       created_at: log.date_created || null,
       location_id: log.location_id,
       error_reason: log.error_reason,
+      provider_message_id: log.provider_message_id,
+      provider_reference_id: log.provider_reference_id,
     }));
   }
 

@@ -2246,6 +2246,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 <DetailRow label="Sent at" value={formatDetailsTimestamp(messageDetails.message.timestamp)} />
                 <DetailRow label="Recipient" value={messageDetails.recipient} mono />
                 <DetailRow label="Message ID" value={messageDetails.message.id} mono />
+                <DetailRow label="Provider ID" value={messageDetails.message.providerMessageId} mono />
                 <DetailRow label="Conversation ID" value={messageDetails.conversationId} mono />
                 <DetailRow label="Batch ID" value={messageDetails.message.batch_id} mono />
                 <DetailRow label="Error" value={messageDetails.message.errorReason} />
@@ -2270,6 +2271,9 @@ export const Composer: React.FC<ComposerProps> = ({
                       <div className="min-w-0">
                         <div className="truncate text-[12px] font-bold text-[#344054] dark:text-[#e4e7ec]">{row.senderName}</div>
                         <div className="truncate font-mono text-[10px] text-[#98a2b3] dark:text-[#7d8491]">{row.id}</div>
+                        {row.providerMessageId && (
+                          <div className="truncate font-mono text-[10px] text-[#98a2b3] dark:text-[#7d8491]">Provider: {row.providerMessageId}</div>
+                        )}
                       </div>
                       <span className="rounded-full bg-[#eef6ff] px-2 py-1 text-[10px] font-black uppercase text-[#1d6bd4] dark:bg-white/[0.07] dark:text-[#8bbcff]">
                         {row.status}
