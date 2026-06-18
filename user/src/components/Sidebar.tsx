@@ -89,6 +89,14 @@ const asMembers = (value: unknown): string[] => {
 
 const contactPhoneKey = (phone?: string | null) => (phone || '').replace(/\D/g, '').slice(-10);
 
+const normalizeDirectPhone = (phone?: string | null) => {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (/^639\d{9}$/.test(digits)) return `0${digits.slice(2)}`;
+  if (/^9\d{9}$/.test(digits)) return `0${digits}`;
+  if (/^09\d{9}$/.test(digits)) return digits;
+  return digits;
+};
+
 const matchesContactUpdate = (target: Contact, contact: Contact, previous?: Contact | null) => {
   if (target.id === contact.id || (previous && target.id === previous.id)) return true;
   const targetPhone = contactPhoneKey(target.phone);
@@ -224,12 +232,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   useEffect(() => {
     const contactMap = buildContactNameLookup(contacts);
     const contactsByGhlId = new Map<string, Contact>();
+    const contactsByPhoneKey = new Map<string, Contact>();
     contacts.forEach(contact => {
       if (contact.id) {
         contactsByGhlId.set(contact.id, contact);
       }
       if (contact.ghl_contact_id) {
         contactsByGhlId.set(contact.ghl_contact_id, contact);
+      }
+      const key = contactPhoneKey(contact.phone);
+      if (key) {
+        contactsByPhoneKey.set(key, contact);
       }
     });
 
@@ -241,10 +254,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     directConvs.forEach(conv => {
       const convId = asText(conv.id);
-      const phone = extractPhoneFromDirectConversationId(convId) || convId;
+      const rawPhone = extractPhoneFromDirectConversationId(convId) || convId;
+      const phone = normalizeDirectPhone(rawPhone) || rawPhone;
+      const phoneKey = contactPhoneKey(phone);
       // Resolve name: prefer contact name (including digit suffix match), then server metadata, then phone
-      const contactByGhlId = conv.ghl_contact_id ? contactsByGhlId.get(conv.ghl_contact_id) : undefined;
-      const contactName = contactByGhlId?.name || resolveContactNameByPhone(contactMap, phone);
+      const contactByGhlIdCandidate = conv.ghl_contact_id ? contactsByGhlId.get(conv.ghl_contact_id) : undefined;
+      const contactByGhlId = contactByGhlIdCandidate && contactPhoneKey(contactByGhlIdCandidate.phone) === phoneKey
+        ? contactByGhlIdCandidate
+        : undefined;
+      const contactByPhone = phoneKey ? contactsByPhoneKey.get(phoneKey) : undefined;
+      const contactName = contactByGhlId?.name || contactByPhone?.name || resolveContactNameByPhone(contactMap, phone);
       let serverName = conv.name && !isPhoneLike(asText(conv.name)) ? asText(conv.name) : null;
 
       // Scrub accidental conversation IDs (e.g. "Name locationId_conv_09XX") from the server name
@@ -260,20 +279,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const item: Contact = {
         id: convId,
         name,
-        phone: contactByGhlId?.phone || phone,
+        phone: contactByGhlId?.phone || contactByPhone?.phone || phone,
         lastMessage: asText(conv.last_message),
         lastSentAt: conv.last_message_at || conv.updated_at || undefined,
-        ghl_contact_id: conv.ghl_contact_id || contactByGhlId?.ghl_contact_id || undefined
+        ghl_contact_id: contactByGhlId?.ghl_contact_id || contactByGhlId?.id || contactByPhone?.ghl_contact_id || contactByPhone?.id || undefined
       };
 
-      if (dedupedDirectConvs.has(phone)) {
-        const existing = dedupedDirectConvs.get(phone)!;
+      const dedupeKey = phoneKey || phone;
+      if (dedupedDirectConvs.has(dedupeKey)) {
+        const existing = dedupedDirectConvs.get(dedupeKey)!;
         const existingIsScoped = existing.id.includes('_conv_');
         const newIsScoped = convId.includes('_conv_');
 
         if (newIsScoped && !existingIsScoped) {
           // Prefer scoped ID over unscoped legacy ID
-          dedupedDirectConvs.set(phone, item);
+          dedupedDirectConvs.set(dedupeKey, item);
         } else if (!newIsScoped && existingIsScoped) {
           // Keep existing scoped ID
         } else {
@@ -281,11 +301,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const newTime = new Date(item.lastSentAt || 0).getTime();
           const existingTime = new Date(existing.lastSentAt || 0).getTime();
           if (newTime > existingTime) {
-            dedupedDirectConvs.set(phone, item);
+            dedupedDirectConvs.set(dedupeKey, item);
           }
         }
       } else {
-        dedupedDirectConvs.set(phone, item);
+        dedupedDirectConvs.set(dedupeKey, item);
       }
     });
 

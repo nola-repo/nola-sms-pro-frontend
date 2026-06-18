@@ -660,20 +660,22 @@ export const fetchConversations = async (explicitLocationId?: string): Promise<C
       if (scopedIdx !== -1) {
         // Scoped direct conversation: LOC_conv_PHONE
         const phone = conv.id.slice(scopedIdx + 6);
-        const existing = directDedup.get(phone);
+        const dedupeKey = normalizePHNumber(phone) || phone.replace(/\D/g, '').slice(-10) || phone;
+        const existing = directDedup.get(dedupeKey);
         if (!existing) {
-          directDedup.set(phone, conv);
+          directDedup.set(dedupeKey, conv);
         } else {
           // Both scoped — keep most recent
           const newTime = new Date(conv.last_message_at || conv.updated_at || 0).getTime();
           const existTime = new Date(existing.last_message_at || existing.updated_at || 0).getTime();
-          if (newTime >= existTime) directDedup.set(phone, conv);
+          if (newTime >= existTime) directDedup.set(dedupeKey, conv);
         }
       } else if (conv.id.startsWith('conv_')) {
         // Legacy unscoped: conv_PHONE — only add if no scoped version exists yet
         const phone = conv.id.slice(5);
-        if (!directDedup.has(phone)) {
-          directDedup.set(phone, conv);
+        const dedupeKey = normalizePHNumber(phone) || phone.replace(/\D/g, '').slice(-10) || phone;
+        if (!directDedup.has(dedupeKey)) {
+          directDedup.set(dedupeKey, conv);
         }
       } else {
         // Bulk or unknown — keep as-is
