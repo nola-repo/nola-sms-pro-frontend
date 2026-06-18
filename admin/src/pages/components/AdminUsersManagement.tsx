@@ -33,6 +33,8 @@ export const AdminTeamManagement: React.FC = () => {
     const [showResetPw, setShowResetPw] = useState(false);
 
     const [newEmail, setNewEmail] = useState('');
+    const [newName, setNewName] = useState('');
+    const [newPhone, setNewPhone] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [newRole, setNewRole] = useState('support');
     const [actionLoading, setActionLoading] = useState(false);
@@ -114,14 +116,23 @@ export const AdminTeamManagement: React.FC = () => {
             const res = await adminFetch(USERS_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
-                body: JSON.stringify({ action: 'create', email: trimmedEmail, username: trimmedEmail, password: newPassword, role: newRole })
+                body: JSON.stringify({
+                    action: 'create',
+                    email: trimmedEmail,
+                    username: trimmedEmail,
+                    name: newName.trim(),
+                    full_name: newName.trim(),
+                    phone: newPhone.trim(),
+                    password: newPassword,
+                    role: newRole,
+                })
             });
             if (res.ok) {
                 const json = await res.json();
                 if (json.status === 'success') {
                     toast('Admin user created successfully.');
                     setShowCreateModal(false);
-                    setNewEmail(''); setNewPassword(''); setNewRole('support');
+                    setNewEmail(''); setNewName(''); setNewPhone(''); setNewPassword(''); setNewRole('support');
                     fetchAdmins();
                 } else { toast(json.message || 'Failed to create admin.', true); }
             } else {
@@ -211,6 +222,10 @@ export const AdminTeamManagement: React.FC = () => {
 
     const filtered = admins.filter(a =>
         a.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        a.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        a.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        a.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        a.phone_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         a.role?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -249,7 +264,8 @@ export const AdminTeamManagement: React.FC = () => {
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="border-b-2 border-[#e5e5e5] dark:border-white/10 text-[11px] font-black text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-widest">
-                            <th className="pb-3 pl-4">Email Address</th>
+                            <th className="pb-3 pl-4">Admin</th>
+                            <th className="pb-3">Phone</th>
                             <th className="pb-3">Role</th>
                             <th className="pb-3">Status</th>
                             <th className="pb-3">Created</th>
@@ -258,17 +274,21 @@ export const AdminTeamManagement: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/5 text-[14px]">
                         {loading ? (
-                            <tr><td colSpan={5} className="py-8 text-center"><div className="flex items-center justify-center gap-2 text-[#9aa0a6] text-[13px]"><FiRefreshCw className="w-4 h-4 animate-spin" /> Loading admins...</div></td></tr>
+                            <tr><td colSpan={6} className="py-8 text-center"><div className="flex items-center justify-center gap-2 text-[#9aa0a6] text-[13px]"><FiRefreshCw className="w-4 h-4 animate-spin" /> Loading admins...</div></td></tr>
                         ) : filtered.length === 0 ? (
-                            <tr><td colSpan={5} className="py-12 text-center"><FiShield className="w-8 h-8 mx-auto mb-2 text-[#d0d0d0] dark:text-[#3a3b3f]" /><p className="text-[13px] text-[#9aa0a6] font-medium">{searchTerm ? 'No admins match your search.' : 'No admin users found.'}</p></td></tr>
+                            <tr><td colSpan={6} className="py-12 text-center"><FiShield className="w-8 h-8 mx-auto mb-2 text-[#d0d0d0] dark:text-[#3a3b3f]" /><p className="text-[13px] text-[#9aa0a6] font-medium">{searchTerm ? 'No admins match your search.' : 'No admin users found.'}</p></td></tr>
                         ) : filtered.map(admin => (
                             <tr key={admin.email} className="group hover:bg-[#f7f7f7] dark:hover:bg-[#151618] transition-all duration-200">
                                 <td className="py-4 pl-4 rounded-l-xl">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">{admin.email?.charAt(0).toUpperCase()}</div>
-                                        <span className="font-bold text-[14px] text-[#111111] dark:text-white">{admin.email}</span>
+                                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#2b83fa] to-[#60a5fa] flex items-center justify-center text-white text-[12px] font-black flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">{(admin.name || admin.full_name || admin.email)?.charAt(0).toUpperCase()}</div>
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-[14px] text-[#111111] dark:text-white truncate">{admin.name || admin.full_name || admin.email}</p>
+                                            <p className="text-[11.5px] text-[#6e6e73] dark:text-[#9aa0a6] truncate">{admin.email}</p>
+                                        </div>
                                     </div>
                                 </td>
+                                <td className="py-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] whitespace-nowrap">{admin.phone || admin.phone_number || '—'}</td>
                                 <td className="py-4">{getRoleBadge(admin.role)}</td>
                                 <td className="py-4">
                                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${admin.active !== false ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30 shadow-sm' : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900/10 dark:text-gray-400 dark:border-gray-800/30'}`}>
@@ -388,8 +408,18 @@ export const AdminTeamManagement: React.FC = () => {
                         </div>
                         <form onSubmit={handleCreateAdmin} className="space-y-4">
                             <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Full Name</label>
+                                <input required type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Admin name"
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" />
+                            </div>
+                            <div>
                                 <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Email Address</label>
                                 <input required type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="you@company.com"
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" />
+                            </div>
+                            <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Phone Number</label>
+                                <input required type="tel" value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="Admin phone number"
                                     className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" />
                             </div>
                             <div>
@@ -407,7 +437,7 @@ export const AdminTeamManagement: React.FC = () => {
                                 </select>
                             </div>
                             <div className="pt-2">
-                                <button type="submit" disabled={actionLoading || !newEmail.trim() || !newPassword.trim()}
+                                <button type="submit" disabled={actionLoading || !newName.trim() || !newPhone.trim() || !newEmail.trim() || !newPassword.trim()}
                                     className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-[14px] font-bold text-[14px] transition-all shadow-md active:scale-[0.98] disabled:opacity-50">
                                     {actionLoading ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : 'Create Account'}
                                 </button>
