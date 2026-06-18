@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   FiCreditCard, FiRefreshCw, FiZap, FiPlus, FiGift,
-  FiInbox, FiCheck, FiX, FiChevronDown, FiAlertTriangle,
+  FiInbox, FiCheck, FiX, FiChevronDown, FiChevronLeft, FiChevronRight, FiAlertTriangle,
   FiArrowUpRight, FiArrowDownLeft, FiClock, FiSend, FiDownload,
 } from 'react-icons/fi';
 import { generateMonthlyReport } from '../utils/pdfGenerator';
@@ -20,6 +20,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io
 
 const RECHARGE_AMOUNTS = [100, 250, 500, 1000, 2000, 5000];
 const RECHARGE_THRESHOLDS = [25, 50, 100, 200, 500];
+const TRANSACTIONS_PER_PAGE = 8;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface AgencyWallet {
@@ -91,6 +92,61 @@ const normalizeNumber = (value: unknown, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 };
+
+const txAmount = (tx: any) => normalizeNumber(tx?.amount, 0);
+
+const txText = (tx: any) =>
+  [
+    tx?.type,
+    tx?.event_type,
+    tx?.kind,
+    tx?.description,
+    tx?.message,
+    tx?.note,
+  ].filter(Boolean).join(' ').toLowerCase();
+
+const isAutoRechargeTx = (tx: any) => {
+  const text = txText(tx);
+  return text.includes('auto_recharge') || text.includes('auto recharge') || text.includes('auto-recharge');
+};
+
+const isDistributionTx = (tx: any) => {
+  const text = txText(tx);
+  return [
+    'gift_sent',
+    'credit_distribution',
+    'request_approved',
+    'distributed',
+    'distribution',
+    'gifted',
+    'sent to',
+    'approved request',
+  ].some(marker => text.includes(marker));
+};
+
+const isPositiveTx = (tx: any) => {
+  if (isDistributionTx(tx)) return false;
+  return txAmount(tx) >= 0;
+};
+
+const buildTransactionSummary = (rows: any[]) =>
+  rows.reduce(
+    (summary, tx) => {
+      const amount = Math.abs(txAmount(tx));
+      if (!amount) return summary;
+
+      if (isAutoRechargeTx(tx)) {
+        summary.autoRecharged += amount;
+      } else if (isDistributionTx(tx) || txAmount(tx) < 0) {
+        summary.distributedOut += amount;
+      } else {
+        summary.creditsAdded += amount;
+      }
+
+      return summary;
+    },
+    { creditsAdded: 0, distributedOut: 0, autoRecharged: 0 }
+  );
 
 const getTransactionMonth = (tx: any) => {
   const value = tx.timestamp || tx.created_at || tx.createdAt || tx.date;
@@ -510,6 +566,7 @@ export const Billing: React.FC = () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
   const [availableMonths, setAvailableMonths] = useState<{ val: string, label: string }[]>([]);
+  const [txCurrentPage, setTxCurrentPage] = useState(1);
 
   // Credit requests
   const [requests, setRequests] = useState<CreditRequest[]>([]);
@@ -553,6 +610,30 @@ export const Billing: React.FC = () => {
   };
 
   // ── Fetch wallet ────────────────────────────────────────────────────────────
+  const transactionSummary = useMemo(() => buildTransactionSummary(transactions), [transactions]);
+  const txTotalPages = Math.max(1, Math.ceil(transactions.length / TRANSACTIONS_PER_PAGE));
+  const paginatedTransactions = transactions.slice(
+    (txCurrentPage - 1) * TRANSACTIONS_PER_PAGE,
+    txCurrentPage * TRANSACTIONS_PER_PAGE
+  );
+
+  const subaccountNameById = useMemo(() => {
+    const names = new Map<string, string>();
+    subaccounts.forEach(subaccount => {
+      const name = subaccount.location_name?.trim();
+      if (subaccount.location_id && name && name.toLowerCase() !== 'unnamed location') {
+        names.set(subaccount.location_id, name);
+      }
+    });
+    return names;
+  }, [subaccounts]);
+
+  const getRequestLocationName = (request: CreditRequest) => {
+    const rawName = request.location_name?.trim();
+    if (rawName && rawName.toLowerCase() !== 'unnamed location') return rawName;
+    return subaccountNameById.get(request.location_id) || request.location_id || 'Unknown Location';
+  };
+
   const fetchWallet = useCallback(async () => {
     setWalletLoading(true);
     setWalletError(null);
@@ -750,6 +831,7 @@ export const Billing: React.FC = () => {
   }, [effectiveAgencyId]);
 
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
+  useEffect(() => { setTxCurrentPage(1); }, [txMonth, transactions.length]);
 
   // ── Save auto-recharge ──────────────────────────────────────────────────────
   const fetchReportForAgency = async () => {
@@ -1214,9 +1296,9 @@ export const Billing: React.FC = () => {
                 /* Summary view */
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {[
-                    { label: 'Credits Added', value: transactions.filter(t => ['top_up', 'auto_recharge'].includes(t.type)).reduce((s, t) => s + Math.abs(t.amount), 0), color: 'text-emerald-500', bg: 'bg-emerald-500/10', icon: <FiArrowDownLeft /> },
-                    { label: 'Distributed Out', value: transactions.filter(t => ['gift_sent', 'credit_distribution', 'request_approved'].includes(t.type)).reduce((s, t) => s + Math.abs(t.amount), 0), color: 'text-purple-500', bg: 'bg-purple-500/10', icon: <FiGift /> },
-                    { label: 'Auto-Recharged', value: transactions.filter(t => t.type === 'auto_recharge').reduce((s, t) => s + Math.abs(t.amount), 0), color: 'text-blue-500', bg: 'bg-blue-500/10', icon: <FiRefreshCw /> },
+                    { label: 'Credits Added', value: transactionSummary.creditsAdded, color: 'text-emerald-500', bg: 'bg-emerald-500/10', icon: <FiArrowDownLeft /> },
+                    { label: 'Distributed Out', value: transactionSummary.distributedOut, color: 'text-purple-500', bg: 'bg-purple-500/10', icon: <FiGift /> },
+                    { label: 'Auto-Recharged', value: transactionSummary.autoRecharged, color: 'text-blue-500', bg: 'bg-blue-500/10', icon: <FiRefreshCw /> },
                   ].map(s => (
                     <div key={s.label} className="bg-[#f7f7f7] dark:bg-white/[0.03] rounded-xl p-4">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2.5 ${s.bg} ${s.color}`}>{s.icon}</div>
@@ -1228,9 +1310,10 @@ export const Billing: React.FC = () => {
               ) : (
                 /* Detailed list */
                 <div className="space-y-0">
-                  {transactions.map(tx => {
+                  {paginatedTransactions.map(tx => {
                     const { icon, color, bg } = txIcon(tx.type);
-                    const isPos = ['top_up', 'auto_recharge', 'gift_received', 'request_approved'].includes(tx.type);
+                    const isPos = isPositiveTx(tx);
+                    const amount = Math.abs(txAmount(tx));
                     return (
                       <div key={tx.id} className="flex items-center gap-3 py-3 border-b border-[#f0f0f0] dark:border-white/5 last:border-0 hover:bg-black/[0.015] dark:hover:bg-white/[0.015] px-2 rounded-xl transition-colors">
                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-[14px] ${bg} ${color}`}>{icon}</div>
@@ -1240,13 +1323,56 @@ export const Billing: React.FC = () => {
                         </div>
                         <div className="flex flex-col items-end flex-shrink-0">
                           <span className={`text-[13px] font-bold ${isPos ? 'text-emerald-500' : 'text-red-500'}`}>
-                            {isPos ? '+' : '−'}{Math.abs(tx.amount).toLocaleString()}
+                            {isPos ? '+' : '-'}{amount.toLocaleString()}
                           </span>
                           <span className="text-[10px] text-[#9aa0a6]">bal: {tx.balance_after?.toLocaleString()}</span>
                         </div>
                       </div>
                     );
                   })}
+                  {transactions.length > TRANSACTIONS_PER_PAGE && (
+                    <div className="flex items-center justify-between gap-3 px-2 pt-4 mt-2 border-t border-[#f0f0f0] dark:border-white/5 flex-wrap">
+                      <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a9]">
+                        Showing <span className="font-bold text-[#111111] dark:text-white">{(txCurrentPage - 1) * TRANSACTIONS_PER_PAGE + 1}</span> to <span className="font-bold text-[#111111] dark:text-white">{Math.min(txCurrentPage * TRANSACTIONS_PER_PAGE, transactions.length)}</span> of <span className="font-bold text-[#111111] dark:text-white">{transactions.length}</span> transactions
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setTxCurrentPage(page => Math.max(1, page - 1))}
+                          disabled={txCurrentPage === 1}
+                          className="h-8 w-8 rounded-lg border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#f3f4f6] dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+                          aria-label="Previous transactions page"
+                        >
+                          <FiChevronLeft className="w-4 h-4" />
+                        </button>
+                        {Array.from({ length: txTotalPages }, (_, index) => index + 1)
+                          .slice(Math.max(0, txCurrentPage - 3), Math.max(0, txCurrentPage - 3) + 5)
+                          .map(page => (
+                            <button
+                              key={page}
+                              type="button"
+                              onClick={() => setTxCurrentPage(page)}
+                              className={`h-8 w-8 rounded-lg text-[12px] font-bold flex items-center justify-center transition-colors ${
+                                txCurrentPage === page
+                                  ? 'bg-[#2b83fa] text-white'
+                                  : 'border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#f3f4f6] dark:hover:bg-white/5'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          ))}
+                        <button
+                          type="button"
+                          onClick={() => setTxCurrentPage(page => Math.min(txTotalPages, page + 1))}
+                          disabled={txCurrentPage === txTotalPages}
+                          className="h-8 w-8 rounded-lg border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#f3f4f6] dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+                          aria-label="Next transactions page"
+                        >
+                          <FiChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1300,13 +1426,14 @@ export const Billing: React.FC = () => {
                 {requests.map(req => {
                   const isPending = req.status === 'pending';
                   const isLoading = !!actionLoading[req.request_id];
+                  const requestLocationName = getRequestLocationName(req);
                   return (
                     <div key={req.request_id} className="flex items-center gap-4 p-4 rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7]/50 dark:bg-white/[0.02] hover:bg-white dark:hover:bg-white/[0.04] transition-colors">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${req.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' : req.status === 'denied' ? 'bg-red-500/10 text-red-500' : 'bg-[#2b83fa]/10 text-[#2b83fa]'}`}>
                         {req.status === 'approved' ? <FiCheck className="w-5 h-5" /> : req.status === 'denied' ? <FiX className="w-5 h-5" /> : <FiClock className="w-5 h-5" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[13.5px] font-semibold text-[#111111] dark:text-white">{req.location_name}</div>
+                        <div className="text-[13.5px] font-semibold text-[#111111] dark:text-white">{requestLocationName}</div>
                         <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a9]">
                           Requesting <strong className="text-[#2b83fa]">{req.amount.toLocaleString()} credits</strong>
                           {req.note && <> · <span className="italic">"{req.note}"</span></>}

@@ -1,15 +1,13 @@
 // @ts-nocheck
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FiAlertCircle, FiCheck, FiClock, FiEye, FiEyeOff, FiLock, FiMoreVertical, FiPhone, FiRefreshCw, FiShield, FiToggleLeft, FiUser, FiX } from 'react-icons/fi';
+import { FiAlertCircle, FiCheck, FiEye, FiEyeOff, FiLock, FiMoreVertical, FiPhone, FiRefreshCw, FiShield, FiUser, FiX } from 'react-icons/fi';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { useToast } from '../../hooks/useToast';
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const USERS_API = '/api/admin_users.php';
-const REMEMBER_KEY = 'nola_admin_remember';
-
 const decodeJwt = (token: string) => {
     try {
         const payload = token.split('.')[1];
@@ -31,6 +29,16 @@ const formatDateTime = (value?: string | number) => {
 
 const roleLabel = (role?: string) => (role || 'viewer').replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
 
+const normalizeIdentity = (value?: unknown) => String(value || '').trim().toLowerCase();
+
+const displayFullName = (value?: unknown, fallback = 'Admin Account') => {
+    const source = String(value || fallback).trim();
+    const withoutEmailDomain = source.includes('@') ? source.split('@')[0] : source;
+    return withoutEmailDomain
+        .replace(/[._-]+/g, ' ')
+        .replace(/\b\w/g, char => char.toUpperCase());
+};
+
 const FieldRow = ({ label, value, icon }: { label: string; value: React.ReactNode; icon?: React.ReactNode }) => (
     <div>
         <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-[#9aa0a6]">
@@ -45,7 +53,7 @@ const FieldRow = ({ label, value, icon }: { label: string; value: React.ReactNod
 
 export const AdminProfile: React.FC = () => {
     const [admins, setAdmins] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [, setLoading] = useState(true);
     const [savingPassword, setSavingPassword] = useState(false);
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -59,18 +67,20 @@ export const AdminProfile: React.FC = () => {
     const token = sessionStorage.getItem('nola_admin_token') || localStorage.getItem('nola_admin_token') || '';
     const storedUser = sessionStorage.getItem('nola_admin_user') || localStorage.getItem('nola_admin_user') || '';
     const claims = useMemo(() => decodeJwt(token), [token]);
-    const email = String(claims.email || claims.username || storedUser || '').toLowerCase();
-    const currentAdmin = admins.find(admin => String(admin.email || admin.username || '').toLowerCase() === email);
+    const email = normalizeIdentity(claims.email || claims.username || storedUser);
+    const identityCandidates = [
+        claims.email,
+        claims.username,
+        storedUser,
+    ].map(normalizeIdentity).filter(Boolean);
+    const currentAdmin = admins.find(admin => [
+        admin.email,
+        admin.username,
+    ].some(value => identityCandidates.includes(normalizeIdentity(value))));
     const displayRole = currentAdmin?.role || claims.role || 'viewer';
-    const displayName = String(currentAdmin?.name || currentAdmin?.full_name || claims.name || email || 'Admin Account')
-        .replace(/^[^@]+@.*$/, match => match.split('@')[0])
-        .replace(/[._-]+/g, ' ')
-        .replace(/\b\w/g, char => char.toUpperCase());
+    const displayName = displayFullName(currentAdmin?.full_name || currentAdmin?.name || claims.full_name || claims.name || claims.display_name || email);
     const displayPhone = currentAdmin?.phone || currentAdmin?.phone_number || claims.phone || '';
     const initial = (displayName || email || 'A').charAt(0).toUpperCase();
-    const isRemembered = localStorage.getItem(REMEMBER_KEY) === 'true';
-    const expiresAt = claims.exp ? formatDateTime(claims.exp) : 'Session only';
-    const issuedAt = claims.iat ? formatDateTime(claims.iat) : 'Not available';
 
     useEffect(() => {
         let cancelled = false;
@@ -178,15 +188,12 @@ export const AdminProfile: React.FC = () => {
                     </div>
 
                     <div className="space-y-3.5 border-t border-[#f0f0f0] pt-5 dark:border-[#ffffff05]">
-                        <FieldRow label="Display Name" value={displayName} icon={<FiUser className="h-4 w-4" />} />
-                        <FieldRow label="Email Address" value={email || 'Not available'} />
-                        <FieldRow label="Phone Number" value={displayPhone || 'Not available'} icon={<FiPhone className="h-4 w-4" />} />
+                        <FieldRow label="Full Name" value={displayName} icon={<FiUser className="h-4 w-4" />} />
+                        <FieldRow label="Email Address" value={email} />
+                        <FieldRow label="Phone Number" value={displayPhone} icon={<FiPhone className="h-4 w-4" />} />
                         <FieldRow label="Admin Role" value={roleLabel(displayRole)} icon={<FiShield className="h-4 w-4" />} />
-                        <FieldRow label="Session" value={isRemembered ? 'Remembered' : 'Browser session'} icon={<FiToggleLeft className="h-4 w-4" />} />
-                        <FieldRow label="Token Expiry" value={expiresAt} icon={<FiClock className="h-4 w-4" />} />
-                        <FieldRow label="Profile Source" value={currentAdmin ? 'Admin directory' : 'Session token'} icon={loading ? <FiRefreshCw className="h-4 w-4 animate-spin" /> : <FiShield className="h-4 w-4" />} />
-                        <FieldRow label="Created" value={formatDateTime(currentAdmin?.created_at)} />
-                        <FieldRow label="Last Login" value={formatDateTime(currentAdmin?.last_login)} />
+                        {currentAdmin?.created_at && <FieldRow label="Created" value={formatDateTime(currentAdmin.created_at)} />}
+                        {currentAdmin?.last_login && <FieldRow label="Last Login" value={formatDateTime(currentAdmin.last_login)} />}
                     </div>
                 </div>
             </div>

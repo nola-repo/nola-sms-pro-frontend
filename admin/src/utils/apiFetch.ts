@@ -17,11 +17,13 @@ export function withRequestId(headers?: HeadersInit): Headers {
 }
 
 const viteEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
-const API_BASE = (viteEnv?.VITE_API_BASE || 'https://smspro-api.nolacrm.io').replace(/\/$/, '');
+const API_BASE = (viteEnv?.VITE_API_BASE || '').replace(/\/$/, '');
+const USE_DIRECT_API_BASE = viteEnv?.VITE_ADMIN_USE_DIRECT_API === 'true';
 
 const resolveApiInput = (input: RequestInfo | URL): RequestInfo | URL => {
   if (typeof input !== 'string') return input;
   if (!input.startsWith('/api/')) return input;
+  if (!USE_DIRECT_API_BASE || !API_BASE) return input;
   return `${API_BASE}${input}`;
 };
 
