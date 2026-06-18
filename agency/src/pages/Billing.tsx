@@ -22,6 +22,8 @@ const RECHARGE_AMOUNTS = [100, 250, 500, 1000, 2000, 5000];
 const RECHARGE_THRESHOLDS = [25, 50, 100, 200, 500];
 const TRANSACTIONS_PER_PAGE = 8;
 
+type CreditRequestFilter = 'all' | 'pending' | 'approved' | 'rejected';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface AgencyWallet {
   balance: number;
@@ -48,7 +50,7 @@ interface CreditRequest {
   location_name: string;
   amount: number;
   note: string;
-  status: 'pending' | 'approved' | 'denied';
+  status: 'pending' | 'approved' | 'denied' | 'rejected';
   created_at: string;
 }
 
@@ -572,6 +574,7 @@ export const Billing: React.FC = () => {
   const [requests, setRequests] = useState<CreditRequest[]>([]);
   const [reqLoading, setReqLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
+  const [requestFilter, setRequestFilter] = useState<CreditRequestFilter>('all');
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
   // Subaccounts (for gift modal)
@@ -633,6 +636,16 @@ export const Billing: React.FC = () => {
     if (rawName && rawName.toLowerCase() !== 'unnamed location') return rawName;
     return subaccountNameById.get(request.location_id) || request.location_id || 'Unknown Location';
   };
+
+  const getRequestFilterStatus = (status: CreditRequest['status']): CreditRequestFilter =>
+    status === 'denied' || status === 'rejected' ? 'rejected' : status;
+
+  const filteredRequests = useMemo(
+    () => requestFilter === 'all'
+      ? requests
+      : requests.filter(request => getRequestFilterStatus(request.status) === requestFilter),
+    [requestFilter, requests]
+  );
 
   const fetchWallet = useCallback(async () => {
     setWalletLoading(true);
@@ -1395,11 +1408,28 @@ export const Billing: React.FC = () => {
 
           {/* Filter tabs */}
           <div className="flex gap-1 px-6 py-3 border-b border-[#e5e5e5] dark:border-white/5">
-            {['all', 'pending', 'approved', 'denied'].map(f => {
-              const count = f === 'all' ? requests.length : requests.filter(r => r.status === f).length;
+            {[
+              { id: 'all', label: 'All' },
+              { id: 'pending', label: 'Pending' },
+              { id: 'approved', label: 'Approved' },
+              { id: 'rejected', label: 'Rejected' },
+            ].map(({ id, label }) => {
+              const filterId = id as CreditRequestFilter;
+              const isActive = requestFilter === filterId;
+              const count = filterId === 'all'
+                ? requests.length
+                : requests.filter(r => getRequestFilterStatus(r.status) === filterId).length;
               return (
-                <button key={f} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-[#f0f2f8] dark:bg-[#1c1e21] text-[#6e6e73] dark:text-[#9aa0a9] hover:text-[#111111] dark:hover:text-white transition-colors capitalize">
-                  {f} <span className="text-[10px] font-bold">{count}</span>
+                <button
+                  key={id}
+                  onClick={() => setRequestFilter(filterId)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors ${
+                    isActive
+                      ? 'bg-[#111111] text-white dark:bg-white dark:text-[#111111]'
+                      : 'bg-[#f0f2f8] dark:bg-[#1c1e21] text-[#6e6e73] dark:text-[#9aa0a9] hover:text-[#111111] dark:hover:text-white'
+                  }`}
+                >
+                  {label} <span className="text-[10px] font-bold">{count}</span>
                 </button>
               );
             })}
@@ -1421,16 +1451,23 @@ export const Billing: React.FC = () => {
                 <div className="text-[15px] font-semibold text-[#6e6e73] dark:text-[#9aa0a9]">No credit requests yet</div>
                 <div className="text-[12.5px] text-[#9aa0a6] max-w-xs">When subaccounts request credits, they'll appear here for you to approve or deny.</div>
               </div>
+            ) : filteredRequests.length === 0 ? (
+              <div className="flex flex-col items-center py-12 gap-3 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-[#2b83fa]/10 flex items-center justify-center"><FiInbox className="w-7 h-7 text-[#2b83fa]/50" /></div>
+                <div className="text-[15px] font-semibold text-[#6e6e73] dark:text-[#9aa0a9]">No {requestFilter} requests</div>
+                <div className="text-[12.5px] text-[#9aa0a6] max-w-xs">Choose another status to review the rest of your credit requests.</div>
+              </div>
             ) : (
               <div className="space-y-3">
-                {requests.map(req => {
+                {filteredRequests.map(req => {
                   const isPending = req.status === 'pending';
+                  const isRejected = getRequestFilterStatus(req.status) === 'rejected';
                   const isLoading = !!actionLoading[req.request_id];
                   const requestLocationName = getRequestLocationName(req);
                   return (
                     <div key={req.request_id} className="flex items-center gap-4 p-4 rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7]/50 dark:bg-white/[0.02] hover:bg-white dark:hover:bg-white/[0.04] transition-colors">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${req.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' : req.status === 'denied' ? 'bg-red-500/10 text-red-500' : 'bg-[#2b83fa]/10 text-[#2b83fa]'}`}>
-                        {req.status === 'approved' ? <FiCheck className="w-5 h-5" /> : req.status === 'denied' ? <FiX className="w-5 h-5" /> : <FiClock className="w-5 h-5" />}
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${req.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' : isRejected ? 'bg-red-500/10 text-red-500' : 'bg-[#2b83fa]/10 text-[#2b83fa]'}`}>
+                        {req.status === 'approved' ? <FiCheck className="w-5 h-5" /> : isRejected ? <FiX className="w-5 h-5" /> : <FiClock className="w-5 h-5" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-[13.5px] font-semibold text-[#111111] dark:text-white">{requestLocationName}</div>
@@ -1460,7 +1497,7 @@ export const Billing: React.FC = () => {
                         </div>
                       ) : (
                         <span className={`px-3 py-1 rounded-full text-[11.5px] font-bold flex-shrink-0 ${req.status === 'approved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-500'}`}>
-                          {req.status === 'approved' ? 'Approved' : 'Denied'}
+                          {req.status === 'approved' ? 'Approved' : 'Rejected'}
                         </span>
                       )}
                     </div>

@@ -516,6 +516,28 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
         return <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${map[s] || 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-900/10 dark:text-gray-400 dark:border-gray-800/30'}`}>{status}</span>;
     };
 
+    const normalizeProvider = (log: any): 'system' | 'semaphore' | 'unisms' => {
+        const provider = String(log?.provider || log?.approved_provider || log?.provider_preference || '').toLowerCase();
+        if (provider.includes('unisms')) return 'unisms';
+        if (provider.includes('system')) return 'system';
+        return 'semaphore';
+    };
+
+    const providerBadge = (log: any) => {
+        const provider = normalizeProvider(log);
+        const label = provider === 'unisms' ? 'UniSMS' : provider === 'system' ? 'System' : 'Semaphore';
+        const styles: Record<string, string> = {
+            unisms: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/10 dark:text-indigo-400 dark:border-indigo-800/30',
+            semaphore: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30',
+            system: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-white/5 dark:text-slate-400 dark:border-white/10',
+        };
+        return (
+            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${styles[provider]}`}>
+                {label}
+            </span>
+        );
+    };
+
     const renderRow = (log: any, isModal = false) => {
         const type = getType(log);
         const isFreeTrial = log.amount === 0;
@@ -589,6 +611,7 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                                 <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
                                     Sender Request <span className="font-mono text-[#2b83fa]">{log.requested_id || log.sender_id || log.sendername || ''}</span>
                                 </p>
+                                <div className="flex-shrink-0 scale-90 origin-left">{providerBadge(log)}</div>
                                 <div className="flex-shrink-0 scale-90 origin-left">{statusBadge(requestStatus)}</div>
                             </div>
                             <div className="text-right flex-shrink-0"><span className="block text-[11px] font-bold text-[#111111] dark:text-white">{date}</span><span className="block text-[10px] uppercase text-[#9aa0a6]">{time}</span></div>

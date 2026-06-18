@@ -432,7 +432,6 @@ export const AdminSenderRequests: React.FC = () => {
                                     const locName = associatedAccount?.location_name || req.location_name || 'Unknown Account';
                                     const agencyName = req.agency_name || req.company_id;
                                     const isActing = actionLoading?.startsWith(req.id);
-                                    const showProvider = req.status !== 'pending';
                                     
                                     return (
                                         <div key={req.id} className="relative border border-[#e5e5e5] dark:border-white/5 rounded-xl overflow-visible transition-all hover:border-[#2b83fa]/30 dark:hover:border-[#2b83fa]/40 hover:shadow-sm">
@@ -448,7 +447,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                     <div className="flex flex-col min-w-0">
                                                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                             <span className="font-black text-[15px] text-[#2b83fa] dark:text-[#4da3ff] leading-none">{req.requested_id}</span>
-                                                            {showProvider && <ProviderBadge provider={normalizeProvider(req)} />}
+                                                            <ProviderBadge provider={normalizeProvider(req)} />
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <p className="text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] truncate uppercase tracking-tight max-w-[150px]">{locName}</p>
@@ -596,7 +595,6 @@ export const AdminSenderRequests: React.FC = () => {
                             const isActing = actionLoading?.startsWith(req.id);
                             const associatedAccount = accounts.find(a => a.location_id === req.location_id);
                             const isFormatValid = /^[a-zA-Z0-9]{3,11}$/.test(req.requested_id || '');
-                            const showProvider = req.status !== 'pending';
                             
                             return (
                                 <>
@@ -627,7 +625,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                     </div>
                                                     <div className="flex flex-wrap items-center justify-end gap-2">
                                                         <StatusBadge status={req.status} />
-                                                        {showProvider && <ProviderBadge provider={normalizeProvider(req)} />}
+                                                        <ProviderBadge provider={normalizeProvider(req)} />
                                                     </div>
                                                 </div>
                                             </div>

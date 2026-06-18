@@ -766,7 +766,7 @@ export const Subaccounts = () => {
               href={ADD_SUBACCOUNT_URL}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] text-[#111111] dark:text-white hover:bg-[#f3f4f6] dark:hover:bg-white/5 text-[13px] font-bold transition-colors shadow-sm"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#111111] dark:bg-white text-white dark:text-[#111111] hover:bg-[#333333] dark:hover:bg-[#e5e5e5] text-[13px] font-bold rounded-xl transition-colors shadow-sm"
             >
               <FiPlus className="w-4 h-4" />
               Add Subaccount
@@ -808,7 +808,7 @@ export const Subaccounts = () => {
                   href={ADD_SUBACCOUNT_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] text-[#111111] dark:text-white hover:bg-[#f3f4f6] dark:hover:bg-white/5 text-[12.5px] font-bold transition-colors shadow-sm whitespace-nowrap"
+                  className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#111111] dark:bg-white text-white dark:text-[#111111] hover:bg-[#333333] dark:hover:bg-[#e5e5e5] text-[12.5px] font-bold rounded-lg transition-colors shadow-sm whitespace-nowrap"
                   title="Connect a new GHL location as a subaccount"
                 >
                   <FiPlus className="w-3.5 h-3.5" />

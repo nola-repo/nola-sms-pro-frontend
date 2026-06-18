@@ -98,6 +98,15 @@ const matchesContactUpdate = (target: Contact, contact: Contact, previous?: Cont
   );
 };
 
+const matchesCurrentContact = (target: Contact, contact: Contact) => {
+  if (target.id === contact.id) return true;
+  if (target.ghl_contact_id && target.ghl_contact_id === contact.ghl_contact_id) return true;
+  if (target.ghl_contact_id && target.ghl_contact_id === contact.id) return true;
+  if (contact.ghl_contact_id && target.id === contact.ghl_contact_id) return true;
+  const targetPhone = contactPhoneKey(target.phone);
+  return !!targetPhone && targetPhone === contactPhoneKey(contact.phone);
+};
+
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
@@ -196,8 +205,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return next;
       });
       setDirectHistory(prev => prev.map(item =>
-        matchesContactUpdate(item, contact, previous)
-          ? { ...item, name: contact.name || item.name, phone: contact.phone || item.phone }
+        matchesCurrentContact(item, contact)
+          ? { ...item, name: contact.name || item.name, phone: contact.phone || item.phone, ghl_contact_id: contact.ghl_contact_id || item.ghl_contact_id }
           : item
       ));
       loadContacts();
@@ -214,6 +223,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   useEffect(() => {
     const contactMap = buildContactNameLookup(contacts);
+    const contactsByGhlId = new Map<string, Contact>();
+    contacts.forEach(contact => {
+      if (contact.id) {
+        contactsByGhlId.set(contact.id, contact);
+      }
+      if (contact.ghl_contact_id) {
+        contactsByGhlId.set(contact.ghl_contact_id, contact);
+      }
+    });
 
     // Handle Direct Conversations
     const directConvs = conversations.filter(c => c.type === 'direct' || !c.type);
@@ -225,7 +243,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const convId = asText(conv.id);
       const phone = extractPhoneFromDirectConversationId(convId) || convId;
       // Resolve name: prefer contact name (including digit suffix match), then server metadata, then phone
-      const contactName = resolveContactNameByPhone(contactMap, phone);
+      const contactByGhlId = conv.ghl_contact_id ? contactsByGhlId.get(conv.ghl_contact_id) : undefined;
+      const contactName = contactByGhlId?.name || resolveContactNameByPhone(contactMap, phone);
       let serverName = conv.name && !isPhoneLike(asText(conv.name)) ? asText(conv.name) : null;
 
       // Scrub accidental conversation IDs (e.g. "Name locationId_conv_09XX") from the server name
@@ -241,9 +260,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const item: Contact = {
         id: convId,
         name,
-        phone,
+        phone: contactByGhlId?.phone || phone,
         lastMessage: asText(conv.last_message),
-        lastSentAt: conv.last_message_at || conv.updated_at || undefined
+        lastSentAt: conv.last_message_at || conv.updated_at || undefined,
+        ghl_contact_id: conv.ghl_contact_id || contactByGhlId?.ghl_contact_id || undefined
       };
 
       if (dedupedDirectConvs.has(phone)) {

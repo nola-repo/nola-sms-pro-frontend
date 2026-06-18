@@ -406,17 +406,19 @@ export const Settings = () => {
             />
           </div>
 
-          <div className="mt-5 flex justify-end">
-            <button
-              type="button"
-              onClick={handleSaveProfile}
-              disabled={savingProfile || !profileChanged}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[13px] font-bold shadow-md shadow-blue-500/20 hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] disabled:opacity-45 disabled:cursor-not-allowed transition-all"
-            >
-              {savingProfile ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiSave className="w-4 h-4" />}
-              {savingProfile ? 'Saving...' : 'Save Profile'}
-            </button>
-          </div>
+          {(profileChanged || savingProfile) && (
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={handleSaveProfile}
+                disabled={savingProfile || !profileForm.name.trim() || !profileForm.email.trim()}
+                className="w-full h-12 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[13px] font-black hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {savingProfile ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiSave className="w-4 h-4" />}
+                {savingProfile ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          )}
 
           <div className="my-6 border-t border-[#f0f0f0] dark:border-[#ffffff08]" />
 
