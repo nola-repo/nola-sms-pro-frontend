@@ -280,6 +280,50 @@ export const fetchAgencyProfile = async (): Promise<AgencyAuthUser | null> => {
   return user;
 };
 
+export const updateAgencyProfile = async (payload: {
+  name: string;
+  email: string;
+  phone?: string;
+}): Promise<AgencyAuthUser> => {
+  const token = getAuthToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const res = await apiFetch('/api/agency/profile.php', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+      name: payload.name,
+      full_name: payload.name,
+      email: payload.email,
+      phone: payload.phone ?? '',
+    }),
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.status === 'error' || json.success === false) {
+    throw new Error(json.error ?? json.message ?? 'Could not update agency profile.');
+  }
+
+  const rawUser = json.user ?? json.profile ?? json.data?.user ?? json.data ?? {
+    name: payload.name,
+    email: payload.email,
+    phone: payload.phone,
+  };
+  const user = normalizeAgencyUser(rawUser) ?? {
+    name: payload.name,
+    email: payload.email,
+    phone: payload.phone,
+    role: 'agency',
+  };
+  persistAgencyUser(user);
+  return user;
+};
+
 export const login = async (email: string, password: string, rememberMe = true): Promise<any> => {
   const res = await apiFetch(`/api/auth/login.php`, {
     method:  'POST',
