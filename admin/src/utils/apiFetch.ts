@@ -16,8 +16,17 @@ export function withRequestId(headers?: HeadersInit): Headers {
   return merged;
 }
 
+const viteEnv = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
+const API_BASE = (viteEnv?.VITE_API_BASE || 'https://smspro-api.nolacrm.io').replace(/\/$/, '');
+
+const resolveApiInput = (input: RequestInfo | URL): RequestInfo | URL => {
+  if (typeof input !== 'string') return input;
+  if (!input.startsWith('/api/')) return input;
+  return `${API_BASE}${input}`;
+};
+
 export function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  return fetch(input, {
+  return fetch(resolveApiInput(input), {
     ...init,
     headers: withRequestId(init.headers),
   });

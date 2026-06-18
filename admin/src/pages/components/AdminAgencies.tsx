@@ -458,16 +458,34 @@ export const AdminAgencies: React.FC = () => {
         setEditingBalanceValue(String(account.balance ?? account.credit_balance ?? account.credits ?? 0));
     };
 
+    const updateAgencyBalanceLocally = (accountId: string, balance: number) => {
+        setAccounts(prev => prev.map(acc => acc.id === accountId ? {
+            ...acc,
+            balance,
+            credit_balance: balance,
+            credits: balance,
+        } : acc));
+        setManagingAccount(prev => prev?.id === accountId ? {
+            ...prev,
+            balance,
+            credit_balance: balance,
+            credits: balance,
+        } : prev);
+    };
+
     const saveEditBalance = async (account: AgencyAccount) => {
         const newVal = parseInt(editingBalanceValue) || 0;
+        const currentBalance = account.balance ?? account.credit_balance ?? account.credits ?? 0;
+        const agencyKey = account.company_id || account.id;
+
         setEditingBalanceId(null);
-        if (newVal === (account.balance ?? account.credit_balance ?? account.credits ?? 0)) return;
-        setAccounts(prev => prev.map(acc => acc.id === account.id ? {
-            ...acc,
-            balance: newVal,
-            credit_balance: newVal,
-            credits: newVal,
-        } : acc));
+        if (newVal === currentBalance) return;
+        if (!agencyKey) {
+            showToast('This agency does not have an ID for balance updates.', 'error');
+            return;
+        }
+
+        updateAgencyBalanceLocally(account.id, newVal);
         setActionLoading(`balance:${account.id}`);
         try {
             const res = await adminFetch(ADMIN_API, {
@@ -476,19 +494,22 @@ export const AdminAgencies: React.FC = () => {
                 body: JSON.stringify({
                     action: 'manage_agency',
                     user_id: account.id,
-                    company_id: account.company_id,
+                    company_id: agencyKey,
+                    agency_id: agencyKey,
                     balance: newVal,
                     credit_balance: newVal,
+                    credits: newVal,
                 }),
             });
-            const json = await res.json();
-            if (json.status === 'success') {
-                showToast('Agency balance updated.', 'success');
-            } else {
-                showToast(json.message || 'Failed to update agency balance.', 'error');
+            const json = await res.json().catch(() => null);
+            if (!res.ok || (json?.status && json.status !== 'success') || (json?.success === false)) {
+                throw new Error(json?.message || json?.error || 'Failed to update agency balance.');
             }
-        } catch {
-            showToast('Network error updating agency balance.', 'error');
+
+            showToast(json?.message || 'Agency balance updated.', 'success');
+        } catch (err) {
+            updateAgencyBalanceLocally(account.id, currentBalance);
+            showToast(err instanceof Error ? err.message : 'Network error updating agency balance.', 'error');
         } finally {
             setActionLoading(null);
         }
