@@ -45,6 +45,9 @@ const toProperContactName = (name: string): string =>
     .toLowerCase()
     .replace(/\b([a-z])/g, (char) => char.toUpperCase());
 
+const formatContactNameInput = (name: string): string =>
+  name.toLowerCase().replace(/\b([a-z])/g, (char) => char.toUpperCase());
+
 type GhlContactsError = {
   kind: 'reconnect' | 'generic';
   message?: string;
@@ -338,70 +341,58 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
     setIsSubmitting(true);
     setError(null);
 
-    try {
-      const originalContact = contacts.find((c) => c.id === editingContact.id) || editingContact;
-      const displayName = toProperContactName(editingContact.name);
-      const displayPhone = normalizePHPhone(editingContact.phone);
+    const originalContact = contacts.find((c) => c.id === editingContact.id) || editingContact;
+    const displayName = toProperContactName(editingContact.name);
+    const displayPhone = normalizePHPhone(editingContact.phone);
+    const nextContact = {
+      ...editingContact,
+      name: displayName,
+      phone: displayPhone,
+    };
 
-      // Only update if it's a GHL contact (has numeric ID, not starting with 'manual-')
-      if (!editingContact.id.startsWith('manual-')) {
-        const ghlPhone = '+63' + normalized.slice(1);
-        const updated = await updateContact({
-          id: editingContact.id,
-          name: displayName,
-          phone: ghlPhone,
-          previousPhone: originalContact.phone,
-          previousName: originalContact.name,
-        });
+    const applyContact = (contact: Contact, previous: Contact | null) => {
+      setContacts((prev) => prev.map((c) =>
+        c.id === contact.id ? contact : c
+      ));
+      setSelectedContacts((prev) => prev.map((c) =>
+        c.id === contact.id ? { ...c, ...contact } : c
+      ));
+      window.dispatchEvent(new CustomEvent('nola-contact-updated', {
+        detail: { contact, previous, locationId },
+      }));
+    };
 
-        if (updated) {
-          const nextContact = {
-            ...editingContact,
-            ...updated,
-            name: toProperContactName(updated.name || displayName),
-            phone: normalizePHPhone(updated.phone || displayPhone),
-          };
-          // Update contact in list
-          setContacts((prev) => prev.map((c) =>
-            c.id === editingContact.id ? nextContact : c
-          ));
+    applyContact(nextContact, originalContact);
+    setGhlContactsError(null);
+    setEditingContact(null);
+    setIsSubmitting(false);
 
-          // Update selected contacts if this one was selected
-          setSelectedContacts((prev) => prev.map((c) =>
-            c.id === editingContact.id ? { ...c, ...nextContact } : c
-          ));
-          window.dispatchEvent(new CustomEvent('nola-contact-updated', {
-            detail: { contact: nextContact, previous: originalContact, locationId },
-          }));
-          setGhlContactsError(null);
-        }
-      } else {
-        const nextContact = {
-          ...editingContact,
-          name: displayName,
-          phone: displayPhone,
+    // Only update GHL contacts through the API. Manual contacts are already saved locally.
+    if (editingContact.id.startsWith('manual-')) return;
+
+    const ghlPhone = '+63' + normalized.slice(1);
+    updateContact({
+      id: editingContact.id,
+      name: displayName,
+      phone: ghlPhone,
+      previousPhone: originalContact.phone,
+      previousName: originalContact.name,
+    })
+      .then((updated) => {
+        if (!updated) return;
+        const confirmedContact = {
+          ...nextContact,
+          ...updated,
+          name: toProperContactName(updated.name || displayName),
+          phone: normalizePHPhone(updated.phone || displayPhone),
         };
-        // For manual contacts, just update locally
-        setContacts((prev) => prev.map((c) =>
-          c.id === editingContact.id ? nextContact : c
-        ));
-
-        setSelectedContacts((prev) => prev.map((c) =>
-          c.id === editingContact.id ? nextContact : c
-        ));
-        window.dispatchEvent(new CustomEvent('nola-contact-updated', {
-          detail: { contact: nextContact, previous: originalContact, locationId },
-        }));
-        setGhlContactsError(null);
-      }
-    } catch (err: unknown) {
-      console.error("Error updating contact:", err);
-      setError(handleMutationError(err, "Failed to update contact in GHL"));
-    } finally {
-      setIsSubmitting(false);
-      // Close modal
-      setEditingContact(null);
-    }
+        applyContact(confirmedContact, originalContact);
+      })
+      .catch((err: unknown) => {
+        console.error("Error updating contact:", err);
+        applyContact(originalContact, nextContact);
+        setError(handleMutationError(err, "Failed to update contact in GHL"));
+      });
   };
 
   const handleDeleteContact = async (contactId: string, e?: React.MouseEvent) => {
@@ -775,7 +766,11 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setEditingContact(contact);
+                                    setEditingContact({
+                                      ...contact,
+                                      name: formatContactNameInput(contact.name),
+                                      phone: normalizePHPhone(contact.phone),
+                                    });
                                     setOpenMenuId(null);
                                   }}
                                   className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2"
@@ -1018,7 +1013,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                 <input
                   type="text"
                   value={editingContact.name}
-                  onChange={(e) => setEditingContact({ ...editingContact, name: e.target.value })}
+                  onChange={(e) => setEditingContact({ ...editingContact, name: formatContactNameInput(e.target.value) })}
                   onBlur={() => setEditingContact({ ...editingContact, name: toProperContactName(editingContact.name) })}
                   placeholder="Enter contact name"
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 focus:border-[#2b83fa] transition-all"

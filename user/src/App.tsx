@@ -9,19 +9,151 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { safeStorage } from "./utils/safeStorage";
 import { useUserProfile } from "./hooks/useUserProfile";
 import { UserProfileContext } from "./context/UserProfileContext";
-import { isAuthenticated } from "./services/authService";
+import { isAuthenticated, saveSession } from "./services/authService";
+import { useLocationId } from "./context/LocationContext";
+import { getAccountSettings, saveAccountSettings } from "./utils/settingsStorage";
+import { apiFetch } from "./utils/apiFetch";
 import { FiBookOpen, FiMessageSquare, FiMoon, FiMoreHorizontal, FiSun, FiX } from "react-icons/fi";
 import { UserNotificationBell } from "./components/ui/UserNotificationBell";
 import type { ViewTab } from "./components/Sidebar";
 import { TicketsTab } from "./components/TicketsTab";
 
+const getCurrentUrlLocationId = (): string => {
+  const keys = ["location_id", "locationId", "ghl_location_id", "app_location_id", "location", "id"];
+  const readParam = (query: string, key: string) => {
+    try {
+      return new URLSearchParams(query).get(key)?.trim() || "";
+    } catch {
+      return "";
+    }
+  };
+
+  for (const key of keys) {
+    const value = readParam(window.location.search, key);
+    if (value.length > 4) return value;
+  }
+
+  if (window.location.hash.includes("?")) {
+    const hashQuery = `?${window.location.hash.split("?")[1]}`;
+    for (const key of keys) {
+      const value = readParam(hashQuery, key);
+      if (value.length > 4) return value;
+    }
+  }
+
+  return "";
+};
+
+const isGhlEmbeddedRequest = (): boolean => {
+  const search = window.location.search;
+  const hash = window.location.hash;
+  const hasGhlParam =
+    /[?&](location_id|locationId|ghl_location_id|app_location_id|sessionkey)=/i.test(search) ||
+    /(location_id|locationId|ghl_location_id|app_location_id|sessionkey)=/i.test(hash);
+
+  let isIframe = false;
+  try {
+    isIframe = window.self !== window.top;
+  } catch {
+    isIframe = true;
+  }
+
+  let savedGhlFrame = false;
+  try {
+    savedGhlFrame = sessionStorage.getItem("nola_is_ghl_frame") === "true";
+  } catch {
+    // Storage can be blocked in embedded contexts.
+  }
+
+  if (hasGhlParam || isIframe) {
+    try {
+      sessionStorage.setItem("nola_is_ghl_frame", "true");
+    } catch {
+      // ignore
+    }
+  }
+
+  return hasGhlParam || isIframe || savedGhlFrame;
+};
+
 const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
   const alreadySignedIn = isAuthenticated();
+  const { locationId } = useLocationId();
+  const navigate = useNavigate();
+  const [autoLoginFailed, setAutoLoginFailed] = useState(false);
+  const isGhlRequest = isGhlEmbeddedRequest();
+  const resolvedLocationId = getCurrentUrlLocationId() || locationId || getAccountSettings().ghlLocationId;
 
   useEffect(() => {
-    if (alreadySignedIn) return;
+    if (alreadySignedIn || isGhlRequest) return;
     window.location.replace(`https://smspro-api.nolacrm.io${path}${window.location.search}`);
-  }, [path, alreadySignedIn]);
+  }, [path, alreadySignedIn, isGhlRequest]);
+
+  useEffect(() => {
+    if (alreadySignedIn) {
+      navigate({ pathname: "/", search: window.location.search }, { replace: true });
+      return;
+    }
+
+    if (!isGhlRequest || !resolvedLocationId || autoLoginFailed) return;
+
+    const settings = getAccountSettings();
+    if (settings.ghlLocationId !== resolvedLocationId) {
+      saveAccountSettings({ ...settings, ghlLocationId: resolvedLocationId });
+    }
+    safeStorage.setItem("nola_location_id", resolvedLocationId);
+
+    let cancelled = false;
+    const params = new URLSearchParams({ location_id: resolvedLocationId });
+
+    apiFetch(`/api/auth/ghl_autologin?${params.toString()}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-GHL-Location-ID": resolvedLocationId,
+      },
+      body: JSON.stringify({
+        location_id: resolvedLocationId,
+        locationId: resolvedLocationId,
+        active_location_id: resolvedLocationId,
+      }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (cancelled) return;
+
+        if (res.ok && data?.token) {
+          saveSession(data);
+          navigate({ pathname: "/", search: window.location.search }, { replace: true });
+          window.location.reload();
+          return;
+        }
+
+        console.warn("[NOLA SMS] GHL auto-login from /login failed", res.status, data?.message || data?.error || res.statusText);
+        setAutoLoginFailed(true);
+        navigate({ pathname: "/", search: window.location.search }, { replace: true });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[NOLA SMS] GHL auto-login from /login errored", err);
+        setAutoLoginFailed(true);
+        navigate({ pathname: "/", search: window.location.search }, { replace: true });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [alreadySignedIn, autoLoginFailed, isGhlRequest, navigate, resolvedLocationId]);
+
+  useEffect(() => {
+    if (alreadySignedIn || !isGhlRequest || resolvedLocationId) return;
+
+    const timer = window.setTimeout(() => {
+      navigate({ pathname: "/", search: window.location.search }, { replace: true });
+    }, 1500);
+
+    return () => window.clearTimeout(timer);
+  }, [alreadySignedIn, isGhlRequest, navigate, resolvedLocationId]);
 
   if (alreadySignedIn) {
     return <Navigate to="/" replace />;
