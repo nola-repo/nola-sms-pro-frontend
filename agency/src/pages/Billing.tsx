@@ -677,7 +677,7 @@ export const Billing: React.FC = () => {
     setWalletLoading(true);
     setWalletError(null);
     try {
-      const res = await agencyFetch(`${API_BASE}/api/billing/agency_wallet.php?agency_id=${encodeURIComponent(effectiveAgencyId)}`, { credentials: 'include' });
+      const res = await agencyFetch(`${API_BASE}/api/billing/agency_wallet.php?agency_id=${encodeURIComponent(effectiveAgencyId)}&refresh=1`, { credentials: 'include' });
       if (!res.ok) throw new Error(`Wallet request failed (${res.status})`);
       const data = await res.json();
       if (!mountedRef.current) return;
