@@ -282,7 +282,7 @@ export const Dashboard = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-20">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-14">
         <DashboardMetricCard
           index={0}
           label="Total Subaccounts"

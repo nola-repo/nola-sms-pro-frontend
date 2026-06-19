@@ -246,7 +246,7 @@ export const Subscription: React.FC = () => {
           {!loading && subState && (
             <div className="mt-5 w-full">
               <div className="flex items-center justify-between text-[13px] font-semibold text-[#111111] dark:text-white mb-2.5">
-                <span className="tracking-wide">Subaccounts Used</span>
+                <span className="tracking-wide">Active Subaccounts</span>
                 <span className="text-[#6e6e73] dark:text-[#9aa0a9]"><strong className="text-[#111111] dark:text-white">{subState.subaccounts_used}</strong> / {getLimitText(subState.subaccount_limit)}</span>
               </div>
               <div className="h-2.5 w-full bg-[#f0f0f0] dark:bg-[#1f2125] rounded-full overflow-hidden shadow-inner">
@@ -257,7 +257,7 @@ export const Subscription: React.FC = () => {
               </div>
               {isSubscriptionLimitReached(subState) && (
                 <div className="flex items-center gap-2 mt-2 text-[12px] text-red-500 font-semibold">
-                  <FiAlertTriangle className="w-3.5 h-3.5" /> Limit reached. Please upgrade to add more subaccounts.
+                  <FiAlertTriangle className="w-3.5 h-3.5" /> Limit reached. Please upgrade to enable more subaccounts.
                 </div>
               )}
             </div>

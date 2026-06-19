@@ -6,6 +6,7 @@ export interface SubscriptionState {
   status: SubscriptionStatus;
   subaccount_limit: number;
   subaccounts_used: number;
+  total_subaccounts?: number;
   expires_at: string | null;
 }
 
@@ -114,10 +115,15 @@ export const normalizeSubscriptionState = (
     nestedLimits.max_active_subaccounts,
   );
   const rawUsed = firstDefined(
-    source.subaccounts_used,
-    source.subaccountsUsed,
     source.active_subaccounts,
     source.activeSubaccounts,
+    source.enabled_subaccounts,
+    source.enabledSubaccounts,
+    nestedSubscription.active_subaccounts,
+    nestedSubscription.activeSubaccounts,
+    nestedLimits.active_subaccounts,
+    source.subaccounts_used,
+    source.subaccountsUsed,
     source.current_subaccounts,
     source.currentSubaccounts,
     source.used,
@@ -125,12 +131,20 @@ export const normalizeSubscriptionState = (
     nestedLimits.subaccounts_used,
     options.fallbackSubaccountsUsed,
   );
+  const rawTotal = firstDefined(
+    source.total_subaccounts,
+    source.totalSubaccounts,
+    nestedSubscription.total_subaccounts,
+    nestedSubscription.totalSubaccounts,
+    nestedLimits.total_subaccounts,
+  );
 
   return {
     plan,
     status: normalizeStatus(firstDefined(source.status, source.subscription_status, nestedSubscription.status)),
     subaccount_limit: normalizeNumber(rawLimit, planFallbackLimit),
     subaccounts_used: normalizeNumber(rawUsed, DEFAULT_SUBSCRIPTION_STATE.subaccounts_used),
+    total_subaccounts: rawTotal === undefined ? undefined : normalizeNumber(rawTotal, DEFAULT_SUBSCRIPTION_STATE.subaccounts_used),
     expires_at: normalizeDateString(firstDefined(
       source.expires_at,
       source.subscription_expires_at,
