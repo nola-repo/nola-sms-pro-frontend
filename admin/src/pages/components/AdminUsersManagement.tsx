@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft } from 'react-icons/fi';
+import { FiUsers, FiSend, FiSettings, FiLogOut, FiLock, FiAlertCircle, FiEye, FiEyeOff, FiCopy, FiCheck, FiX, FiRefreshCw, FiKey, FiHome, FiClock, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiSun, FiMoon, FiMoreVertical, FiToggleLeft, FiEdit2 } from 'react-icons/fi';
 import logoUrl from '../../assets/NOLA SMS PRO Logo.png';
 import Antigravity from '../../components/ui/Antigravity';
 import { useToast } from '../../hooks/useToast';
@@ -37,6 +37,11 @@ export const AdminTeamManagement: React.FC = () => {
     const [newPhone, setNewPhone] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [newRole, setNewRole] = useState('support');
+    const [editingAdmin, setEditingAdmin] = useState<any | null>(null);
+    const [editName, setEditName] = useState('');
+    const [editEmail, setEditEmail] = useState('');
+    const [editPhone, setEditPhone] = useState('');
+    const [editRole, setEditRole] = useState('support');
     const [actionLoading, setActionLoading] = useState(false);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
@@ -143,6 +148,67 @@ export const AdminTeamManagement: React.FC = () => {
         finally { setActionLoading(false); }
     };
 
+    const openEditAdmin = (admin: any) => {
+        setEditingAdmin(admin);
+        setEditName(admin.name || admin.full_name || '');
+        setEditEmail((admin.email || '').toLowerCase());
+        setEditPhone(admin.phone || admin.phone_number || '');
+        setEditRole(admin.role || 'viewer');
+        setActionMenuId(null);
+    };
+
+    const closeEditAdmin = () => {
+        setEditingAdmin(null);
+        setEditName('');
+        setEditEmail('');
+        setEditPhone('');
+        setEditRole('support');
+    };
+
+    const handleEditAdmin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingAdmin) return;
+        const trimmedEmail = editEmail.trim().toLowerCase();
+        const trimmedName = editName.trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+            toast('Please enter a valid email address.', true);
+            return;
+        }
+        if (!trimmedName) {
+            toast('Full name is required.', true);
+            return;
+        }
+
+        setActionLoading(true);
+        try {
+            const res = await adminFetch(USERS_API, {
+                method: 'POST',
+                headers: getAdminAuthHeaders(),
+                body: JSON.stringify({
+                    action: 'update',
+                    email: editingAdmin.email,
+                    new_email: trimmedEmail,
+                    username: trimmedEmail,
+                    name: trimmedName,
+                    full_name: trimmedName,
+                    phone: editPhone.trim(),
+                    role: editRole,
+                })
+            });
+            const json = await res.json().catch(() => ({}));
+            if (res.ok && json.status === 'success') {
+                toast('Admin account updated successfully.');
+                closeEditAdmin();
+                fetchAdmins();
+            } else {
+                toast(json.message || `Failed to update admin (HTTP ${res.status}).`, true);
+            }
+        } catch {
+            toast('Network error updating admin.', true);
+        } finally {
+            setActionLoading(false);
+        }
+    };
     const handleResetPassword = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!resetTarget || !resetPassword.trim()) return;
@@ -326,6 +392,12 @@ export const AdminTeamManagement: React.FC = () => {
                         return (
                             <>
                                 <button
+                                    onClick={() => openEditAdmin(admin)}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white transition-colors text-left"
+                                >
+                                    <FiEdit2 className="w-3.5 h-3.5" /> Edit Account
+                                </button>
+                                <button
                                     onClick={() => { setResetTarget(admin.email); setResetPassword(''); setActionMenuId(null); }}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5 hover:text-[#111111] dark:hover:text-white transition-colors text-left"
                                 >
@@ -352,6 +424,56 @@ export const AdminTeamManagement: React.FC = () => {
                 </div>
             )}
 
+            {/* Edit Admin Modal */}
+            {editingAdmin && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between mb-5">
+                            <h3 className="text-[18px] font-bold text-[#111111] dark:text-white flex items-center gap-2">
+                                <FiEdit2 className="text-[#2b83fa]" /> Edit Account
+                            </h3>
+                            <button onClick={closeEditAdmin} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors"><FiX className="w-5 h-5" /></button>
+                        </div>
+                        <form onSubmit={handleEditAdmin} className="space-y-4">
+                            <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Full Name</label>
+                                <input required type="text" value={editName} onChange={e => setEditName(e.target.value)} placeholder="Admin name"
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" />
+                            </div>
+                            <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Email Address</label>
+                                <input required type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="you@company.com"
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" />
+                            </div>
+                            <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Phone Number</label>
+                                <input type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="Admin phone number"
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow" />
+                            </div>
+                            <div>
+                                <label className="block text-[12px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-1.5">Role</label>
+                                <select value={editRole} onChange={e => setEditRole(e.target.value)}
+                                    className="w-full px-4 py-2.5 rounded-xl text-[14px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-shadow">
+                                    <option value="super_admin">Super Admin</option>
+                                    <option value="support">Support</option>
+                                    <option value="viewer">Viewer</option>
+                                </select>
+                            </div>
+                            <div className="pt-2 flex gap-2">
+                                <button type="button" onClick={closeEditAdmin}
+                                    className="flex-1 py-2.5 rounded-xl border border-[#e5e5e5] dark:border-white/10 text-[13px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors">
+                                    Cancel
+                                </button>
+                                <button type="submit" disabled={actionLoading || !editName.trim() || !editEmail.trim()}
+                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white rounded-xl font-bold text-[13px] transition-all shadow-md active:scale-[0.98] disabled:opacity-50">
+                                    {actionLoading ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiCheck className="w-4 h-4" />}
+                                    Save
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
             {/* Reset Password Modal */}
             {resetTarget && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
