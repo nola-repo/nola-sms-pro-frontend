@@ -95,6 +95,15 @@ const normalizeNumber = (value: unknown, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const normalizeTimestamp = (value: any): string | undefined => {
+  if (!value) return undefined;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && typeof value.seconds === 'number') {
+    return new Date(Number(value.seconds) * 1000).toISOString();
+  }
+  return undefined;
+};
+
 const txAmount = (tx: any) => normalizeNumber(tx?.amount, 0);
 
 const txText = (tx: any) =>
@@ -640,6 +649,23 @@ export const Billing: React.FC = () => {
   const getRequestFilterStatus = (status: CreditRequest['status']): CreditRequestFilter =>
     status === 'denied' || status === 'rejected' ? 'rejected' : status;
 
+  const applyWalletState = useCallback((data: Partial<AgencyWallet> & Record<string, any>) => {
+    setWallet(prev => ({
+      balance: normalizeNumber(data.balance, prev?.balance ?? 0),
+      auto_recharge_enabled: data.auto_recharge_enabled !== undefined ? !!data.auto_recharge_enabled : prev?.auto_recharge_enabled ?? false,
+      auto_recharge_amount: normalizeNumber(data.auto_recharge_amount, prev?.auto_recharge_amount ?? 500),
+      auto_recharge_threshold: normalizeNumber(data.auto_recharge_threshold, prev?.auto_recharge_threshold ?? 100),
+      enforce_master_balance_lock: data.enforce_master_balance_lock !== undefined ? !!data.enforce_master_balance_lock : prev?.enforce_master_balance_lock ?? false,
+      updated_at: normalizeTimestamp(data.updated_at) ?? prev?.updated_at,
+    }));
+
+    if (data.auto_recharge_enabled !== undefined) setArEnabled(!!data.auto_recharge_enabled);
+    if (data.auto_recharge_amount !== undefined) setArAmount(normalizeNumber(data.auto_recharge_amount, 500));
+    if (data.auto_recharge_threshold !== undefined) setArThreshold(normalizeNumber(data.auto_recharge_threshold, 100));
+    if (data.enforce_master_balance_lock !== undefined) setMasterLock(!!data.enforce_master_balance_lock);
+    setWalletError(null);
+  }, []);
+
   const filteredRequests = useMemo(
     () => requestFilter === 'all'
       ? requests
@@ -655,25 +681,14 @@ export const Billing: React.FC = () => {
       if (!res.ok) throw new Error(`Wallet request failed (${res.status})`);
       const data = await res.json();
       if (!mountedRef.current) return;
-      setWallet(prev => ({
-        balance: Number(data.balance ?? prev?.balance ?? 0),
-        auto_recharge_enabled: data.auto_recharge_enabled ?? prev?.auto_recharge_enabled ?? false,
-        auto_recharge_amount: Number(data.auto_recharge_amount ?? prev?.auto_recharge_amount ?? 500),
-        auto_recharge_threshold: Number(data.auto_recharge_threshold ?? prev?.auto_recharge_threshold ?? 100),
-        enforce_master_balance_lock: data.enforce_master_balance_lock ?? prev?.enforce_master_balance_lock ?? false,
-        updated_at: data.updated_at ?? prev?.updated_at,
-      }));
-      setArEnabled(data.auto_recharge_enabled ?? false);
-      setArAmount(data.auto_recharge_amount ?? 500);
-      setArThreshold(data.auto_recharge_threshold ?? 100);
-      setMasterLock(data.enforce_master_balance_lock ?? false);
+      applyWalletState(data);
     } catch {
       if (!mountedRef.current) return;
       setWalletError('Could not refresh wallet balance. Showing the last known balance.');
     } finally {
       if (mountedRef.current) setWalletLoading(false);
     }
-  }, [effectiveAgencyId]);
+  }, [applyWalletState, effectiveAgencyId]);
 
   // ── Fetch transactions ──────────────────────────────────────────────────────
   const fetchTransactions = useCallback(async () => {
@@ -791,47 +806,53 @@ export const Billing: React.FC = () => {
           await signInAnonymously(auth);
         }
 
-        unsubscribeWallet = onSnapshot(doc(db, 'agency_wallet', effectiveAgencyId), (snapshot) => {
-          if (snapshot.exists()) {
-            const data = snapshot.data();
-            const cleanData: Record<string, any> = {};
-            Object.keys(data).forEach(k => {
-              cleanData[k.trim()] = data[k];
-            });
+        unsubscribeWallet = onSnapshot(
+          doc(db, 'agency_wallet', effectiveAgencyId),
+          (snapshot) => {
+            if (snapshot.exists()) {
+              const data = snapshot.data();
+              const cleanData: Record<string, any> = {};
+              Object.keys(data).forEach(k => {
+                cleanData[k.trim()] = data[k];
+              });
 
-            setWallet(prev => {
-              if (prev) return prev;
-              const newBalance = cleanData.balance !== undefined ? Number(cleanData.balance) : 0;
-              return {
-                balance: newBalance,
-                auto_recharge_enabled: cleanData.auto_recharge_enabled !== undefined ? !!cleanData.auto_recharge_enabled : false,
-                auto_recharge_amount: cleanData.auto_recharge_amount !== undefined ? Number(cleanData.auto_recharge_amount) : 500,
-                auto_recharge_threshold: cleanData.auto_recharge_threshold !== undefined ? Number(cleanData.auto_recharge_threshold) : 100,
-                enforce_master_balance_lock: cleanData.enforce_master_balance_lock !== undefined ? !!cleanData.enforce_master_balance_lock : false,
-              };
-            });
-
-            if (cleanData.auto_recharge_enabled !== undefined) setArEnabled(!!cleanData.auto_recharge_enabled);
-            if (cleanData.auto_recharge_amount !== undefined) setArAmount(Number(cleanData.auto_recharge_amount));
-            if (cleanData.auto_recharge_threshold !== undefined) setArThreshold(Number(cleanData.auto_recharge_threshold));
-            if (cleanData.enforce_master_balance_lock !== undefined) setMasterLock(!!cleanData.enforce_master_balance_lock);
+              applyWalletState(cleanData);
+              setWalletLoading(false);
+              void fetchTransactions();
+              void fetchAvailableMonths();
+            }
+          },
+          (err) => {
+            console.error("Firestore agency wallet listener failed:", err);
+            setWalletError('Realtime wallet sync unavailable. Manual refresh still works.');
           }
-        });
+        );
 
         const userQuery = query(collection(db, 'agency_users'), where('company_id', '==', effectiveAgencyId));
-        unsubscribeUser = onSnapshot(userQuery, (snapshot) => {
-          if (!snapshot.empty) {
-            const userData = snapshot.docs[0].data();
-            if (userData.balance !== undefined) {
-              setWallet(prev => {
-                if (prev) return prev;
-                return { balance: Number(userData.balance), auto_recharge_enabled: false, auto_recharge_amount: 500, auto_recharge_threshold: 100, enforce_master_balance_lock: false };
-              });
+        unsubscribeUser = onSnapshot(
+          userQuery,
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const userData = snapshot.docs[0].data();
+              if (userData.balance !== undefined) {
+                applyWalletState({
+                  balance: userData.balance,
+                  updated_at: userData.updated_at,
+                });
+                setWalletLoading(false);
+                void fetchTransactions();
+                void fetchAvailableMonths();
+              }
             }
+          },
+          (err) => {
+            console.error("Firestore agency user wallet listener failed:", err);
+            setWalletError('Realtime wallet fallback unavailable. Manual refresh still works.');
           }
-        });
+        );
       } catch (err) {
         console.error("Firestore agency wallet listener setup failed:", err);
+        setWalletError('Realtime wallet sync unavailable. Manual refresh still works.');
       }
     };
 
@@ -841,7 +862,7 @@ export const Billing: React.FC = () => {
       if (unsubscribeWallet) unsubscribeWallet();
       if (unsubscribeUser) unsubscribeUser();
     };
-  }, [effectiveAgencyId]);
+  }, [applyWalletState, effectiveAgencyId, fetchAvailableMonths, fetchTransactions]);
 
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
   useEffect(() => { setTxCurrentPage(1); }, [txMonth, transactions.length]);
@@ -953,7 +974,12 @@ export const Billing: React.FC = () => {
       if (!data.success) throw new Error(data.error || 'Action failed');
       showToast(action === 'approve' ? 'Credits sent to subaccount.' : 'Request denied.', action === 'approve' ? 'success' : 'info');
       fetchRequests();
-      if (action === 'approve') fetchWallet();
+      if (action === 'approve') {
+        fetchWallet();
+        fetchSubaccounts();
+        fetchTransactions();
+        fetchAvailableMonths();
+      }
     } catch (e: any) {
       showToast(`Failed: ${e.message}`, 'error');
     } finally {
@@ -975,6 +1001,7 @@ export const Billing: React.FC = () => {
              showToast('Top up flow completed. Verifying balance...', 'info');
              fetchWallet();
              fetchTransactions();
+             fetchAvailableMonths();
           }}
         />
       )}
@@ -989,7 +1016,9 @@ export const Billing: React.FC = () => {
             showToast(`Gifted ${amt.toLocaleString()} credits successfully.`, 'success');
             setGiftModalOpen(false);
             fetchWallet();
+            fetchSubaccounts();
             fetchTransactions();
+            fetchAvailableMonths();
           }}
         />
       )}

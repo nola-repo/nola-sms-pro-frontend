@@ -5,22 +5,23 @@ import { useAgency } from '../context/AgencyContext.tsx';
 import { useToast } from '../hooks/useToast.ts';
 import { ToastContainer } from '../components/ui/ToastContainer.tsx';
 import { agencyFetch } from '../services/agencyApi.ts';
+import {
+  DEFAULT_SUBSCRIPTION_STATE,
+  getSubscriptionLimitText,
+  isSubscriptionLimitReached,
+  normalizeNumber,
+  normalizeSubscriptionState,
+  type SubscriptionPlanId,
+  type SubscriptionState,
+} from '../utils/subscription.ts';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const AGENCY_ID = 'O0YXPGWM9ep2l37dgxAo';
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface SubscriptionState {
-  plan: 'starter' | 'growth' | 'agency' | 'enterprise';
-  status: 'active' | 'cancelled' | 'past_due';
-  subaccount_limit: number;
-  subaccounts_used: number;
-  expires_at: string | null;
-}
-
 interface PlanInfo {
-  id: 'starter' | 'growth' | 'agency' | 'enterprise';
+  id: SubscriptionPlanId;
   name: string;
   description: string;
   price_monthly: number;
@@ -108,41 +109,11 @@ const Skeleton = ({ className = '' }) => (
   <div className={`animate-pulse rounded-lg bg-gray-200 dark:bg-white/5 ${className}`} />
 );
 
-const DEFAULT_SUBSCRIPTION_STATE: SubscriptionState = {
-  plan: 'starter',
-  status: 'active',
-  subaccount_limit: 1,
-  subaccounts_used: 0,
-  expires_at: null,
-};
-
-const normalizeFiniteNumber = (value: unknown, fallback: number) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const normalizeSubscriptionState = (payload: any): SubscriptionState => {
-  const source = payload?.subscription ?? payload?.data?.subscription ?? payload?.data ?? payload ?? {};
-  const plan = PLAN_CATALOG.some(item => item.id === source.plan)
-    ? source.plan
-    : DEFAULT_SUBSCRIPTION_STATE.plan;
-  const status = ['active', 'cancelled', 'past_due'].includes(source.status)
-    ? source.status
-    : DEFAULT_SUBSCRIPTION_STATE.status;
-
-  return {
-    plan,
-    status,
-    subaccount_limit: normalizeFiniteNumber(
-      source.subaccount_limit ?? source.subaccountLimit ?? source.limit,
-      DEFAULT_SUBSCRIPTION_STATE.subaccount_limit
-    ),
-    subaccounts_used: normalizeFiniteNumber(
-      source.subaccounts_used ?? source.subaccountsUsed ?? source.used,
-      DEFAULT_SUBSCRIPTION_STATE.subaccounts_used
-    ),
-    expires_at: typeof source.expires_at === 'string' ? source.expires_at : null,
-  };
+const formatSubscriptionDate = (value: string | null) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
 export const Subscription: React.FC = () => {
@@ -225,14 +196,11 @@ export const Subscription: React.FC = () => {
     }, 500);
   };
 
-  const getLimitText = (limit: unknown) => {
-    const normalizedLimit = normalizeFiniteNumber(limit, DEFAULT_SUBSCRIPTION_STATE.subaccount_limit);
-    return normalizedLimit === -1 ? 'Unlimited' : normalizedLimit.toString();
-  };
+  const getLimitText = getSubscriptionLimitText;
   const getUsagePercentage = () => {
     if (!subState) return 0;
-    const limit = normalizeFiniteNumber(subState.subaccount_limit, DEFAULT_SUBSCRIPTION_STATE.subaccount_limit);
-    const used = normalizeFiniteNumber(subState.subaccounts_used, DEFAULT_SUBSCRIPTION_STATE.subaccounts_used);
+    const limit = normalizeNumber(subState.subaccount_limit, DEFAULT_SUBSCRIPTION_STATE.subaccount_limit);
+    const used = normalizeNumber(subState.subaccounts_used, DEFAULT_SUBSCRIPTION_STATE.subaccounts_used);
     if (limit === -1 || limit <= 0) return 0;
     return Math.min(100, (used / limit) * 100);
   };
@@ -263,6 +231,11 @@ export const Subscription: React.FC = () => {
                   </span>
                 </div>
               )}
+              {!loading && subState?.expires_at && (
+                <div className="mt-2 text-[12.5px] font-semibold text-[#6e6e73] dark:text-[#9aa0a9]">
+                  {subState.status === 'cancelled' ? 'Access until' : 'Renews'} {formatSubscriptionDate(subState.expires_at)}
+                </div>
+              )}
             </div>
             <button onClick={fetchSubscription} title="Refresh" className="p-2 rounded-xl bg-[#f7f7f7] dark:bg-white/5 border border-[#e0e0e0] dark:border-white/5 text-[#6e6e73] hover:text-[#111111] dark:hover:text-white transition-all">
               <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -282,7 +255,7 @@ export const Subscription: React.FC = () => {
                   style={{ width: `${getUsagePercentage()}%` }}
                 />
               </div>
-              {subState.subaccount_limit !== -1 && subState.subaccounts_used >= subState.subaccount_limit && (
+              {isSubscriptionLimitReached(subState) && (
                 <div className="flex items-center gap-2 mt-2 text-[12px] text-red-500 font-semibold">
                   <FiAlertTriangle className="w-3.5 h-3.5" /> Limit reached. Please upgrade to add more subaccounts.
                 </div>

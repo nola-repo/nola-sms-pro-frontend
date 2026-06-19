@@ -25,6 +25,13 @@ import {
 } from '../services/api.ts';
 import { agencyFetch } from '../services/agencyApi.ts';
 import { generateMonthlyReport } from '../utils/pdfGenerator';
+import {
+  getSubscriptionLimitText,
+  isSubscriptionActive,
+  isSubscriptionLimitReached,
+  isUnlimitedSubscription,
+  normalizeSubscriptionState,
+} from '../utils/subscription.ts';
 
 
 
@@ -305,13 +312,12 @@ export const Subaccounts = () => {
       }).then(r => r.ok ? r.json() : null).catch(() => null)
     ])
       .then(([subData, subStateData]) => {
-        setSubaccounts(subData.subaccounts || []);
+        const loadedSubaccounts = subData.subaccounts || [];
+        setSubaccounts(loadedSubaccounts);
         setError(null);
-        if (subStateData) {
-          setSubState(subStateData);
-        } else {
-          setSubState({ subaccount_limit: 1, subaccounts_used: (subData.subaccounts || []).length, plan: 'starter', status: 'active' });
-        }
+        setSubState(normalizeSubscriptionState(subStateData, {
+          fallbackSubaccountsUsed: loadedSubaccounts.length,
+        }));
       })
       .catch(e => {
         setError(e.message);
@@ -390,6 +396,28 @@ export const Subaccounts = () => {
   // which triggers the onSnapshot listener (~1 s) to confirm the canonical state.
   // No lock mechanism needed — the listener naturally converges to the correct value.
   const handleToggle = async (locationId, enabled) => {
+    const targetSubaccount = subaccounts.find(s => s.location_id === locationId);
+    const wasEnabled = !!targetSubaccount?.toggle_enabled;
+    if (enabled && !wasEnabled) {
+      const currentSubscription = normalizeSubscriptionState(subState, {
+        fallbackSubaccountsUsed: subaccounts.length,
+      });
+      const activeCount = subaccounts.filter(s => s.toggle_enabled).length;
+      const limit = currentSubscription.subaccount_limit;
+
+      if (!isSubscriptionActive(currentSubscription.status)) {
+        showToast(`Your subscription is ${currentSubscription.status.replace(/_/g, ' ')}. Please renew before enabling more subaccounts.`, 'error');
+        setUpgradeModalOpen(true);
+        return;
+      }
+
+      if (!isUnlimitedSubscription(limit) && activeCount >= limit) {
+        showToast(`You have reached the limit of your ${currentSubscription.plan} plan (${getSubscriptionLimitText(limit)} active subaccounts). Please upgrade in the Subscription tab.`, 'error');
+        setUpgradeModalOpen(true);
+        return;
+      }
+    }
+
     setToggleLoading(prev => ({ ...prev, [locationId]: true }));
 
     // Optimistic update — flip UI immediately so the user sees instant feedback
@@ -532,7 +560,14 @@ export const Subaccounts = () => {
   // ── Derived stats ──────────────────────────────────────────────────────────
   const active = subaccounts.filter(s => s.toggle_enabled).length;
   const atLimit = subaccounts.filter(s => s.attempt_count >= s.rate_limit).length;
-  const atSubscriptionLimit = subState && subState.subaccount_limit !== -1 && subState.subaccounts_used >= subState.subaccount_limit;
+  const normalizedSubscription = normalizeSubscriptionState(subState, {
+    fallbackSubaccountsUsed: subaccounts.length,
+  });
+  const subscriptionAllowsSubaccounts = isSubscriptionActive(normalizedSubscription.status);
+  const atSubscriptionLimit = !subscriptionAllowsSubaccounts || isSubscriptionLimitReached(normalizedSubscription);
+  const subscriptionBlockedMessage = !subscriptionAllowsSubaccounts
+    ? `Your subscription is ${normalizedSubscription.status.replace(/_/g, ' ')}. Please renew before adding subaccounts.`
+    : `You have reached the limit of your ${normalizedSubscription.plan} plan (${getSubscriptionLimitText(normalizedSubscription.subaccount_limit)} subaccounts). Please upgrade in the Subscription tab.`;
 
   const filtered = subaccounts.filter(s =>
     s.location_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -755,7 +790,7 @@ export const Subaccounts = () => {
           </div>
           {atSubscriptionLimit ? (
             <button
-              onClick={() => showToast(`You have reached the limit of your ${subState?.plan} plan (${subState?.subaccount_limit} subaccounts). Please upgrade in the Subscription tab.`, 'error')}
+              onClick={() => showToast(subscriptionBlockedMessage, 'error')}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-200 dark:bg-[#1c1e21] text-gray-500 dark:text-[#6e6e73] text-[13px] font-bold rounded-xl cursor-not-allowed"
             >
               <FiPlus className="w-4 h-4" />
@@ -796,7 +831,7 @@ export const Subaccounts = () => {
               {/* Add Subaccount */}
               {atSubscriptionLimit ? (
                 <button
-                  onClick={() => showToast(`You have reached the limit of your ${subState?.plan} plan (${subState?.subaccount_limit} subaccounts). Please upgrade in the Subscription tab.`, 'error')}
+                  onClick={() => showToast(subscriptionBlockedMessage, 'error')}
                   className="inline-flex items-center gap-2 px-4 py-1.5 bg-gray-200 dark:bg-[#1c1e21] text-gray-500 dark:text-[#6e6e73] text-[12.5px] font-bold rounded-lg cursor-not-allowed whitespace-nowrap"
                   title="Plan limit reached"
                 >
