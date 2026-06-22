@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchBatchMessages } from "../api/sms";
 import type { SmsLog } from "../types/Sms";
@@ -31,7 +32,7 @@ export const useBatchMessages = (batchId?: string) => {
             });
             setMessages(mappedData);
         } catch (error) {
-            console.error("Failed to fetch batch messages:", error);
+            devLog.error("Failed to fetch batch messages:", error);
         } finally {
             if (showLoading) setLoading(false);
             initialLoadDone.current = true;

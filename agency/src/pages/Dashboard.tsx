@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiUsers, FiCheckCircle, FiAlertTriangle, FiSend, FiChevronLeft, FiChevronRight, FiSearch, FiPlus } from 'react-icons/fi';
@@ -6,8 +7,8 @@ import { useAgency } from '../context/AgencyContext.tsx';
 import { getSubaccounts } from '../services/api.ts';
 import AnimatedContent from '../components/AnimatedContent.tsx';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
-import { db, auth } from '../services/firebaseConfig.ts';
+import { ensureFirestoreAuth } from '../services/firestoreAuth.ts';
+import { db } from '../services/firebaseConfig.ts';
 
 type DashboardMetricCardProps = {
   label: string;
@@ -112,7 +113,7 @@ export const Dashboard = () => {
 
     const setup = async () => {
       try {
-        if (!auth.currentUser) await signInAnonymously(auth);
+        await ensureFirestoreAuth();
 
         const q = query(
           collection(db, 'ghl_tokens'),
@@ -143,11 +144,11 @@ export const Dashboard = () => {
             setLastRefreshed(new Date());
           },
           (err) => {
-            console.error('[Dashboard] onSnapshot error:', err);
+            devLog.error('[Dashboard] onSnapshot error:', err);
           }
         );
       } catch (err: any) {
-        console.error('[Dashboard] Firebase setup error:', err);
+        devLog.error('[Dashboard] Firebase setup error:', err);
       }
     };
 

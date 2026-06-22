@@ -11,16 +11,13 @@
  *   });
  */
 
-import { sessionSafeStorage } from './sessionSafeStorage';
-
-/** The localStorage key where the auth JWT is stored. */
-const TOKEN_KEY = 'nola_auth_token';
+import { getSession } from '../services/authService';
 
 /**
  * Returns { Authorization: 'Bearer <token>' } when a token is present,
  * or an empty object when no token exists (e.g. GHL iframe auto-login).
  */
 export const getAuthHeaders = (): Record<string, string> => {
-  const token = sessionSafeStorage.getItem(TOKEN_KEY);
+  const token = getSession()?.token ?? null;
   return token ? { Authorization: `Bearer ${token}` } : {};
 };

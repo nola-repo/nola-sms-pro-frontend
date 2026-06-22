@@ -1,3 +1,4 @@
+import { devLog } from './devLog';
 import { safeStorage } from './safeStorage';
 import type { BulkMessageHistoryItem, Message } from "../types/Sms";
 import { getAccountSettings } from "../utils/settingsStorage";
@@ -44,7 +45,7 @@ export const deleteContact = (id: string): void => {
       safeStorage.setItem(withTenant(DELETED_CONTACTS_KEY), JSON.stringify(updated));
     }
   } catch (error) {
-    console.error("Failed to delete contact:", error);
+    devLog.error("Failed to delete contact:", error);
   }
 };
 
@@ -54,7 +55,7 @@ export const restoreContact = (id: string): void => {
     const updated = existing.filter(cid => cid !== id);
     safeStorage.setItem(withTenant(DELETED_CONTACTS_KEY), JSON.stringify(updated));
   } catch (error) {
-    console.error("Failed to restore contact:", error);
+    devLog.error("Failed to restore contact:", error);
   }
 };
 
@@ -64,7 +65,7 @@ export const saveBulkMessage = (item: BulkMessageHistoryItem): void => {
     const updated = [item, ...existing].slice(0, 50); // Keep max 50 items
     safeStorage.setItem(withTenant(BULK_HISTORY_KEY), JSON.stringify(updated));
   } catch (error) {
-    console.error("Failed to save bulk message history:", error);
+    devLog.error("Failed to save bulk message history:", error);
   }
 };
 
@@ -81,7 +82,7 @@ export const getBulkMessageHistory = (): BulkMessageHistoryItem[] => {
       customName: item.customName || groupNames[item.recipientKey]
     }));
   } catch (error) {
-    console.error("Failed to load bulk message history:", error);
+    devLog.error("Failed to load bulk message history:", error);
     return [];
   }
 };
@@ -112,7 +113,7 @@ export const saveBulkGroupName = (recipientKey: string, name: string): void => {
     );
     safeStorage.setItem(withTenant(BULK_HISTORY_KEY), JSON.stringify(updated));
   } catch (error) {
-    console.error("Failed to save bulk group name:", error);
+    devLog.error("Failed to save bulk group name:", error);
   }
 };
 
@@ -125,7 +126,7 @@ export const clearBulkMessageHistory = (): void => {
   try {
     safeStorage.removeItem(withTenant(BULK_HISTORY_KEY));
   } catch (error) {
-    console.error("Failed to clear bulk message history:", error);
+    devLog.error("Failed to clear bulk message history:", error);
   }
 };
 
@@ -137,7 +138,7 @@ export const renameBulkMessage = (id: string, newName: string): void => {
     );
     safeStorage.setItem(withTenant(BULK_HISTORY_KEY), JSON.stringify(updated));
   } catch (error) {
-    console.error("Failed to rename bulk message:", error);
+    devLog.error("Failed to rename bulk message:", error);
   }
 };
 
@@ -147,7 +148,7 @@ export const deleteBulkMessage = (id: string): void => {
     const updated = existing.filter(item => item.id !== id);
     safeStorage.setItem(withTenant(BULK_HISTORY_KEY), JSON.stringify(updated));
   } catch (error) {
-    console.error("Failed to delete bulk message:", error);
+    devLog.error("Failed to delete bulk message:", error);
   }
 };
 
@@ -181,7 +182,7 @@ const setMessagesCache = (cache: MessagesCache): void => {
   try {
     safeStorage.setItem(MESSAGES_CACHE_KEY, JSON.stringify(cache));
   } catch {
-    console.error("Failed to save messages to cache");
+    devLog.error("Failed to save messages to cache");
   }
 };
 

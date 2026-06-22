@@ -17,7 +17,7 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const AGENCY_ID = 'O0YXPGWM9ep2l37dgxAo';
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface PlanInfo {

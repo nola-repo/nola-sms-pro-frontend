@@ -1,10 +1,11 @@
+import { devLog } from '../utils/devLog';
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { fetchMessagesByConversationId, ConversationMessagesError } from "../api/sms";
 import type { Message, Conversation } from "../types/Sms";
 import { useLocationId } from "../context/LocationContext";
 import { collection, query, where, onSnapshot, doc } from "firebase/firestore";
-import { signInAnonymously } from "firebase/auth";
-import { db, auth } from "../services/firebaseConfig";
+import { ensureFirestoreAuth } from "../services/firestoreAuth";
+import { db } from "../services/firebaseConfig";
 
 const CACHE_TTL_MS = 60_000;
 const SKELETON_DELAY_MS = 160;
@@ -340,9 +341,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
 
         const setupListener = async () => {
             try {
-                if (!auth.currentUser) {
-                    await signInAnonymously(auth);
-                }
+                await ensureFirestoreAuth();
 
                 let q = query(
                     collection(db, 'messages'),
@@ -364,10 +363,10 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                     });
                     processAndMergeMessages(rows);
                 }, (err) => {
-                    console.error("[useConversationMessages] Firestore subscription error:", err);
+                    devLog.error("[useConversationMessages] Firestore subscription error:", err);
                 });
             } catch (err) {
-                console.error("[useConversationMessages] Firestore setup error:", err);
+                devLog.error("[useConversationMessages] Firestore setup error:", err);
             }
         };
 
@@ -389,9 +388,7 @@ export const useConversationMessages = (conversationId: string | undefined, reci
 
         const setupDocListener = async () => {
             try {
-                if (!auth.currentUser) {
-                    await signInAnonymously(auth);
-                }
+                await ensureFirestoreAuth();
                 const docRef = doc(db, "conversations", conversationId);
                 unsubscribe = onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
@@ -411,10 +408,10 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                         setConversation(null);
                     }
                 }, (err) => {
-                    console.error("[useConversationMessages] Firestore conversation doc snapshot error:", err);
+                    devLog.error("[useConversationMessages] Firestore conversation doc snapshot error:", err);
                 });
             } catch (err) {
-                console.error("[useConversationMessages] Firestore conversation doc setup error:", err);
+                devLog.error("[useConversationMessages] Firestore conversation doc setup error:", err);
             }
         };
 

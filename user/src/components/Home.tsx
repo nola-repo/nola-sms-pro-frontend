@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { useState, useEffect } from "react";
 import { FiPlus, FiSearch, FiUsers, FiSettings, FiCreditCard, FiMessageSquare, FiArrowRight, FiClock, FiUser, FiX, FiActivity, FiDownload } from "react-icons/fi";
 import type { Contact } from "../types/Contact";
@@ -235,7 +236,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                     setAccountProfile(profileRes.value || cachedProfile);
                 }
             } catch (err) {
-                console.error('[Home] Data fetch error:', err);
+                devLog.error('[Home] Data fetch error:', err);
             } finally {
                 if (!cancelled) setLoading(false);
             }

@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
 import { getSession, redirectToLogin, type AuthSession } from "../services/authService";
@@ -190,7 +191,7 @@ export const fetchContactsMeta = async (explicitLocationId?: string): Promise<Fe
     const contactContext = getContactContext(explicitLocationId);
 
     if (!contactContext) {
-      console.warn('NOLA SMS: Contacts fetch skipped until location is available.');
+      devLog.warn('NOLA SMS: Contacts fetch skipped until location is available.');
       return { ok: false, contacts: [], kind: 'other', message: 'Location is not ready', status: 400 };
     }
 
@@ -200,7 +201,7 @@ export const fetchContactsMeta = async (explicitLocationId?: string): Promise<Fe
 
     if (!res.ok) {
       const errorBody = await readJsonOrText(res);
-      console.error('NOLA SMS: Contacts API error:', res.status, res.statusText, errorBody);
+      devLog.error('NOLA SMS: Contacts API error:', res.status, res.statusText, errorBody);
       handleUnauthorizedResponse(res.status, errorBody, Boolean(contactContext.session?.token));
 
       if (isReconnectResponse(res.status, errorBody)) {
@@ -225,7 +226,7 @@ export const fetchContactsMeta = async (explicitLocationId?: string): Promise<Fe
     const data = await res.json();
     return { ok: true, contacts: normalizeContacts(data) };
   } catch (error) {
-    console.error('Failed to fetch contacts:', error);
+    devLog.error('Failed to fetch contacts:', error);
     return {
       ok: false,
       contacts: [],
@@ -267,7 +268,7 @@ export const addContact = async (params: AddContactParams): Promise<Contact | nu
 
     if (!res.ok) {
       const error = await readJsonOrText(res);
-      console.error('Failed to add contact:', error);
+      devLog.error('Failed to add contact:', error);
       handleUnauthorizedResponse(res.status, error, Boolean(contactContext.session?.token));
       if (isReconnectResponse(res.status, error)) {
         throw new GhlReconnectError(getErrorMessage(error, 'GoHighLevel connection expired'), res.status);
@@ -278,7 +279,7 @@ export const addContact = async (params: AddContactParams): Promise<Contact | nu
     const contact = await res.json();
     return contact;
   } catch (error) {
-    console.error('Failed to add contact:', error);
+    devLog.error('Failed to add contact:', error);
     throw error;
   }
 };
@@ -314,7 +315,7 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
 
     if (!res.ok) {
       const error = await readJsonOrText(res);
-      console.error('Failed to update contact:', error);
+      devLog.error('Failed to update contact:', error);
       handleUnauthorizedResponse(res.status, error, Boolean(contactContext.session?.token));
       if (isReconnectResponse(res.status, error)) {
         throw new GhlReconnectError(getErrorMessage(error, 'GoHighLevel connection expired'), res.status);
@@ -325,7 +326,7 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
     const contact = await res.json();
     return contact;
   } catch (error) {
-    console.error('Failed to update contact:', error);
+    devLog.error('Failed to update contact:', error);
     throw error;
   }
 };
@@ -349,7 +350,7 @@ export const deleteContact = async (id: string): Promise<boolean> => {
 
     if (!res.ok) {
       const error = await readJsonOrText(res);
-      console.error('Failed to delete contact:', error);
+      devLog.error('Failed to delete contact:', error);
       handleUnauthorizedResponse(res.status, error, Boolean(contactContext.session?.token));
       if (isReconnectResponse(res.status, error)) {
         throw new GhlReconnectError(getErrorMessage(error, 'GoHighLevel connection expired'), res.status);
@@ -359,7 +360,7 @@ export const deleteContact = async (id: string): Promise<boolean> => {
 
     return true;
   } catch (error) {
-    console.error('Failed to delete contact:', error);
+    devLog.error('Failed to delete contact:', error);
     throw error;
   }
 };

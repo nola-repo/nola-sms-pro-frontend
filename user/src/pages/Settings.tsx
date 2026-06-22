@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -948,11 +949,11 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
 
         Promise.all([
             fetchSenderRequests(locationId).catch(err => {
-                console.error("Failed to fetch sender requests:", err);
+                devLog.error("Failed to fetch sender requests:", err);
                 return [];
             }),
             fetchAccountSenderConfig(locationId).catch(err => {
-                console.error("Failed to fetch account sender config:", err);
+                devLog.error("Failed to fetch account sender config:", err);
                 return null;
             })
         ]).then(([requests, cfg]) => {
@@ -1074,7 +1075,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
             await cancelSenderRequest(requestId, locationId);
             setSenderRequests(prev => prev.filter(req => req.id !== requestId));
         } catch (error) {
-            console.error("Failed to cancel sender request:", error);
+            devLog.error("Failed to cancel sender request:", error);
             alert(error instanceof Error ? error.message : "Failed to cancel sender request.");
         } finally {
             setCancellingId(null);
@@ -1445,7 +1446,7 @@ function formatTxDate(iso: string): string {
 
 // const AR_AMOUNTS = [100, 250, 500, 1000, 2000];
 // const AR_THRESHOLDS = [25, 50, 100, 200];
-const API_BASE_URL = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
+const API_BASE_URL = import.meta.env.VITE_API_BASE || '';
 const CHECKOUT_ALLOWED_ORIGINS = new Set(['https://sms.nolawebsolutions.com', 'https://nolasmspro.com']);
 const CHECKOUT_SESSION_STORAGE_KEY = 'nola_pending_checkout';
 const VALID_LOCATION_ID = /^[A-Za-z0-9_-]{8,80}$/;
@@ -1610,7 +1611,7 @@ const CreditsSection: React.FC = () => {
                 setTopUpAmount(pkgs[1]?.credits || pkgs[0].credits);
             }
         } catch (error) {
-            console.error("Failed to load credit billing data", error);
+            devLog.error("Failed to load credit billing data", error);
         } finally {
             if (mountedRef.current) {
                 setTxLoading(false);
@@ -1687,7 +1688,7 @@ const CreditsSection: React.FC = () => {
                     setTransactions(txs);
                 }
             } catch (error) {
-                console.error("Failed to refresh credit transactions", error);
+                devLog.error("Failed to refresh credit transactions", error);
             }
         }, 250);
 

@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   FiCreditCard, FiRefreshCw, FiZap, FiPlus, FiGift,
@@ -11,12 +12,12 @@ import { useToast } from '../hooks/useToast.ts';
 import { ToastContainer } from '../components/ui/ToastContainer.tsx';
 import { agencyFetch } from '../services/agencyApi.ts';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
-import { db, auth } from '../services/firebaseConfig';
+import { ensureFirestoreAuth } from '../services/firestoreAuth';
+import { db } from '../services/firebaseConfig';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const AGENCY_ID = 'O0YXPGWM9ep2l37dgxAo';
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 const RECHARGE_AMOUNTS = [100, 250, 500, 1000, 2000, 5000];
 const RECHARGE_THRESHOLDS = [25, 50, 100, 200, 500];
@@ -770,7 +771,7 @@ export const Billing: React.FC = () => {
         });
             setAvailableMonths([{ val: 'All', label: 'All Transactions' }, ...sorted]);
     } catch (e) {
-      console.error("Failed to fetch available months", e);
+      devLog.error("Failed to fetch available months", e);
       // Fallback
       setAvailableMonths([
         { val: 'All', label: 'All Transactions' },
@@ -802,9 +803,7 @@ export const Billing: React.FC = () => {
 
     const setupListeners = async () => {
       try {
-        if (!auth.currentUser) {
-          await signInAnonymously(auth);
-        }
+        await ensureFirestoreAuth();
 
         unsubscribeWallet = onSnapshot(
           doc(db, 'agency_wallet', effectiveAgencyId),
@@ -823,7 +822,7 @@ export const Billing: React.FC = () => {
             }
           },
           (err) => {
-            console.error("Firestore agency wallet listener failed:", err);
+            devLog.error("Firestore agency wallet listener failed:", err);
             setWalletError('Realtime wallet sync unavailable. Manual refresh still works.');
           }
         );
@@ -846,12 +845,12 @@ export const Billing: React.FC = () => {
             }
           },
           (err) => {
-            console.error("Firestore agency user wallet listener failed:", err);
+            devLog.error("Firestore agency user wallet listener failed:", err);
             setWalletError('Realtime wallet fallback unavailable. Manual refresh still works.');
           }
         );
       } catch (err) {
-        console.error("Firestore agency wallet listener setup failed:", err);
+        devLog.error("Firestore agency wallet listener setup failed:", err);
         setWalletError('Realtime wallet sync unavailable. Manual refresh still works.');
       }
     };

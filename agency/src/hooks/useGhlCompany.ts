@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { safeStorage } from '../utils/safeStorage';
 import { apiFetch } from '../utils/apiFetch';
@@ -137,10 +138,10 @@ export function useGhlCompany(): GhlCompanyState {
           if (data.companyId) {
             finalize(data.companyId, 'SSO_DECRYPT');
           } else {
-            console.warn('[NOLA SMS] ⚠️ SSO decrypt OK but no companyId in payload:', data);
+            devLog.warn('[NOLA SMS] ⚠️ SSO decrypt OK but no companyId in payload:', data);
           }
         } catch (err) {
-          console.error('[NOLA SMS] SSO Decryption failed:', err);
+          devLog.error('[NOLA SMS] SSO Decryption failed:', err);
         }
         return; // Handled — don't fall through to PATH B
       }
@@ -196,14 +197,14 @@ export function useGhlCompany(): GhlCompanyState {
     try {
       window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
     } catch {
-      console.warn('[NOLA SMS] Could not send REQUEST_USER_DATA — not in cross-origin iframe?');
+      devLog.warn('[NOLA SMS] Could not send REQUEST_USER_DATA — not in cross-origin iframe?');
     }
 
     // 10-second timeout — GHL can be slow to respond
     const fallbackTimer = setTimeout(() => {
       setState(s => {
         if (s.status !== 'success') {
-          console.error('[NOLA SMS] ❌ Timeout: No company ID received after 10s. See postMessage logs above.');
+          devLog.error('[NOLA SMS] ❌ Timeout: No company ID received after 10s. See postMessage logs above.');
           return { ...s, status: 'error' };
         }
         return s;

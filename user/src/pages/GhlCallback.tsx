@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import React, { useEffect, useState } from 'react';
 import { FiLoader, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import {
@@ -86,7 +87,7 @@ export const GhlCallback: React.FC = () => {
                 }, 3000);
 
             } catch (err: unknown) {
-                console.error('OAuth Error:', err);
+                devLog.error('OAuth Error:', err);
                 setStatus('error');
                 setMessage(`Failed to connect: ${err instanceof Error ? err.message : 'Unknown error'}`);
             }

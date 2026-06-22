@@ -1,3 +1,4 @@
+import { devLog } from './utils/devLog';
 import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
@@ -129,13 +130,13 @@ const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
           return;
         }
 
-        console.warn("[NOLA SMS] GHL auto-login from /login failed", res.status, data?.message || data?.error || res.statusText);
+        devLog.warn("[NOLA SMS] GHL auto-login from /login failed", res.status, data?.message || data?.error || res.statusText);
         setAutoLoginFailed(true);
         navigate({ pathname: "/", search: window.location.search }, { replace: true });
       })
       .catch((err) => {
         if (cancelled) return;
-        console.error("[NOLA SMS] GHL auto-login from /login errored", err);
+        devLog.error("[NOLA SMS] GHL auto-login from /login errored", err);
         setAutoLoginFailed(true);
         navigate({ pathname: "/", search: window.location.search }, { replace: true });
       });

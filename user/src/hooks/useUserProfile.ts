@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { useEffect, useState } from 'react';
 import { getSession, SESSION_KEYS, redirectToLogin } from '../services/authService';
 import { safeStorage } from '../utils/safeStorage';
@@ -78,7 +79,7 @@ function getCachedUser(): UserProfile | null {
       return normalizeProfile(fromNolaUser);
     }
   } catch (e) {
-    console.error("[useUserProfile] Error parsing cached user:", e);
+    devLog.error("[useUserProfile] Error parsing cached user:", e);
   }
   return null;
 }
@@ -101,7 +102,7 @@ function getToken(): string | null {
     }
     return null;
   } catch (e) {
-    console.error("[useUserProfile] Error getting token:", e);
+    devLog.error("[useUserProfile] Error getting token:", e);
     return null;
   }
 }
@@ -122,7 +123,7 @@ export const useUserProfile = () => {
       try {
         const token = getToken();
         if (!token) {
-          console.warn("[useUserProfile] Cannot fetch profile, no token available.");
+          devLog.warn("[useUserProfile] Cannot fetch profile, no token available.");
           return;
         }
 
@@ -135,7 +136,7 @@ export const useUserProfile = () => {
         });
 
         if (res.status === 401) {
-          console.warn("[useUserProfile] Auth token expired or invalid. Clearing session.");
+          devLog.warn("[useUserProfile] Auth token expired or invalid. Clearing session.");
           redirectToLogin();
           return;
         }
@@ -177,10 +178,10 @@ export const useUserProfile = () => {
             }
           }
         } else {
-          console.error("[useUserProfile] Fetch failed. Status:", res.status, "Text:", await res.text().catch(() => ""));
+          devLog.error("[useUserProfile] Fetch failed. Status:", res.status, "Text:", await res.text().catch(() => ""));
         }
       } catch (err) {
-        console.error('[useUserProfile] Failed to fetch fresh user profile', err);
+        devLog.error('[useUserProfile] Failed to fetch fresh user profile', err);
       } finally {
         window.dispatchEvent(new Event('nola-profile-sync-complete'));
       }

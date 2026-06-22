@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
 import { getAuthHeaders } from "../utils/authHeaders";
@@ -183,7 +184,7 @@ export const fetchAccountProfile = async (
     const request = (async () => {
         const res = await apiFetch(url, { headers });
         if (!res.ok) {
-            console.error("[fetchAccountProfile] Error:", res.status);
+            devLog.error("[fetchAccountProfile] Error:", res.status);
             if (options.allowStaleOnError) {
                 return readCacheEntry(locationId, includeAuth, cacheTtlMs, true)?.profile ?? null;
             }
@@ -197,7 +198,7 @@ export const fetchAccountProfile = async (
         return profile;
     })()
         .catch((error) => {
-            console.error("[fetchAccountProfile] Network error:", error);
+            devLog.error("[fetchAccountProfile] Network error:", error);
             if (options.allowStaleOnError) {
                 return readCacheEntry(locationId, includeAuth, cacheTtlMs, true)?.profile ?? null;
             }

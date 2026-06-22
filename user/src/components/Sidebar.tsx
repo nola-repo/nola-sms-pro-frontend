@@ -1,10 +1,11 @@
+import { devLog } from '../utils/devLog';
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { fetchContacts } from "../api/contacts";
 import { renameConversation, deleteConversation, normalizePHNumber, fetchConversations } from "../api/sms";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
-import { signInAnonymously } from "firebase/auth";
-import { db, auth } from "../services/firebaseConfig";
+import { ensureFirestoreAuth } from "../services/firestoreAuth";
+import { db } from "../services/firebaseConfig";
 import { deleteContact as deleteContactBackend } from "../api/contacts";
 import type { Contact } from "../types/Contact";
 import type { BulkMessageHistoryItem, Conversation } from "../types/Sms";
@@ -188,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       setContacts(filtered);
       contactsRef.current = filtered;
     } catch (e) {
-      console.error(e);
+      devLog.error(e);
     }
   }, [resolvedLocationId]);
 
@@ -444,9 +445,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const setupConversationsListener = async () => {
       try {
-        if (!auth.currentUser) {
-          await signInAnonymously(auth);
-        }
+        await ensureFirestoreAuth();
 
         const q = query(
           collection(db, 'conversations'),
@@ -471,20 +470,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           applyConversationRows(docRows);
         }, (err) => {
-          console.error("Firestore conversations snapshot error:", err);
+          devLog.error("Firestore conversations snapshot error:", err);
           fetchConversations(resolvedLocationId)
             .then(applyConversationRows)
             .catch((fallbackErr) => {
-              console.error("Sidebar conversations API fallback error:", fallbackErr);
+              devLog.error("Sidebar conversations API fallback error:", fallbackErr);
               setLoading(false);
             });
         });
       } catch (err) {
-        console.error("Firestore setup error in Sidebar:", err);
+        devLog.error("Firestore setup error in Sidebar:", err);
         fetchConversations(resolvedLocationId)
           .then(applyConversationRows)
           .catch((fallbackErr) => {
-            console.error("Sidebar conversations API fallback error:", fallbackErr);
+            devLog.error("Sidebar conversations API fallback error:", fallbackErr);
             setLoading(false);
           });
       }
@@ -590,7 +589,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       try {
         await deleteContactBackend(id);
       } catch (err) {
-        console.error('Failed to delete contact from backend:', err);
+        devLog.error('Failed to delete contact from backend:', err);
       }
     }
 

@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
 import { apiFetch } from "../utils/apiFetch";
@@ -106,7 +107,7 @@ export const fetchSenderRequests = async (explicitLocationId?: string): Promise<
 
     const res = await apiFetch(url, { headers });
     if (!res.ok) {
-        console.error("[fetchSenderRequests] Error:", res.status);
+        devLog.error("[fetchSenderRequests] Error:", res.status);
         return [];
     }
 
@@ -169,7 +170,7 @@ export const fetchAccountSenderConfig = async (explicitLocationId?: string): Pro
     try {
         const res = await apiFetch(url, { headers });
         if (!res.ok) {
-            console.error("[fetchAccountSenderConfig] Error:", res.status);
+            devLog.error("[fetchAccountSenderConfig] Error:", res.status);
             return DEFAULT_CONFIG;
         }
         const raw = await res.json();
@@ -197,7 +198,7 @@ export const fetchAccountSenderConfig = async (explicitLocationId?: string): Pro
 
         return config;
     } catch (error) {
-        console.error("[fetchAccountSenderConfig] Network error:", error);
+        devLog.error("[fetchAccountSenderConfig] Network error:", error);
         return DEFAULT_CONFIG;
     }
 };
@@ -237,7 +238,7 @@ export const saveAccountApiKey = async (apiKey: string, provider: "semaphore" | 
         }
         return true;
     } catch (error) {
-        console.error("[saveAccountApiKey] Error:", error);
+        devLog.error("[saveAccountApiKey] Error:", error);
         return false;
     }
 };

@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   FiAlertTriangle, FiUsers, FiRotateCcw, FiChevronLeft, FiChevronRight, FiChevronDown, FiSearch, FiPlus, FiMinus, FiArrowUp, FiArrowDown, FiExternalLink, FiDownload, FiRefreshCw, FiX
@@ -9,10 +10,10 @@ const ADD_SUBACCOUNT_URL =
   '&client_id=6999da2b8f278296d95f7274-mmn30t4f' +
   '&scope=workflows.readonly+conversations%2Fmessage.readonly+conversations.readonly+conversations.write+contacts.readonly+contacts.write+conversations%2Fmessage.write+saas%2Flocation.read+locations.readonly+locations%2Ftags.readonly+locations%2Ftags.write+locations%2FcustomFields.readonly+oauth.write+oauth.readonly' +
   '&version_id=6999da2b8f278296d95f7274';
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://smspro-api.nolacrm.io';
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
-import { db, auth } from '../services/firebaseConfig.ts';
+import { ensureFirestoreAuth } from '../services/firestoreAuth.ts';
+import { db } from '../services/firebaseConfig.ts';
 import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { ToastContainer } from '../components/ui/ToastContainer.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
@@ -345,7 +346,7 @@ export const Subaccounts = () => {
 
     const setup = async () => {
       try {
-        if (!auth.currentUser) await signInAnonymously(auth);
+        await ensureFirestoreAuth();
 
         const q = query(
           collection(db, 'ghl_tokens'),
@@ -378,12 +379,12 @@ export const Subaccounts = () => {
             );
           },
           (err) => {
-            console.error('[Subaccounts] onSnapshot error:', err);
+            devLog.error('[Subaccounts] onSnapshot error:', err);
             // Don't surface as blocking error — data is still usable from PHP load
           }
         );
       } catch (err: any) {
-        console.error('[Subaccounts] Firebase setup error:', err);
+        devLog.error('[Subaccounts] Firebase setup error:', err);
       }
     };
 

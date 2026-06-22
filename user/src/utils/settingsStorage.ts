@@ -1,3 +1,4 @@
+import { devLog } from './devLog';
 import { safeStorage } from './safeStorage';
 // ─── Keys ────────────────────────────────────────────────────────────────────
 const KEYS = {
@@ -89,7 +90,7 @@ function save<T>(key: string, data: T): void {
     try {
         safeStorage.setItem(key, JSON.stringify(data));
     } catch (e) {
-        console.error("settingsStorage: failed to save", key, e);
+        devLog.error("settingsStorage: failed to save", key, e);
     }
 }
 

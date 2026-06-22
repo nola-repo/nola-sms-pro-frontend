@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { fetchTemplates, createTemplate, updateTemplate, deleteTemplate } from "../api/templates";
@@ -222,7 +223,7 @@ export const TemplatesTab: React.FC = () => {
         const data = await fetchTemplates(locationId || undefined, true);
         setTemplates(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error("Background template fetch failed:", err);
+        devLog.error("Background template fetch failed:", err);
       }
       return;
     }
@@ -232,7 +233,7 @@ export const TemplatesTab: React.FC = () => {
       const data = await fetchTemplates(locationId || undefined, forceRefresh);
       setTemplates(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error(err);
+      devLog.error(err);
       setTemplates([]);
     } finally {
       setLoading(false);
@@ -252,7 +253,7 @@ export const TemplatesTab: React.FC = () => {
         const data = await fetchContacts(locationId || undefined);
         setContacts(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error("Failed to pre-load contacts in TemplatesTab:", err);
+        devLog.error("Failed to pre-load contacts in TemplatesTab:", err);
       } finally {
         setContactsLoading(false);
       }
@@ -352,7 +353,7 @@ export const TemplatesTab: React.FC = () => {
       if (previewTemplate?.id === id) setPreviewTemplate(null);
       if (deleteConfirmId === id) setDeleteConfirmId(null);
     } catch (err) {
-      console.error(err);
+      devLog.error(err);
     } finally {
       setIsSubmitting(false);
     }
@@ -374,7 +375,7 @@ export const TemplatesTab: React.FC = () => {
           setSelectedContact(match || activeContact);
         }
       } catch (e) {
-        console.error("Failed to parse active contact from storage", e);
+        devLog.error("Failed to parse active contact from storage", e);
       }
     }
   };

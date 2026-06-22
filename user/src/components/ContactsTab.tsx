@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { fetchContactsMeta, addContact, updateContact, deleteContact, isGhlReconnectError } from "../api/contacts";
 import { deleteContact as deleteContactLocal } from "../utils/storage";
@@ -154,7 +155,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
         if (!cancelled) applyContactsFetch(result);
       })
       .catch((err) => {
-        console.error(err);
+        devLog.error(err);
         if (!cancelled) {
           setContacts([]);
           setGhlContactsError({ kind: 'generic', message: 'Failed to load contacts' });
@@ -184,7 +185,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
       const result = await fetchContactsMeta(locationId || undefined);
       applyContactsFetch(result);
     } catch (e) {
-      console.error(e);
+      devLog.error(e);
       setGhlContactsError({ kind: 'generic', message: 'Failed to refresh contacts' });
     } finally {
       setIsPullRefreshing(false);
@@ -313,7 +314,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
         setGhlContactsError(null);
       }
     } catch (err: unknown) {
-      console.error("Error adding contact:", err);
+      devLog.error("Error adding contact:", err);
       setError(handleMutationError(err, "Failed to add contact to GHL"));
     } finally {
       setIsSubmitting(false);
@@ -389,7 +390,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
         applyContact(confirmedContact, originalContact);
       })
       .catch((err: unknown) => {
-        console.error("Error updating contact:", err);
+        devLog.error("Error updating contact:", err);
         applyContact(originalContact, nextContact);
         setError(handleMutationError(err, "Failed to update contact in GHL"));
       });
@@ -416,7 +417,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
       setSelectedContacts((prev) => prev.filter((c) => c.id !== contactId));
       setGhlContactsError(null);
     } catch (err: unknown) {
-      console.error("Error deleting contact:", err);
+      devLog.error("Error deleting contact:", err);
       setError(handleMutationError(err, "Failed to delete contact from GHL"));
     } finally {
       setIsSubmitting(false);

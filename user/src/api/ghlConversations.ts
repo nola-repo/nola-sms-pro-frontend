@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
 import { apiFetch } from "../utils/apiFetch";
@@ -61,7 +62,7 @@ export const createGhlConversation = async (
 
     return data as CreateGhlConversationResponse;
   } catch (error) {
-    console.error("[createGhlConversation] Error:", error);
+    devLog.error("[createGhlConversation] Error:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to create GHL conversation",

@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 
 import { fetchContacts } from "../api/contacts";
@@ -438,7 +439,7 @@ export const Composer: React.FC<ComposerProps> = ({
   }, [composeMode, conversationId]);
 
   useEffect(() => {
-    fetchContacts(locationId || undefined).then(setAllContacts).catch(console.error);
+    fetchContacts(locationId || undefined).then(setAllContacts).catch(devLog.error);
   }, [locationId]);
 
   useEffect(() => {
@@ -452,7 +453,7 @@ export const Composer: React.FC<ComposerProps> = ({
       setBulkSelectedContacts((current) => current.map((item) =>
         matchesContactUpdate(item, contact, previous) ? { ...item, ...contact } : item
       ));
-      fetchContacts(locationId || undefined).then(setAllContacts).catch(console.error);
+      fetchContacts(locationId || undefined).then(setAllContacts).catch(devLog.error);
     };
 
     window.addEventListener("nola-contact-updated", handleContactUpdated);
@@ -467,7 +468,7 @@ export const Composer: React.FC<ComposerProps> = ({
           const templates = await fetchTemplates(locationId, false);
           setTemplateOptions(templates);
         } catch (err) {
-          console.warn("Background template cache pre-warming failed:", err);
+          devLog.warn("Background template cache pre-warming failed:", err);
         }
       }
     };
@@ -603,7 +604,7 @@ export const Composer: React.FC<ComposerProps> = ({
       try {
         setTemplateOptions(await fetchTemplates(locationId || undefined));
       } catch (error) {
-        console.error("Failed to load templates:", error);
+        devLog.error("Failed to load templates:", error);
         showToast("error", "Failed to load templates.");
       } finally {
         setTemplatesLoading(false);

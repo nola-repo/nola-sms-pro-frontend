@@ -1,9 +1,10 @@
+import { devLog } from '../utils/devLog';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
-import { signInAnonymously } from "firebase/auth";
+import { ensureFirestoreAuth } from "../services/firestoreAuth";
 import { fetchCreditStatus, type CreditStatus } from "../api/credits";
 import { useLocationId } from "../context/LocationContext";
-import { auth, db } from "../services/firebaseConfig";
+import { db } from "../services/firebaseConfig";
 
 const emptyCreditStatus: CreditStatus = {
     credit_balance: 0,
@@ -72,7 +73,7 @@ export const useRealtimeCreditStatus = (explicitLocationId?: string | null) => {
             }
             return result;
         } catch (error) {
-            console.error("Failed to fetch credit status", error);
+            devLog.error("Failed to fetch credit status", error);
             return null;
         } finally {
             if (mountedRef.current && shouldShowLoading) setLoading(false);
@@ -99,9 +100,7 @@ export const useRealtimeCreditStatus = (explicitLocationId?: string | null) => {
 
         const setupListeners = async () => {
             try {
-                if (!auth.currentUser) {
-                    await signInAnonymously(auth);
-                }
+                await ensureFirestoreAuth();
                 if (cancelled) return;
 
                 integrationUnsubscribe = onSnapshot(doc(db, "integrations", sanitizeLocationId(locationId)), (snapshot) => {
@@ -127,7 +126,7 @@ export const useRealtimeCreditStatus = (explicitLocationId?: string | null) => {
                     userUnsubscribers.push(unsubscribe);
                 });
             } catch (error) {
-                console.error("Firestore balance listener setup failed:", error);
+                devLog.error("Firestore balance listener setup failed:", error);
             }
         };
 

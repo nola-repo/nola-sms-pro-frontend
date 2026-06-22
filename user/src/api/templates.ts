@@ -1,5 +1,7 @@
+import { devLog } from '../utils/devLog';
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
+import { getAuthHeaders } from "../utils/authHeaders";
 import type { Template } from "../types/Template";
 import { getCachedTemplates, setCachedTemplates, invalidateTemplateCache } from "../utils/templateCache";
 import { apiFetch } from "../utils/apiFetch";
@@ -12,6 +14,7 @@ const getHeaders = (explicitLocationId?: string) => {
   const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...getAuthHeaders(),
   };
   if (locationId) {
     headers['X-GHL-Location-ID'] = locationId;
@@ -72,7 +75,7 @@ export const fetchTemplates = async (explicitLocationId?: string, forceRefresh =
     
     // Handle mock mode for when backend doesn't exist yet
     if (res.status === 404) {
-      console.warn('NOLA SMS: Templates backend not available yet (404)');
+      devLog.warn('NOLA SMS: Templates backend not available yet (404)');
       // Return mock data for UI testing if the user is testing the UI before backend is ready
       const mockStr = localStorage.getItem('nola_mock_templates');
       const result = mockStr ? JSON.parse(mockStr) : [];
@@ -87,7 +90,7 @@ export const fetchTemplates = async (explicitLocationId?: string, forceRefresh =
     setCachedTemplates(locationId, result);
     return result;
   } catch (error) {
-    console.error('Failed to fetch templates:', error);
+    devLog.error('Failed to fetch templates:', error);
     const mockStr = localStorage.getItem('nola_mock_templates');
     const result = mockStr ? JSON.parse(mockStr) : [];
     setCachedTemplates(locationId, result);

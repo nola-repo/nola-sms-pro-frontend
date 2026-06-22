@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import React, { useEffect, useMemo, useState } from "react";
 import { FiMessageSquare } from "react-icons/fi";
 import { fetchAccountProfile, getCachedAccountProfile, type AccountProfile } from "../api/account";
@@ -119,7 +120,7 @@ export const TicketsTab: React.FC = () => {
             const queryString = params.toString();
             return queryString ? `${BASE_URL}?${queryString}` : BASE_URL;
         } catch (err) {
-            console.error("Failed to generate support funnel URL:", err);
+            devLog.error("Failed to generate support funnel URL:", err);
             return BASE_URL;
         }
     }, [accountProfile, liveProfile, resolvedLocationId]);

@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchMessagesByRecipientKey } from "../api/sms";
 import type { Message } from "../types/Sms";
@@ -124,13 +125,13 @@ export const useGroupMessages = (recipientKey?: string, recipientNumbers?: strin
                             date_created: m.date_created,
                         }));
                 } catch (err) {
-                    console.error('[useGroupMessages] Transformation error:', err);
+                    devLog.error('[useGroupMessages] Transformation error:', err);
                 }
 
                 setMessages(transformedMessages);
                 dataLoaded.current = true;
             } catch (error) {
-                console.error("Failed to fetch group messages:", error);
+                devLog.error("Failed to fetch group messages:", error);
             } finally {
                 if (showLoading) setLoading(false);
                 initialLoadDone.current = true;

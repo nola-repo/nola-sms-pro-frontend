@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { API_CONFIG } from "../config";
 import {
   getAccountSettings,
@@ -60,7 +61,7 @@ export const fetchNotificationSettings = async (): Promise<NotificationSettings>
     saveLocalNotificationSettings(normalized);
     return normalized;
   } catch (error) {
-    console.error("Failed to fetch notification settings:", error);
+    devLog.error("Failed to fetch notification settings:", error);
     return getNotificationSettings();
   }
 };
@@ -107,7 +108,7 @@ export const saveNotificationSettings = async (data: NotificationSettings): Prom
     saveLocalNotificationSettings(normalized);
     return normalized;
   } catch (error) {
-    console.error("Failed to save notification settings:", error);
+    devLog.error("Failed to save notification settings:", error);
     throw error;
   }
 };

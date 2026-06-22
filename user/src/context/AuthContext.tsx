@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import React, { createContext, useState, useCallback, useEffect } from 'react';
 import {
   getSession,
@@ -96,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.history.replaceState({}, document.title, nextUrl);
       }
     } catch (e) {
-      console.error("[AuthContext] Error parsing URL token:", e);
+      devLog.error("[AuthContext] Error parsing URL token:", e);
     }
 
     const initialSession = getSession();

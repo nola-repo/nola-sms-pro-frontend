@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { safeStorage } from '../utils/safeStorage';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getAgencySession, clearAgencySession, ghlAutoLogin, type AgencySession, fetchAgencyProfile } from '../services/agencyAuthHelper.ts';
@@ -101,7 +102,7 @@ export const AgencyProvider = ({ children }: { children: React.ReactNode }) => {
       .catch(err => {
         if (cancelled) return;
         // 404 = agency not yet linked in Firestore; warn but don't block the iframe
-        console.warn('[AgencyContext] GHL auto-login failed:', err);
+        devLog.warn('[AgencyContext] GHL auto-login failed:', err);
         setAutoLoginError(null);
       })
       .finally(() => {

@@ -1,10 +1,11 @@
+import { devLog } from '../utils/devLog';
 import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchSmsLogs, normalizePHNumber } from "../api/sms";
 import type { Message, SmsLog } from "../types/Sms";
 import { useLocationId } from "../context/LocationContext";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
-import { signInAnonymously } from "firebase/auth";
-import { db, auth } from "../services/firebaseConfig";
+import { ensureFirestoreAuth } from "../services/firestoreAuth";
+import { db } from "../services/firebaseConfig";
 
 export const useMessages = (phoneNumber: string | undefined) => {
     const { locationId } = useLocationId();
@@ -107,9 +108,7 @@ export const useMessages = (phoneNumber: string | undefined) => {
 
         const setupListener = async () => {
             try {
-                if (!auth.currentUser) {
-                    await signInAnonymously(auth);
-                }
+                await ensureFirestoreAuth();
 
                 const formattedNumber = normalizePHNumber(phoneNumber);
                 if (!formattedNumber) {
@@ -147,10 +146,10 @@ export const useMessages = (phoneNumber: string | undefined) => {
                     });
                     processAndMergeLogs(logs);
                 }, (err) => {
-                    console.error("[useMessages] Firestore subscription error:", err);
+                    devLog.error("[useMessages] Firestore subscription error:", err);
                 });
             } catch (err) {
-                console.error("[useMessages] Firestore setup error:", err);
+                devLog.error("[useMessages] Firestore setup error:", err);
             }
         };
 

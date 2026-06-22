@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { FiPlus, FiX, FiCheck, FiLoader, FiAlertCircle } from "react-icons/fi";
@@ -108,7 +109,7 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                 onClose();
             }, 3000);
         } catch (err) {
-            console.error("[SenderRequestModal] Submit error:", err);
+            devLog.error("[SenderRequestModal] Submit error:", err);
             setError(err instanceof Error ? err.message : "Failed to submit request. Please try again.");
         } finally {
             setIsSubmitting(false);

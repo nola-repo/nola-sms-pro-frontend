@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 import { safeStorage } from '../utils/safeStorage';
 import { useState, useEffect } from "react";
 import nolaLogo from "../assets/NOLA SMS PRO Logo.png";
@@ -201,7 +202,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       safeStorage.setItem('nola_registered_location_' + locationId, 'true');
       setRegistrationCheck({ status: 'registered', locationId });
     } catch (error) {
-      console.error('[Dashboard] Registration check failed', error);
+      devLog.error('[Dashboard] Registration check failed', error);
       setRegistrationCheck({ status: 'error', locationId, message: 'Unable to verify this subaccount right now.' });
     }
   };
@@ -339,7 +340,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         setRegistrationCheck({ status: 'registered', locationId });
       } catch (error) {
         if (cancelled) return;
-        console.error('[Dashboard] Registration check failed', error);
+        devLog.error('[Dashboard] Registration check failed', error);
         if (!isCached) {
           setRegistrationCheck({ status: 'error', locationId, message: 'Unable to verify this subaccount right now.' });
         }

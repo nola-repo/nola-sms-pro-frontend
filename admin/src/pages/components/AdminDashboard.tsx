@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { devLog } from '../../utils/devLog';
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiUsers, FiSend, FiActivity, FiMessageSquare, FiCreditCard, FiPlus, FiChevronLeft, FiChevronRight, FiSearch, FiArrowRight, FiBriefcase } from 'react-icons/fi';
 
@@ -164,7 +165,7 @@ export const AdminDashboard: React.FC<{
                     }
                 }
             } catch (err) {
-                console.error("Dashboard list users fetch error:", err);
+                devLog.error("Dashboard list users fetch error:", err);
             }
 
             // Fallback to ADMIN_API?action=accounts if list users failed
@@ -198,7 +199,7 @@ export const AdminDashboard: React.FC<{
             }
             setLastRefreshed(new Date());
         } catch (err) {
-            console.error("Dashboard poll error:", err);
+            devLog.error("Dashboard poll error:", err);
         } finally {
             if (isInitial) setLoading(false);
         }

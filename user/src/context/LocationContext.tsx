@@ -1,3 +1,4 @@
+import { devLog } from '../utils/devLog';
 /**
  * LocationContext — Reactive GHL Location ID for the User Panel
  *
@@ -191,7 +192,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (autoLoginInFlightRef.current) return;
       autoLoginInFlightRef.current = true;
 
-      console.log(
+      devLog.log(
         `[LocationContext] Triggering silent auto-login for location: ${locationId}. Reason: ${
           isUnauthenticated ? 'Unauthenticated' : 'Session mismatch'
         }`
@@ -214,7 +215,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const data = await res.json().catch(() => null);
           if (res.ok) {
             if (data?.token) {
-              console.log(`[LocationContext] Silent auto-login succeeded for ${locationId}. Saving session and reloading.`);
+              devLog.log(`[LocationContext] Silent auto-login succeeded for ${locationId}. Saving session and reloading.`);
               clearAuthSession();
               saveSession(data);
               window.location.reload();
@@ -223,7 +224,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
 
           const message = data?.message || data?.error || data?.details || res.statusText;
-          console.warn(`[LocationContext] Silent auto-login failed for location ${locationId}. Status: ${res.status}`, message);
+          devLog.warn(`[LocationContext] Silent auto-login failed for location ${locationId}. Status: ${res.status}`, message);
           autoLoginInFlightRef.current = false;
 
           if (isMismatch) {
@@ -235,7 +236,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         })
         .catch((err) => {
-          console.error('[LocationContext] Silent auto-login error:', err);
+          devLog.error('[LocationContext] Silent auto-login error:', err);
           autoLoginInFlightRef.current = false;
           if (isMismatch) {
             clearAuthSession();
