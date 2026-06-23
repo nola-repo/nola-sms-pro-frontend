@@ -20,11 +20,13 @@ import { apiFetch } from '../utils/apiFetch';
 
 interface LocationContextValue {
   locationId: string;
+  isLocationResolving: boolean;
   setLocationId: (id: string) => void;
 }
 
 const LocationContext = createContext<LocationContextValue>({
   locationId: '',
+  isLocationResolving: false,
   setLocationId: () => {},
 });
 
@@ -82,6 +84,35 @@ function extractLocationFromMessage(event: MessageEvent): string | null {
   return null;
 }
 
+function isLikelyGhlEmbedded(): boolean {
+  try {
+    return window.self !== window.top || sessionStorage.getItem('nola_is_ghl_frame') === 'true';
+  } catch {
+    return true;
+  }
+}
+
+function getStoredLocationId(): string {
+  const sessionLocationId = safeStorage.getItem('nola_location_id');
+  if (sessionLocationId && sessionLocationId.length > 4) {
+    return sessionLocationId;
+  }
+
+  try {
+    const authUser = JSON.parse(safeStorage.getItem('nola_auth_user') || 'null');
+    if (authUser?.location_id) return authUser.location_id;
+    if (authUser?.active_location_id) return authUser.active_location_id;
+
+    const nolaUser = JSON.parse(safeStorage.getItem('nola_user') || 'null');
+    if (nolaUser?.location_id) return nolaUser.location_id;
+    if (nolaUser?.active_location_id) return nolaUser.active_location_id;
+  } catch {
+    // ignore parsing errors
+  }
+
+  return getAccountSettings().ghlLocationId || '';
+}
+
 // ── Provider ─────────────────────────────────────────────────────────────────
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -97,27 +128,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return fromUrl;
     }
     
-    // Priority 2: explicit session location from login/auth handoff
-    const sessionLocationId = safeStorage.getItem('nola_location_id');
-    if (sessionLocationId && sessionLocationId.length > 4) {
-      return sessionLocationId;
-    }
-
-    // Priority 3: cached user profile (normal login)
-    try {
-      const authUser = JSON.parse(safeStorage.getItem('nola_auth_user') || 'null');
-      if (authUser?.location_id) return authUser.location_id;
-      if (authUser?.active_location_id) return authUser.active_location_id;
-
-      const nolaUser = JSON.parse(safeStorage.getItem('nola_user') || 'null');
-      if (nolaUser?.location_id) return nolaUser.location_id;
-      if (nolaUser?.active_location_id) return nolaUser.active_location_id;
-    } catch {
-      // ignore parsing errors
-    }
-
-    // Priority 4: persisted storage (fallback)
-    return getAccountSettings().ghlLocationId || '';
+    // Priority 2-4: explicit session, cached user profile, persisted storage.
+    return getStoredLocationId();
+  });
+  const [isLocationResolving, setIsLocationResolving] = useState<boolean>(() => {
+    return !extractLocationFromUrl() && !getStoredLocationId() && isLikelyGhlEmbedded();
   });
 
   // Persist and broadcast whenever locationId changes
@@ -131,6 +146,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     setLocationIdState(newId);
+    setIsLocationResolving(false);
 
     // Broadcast so Dashboard and other listeners can reset state
     window.dispatchEvent(
@@ -156,6 +172,51 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [setLocationId]);
 
   // ── Source 2: GHL postMessage (handles subaccount switching in iframe) ────
+  useEffect(() => {
+    if (locationId) {
+      setIsLocationResolving(false);
+      return;
+    }
+
+    if (!isLikelyGhlEmbedded()) {
+      setIsLocationResolving(false);
+      return;
+    }
+
+    setIsLocationResolving(true);
+
+    const checkForLocation = () => {
+      const fromUrl = extractLocationFromUrl();
+      if (fromUrl) {
+        setLocationId(fromUrl);
+        return;
+      }
+
+      const fromStorage = getStoredLocationId();
+      if (fromStorage) {
+        setLocationId(fromStorage);
+      }
+    };
+
+    checkForLocation();
+    const pollTimer = window.setInterval(checkForLocation, 250);
+    const fallbackTimer = window.setTimeout(() => {
+      setIsLocationResolving(false);
+      window.clearInterval(pollTimer);
+    }, 3500);
+
+    window.addEventListener('popstate', checkForLocation);
+    window.addEventListener('hashchange', checkForLocation);
+
+    return () => {
+      window.clearInterval(pollTimer);
+      window.clearTimeout(fallbackTimer);
+      window.removeEventListener('popstate', checkForLocation);
+      window.removeEventListener('hashchange', checkForLocation);
+    };
+  }, [locationId, setLocationId]);
+
+  // ?? Source 3: GHL postMessage (handles subaccount switching in iframe) ????
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       // Accept messages from any origin since GHL parent is on a different domain
@@ -250,7 +311,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [locationId]);
 
   return (
-    <LocationContext.Provider value={{ locationId, setLocationId }}>
+    <LocationContext.Provider value={{ locationId, isLocationResolving, setLocationId }}>
       {children}
     </LocationContext.Provider>
   );

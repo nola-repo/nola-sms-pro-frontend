@@ -134,7 +134,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const navigate = useNavigate();
   const onboarding = useOnboarding();
   // Reactive location ID from context — re-renders whenever subaccount changes
-  const { locationId } = useLocationId();
+  const { locationId, isLocationResolving } = useLocationId();
   const [registrationCheck, setRegistrationCheck] = useState<RegistrationCheckState>(() => {
     if (locationId) {
       try {
@@ -444,9 +444,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const shouldWaitForWorkspaceBootstrap =
     isAuthenticated() || isRunningInGhlFrame();
   const workspaceBootstrapComplete =
-    Boolean(locationId) || workspaceProfileSyncComplete || !shouldWaitForWorkspaceBootstrap;
+    Boolean(locationId) ||
+    (!isLocationResolving && (workspaceProfileSyncComplete || isRunningInGhlFrame())) ||
+    !shouldWaitForWorkspaceBootstrap;
   const isAwaitingWorkspaceBootstrap =
-    !locationId && !workspaceBootstrapComplete;
+    !locationId && (isLocationResolving || !workspaceBootstrapComplete);
   const isCheckingActiveLocation =
     isAwaitingWorkspaceBootstrap ||
     (!!locationId &&
@@ -582,7 +584,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         </div>
 
         {/* Missing Location Alert */}
-        {!locationId && currentView !== 'settings' && (
+        {!locationId && !isLocationResolving && currentView !== 'settings' && (
           <div className="px-6 py-3 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-200 dark:border-amber-800/20 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-800/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
