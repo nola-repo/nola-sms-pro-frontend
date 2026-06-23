@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { fetchContactsMeta, addContact, updateContact, deleteContact, isGhlReconnectError } from "../api/contacts";
 import { deleteContact as deleteContactLocal } from "../utils/storage";
 import type { Contact } from "../types/Contact";
-import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader, FiTag, FiAlertCircle } from "react-icons/fi";
+import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader, FiTag, FiAlertCircle, FiCopy } from "react-icons/fi";
 import { useLocationId } from "../context/LocationContext";
 import { safeStorage } from "../utils/safeStorage";
 import { GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
@@ -39,6 +39,21 @@ const formatPhoneInput = (raw: string): string => {
 };
 
 const normalizeSearchPhone = (value: string): string => value.replace(/\s+/g, "").toLowerCase();
+
+const formatLastMessaged = (value?: string): string => {
+  if (!value) return "Never messaged";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Last messaged unknown";
+  return `Last messaged ${date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}`;
+};
+
+const getContactSourceLabel = (contact: Contact): string => {
+  const source = (contact.source || "").toLowerCase();
+  if (contact.id.startsWith("manual-") || source.includes("manual")) return "Manual Entry";
+  if (source.includes("import") || source.includes("csv")) return "Import";
+  if (contact.ghl_contact_id || source.includes("ghl") || source.includes("highlevel")) return "GHL Sync";
+  return "Manual Entry";
+};
 
 const toProperContactName = (name: string): string =>
   name
@@ -97,6 +112,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const [ghlContactsError, setGhlContactsError] = useState<GhlContactsError | null>(null);
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
 
   const touchStartY = useRef<number>(0);
   const listRef = useRef<HTMLDivElement>(null);
@@ -207,6 +223,28 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
   // Convert name to proper case (title case)
   const toProperCase = (name: string): string => {
     return name.replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
+  const phoneCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    contacts.forEach((contact) => {
+      const key = normalizePHPhone(contact.phone);
+      if (!/^09\d{9}$/.test(key)) return;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+  }, [contacts]);
+
+  const copyPhoneNumber = async (phone: string) => {
+    const normalized = normalizePHPhone(phone);
+    try {
+      await navigator.clipboard.writeText(normalized || phone);
+      setCopyNotice("Phone number copied");
+      window.setTimeout(() => setCopyNotice(null), 1800);
+    } catch {
+      setCopyNotice("Could not copy phone number");
+      window.setTimeout(() => setCopyNotice(null), 1800);
+    }
   };
 
   const allTags = useMemo(() => {
@@ -442,6 +480,9 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                 <p className="text-[12px] text-white/75">
                   {contacts.length} contacts available
                 </p>
+                {copyNotice && (
+                  <p className="mt-0.5 text-[11px] font-bold text-white/85">{copyNotice}</p>
+                )}
               </div>
             </div>
           </div>
@@ -664,6 +705,9 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                   <div className="flex flex-col gap-1">
                     {letterContacts.map((contact) => {
                       const isSelected = selectedContacts.some((c) => c.id === contact.id);
+                      const normalizedPhone = normalizePHPhone(contact.phone);
+                      const isDuplicatePhone = /^09\d{9}$/.test(normalizedPhone) && (phoneCounts.get(normalizedPhone) || 0) > 1;
+                      const sourceLabel = getContactSourceLabel(contact);
                       return (
                         <div
                           key={contact.id}
@@ -725,6 +769,14 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                               >
                                 {toProperCase(contact.name)}
                               </p>
+                              <span className="text-[10px] font-black uppercase bg-[#eef6ff] dark:bg-[#2b83fa]/15 text-[#1d6bd4] dark:text-[#8bbcff] px-1.5 py-0.5 rounded-md flex-shrink-0">
+                                {sourceLabel}
+                              </span>
+                              {isDuplicatePhone && (
+                                <span className="text-[10px] font-black uppercase bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-md flex-shrink-0" title="Another contact has this phone number">
+                                  Duplicate
+                                </span>
+                              )}
                               {contact.tags && contact.tags.length > 0 && (
                                 <div className="flex items-center gap-1.5 overflow-hidden flex-shrink-0">
                                   {contact.tags.map(tag => (
@@ -737,6 +789,9 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                             </div>
                             <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
                               {formatDisplayPhone(contact.phone)}
+                            </p>
+                            <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                              {formatLastMessaged(contact.lastSentAt)}
                             </p>
                           </div>
                           {/* Last message preview */}
@@ -778,6 +833,17 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                                 >
                                   <FiEdit2 className="w-4 h-4" />
                                   Edit
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    copyPhoneNumber(contact.phone);
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2"
+                                >
+                                  <FiCopy className="w-4 h-4" />
+                                  Copy Phone
                                 </button>
                                 {onViewMessages && (
                                   <button

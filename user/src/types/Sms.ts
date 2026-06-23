@@ -21,6 +21,9 @@ export interface FirestoreMessage {
   name?: string;
   location_id?: string;
   error_reason?: string;
+  error_code?: string;
+  provider_status?: string;
+  provider_response?: string | Record<string, unknown> | null;
   provider_message_id?: string;
   provider_reference_id?: string;
 }
@@ -68,6 +71,9 @@ export interface SmsLog {
   recipient_key?: string;
   location_id?: string;
   error_reason?: string;
+  error_code?: string;
+  provider_status?: string;
+  provider_response?: string | Record<string, unknown> | null;
   provider_message_id?: string;
   provider_reference_id?: string;
 }
@@ -79,6 +85,9 @@ export interface Message {
   senderName: string;
   status: 'sending' | 'sent' | 'delivered' | 'failed';
   errorReason?: string;
+  errorCode?: string;
+  providerStatus?: string;
+  providerResponse?: string | Record<string, unknown> | null;
   providerMessageId?: string;
   providerReferenceId?: string;
   // Extra fields for compatibility

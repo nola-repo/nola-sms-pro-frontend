@@ -126,6 +126,14 @@ const asString = (value: unknown): string => {
   return String(value);
 };
 
+const pickFirstString = (...values: unknown[]): string | undefined => {
+  for (const value of values) {
+    const text = asString(value).trim();
+    if (text) return text;
+  }
+  return undefined;
+};
+
 const getContactArray = (value: unknown): JsonRecord[] | null => {
   if (!Array.isArray(value)) return null;
   return value.filter(isRecord);
@@ -177,8 +185,9 @@ const normalizeContacts = (data: unknown): Contact[] => {
       phone,
       email: asString(c.email),
       ghl_contact_id: c.ghl_contact_id !== null && c.ghl_contact_id !== undefined ? String(c.ghl_contact_id) : undefined,
-      lastMessage: c.lastMessage !== null && c.lastMessage !== undefined ? String(c.lastMessage) : undefined,
-      lastSentAt: c.lastSentAt !== null && c.lastSentAt !== undefined ? String(c.lastSentAt) : undefined,
+      lastMessage: pickFirstString(c.lastMessage, c.last_message),
+      lastSentAt: pickFirstString(c.lastSentAt, c.last_messaged_at, c.last_message_at, c.last_sms_at),
+      source: pickFirstString(c.source, c.contact_source, c.origin),
       tags: Array.isArray(c.tags) ? c.tags.map(String) : []
     };
   });

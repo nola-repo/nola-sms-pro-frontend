@@ -93,6 +93,9 @@ interface DatabaseMessageRow {
     batch_id?: string;
     recipient_key?: string;
     error_reason?: string;
+    error_code?: string;
+    provider_status?: string;
+    provider_response?: string | Record<string, unknown> | null;
     provider_message_id?: string;
     provider_reference_id?: string;
 }
@@ -159,6 +162,9 @@ export const useConversationMessages = (conversationId: string | undefined, reci
                 recipient_key: row.recipient_key,
                 message: row.message,
                 errorReason: row.error_reason,
+                errorCode: row.error_code,
+                providerStatus: row.provider_status,
+                providerResponse: row.provider_response,
                 providerMessageId: row.provider_message_id || row.provider_reference_id,
                 providerReferenceId: row.provider_reference_id,
             };

@@ -3,12 +3,12 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 
 import { fetchContacts } from "../api/contacts";
 import { fetchTemplates } from "../api/templates";
-import { sendSms, sendBulkSms, interpolateMessage, checkMessageStatus, type SenderId } from "../api/sms";
+import { sendSms, sendBulkSms, interpolateMessage, checkMessageStatus, normalizePHNumber, type SenderId } from "../api/sms";
 import { getRecipientKey, saveBulkMessage } from "../utils/storage";
 import type { BulkMessageHistoryItem, Message } from "../types/Sms";
 import type { Contact } from "../types/Contact";
 import type { Template } from "../types/Template";
-import { FiUser, FiUsers, FiMenu, FiMoreHorizontal, FiX } from "react-icons/fi";
+import { FiUser, FiUsers, FiMenu, FiMoreHorizontal, FiX, FiCopy, FiRefreshCw } from "react-icons/fi";
 import ShinyText from "./ShinyText";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useConversationMessages } from "../hooks/useConversationMessages";
@@ -51,6 +51,32 @@ type MessageDetailsSelection =
       stats: { sent: number; sending: number; failed: number; total: number };
       conversationId?: string;
     };
+
+type RecipientAnalysis = {
+  uniqueRecipients: Contact[];
+  invalidRecipients: Contact[];
+  duplicateCount: number;
+  duplicatePhones: string[];
+  totalCount: number;
+  uniqueCount: number;
+};
+
+type BulkConfirmationState = {
+  messageText: string;
+  totalCount: number;
+  uniqueCount: number;
+  duplicateCount: number;
+  duplicatePhones: string[];
+  segments: number;
+  estimatedCredits: number;
+};
+
+type BulkSendSummaryState = {
+  total: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+};
 
 const DetailRow: React.FC<{ label: string; value?: string | number | null; mono?: boolean }> = ({ label, value, mono }) => {
   if (value === undefined || value === null || value === "") return null;
@@ -116,6 +142,48 @@ const normalizeRecipient = (contact: Contact): Contact => ({
 
 const contactPhoneKey = (phone?: string | null) => (phone || "").replace(/\D/g, "").slice(-10);
 
+const analyzeRecipients = (recipients: Contact[]): RecipientAnalysis => {
+  const uniqueRecipients: Contact[] = [];
+  const invalidRecipients: Contact[] = [];
+  const duplicatePhones = new Set<string>();
+  const seen = new Set<string>();
+
+  recipients.forEach((recipient) => {
+    const normalized = normalizePHNumber(resolveContactPhone(recipient));
+    if (!normalized) {
+      invalidRecipients.push(recipient);
+      return;
+    }
+
+    if (seen.has(normalized)) {
+      duplicatePhones.add(normalized);
+      return;
+    }
+
+    seen.add(normalized);
+    uniqueRecipients.push({ ...recipient, phone: normalized });
+  });
+
+  return {
+    uniqueRecipients,
+    invalidRecipients,
+    duplicateCount: recipients.length - invalidRecipients.length - uniqueRecipients.length,
+    duplicatePhones: Array.from(duplicatePhones),
+    totalCount: recipients.length,
+    uniqueCount: uniqueRecipients.length,
+  };
+};
+
+const stringifyDiagnostic = (value?: unknown): string | undefined => {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+};
+
 const matchesContactUpdate = (target: Contact, contact: Contact, previous?: Contact | null) => {
   if (target.id === contact.id || (previous && target.id === previous.id)) return true;
   const targetPhone = contactPhoneKey(resolveContactPhone(target));
@@ -180,6 +248,8 @@ export const Composer: React.FC<ComposerProps> = ({
   }, [locationId]);
   const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null);
   const [messageDetails, setMessageDetails] = useState<MessageDetailsSelection | null>(null);
+  const [bulkConfirmation, setBulkConfirmation] = useState<BulkConfirmationState | null>(null);
+  const [bulkSendSummary, setBulkSendSummary] = useState<BulkSendSummaryState | null>(null);
   const [lottieError, setLottieError] = useState(false);
 
   useEffect(() => {
@@ -635,7 +705,8 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   // SMS length calculation
-  const smsSegments = estimateSmsSegments(message).segments;
+  const smsEstimate = estimateSmsSegments(message);
+  const smsSegments = smsEstimate.segments;
 
   // Get active recipients based on context
   const getActiveRecipients = (): Contact[] => {
@@ -658,10 +729,13 @@ export const Composer: React.FC<ComposerProps> = ({
     return [];
   };
 
+  const activeRecipientAnalysis = analyzeRecipients(getActiveRecipients().map(normalizeRecipient).filter(contact => contact.phone));
   const totalEstimatedSms = composeMode === "bulk" && isNewMessage
-    ? smsSegments * bulkSelectedContacts.length
+    ? smsSegments * activeRecipientAnalysis.uniqueCount
     : smsSegments;
-  const handleSend = () => {
+  const estimatedCreditCost = smsSegments * Math.max(activeRecipientAnalysis.uniqueCount, activeRecipientAnalysis.totalCount > 0 ? 1 : 0);
+  const hasBulkWarnings = composeMode === "bulk" && (activeRecipientAnalysis.duplicateCount > 0 || activeRecipientAnalysis.invalidRecipients.length > 0);
+  const handleSend = (confirmedBulk = false) => {
     if (sendGuardRef.current) return;
 
     // Guard to ensure only one toast fires per send action
@@ -670,7 +744,7 @@ export const Composer: React.FC<ComposerProps> = ({
       toastShown = true;
       showToast(severity, msg);
     };
-    const recipients = getActiveRecipients()
+    let recipients = getActiveRecipients()
       .map(normalizeRecipient)
       .filter(contact => contact.phone);
     const messageText = (messageInputRef.current?.value ?? message).trim();
@@ -685,6 +759,33 @@ export const Composer: React.FC<ComposerProps> = ({
       setTimeout(() => setShowDisabledReason(false), 3000);
       return;
     }
+
+    const analysis = analyzeRecipients(recipients);
+    if (analysis.invalidRecipients.length > 0) {
+      showToast("error", `${analysis.invalidRecipients.length} recipient${analysis.invalidRecipients.length === 1 ? " has" : "s have"} an invalid phone number.`);
+      setShowDisabledReason(true);
+      setTimeout(() => setShowDisabledReason(false), 3000);
+      return;
+    }
+
+    const isBulkSend = analysis.uniqueCount > 1;
+    if (isBulkSend && !confirmedBulk) {
+      const confirmationSegments = estimateSmsSegments(messageText).segments;
+      setBulkConfirmation({
+        messageText,
+        totalCount: analysis.totalCount,
+        uniqueCount: analysis.uniqueCount,
+        duplicateCount: analysis.duplicateCount,
+        duplicatePhones: analysis.duplicatePhones,
+        segments: confirmationSegments,
+        estimatedCredits: confirmationSegments * analysis.uniqueCount,
+      });
+      return;
+    }
+
+    const skippedDuplicateCount = analysis.duplicateCount;
+    recipients = analysis.uniqueRecipients;
+    setBulkConfirmation(null);
 
     sendGuardRef.current = true;
     window.setTimeout(() => {
@@ -822,6 +923,7 @@ export const Composer: React.FC<ComposerProps> = ({
             // contacts sharing the same phone number don't inflate the "failed" count.
             const sentTotal = results.length;
             const failedCount = sentTotal - successCount;
+            setBulkSendSummary({ total: sentTotal + skippedDuplicateCount, sent: successCount, failed: failedCount, skipped: skippedDuplicateCount });
 
             if (groupTempId) {
               updateMessageStatus(groupTempId, successCount > 0 ? 'sending' : 'failed');
@@ -829,8 +931,8 @@ export const Composer: React.FC<ComposerProps> = ({
 
             if (successCount > 0) {
               const successMsg = failedCount > 0
-                ? `Sent ${successCount}/${sentTotal} — ${failedCount} failed`
-                : `Sent all ${sentTotal} messages successfully!`;
+                ? `Sent ${successCount}/${sentTotal} - ${failedCount} failed${skippedDuplicateCount > 0 ? `, ${skippedDuplicateCount} skipped` : ""}`
+                : `Sent all ${sentTotal} messages successfully${skippedDuplicateCount > 0 ? `; ${skippedDuplicateCount} duplicate skipped` : ""}.`;
               guardedToast(failedCount > 0 ? "error" : "success", successMsg);
 
               // Refresh to show new messages in the conversation
@@ -937,6 +1039,7 @@ export const Composer: React.FC<ComposerProps> = ({
               // Use deduplicated result count to avoid false "failed" for duplicate phone numbers
               const sentTotal = results.length;
               const failedCount = sentTotal - successCount;
+              setBulkSendSummary({ total: sentTotal + skippedDuplicateCount, sent: successCount, failed: failedCount, skipped: skippedDuplicateCount });
 
               if (groupTempId) {
                 updateMessageStatus(groupTempId, successCount > 0 ? 'sending' : 'failed');
@@ -944,8 +1047,8 @@ export const Composer: React.FC<ComposerProps> = ({
 
               if (successCount > 0) {
                 const successMsg = failedCount > 0
-                  ? `Sent ${successCount}/${sentTotal} — ${failedCount} failed`
-                  : `Sent all ${sentTotal} messages successfully!`;
+                  ? `Sent ${successCount}/${sentTotal} - ${failedCount} failed${skippedDuplicateCount > 0 ? `, ${skippedDuplicateCount} skipped` : ""}`
+                  : `Sent all ${sentTotal} messages successfully${skippedDuplicateCount > 0 ? `; ${skippedDuplicateCount} duplicate skipped` : ""}.`;
                 guardedToast(failedCount > 0 ? "error" : "success", successMsg);
                 window.dispatchEvent(new Event('sms-sent'));
 
@@ -1075,6 +1178,81 @@ export const Composer: React.FC<ComposerProps> = ({
     return "";
   };
 
+  const copyToClipboard = async (label: string, value?: string | null) => {
+    const text = (value || "").trim();
+    if (!text) {
+      showToast("error", `No ${label.toLowerCase()} to copy.`);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("success", `${label} copied.`);
+    } catch {
+      showToast("error", `Could not copy ${label.toLowerCase()}.`);
+    }
+  };
+
+  const retryFailedMessage = async (msg: Message, recipientOverride?: string) => {
+    const recipient = normalizePHNumber(recipientOverride || msg.number || historyPhoneNumber || "");
+    const text = (msg.text || msg.message || "").trim();
+    if (!recipient || !text) {
+      showToast("error", "This failed message is missing a valid recipient or message text.");
+      return;
+    }
+
+    const tempId = addOptimisticMessage(text, senderName, conversationId);
+    const result = await sendSms(recipient, text, senderName, msg.batch_id, undefined, msg.recipient_key, undefined, selectedTagsToApply);
+    if (result.success) {
+      updateMessageStatus(tempId, "sending", result.messageIds?.[0]);
+      showToast("success", result.message || "Retry queued for delivery.");
+      window.dispatchEvent(new Event("sms-sent"));
+      setTimeout(() => refresh(), 1500);
+    } else {
+      updateMessageStatus(tempId, "failed", undefined, result.message || "Retry failed");
+      showToast("error", result.message || "Retry failed.");
+    }
+  };
+
+  const renderMessageQuickActions = (msg: Message, recipient?: string) => (
+    <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          copyToClipboard("Message", msg.text || msg.message || "");
+        }}
+        className="inline-flex items-center gap-1 rounded-full bg-white/85 dark:bg-white/[0.08] px-2 py-1 text-[10px] font-bold text-[#667085] dark:text-[#a7adba] ring-1 ring-[#dce4ee] dark:ring-white/10 hover:text-[#1d6bd4]"
+      >
+        <FiCopy className="h-3 w-3" /> Copy
+      </button>
+      {recipient && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            copyToClipboard("Phone number", recipient);
+          }}
+          className="inline-flex items-center gap-1 rounded-full bg-white/85 dark:bg-white/[0.08] px-2 py-1 text-[10px] font-bold text-[#667085] dark:text-[#a7adba] ring-1 ring-[#dce4ee] dark:ring-white/10 hover:text-[#1d6bd4]"
+        >
+          <FiCopy className="h-3 w-3" /> Phone
+        </button>
+      )}
+      {msg.status === "failed" && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            retryFailedMessage(msg, recipient);
+          }}
+          className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-500/10 px-2 py-1 text-[10px] font-black text-red-600 dark:text-red-300 ring-1 ring-red-200/70 dark:ring-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/15"
+        >
+          <FiRefreshCw className="h-3 w-3" /> Retry
+        </button>
+      )}
+    </div>
+  );
+
   const formatDetailsTimestamp = (date: Date) =>
     date.toLocaleString([], {
       weekday: "long",
@@ -1157,6 +1335,14 @@ export const Composer: React.FC<ComposerProps> = ({
                 <span className="text-[12px] sm:text-[13px] text-white/75 font-semibold truncate">
                   {activePhoneNumber}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard("Phone number", activePhoneNumber)}
+                  className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white/85 ring-1 ring-white/20 hover:bg-white/25"
+                  title="Copy phone number"
+                >
+                  <FiCopy className="h-3 w-3" /> Copy phone
+                </button>
               </div>
             </div>
             {/* Sender + Credits */}
@@ -1717,9 +1903,10 @@ export const Composer: React.FC<ComposerProps> = ({
                                 : msg.status === 'sent'
                                 ? <FiCheck className="inline mb-0.5 mr-1" size={10} />
                                 : <FiAlertCircle size={10} className="inline mb-0.5 mr-1" />}
-                              {msg.status === 'sending' ? 'Sending…' : msg.status === 'sent' ? 'Sent' : 'Failed'}
+                              {msg.status === 'sending' ? 'Sending...' : msg.status === 'sent' ? 'Sent' : 'Failed'}
                             </span>
                           </div>
+                          {renderMessageQuickActions(msg, msg.number || historyPhoneNumber)}
                         </div>
                         {!isExpanded && msg.status === "sending" && (
                           <div className="mt-1 flex items-center justify-end px-1">
@@ -1861,7 +2048,7 @@ export const Composer: React.FC<ComposerProps> = ({
                               {campaignStats.sending > 0 ? (
                                 <span className="text-[10px] font-bold text-gray-400 capitalize tracking-wider flex items-center gap-0.5">
                                   <FiLoader className="animate-spin inline mb-0.5 mr-1" size={10} />
-                                  Sending…
+                                  Sending...
                                 </span>
                               ) : campaignStats.failed > 0 ? (
                                 <span className="text-[10px] font-bold text-red-500 capitalize tracking-wider flex items-center gap-0.5">
@@ -1952,14 +2139,15 @@ export const Composer: React.FC<ComposerProps> = ({
                             <span className="text-[10px] text-gray-400">•</span>
                             <span className={`text-[10px] font-bold capitalize tracking-wider ${msg.status === 'sent' ? 'text-green-500' : msg.status === 'failed' ? 'text-red-500' : 'text-gray-400'}`}>
                               {msg.status === 'sending' ? <FiLoader className="animate-spin inline mb-0.5 mr-1" size={10} /> : msg.status === 'sent' ? <FiCheck className="inline mb-0.5 mr-1" size={10} /> : <FiAlertCircle size={10} className="inline mb-0.5 mr-1 animate-pulse" />}
-                              {msg.status === 'sending' ? 'Sending…' : msg.status === 'sent' ? 'Sent' : 'Failed'}
+                              {msg.status === 'sending' ? 'Sending...' : msg.status === 'sent' ? 'Sent' : 'Failed'}
                             </span>
                             {msg.status === 'failed' && msg.errorReason && (
                               <span className="text-[10px] text-red-400 font-medium truncate max-w-[160px]" title={msg.errorReason}>
-                                — {msg.errorReason}
+                                - {msg.errorReason}
                               </span>
                             )}
                           </div>
+                          {renderMessageQuickActions(msg, msg.number || historyPhoneNumber)}
                         </div>
                         {!isExpanded && msg.status === "sending" && (
                           <div className="mt-1 flex items-center justify-end px-1">
@@ -2020,6 +2208,32 @@ export const Composer: React.FC<ComposerProps> = ({
                 rows={1}
                 style={{ height: 'auto', minHeight: '58px' }}
               />
+
+              {message && activeRecipientAnalysis.totalCount > 0 && (
+                <div className="mx-3 mb-2 flex flex-wrap items-center gap-2 rounded-2xl border border-[#e5ebf3] bg-[#f8fafc] px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
+                  <span className="text-[11px] font-black uppercase text-[#667085] dark:text-[#a7adba]">
+                    {smsEstimate.lengthUnits} chars
+                  </span>
+                  <span className="text-[11px] font-black uppercase text-[#667085] dark:text-[#a7adba]">
+                    {smsSegments} segment{smsSegments === 1 ? "" : "s"}
+                  </span>
+                  <span className="text-[11px] font-black uppercase text-[#1d6bd4] dark:text-[#8bbcff]">
+                    Est. {estimatedCreditCost} credit{estimatedCreditCost === 1 ? "" : "s"}
+                  </span>
+                  {composeMode === "bulk" && (
+                    <span className="text-[11px] font-black uppercase text-[#667085] dark:text-[#a7adba]">
+                      {activeRecipientAnalysis.uniqueCount}/{activeRecipientAnalysis.totalCount} recipients
+                    </span>
+                  )}
+                  {hasBulkWarnings && (
+                    <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                      {activeRecipientAnalysis.duplicateCount > 0 && `${activeRecipientAnalysis.duplicateCount} duplicate${activeRecipientAnalysis.duplicateCount === 1 ? "" : "s"} skipped`}
+                      {activeRecipientAnalysis.duplicateCount > 0 && activeRecipientAnalysis.invalidRecipients.length > 0 ? " / " : ""}
+                      {activeRecipientAnalysis.invalidRecipients.length > 0 && `${activeRecipientAnalysis.invalidRecipients.length} invalid`}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Contextual hints for new message flow */}
               {isNewMessage && (bulkSelectedContacts.length === 0 || !message) && (
@@ -2160,17 +2374,17 @@ export const Composer: React.FC<ComposerProps> = ({
                   {isNewMessage && composeMode === "bulk" && message.length > 0 && bulkSelectedContacts.length > 0 && (
                     <div className="ml-2 flex items-center gap-1.5 px-2.5 py-1 bg-[#eef6ff] dark:bg-blue-900/20 rounded-full border border-blue-100 dark:border-blue-800/30">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#2b83fa] animate-pulse"></div>
-                      <span className="text-[10px] font-bold text-[#2b83fa] uppercase tracking-wide">Est. {totalEstimatedSms} SMS</span>
+                      <span className="text-[10px] font-bold text-[#2b83fa] uppercase tracking-wide">Est. {totalEstimatedSms} SMS / {estimatedCreditCost} credits</span>
                     </div>
                   )}
                 </div>
 
                 <div className="flex items-center gap-3 sm:gap-4">
                   <span className="text-[12px] font-semibold text-[#98a2b3] dark:text-[#737b89] tabular-nums whitespace-nowrap">
-                    {message.length} <span className="text-[10px] opacity-70">chars</span>
+                    {smsEstimate.lengthUnits} <span className="text-[10px] opacity-70">chars</span> / {smsSegments} <span className="text-[10px] opacity-70">seg</span>
                   </span>
                   <button
-                    onClick={handleSend}
+                    onClick={() => handleSend()}
                     disabled={isSendDisabled()}
                     className={`
                       group flex items-center justify-center gap-2 
@@ -2230,6 +2444,101 @@ export const Composer: React.FC<ComposerProps> = ({
           )}
         </div>
       </div>
+      {bulkConfirmation && (
+        <div
+          className="fixed inset-0 z-[9998] flex items-center justify-center bg-[#0f172a]/35 px-4 backdrop-blur-sm"
+          onClick={() => setBulkConfirmation(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirm bulk SMS"
+        >
+          <div
+            className="w-full max-w-md rounded-[24px] border border-[#d8e1ec] bg-white p-5 text-left shadow-2xl dark:border-white/10 dark:bg-[#17191f]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-[#2b83fa] dark:text-[#8bbcff]">Confirm send</div>
+                <h3 className="mt-1 text-[18px] font-black text-[#101828] dark:text-white">Send bulk SMS?</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBulkConfirmation(null)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f2f4f7] text-[#667085] transition-colors hover:bg-[#e4e9f0] hover:text-[#101828] dark:bg-white/[0.06] dark:text-[#a7adba] dark:hover:bg-white/[0.1] dark:hover:text-white"
+                aria-label="Close bulk confirmation"
+              >
+                <FiX className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <DetailRow label="Recipients" value={`${bulkConfirmation.uniqueCount}/${bulkConfirmation.totalCount}`} />
+              <DetailRow label="Segments" value={bulkConfirmation.segments} />
+              <DetailRow label="Est. credits" value={bulkConfirmation.estimatedCredits} />
+              <DetailRow label="Skipped duplicates" value={bulkConfirmation.duplicateCount} />
+            </div>
+            {bulkConfirmation.duplicateCount > 0 && (
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
+                Duplicate phone numbers will be skipped: {bulkConfirmation.duplicatePhones.slice(0, 4).join(", ")}{bulkConfirmation.duplicatePhones.length > 4 ? "..." : ""}
+              </div>
+            )}
+            <div className="mt-4 rounded-2xl bg-[#f8fafc] p-3 text-[13px] font-medium text-[#344054] dark:bg-white/[0.04] dark:text-[#e4e7ec]">
+              {bulkConfirmation.messageText}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkConfirmation(null)}
+                className="rounded-xl px-4 py-2 text-[13px] font-bold text-[#667085] hover:bg-[#f2f4f7] dark:text-[#a7adba] dark:hover:bg-white/[0.06]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSend(true)}
+                className="rounded-xl bg-[#2b83fa] px-5 py-2 text-[13px] font-black text-white shadow-sm hover:bg-[#1d6bd4]"
+              >
+                Send now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkSendSummary && (
+        <div
+          className="fixed inset-0 z-[9998] flex items-center justify-center bg-[#0f172a]/35 px-4 backdrop-blur-sm"
+          onClick={() => setBulkSendSummary(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Bulk send summary"
+        >
+          <div
+            className="w-full max-w-sm rounded-[24px] border border-[#d8e1ec] bg-white p-5 text-left shadow-2xl dark:border-white/10 dark:bg-[#17191f]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4">
+              <div className="text-[11px] font-black uppercase tracking-widest text-[#2b83fa] dark:text-[#8bbcff]">Bulk complete</div>
+              <h3 className="mt-1 text-[18px] font-black text-[#101828] dark:text-white">Send summary</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <DetailRow label="Total" value={bulkSendSummary.total} />
+              <DetailRow label="Sent" value={bulkSendSummary.sent} />
+              <DetailRow label="Failed" value={bulkSendSummary.failed} />
+              <DetailRow label="Skipped" value={bulkSendSummary.skipped} />
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setBulkSendSummary(null)}
+                className="rounded-xl bg-[#2b83fa] px-5 py-2 text-[13px] font-black text-white shadow-sm hover:bg-[#1d6bd4]"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {messageDetails && (
         <div
           className="fixed inset-0 z-[9998] flex items-center justify-center bg-[#0f172a]/35 px-4 backdrop-blur-sm"
@@ -2271,6 +2580,7 @@ export const Composer: React.FC<ComposerProps> = ({
             </div>
 
             {messageDetails.kind === "message" ? (
+              <>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <DetailRow label="Status" value={messageDetails.message.status} />
                 <DetailRow label="Sender" value={messageDetails.message.senderName} />
@@ -2278,10 +2588,16 @@ export const Composer: React.FC<ComposerProps> = ({
                 <DetailRow label="Recipient" value={messageDetails.recipient} mono />
                 <DetailRow label="Message ID" value={messageDetails.message.id} mono />
                 <DetailRow label="Provider ID" value={messageDetails.message.providerMessageId} mono />
+                <DetailRow label="Provider reference" value={messageDetails.message.providerReferenceId} mono />
+                <DetailRow label="Provider status" value={messageDetails.message.providerStatus} />
                 <DetailRow label="Conversation ID" value={messageDetails.conversationId} mono />
                 <DetailRow label="Batch ID" value={messageDetails.message.batch_id} mono />
-                <DetailRow label="Error" value={messageDetails.message.errorReason} />
+                <DetailRow label="Error code" value={messageDetails.message.errorCode} mono />
+                <DetailRow label="Failure reason" value={messageDetails.message.errorReason || (messageDetails.message.status === "failed" ? "Provider rejected or did not confirm delivery." : undefined)} />
+                <DetailRow label="Provider response" value={stringifyDiagnostic(messageDetails.message.providerResponse)} mono />
               </div>
+              {renderMessageQuickActions(messageDetails.message, messageDetails.recipient || messageDetails.message.number)}
+              </>
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

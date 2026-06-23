@@ -26,6 +26,8 @@ interface SendSmsResponse {
   success?: boolean;
   message?: string;
   error?: string;
+  details?: unknown;
+  providerResponse?: unknown;
   status?: string;
   number?: string;
   /** Message IDs returned by the backend for status polling */
@@ -245,6 +247,8 @@ export const sendSms = async (
       return {
         success: false,
         error: parsed?.error,
+        details: parsed?.details || parsed?.provider_response || parsed,
+        providerResponse: parsed?.provider_response || parsed?.response || parsed?.output,
         message: parsed ? resolveSmsErrorMessage(parsed, `SMS request failed (${res.status})`) : (errorText || `SMS request failed (${res.status})`),
       };
     }
@@ -255,6 +259,8 @@ export const sendSms = async (
       return {
         success: false,
         error: data.error,
+        details: data.details || data.provider_response || data.response || data.output,
+        providerResponse: data.provider_response || data.response || data.output,
         message: resolveSmsErrorMessage(data),
       };
     }
@@ -262,6 +268,8 @@ export const sendSms = async (
     if (data?.output?.success === false) {
       return {
         success: false,
+        details: data.output || data.response || data,
+        providerResponse: data.output || data.response,
         message: data.execution_log || data.message || "SMS gateway did not accept the message",
       };
     }
@@ -281,6 +289,8 @@ export const sendSms = async (
     if (extractedMessageIds.length === 0) {
       return {
         success: false,
+        details: data.output || data.response || data,
+        providerResponse: data.output || data.response,
         message: data.execution_log || "SMS gateway did not return a message ID",
       };
     }
@@ -582,6 +592,9 @@ export const fetchMessagesByConversationId = async (
       created_at: log.date_created || null,
       location_id: log.location_id,
       error_reason: log.error_reason,
+      error_code: log.error_code,
+      provider_status: log.provider_status,
+      provider_response: log.provider_response,
       provider_message_id: log.provider_message_id,
       provider_reference_id: log.provider_reference_id,
     }));
