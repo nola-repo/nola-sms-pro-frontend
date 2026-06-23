@@ -83,8 +83,8 @@ const DetailRow: React.FC<{ label: string; value?: string | number | null; mono?
 
   return (
     <div className="rounded-xl border border-[#e5ebf3] dark:border-white/10 bg-[#f8fafc] dark:bg-white/[0.04] px-3 py-2">
-      <div className="text-[10px] font-black uppercase text-[#98a2b3] dark:text-[#7d8491] mb-1">{label}</div>
-      <div className={`text-[12.5px] font-semibold text-[#344054] dark:text-[#e4e7ec] break-words ${mono ? "font-mono" : ""}`}>
+      <div className="text-[10px] font-bold uppercase tracking-wide text-[#98a2b3] dark:text-[#7d8491] mb-1">{label}</div>
+      <div className={`text-[13px] font-medium leading-snug text-[#344054] dark:text-[#e4e7ec] break-words ${mono ? "font-mono" : ""}`}>
         {value}
       </div>
     </div>
@@ -734,7 +734,6 @@ export const Composer: React.FC<ComposerProps> = ({
     ? smsSegments * activeRecipientAnalysis.uniqueCount
     : smsSegments;
   const estimatedCreditCost = smsSegments * Math.max(activeRecipientAnalysis.uniqueCount, activeRecipientAnalysis.totalCount > 0 ? 1 : 0);
-  const hasBulkWarnings = composeMode === "bulk" && (activeRecipientAnalysis.duplicateCount > 0 || activeRecipientAnalysis.invalidRecipients.length > 0);
   const handleSend = (confirmedBulk = false) => {
     if (sendGuardRef.current) return;
 
@@ -2200,32 +2199,6 @@ export const Composer: React.FC<ComposerProps> = ({
                 style={{ height: 'auto', minHeight: '58px' }}
               />
 
-              {message && activeRecipientAnalysis.totalCount > 0 && (
-                <div className="mx-3 mb-2 flex flex-wrap items-center gap-2 rounded-2xl border border-[#e5ebf3] bg-[#f8fafc] px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
-                  <span className="text-[11px] font-black uppercase text-[#667085] dark:text-[#a7adba]">
-                    {smsEstimate.lengthUnits} chars
-                  </span>
-                  <span className="text-[11px] font-black uppercase text-[#667085] dark:text-[#a7adba]">
-                    {smsSegments} segment{smsSegments === 1 ? "" : "s"}
-                  </span>
-                  <span className="text-[11px] font-black uppercase text-[#1d6bd4] dark:text-[#8bbcff]">
-                    Est. {estimatedCreditCost} credit{estimatedCreditCost === 1 ? "" : "s"}
-                  </span>
-                  {composeMode === "bulk" && (
-                    <span className="text-[11px] font-black uppercase text-[#667085] dark:text-[#a7adba]">
-                      {activeRecipientAnalysis.uniqueCount}/{activeRecipientAnalysis.totalCount} recipients
-                    </span>
-                  )}
-                  {hasBulkWarnings && (
-                    <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
-                      {activeRecipientAnalysis.duplicateCount > 0 && `${activeRecipientAnalysis.duplicateCount} duplicate${activeRecipientAnalysis.duplicateCount === 1 ? "" : "s"} skipped`}
-                      {activeRecipientAnalysis.duplicateCount > 0 && activeRecipientAnalysis.invalidRecipients.length > 0 ? " / " : ""}
-                      {activeRecipientAnalysis.invalidRecipients.length > 0 && `${activeRecipientAnalysis.invalidRecipients.length} invalid`}
-                    </span>
-                  )}
-                </div>
-              )}
-
               {/* Contextual hints for new message flow */}
               {isNewMessage && (bulkSelectedContacts.length === 0 || !message) && (
                 <div className="flex items-center gap-2 px-4 py-2 flex-wrap">
@@ -2372,7 +2345,7 @@ export const Composer: React.FC<ComposerProps> = ({
 
                 <div className="flex items-center gap-3 sm:gap-4">
                   <span className="text-[12px] font-semibold text-[#98a2b3] dark:text-[#737b89] tabular-nums whitespace-nowrap">
-                    {smsEstimate.lengthUnits} <span className="text-[10px] opacity-70">chars</span> / {smsSegments} <span className="text-[10px] opacity-70">seg</span>
+                    {smsEstimate.lengthUnits} <span className="text-[10px] opacity-70">chars</span> / est. {estimatedCreditCost} <span className="text-[10px] opacity-70">credit{estimatedCreditCost === 1 ? "" : "s"}</span>
                   </span>
                   <button
                     onClick={() => handleSend()}
@@ -2544,10 +2517,10 @@ export const Composer: React.FC<ComposerProps> = ({
           >
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <div className="text-[11px] font-black uppercase tracking-widest text-[#2b83fa] dark:text-[#8bbcff]">
+                <div className="text-[11px] font-bold uppercase tracking-widest text-[#2b83fa] dark:text-[#8bbcff]">
                   Message details
                 </div>
-                <h3 className="mt-1 text-[18px] font-black text-[#101828] dark:text-white">
+                <h3 className="mt-1 text-[18px] font-bold text-[#101828] dark:text-white">
                   {messageDetails.kind === "bulk" ? "Bulk send event" : "Outbound message"}
                 </h3>
               </div>
@@ -2564,8 +2537,8 @@ export const Composer: React.FC<ComposerProps> = ({
             <div className="mb-4 rounded-2xl bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] p-4 text-white shadow-lg shadow-blue-900/10">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-white/70">Message</div>
-                  <p className="whitespace-pre-wrap break-words text-[14px] font-semibold leading-relaxed">
+                  <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-white/70">Message</div>
+                  <p className="whitespace-pre-wrap break-words text-[14px] font-medium leading-relaxed">
                     {messageDetailsText}
                   </p>
                 </div>
@@ -2590,7 +2563,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 {messageDetailsRecipient && (
                   <div className="rounded-xl border border-[#e5ebf3] bg-[#f8fafc] px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
                     <div className="mb-1 flex items-center justify-between gap-2">
-                      <div className="text-[10px] font-black uppercase text-[#98a2b3] dark:text-[#7d8491]">Recipient</div>
+                      <div className="text-[10px] font-bold uppercase tracking-wide text-[#98a2b3] dark:text-[#7d8491]">Recipient</div>
                       <button
                         type="button"
                         onClick={() => copyToClipboard("Phone number", messageDetailsRecipient)}
@@ -2601,7 +2574,7 @@ export const Composer: React.FC<ComposerProps> = ({
                         <FiCopy className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                    <div className="break-words font-mono text-[12.5px] font-semibold text-[#344054] dark:text-[#e4e7ec]">
+                    <div className="break-words font-mono text-[13px] font-medium leading-snug text-[#344054] dark:text-[#e4e7ec]">
                       {messageDetailsRecipient}
                     </div>
                   </div>
@@ -2635,8 +2608,8 @@ export const Composer: React.FC<ComposerProps> = ({
                   {messageDetails.rows.map((row) => (
                     <div key={row.id} className="flex items-center justify-between gap-3 border-b border-[#edf1f6] px-3 py-2 last:border-b-0 dark:border-white/[0.06]">
                       <div className="min-w-0">
-                        <div className="truncate text-[12px] font-bold text-[#344054] dark:text-[#e4e7ec]">{row.senderName}</div>
-                        <div className="truncate font-mono text-[10px] text-[#98a2b3] dark:text-[#7d8491]">{row.id}</div>
+                        <div className="truncate text-[12px] font-medium text-[#344054] dark:text-[#e4e7ec]">{row.senderName}</div>
+                        <div className="truncate font-mono text-[10px] font-medium text-[#98a2b3] dark:text-[#7d8491]">{row.id}</div>
                         {row.providerMessageId && (
                           <div className="truncate font-mono text-[10px] text-[#98a2b3] dark:text-[#7d8491]">Provider: {row.providerMessageId}</div>
                         )}

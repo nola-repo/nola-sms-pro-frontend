@@ -614,9 +614,9 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={isAllSelected ? handleClearSelection : handleSelectAll}
-                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-[12px] font-semibold transition-all duration-200 ${isAllSelected
-                  ? "bg-red-500/15 text-white hover:bg-red-500/25"
-                  : "bg-white/10 text-white hover:bg-white/20 border border-white/20"
+                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-[12px] font-bold transition-all duration-200 border shadow-sm ${isAllSelected
+                  ? "bg-white text-[#1d6bd4] border-white shadow-blue-950/10 hover:bg-white/90"
+                  : "bg-white/10 text-white hover:bg-white/20 border-white/20"
                   }`}
               >
                 <FiCheck className="h-3.5 w-3.5" />
