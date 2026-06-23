@@ -1,8 +1,7 @@
 import { API_CONFIG } from "../config";
 import { getAccountSettings } from "../utils/settingsStorage";
-import { apiFetch } from "../utils/apiFetch";
+import { fetchCachedJson, type QueryKeyParts } from "../utils/queryCache";
 
-// ─── Credit Status (Three-Tier Billing) ──────────────────────────────────────
 export interface CreditStatus {
     credit_balance: number;
     free_usage_count: number;
@@ -15,51 +14,15 @@ export interface CreditStatus {
     };
 }
 
-/**
- * Fetch the current credit and trial status.
- * Returns full billing metadata including free-trial counters.
- */
-export async function fetchCreditStatus(explicitLocationId?: string): Promise<CreditStatus | null> {
-    try {
-        const accountSettings = getAccountSettings();
-        const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (locationId) {
-            headers['X-GHL-Location-ID'] = locationId;
-        }
-
-        const params = new URLSearchParams({ fresh: "1" });
-        if (locationId) {
-            params.set("location_id", locationId);
-        }
-        const url = `${API_CONFIG.credits}?${params.toString()}`;
-
-        const res = await apiFetch(url, { headers });
-        if (!res.ok) return null;
-        const data = await res.json();
-
-        return {
-            credit_balance: data.credit_balance ?? data.balance ?? data.data?.balance ?? 0,
-            free_usage_count: data.free_usage_count ?? 0,
-            free_credits_total: data.free_credits_total ?? 0,
-            currency: data.currency ?? 'PHP',
-            stats: data.stats
-        };
-    } catch {
-        return null;
-    }
-}
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 export interface CreditTransaction {
     transaction_id: string;
     account_id: string;
     type: 'deduction' | 'top_up' | 'refund' | 'manual_adjustment' | 'admin_adjustment' | 'agency_adjustment' | 'credit_purchase';
-    amount: number;         // negative for deductions, positive for credits
+    amount: number;
     balance_after: number;
     reference_id?: string;
     description: string;
-    created_at: string;     // ISO 8601 timestamp
+    created_at: string;
 }
 
 export interface CreditPackage {
@@ -68,67 +31,105 @@ export interface CreditPackage {
     link: string;
 }
 
-// ─── API Calls ───────────────────────────────────────────────────────────────
+const CREDIT_STATUS_CACHE_TTL_MS = 30 * 1000;
+const CREDIT_TRANSACTIONS_CACHE_TTL_MS = 60 * 1000;
 
-/**
- * Fetch the current credit balance.
- * Thin wrapper around fetchCreditStatus for backward compatibility.
- * Returns 0 on failure to allow graceful degradation.
- */
+const creditCacheKey = (locationId: string | null, resource: string, filtersHash = "default"): QueryKeyParts => ({
+    role: 'user',
+    locationId: locationId || "global",
+    resource,
+    filtersHash,
+});
+
+const normalizeCreditStatus = (data: any): CreditStatus => ({
+    credit_balance: data.credit_balance ?? data.balance ?? data.data?.balance ?? 0,
+    free_usage_count: data.free_usage_count ?? 0,
+    free_credits_total: data.free_credits_total ?? 0,
+    currency: data.currency ?? 'PHP',
+    stats: data.stats,
+});
+
+const normalizeTransactions = (data: any): CreditTransaction[] => {
+    if (Array.isArray(data)) return data as CreditTransaction[];
+    if (Array.isArray(data.transactions)) return data.transactions as CreditTransaction[];
+    if (Array.isArray(data.data)) return data.data as CreditTransaction[];
+    return [];
+};
+
+export async function fetchCreditStatus(
+    explicitLocationId?: string,
+    options: { forceRefresh?: boolean } = {},
+): Promise<CreditStatus | null> {
+    try {
+        const accountSettings = getAccountSettings();
+        const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (locationId) {
+            headers['X-GHL-Location-ID'] = locationId;
+        }
+
+        const params = new URLSearchParams();
+        if (options.forceRefresh) params.set("fresh", "1");
+        if (locationId) params.set("location_id", locationId);
+        const query = params.toString();
+        const url = query ? `${API_CONFIG.credits}?${query}` : API_CONFIG.credits;
+
+        const entry = await fetchCachedJson<CreditStatus>({
+            key: creditCacheKey(locationId, 'credits'),
+            url,
+            init: { headers },
+            ttlMs: CREDIT_STATUS_CACHE_TTL_MS,
+            forceRefresh: options.forceRefresh,
+            parse: normalizeCreditStatus,
+        });
+
+        return entry.data;
+    } catch {
+        return null;
+    }
+}
+
 export async function fetchCreditBalance(explicitLocationId?: string): Promise<number> {
     const status = await fetchCreditStatus(explicitLocationId);
     return status?.credit_balance ?? 0;
 }
 
-/**
- * Fetch the credit transaction ledger.
- * Returns an empty array on failure.
- */
 export async function fetchCreditTransactions(
     accountId = 'default',
     limit = 50,
     explicitLocationId?: string,
     month?: string,
+    options: { forceRefresh?: boolean } = {},
 ): Promise<CreditTransaction[]> {
     try {
         const accountSettings = getAccountSettings();
         const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-        };
-
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (locationId) {
             headers['X-GHL-Location-ID'] = locationId;
         }
 
         let url = `${API_CONFIG.base}/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`;
-        if (locationId) {
-            url += `&location_id=${encodeURIComponent(locationId)}`;
-        }
-        if (month) {
-            url += `&month=${encodeURIComponent(month)}`;
-        }
+        if (locationId) url += `&location_id=${encodeURIComponent(locationId)}`;
+        if (month) url += `&month=${encodeURIComponent(month)}`;
+        if (options.forceRefresh) url += '&refresh=1';
 
-        const res = await apiFetch(url, { headers });
-        if (!res.ok) return [];
-        const data = await res.json();
+        const entry = await fetchCachedJson<CreditTransaction[]>({
+            key: creditCacheKey(locationId, 'transactions', `${accountId}:${limit}:${month || 'all'}`),
+            url,
+            init: { headers },
+            ttlMs: CREDIT_TRANSACTIONS_CACHE_TTL_MS,
+            forceRefresh: options.forceRefresh,
+            parse: normalizeTransactions,
+        });
 
-        // Accept { transactions: [...] } or a bare array
-        if (Array.isArray(data)) return data as CreditTransaction[];
-        if (Array.isArray(data.transactions)) return data.transactions as CreditTransaction[];
-        if (Array.isArray(data.data)) return data.data as CreditTransaction[];
-        return [];
+        return entry.data;
     } catch {
         return [];
     }
 }
 
-/**
- * Fetch available credit packages.
- * Returns a hardcoded list for now.
- */
 export async function fetchCreditPackages(): Promise<CreditPackage[]> {
-    // These could be fetched from a remote config or database in the future
     return [
         { credits: 10, price: 10, link: "https://nolasmspro.com/nola-sms-pro-10-credits" },
         { credits: 500, price: 500, link: "https://nolasmspro.com/nola-sms-pro-500-credits" },

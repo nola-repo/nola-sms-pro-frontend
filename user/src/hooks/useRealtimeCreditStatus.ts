@@ -52,7 +52,7 @@ export const useRealtimeCreditStatus = (explicitLocationId?: string | null) => {
         setLoading(false);
     }, []);
 
-    const refresh = useCallback(async (showLoading = false) => {
+    const refresh = useCallback(async (showLoading = false, forceRefresh = false) => {
         const requestId = ++requestSeq.current;
 
         if (!locationId) {
@@ -67,7 +67,7 @@ export const useRealtimeCreditStatus = (explicitLocationId?: string | null) => {
         const shouldShowLoading = showLoading && !hasLoadedRef.current;
         if (mountedRef.current && shouldShowLoading) setLoading(true);
         try {
-            const result = await fetchCreditStatus(locationId);
+            const result = await fetchCreditStatus(locationId, { forceRefresh });
             if (result && requestSeq.current === requestId) {
                 mergeStatus(result);
             }

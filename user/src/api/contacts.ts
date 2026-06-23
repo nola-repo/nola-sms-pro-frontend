@@ -4,6 +4,7 @@ import { getAccountSettings } from "../utils/settingsStorage";
 import { getSession, redirectToLogin, type AuthSession } from "../services/authService";
 import type { Contact } from "../types/Contact";
 import { apiFetch } from "../utils/apiFetch";
+import { fetchCachedJson, readQueryCache, removeQueryCache, type QueryCacheMeta, type QueryKeyParts } from "../utils/queryCache";
 
 // Use the GHL contacts proxy endpoint (calls GoHighLevel API directly)
 const CONTACTS_API_URL = API_CONFIG.ghl_contacts;
@@ -12,7 +13,7 @@ type JsonRecord = Record<string, unknown>;
 type ErrorBody = JsonRecord | string | null;
 
 export type FetchContactsResult =
-  | { ok: true; contacts: Contact[] }
+  | { ok: true; contacts: Contact[]; cacheMeta?: QueryCacheMeta }
   | {
       ok: false;
       contacts: [];
@@ -139,6 +140,15 @@ const getContactArray = (value: unknown): JsonRecord[] | null => {
   return value.filter(isRecord);
 };
 
+const CONTACTS_CACHE_TTL_MS = 10 * 60 * 1000;
+
+const contactsCacheKey = (locationId: string): QueryKeyParts => ({
+  role: 'user',
+  locationId,
+  resource: 'contacts',
+  filtersHash: 'all',
+});
+
 const normalizeContacts = (data: unknown): Contact[] => {
   // Handle various response formats:
   // - Array of contacts
@@ -195,7 +205,15 @@ const normalizeContacts = (data: unknown): Contact[] => {
   return normalized;
 };
 
-export const fetchContactsMeta = async (explicitLocationId?: string): Promise<FetchContactsResult> => {
+export const getCachedContactsMeta = (explicitLocationId?: string): FetchContactsResult | null => {
+  const contactContext = getContactContext(explicitLocationId);
+  if (!contactContext) return null;
+
+  const cached = readQueryCache<Contact[]>(contactsCacheKey(contactContext.locationId), CONTACTS_CACHE_TTL_MS, true);
+  return cached ? { ok: true, contacts: cached.data, cacheMeta: cached.meta } : null;
+};
+
+export const fetchContactsMeta = async (explicitLocationId?: string, options: { forceRefresh?: boolean } = {}): Promise<FetchContactsResult> => {
   try {
     const contactContext = getContactContext(explicitLocationId);
 
@@ -204,36 +222,33 @@ export const fetchContactsMeta = async (explicitLocationId?: string): Promise<Fe
       return { ok: false, contacts: [], kind: 'other', message: 'Location is not ready', status: 400 };
     }
 
-    const params = new URLSearchParams({ location_id: contactContext.locationId });
-    const url = `${CONTACTS_API_URL}?${params.toString()}`;
-    const res = await apiFetch(url, { headers: contactContext.headers });
-
-    if (!res.ok) {
-      const errorBody = await readJsonOrText(res);
-      devLog.error('NOLA SMS: Contacts API error:', res.status, res.statusText, errorBody);
-      handleUnauthorizedResponse(res.status, errorBody, Boolean(contactContext.session?.token));
-
-      if (isReconnectResponse(res.status, errorBody)) {
-        return {
-          ok: false,
-          contacts: [],
-          kind: 'reconnect',
-          message: getErrorMessage(errorBody, 'GoHighLevel connection expired'),
-          status: res.status,
-        };
-      }
-
-      return {
-        ok: false,
-        contacts: [],
-        kind: 'other',
-        message: getErrorMessage(errorBody, 'Failed to load contacts'),
-        status: res.status,
-      };
+    const cacheKey = contactsCacheKey(contactContext.locationId);
+    const cached = readQueryCache<Contact[]>(cacheKey, CONTACTS_CACHE_TTL_MS, true);
+    if (cached && !cached.meta.stale && !options.forceRefresh) {
+      return { ok: true, contacts: cached.data, cacheMeta: cached.meta };
     }
 
-    const data = await res.json();
-    return { ok: true, contacts: normalizeContacts(data) };
+    const params = new URLSearchParams({ location_id: contactContext.locationId });
+    if (options.forceRefresh) params.set('refresh', '1');
+    const url = `${CONTACTS_API_URL}?${params.toString()}`;
+
+    try {
+      const entry = await fetchCachedJson<Contact[]>({
+        key: cacheKey,
+        url,
+        init: { headers: contactContext.headers },
+        ttlMs: CONTACTS_CACHE_TTL_MS,
+        forceRefresh: options.forceRefresh,
+        parse: normalizeContacts,
+      });
+      return { ok: true, contacts: entry.data, cacheMeta: entry.meta };
+    } catch (requestError) {
+      if (cached) {
+        return { ok: true, contacts: cached.data, cacheMeta: { ...cached.meta, stale: true, status: 'failed' } };
+      }
+      const message = requestError instanceof Error ? requestError.message : 'Failed to load contacts';
+      return { ok: false, contacts: [], kind: 'other', message, status: 0 };
+    }
   } catch (error) {
     devLog.error('Failed to fetch contacts:', error);
     return {
@@ -286,6 +301,7 @@ export const addContact = async (params: AddContactParams): Promise<Contact | nu
     }
 
     const contact = await res.json();
+    removeQueryCache(contactsCacheKey(contactContext.locationId));
     return contact;
   } catch (error) {
     devLog.error('Failed to add contact:', error);
@@ -333,6 +349,7 @@ export const updateContact = async (params: UpdateContactParams): Promise<Contac
     }
 
     const contact = await res.json();
+    removeQueryCache(contactsCacheKey(contactContext.locationId));
     return contact;
   } catch (error) {
     devLog.error('Failed to update contact:', error);
@@ -367,6 +384,7 @@ export const deleteContact = async (id: string): Promise<boolean> => {
       throw new Error(getErrorMessage(error, 'Failed to delete contact'));
     }
 
+    removeQueryCache(contactsCacheKey(contactContext.locationId));
     return true;
   } catch (error) {
     devLog.error('Failed to delete contact:', error);

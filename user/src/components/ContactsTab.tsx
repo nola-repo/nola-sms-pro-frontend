@@ -1,6 +1,6 @@
 import { devLog } from '../utils/devLog';
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { fetchContactsMeta, addContact, updateContact, deleteContact, isGhlReconnectError } from "../api/contacts";
+import { fetchContactsMeta, getCachedContactsMeta, addContact, updateContact, deleteContact, isGhlReconnectError } from "../api/contacts";
 import { deleteContact as deleteContactLocal } from "../utils/storage";
 import type { Contact } from "../types/Contact";
 import { FiSearch, FiX, FiMail, FiCheck, FiUser, FiPlus, FiTrash2, FiMoreVertical, FiEdit2, FiMessageCircle, FiLoader, FiTag, FiAlertCircle, FiCopy } from "react-icons/fi";
@@ -112,6 +112,8 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const [ghlContactsError, setGhlContactsError] = useState<GhlContactsError | null>(null);
+  const [contactsRefreshing, setContactsRefreshing] = useState(false);
+  const [contactsCacheNote, setContactsCacheNote] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
 
   const touchStartY = useRef<number>(0);
@@ -129,11 +131,26 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
     if (result.ok) {
       setContacts(result.contacts);
       setGhlContactsError(null);
+      if (result.cacheMeta?.status === 'failed') {
+        setContactsCacheNote('Showing last synced contacts. Refresh failed.');
+      } else if (result.cacheMeta?.stale) {
+        setContactsCacheNote('Showing last synced contacts.');
+      } else if (result.cacheMeta?.cached) {
+        setContactsCacheNote('Updated just now');
+      } else {
+        setContactsCacheNote(null);
+      }
       return;
     }
 
-    setContacts([]);
-    setSelectedContacts([]);
+    setContacts((current) => {
+      if (current.length > 0) {
+        setContactsCacheNote(result.message || 'Could not refresh contacts. Showing current list.');
+        return current;
+      }
+      setSelectedContacts([]);
+      return [];
+    });
     setGhlContactsError({
       kind: result.kind === 'reconnect' ? 'reconnect' : 'generic',
       message: result.message,
@@ -166,7 +183,13 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
     setLoading(true);
     setGhlContactsError(null);
 
-    fetchContactsMeta(locationId || undefined)
+    const cached = getCachedContactsMeta(locationId || undefined);
+    if (cached?.ok) {
+      applyContactsFetch(cached);
+      setContactsRefreshing(true);
+    }
+
+    fetchContactsMeta(locationId || undefined, { forceRefresh: Boolean(cached) })
       .then((result) => {
         if (!cancelled) applyContactsFetch(result);
       })
@@ -178,7 +201,10 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
         }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setContactsRefreshing(false);
+        }
       });
 
     return () => {
@@ -197,14 +223,16 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
 
   const refreshContacts = async () => {
     setIsPullRefreshing(true);
+    setContactsRefreshing(true);
     try {
-      const result = await fetchContactsMeta(locationId || undefined);
+      const result = await fetchContactsMeta(locationId || undefined, { forceRefresh: true });
       applyContactsFetch(result);
     } catch (e) {
       devLog.error(e);
       setGhlContactsError({ kind: 'generic', message: 'Failed to refresh contacts' });
     } finally {
       setIsPullRefreshing(false);
+      setContactsRefreshing(false);
     }
   };
 
@@ -478,8 +506,11 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
               <div>
                 <h2 className="text-[20px] font-extrabold text-white tracking-tight">Contacts</h2>
                 <p className="text-[12px] text-white/75">
-                  {contacts.length} contacts available
+                  {contacts.length} contacts available{contactsRefreshing ? ' / Updating...' : ''}
                 </p>
+                {contactsCacheNote && (
+                  <p className="mt-0.5 text-[11px] font-bold text-white/85">{contactsCacheNote}</p>
+                )}
                 {copyNotice && (
                   <p className="mt-0.5 text-[11px] font-bold text-white/85">{copyNotice}</p>
                 )}
