@@ -1214,31 +1214,11 @@ export const Composer: React.FC<ComposerProps> = ({
     }
   };
 
-  const renderMessageQuickActions = (msg: Message, recipient?: string) => (
-    <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          copyToClipboard("Message", msg.text || msg.message || "");
-        }}
-        className="inline-flex items-center gap-1 rounded-full bg-white/85 dark:bg-white/[0.08] px-2 py-1 text-[10px] font-bold text-[#667085] dark:text-[#a7adba] ring-1 ring-[#dce4ee] dark:ring-white/10 hover:text-[#1d6bd4]"
-      >
-        <FiCopy className="h-3 w-3" /> Copy
-      </button>
-      {recipient && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            copyToClipboard("Phone number", recipient);
-          }}
-          className="inline-flex items-center gap-1 rounded-full bg-white/85 dark:bg-white/[0.08] px-2 py-1 text-[10px] font-bold text-[#667085] dark:text-[#a7adba] ring-1 ring-[#dce4ee] dark:ring-white/10 hover:text-[#1d6bd4]"
-        >
-          <FiCopy className="h-3 w-3" /> Phone
-        </button>
-      )}
-      {msg.status === "failed" && (
+  const renderMessageQuickActions = (msg: Message, recipient?: string) => {
+    if (msg.status !== "failed") return null;
+
+    return (
+      <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
         <button
           type="button"
           onClick={(e) => {
@@ -1249,9 +1229,9 @@ export const Composer: React.FC<ComposerProps> = ({
         >
           <FiRefreshCw className="h-3 w-3" /> Retry
         </button>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   const formatDetailsTimestamp = (date: Date) =>
     date.toLocaleString([], {
@@ -1309,6 +1289,14 @@ export const Composer: React.FC<ComposerProps> = ({
   const messageContainerClass = "max-w-[78%] sm:max-w-[620px] flex flex-col items-end group mb-0.5 cursor-pointer";
   const outboundBubbleClass = "bg-gradient-to-r from-[#1d6bd4] via-[#2b83fa] to-[#2563eb] text-white px-4 py-3 ring-1 ring-white/25 transition-colors";
   const bubbleOptionsButtonClass = "absolute -left-9 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-[#d6e0eb] dark:border-white/10 bg-white/[0.9] dark:bg-[#17191f]/90 text-[#667085] dark:text-[#a7adba] opacity-0 pointer-events-auto transition-all group-hover:opacity-100 hover:opacity-100 focus-visible:opacity-100 hover:text-[#1d6bd4] dark:hover:text-[#8bbcff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/30";
+  const messageDetailsText = messageDetails
+    ? messageDetails.kind === "bulk"
+      ? messageDetails.text
+      : messageDetails.message.text || messageDetails.message.message || ""
+    : "";
+  const messageDetailsRecipient = messageDetails?.kind === "message"
+    ? messageDetails.recipient || messageDetails.message.number || ""
+    : "";
 
   return (
     <div className="flex flex-col h-full bg-[#f8fafc] dark:bg-[#0c0d10] relative overflow-hidden transition-colors duration-300">
@@ -1332,17 +1320,20 @@ export const Composer: React.FC<ComposerProps> = ({
                 <h2 className="text-[15px] sm:text-[17px] font-black text-white leading-tight tracking-tight truncate">
                   {toProperCase(getResolvedContactName(activeContact || selectedContacts[0]))}
                 </h2>
-                <span className="text-[12px] sm:text-[13px] text-white/75 font-semibold truncate">
-                  {activePhoneNumber}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard("Phone number", activePhoneNumber)}
-                  className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white/85 ring-1 ring-white/20 hover:bg-white/25"
-                  title="Copy phone number"
-                >
-                  <FiCopy className="h-3 w-3" /> Copy phone
-                </button>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[12px] sm:text-[13px] text-white/75 font-semibold truncate">
+                    {activePhoneNumber}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard("Phone number", activePhoneNumber)}
+                    className="inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white/15 text-white/85 ring-1 ring-white/20 hover:bg-white/25"
+                    title="Copy phone number"
+                    aria-label="Copy phone number"
+                  >
+                    <FiCopy className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
             {/* Sender + Credits */}
@@ -2570,13 +2561,24 @@ export const Composer: React.FC<ComposerProps> = ({
               </button>
             </div>
 
-            <div className="mb-4 rounded-2xl bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] p-4 text-white">
-              <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-white/70">Message</div>
-              <p className="whitespace-pre-wrap text-[14px] font-semibold leading-relaxed">
-                {messageDetails.kind === "bulk"
-                  ? messageDetails.text
-                  : messageDetails.message.text || messageDetails.message.message || ""}
-              </p>
+            <div className="mb-4 rounded-2xl bg-gradient-to-br from-[#2b83fa] via-[#2563eb] to-[#1d4ed8] p-4 text-white shadow-lg shadow-blue-900/10">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-white/70">Message</div>
+                  <p className="whitespace-pre-wrap break-words text-[14px] font-semibold leading-relaxed">
+                    {messageDetailsText}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard("Message", messageDetailsText)}
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-white/20 transition-colors hover:bg-white/25"
+                  title="Copy message"
+                  aria-label="Copy message"
+                >
+                  <FiCopy className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             {messageDetails.kind === "message" ? (
@@ -2585,7 +2587,25 @@ export const Composer: React.FC<ComposerProps> = ({
                 <DetailRow label="Status" value={messageDetails.message.status} />
                 <DetailRow label="Sender" value={messageDetails.message.senderName} />
                 <DetailRow label="Sent at" value={formatDetailsTimestamp(messageDetails.message.timestamp)} />
-                <DetailRow label="Recipient" value={messageDetails.recipient} mono />
+                {messageDetailsRecipient && (
+                  <div className="rounded-xl border border-[#e5ebf3] bg-[#f8fafc] px-3 py-2 dark:border-white/10 dark:bg-white/[0.04]">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <div className="text-[10px] font-black uppercase text-[#98a2b3] dark:text-[#7d8491]">Recipient</div>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard("Phone number", messageDetailsRecipient)}
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-[#667085] transition-colors hover:bg-white hover:text-[#1d6bd4] dark:text-[#a7adba] dark:hover:bg-white/[0.08] dark:hover:text-[#8bbcff]"
+                        title="Copy phone number"
+                        aria-label="Copy phone number"
+                      >
+                        <FiCopy className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="break-words font-mono text-[12.5px] font-semibold text-[#344054] dark:text-[#e4e7ec]">
+                      {messageDetailsRecipient}
+                    </div>
+                  </div>
+                )}
                 <DetailRow label="Message ID" value={messageDetails.message.id} mono />
                 <DetailRow label="Provider ID" value={messageDetails.message.providerMessageId} mono />
                 <DetailRow label="Provider reference" value={messageDetails.message.providerReferenceId} mono />
@@ -2596,7 +2616,6 @@ export const Composer: React.FC<ComposerProps> = ({
                 <DetailRow label="Failure reason" value={messageDetails.message.errorReason || (messageDetails.message.status === "failed" ? "Provider rejected or did not confirm delivery." : undefined)} />
                 <DetailRow label="Provider response" value={stringifyDiagnostic(messageDetails.message.providerResponse)} mono />
               </div>
-              {renderMessageQuickActions(messageDetails.message, messageDetails.recipient || messageDetails.message.number)}
               </>
             ) : (
               <>

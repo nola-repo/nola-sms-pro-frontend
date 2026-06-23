@@ -41,18 +41,18 @@ const formatPhoneInput = (raw: string): string => {
 const normalizeSearchPhone = (value: string): string => value.replace(/\s+/g, "").toLowerCase();
 
 const formatLastMessaged = (value?: string): string => {
-  if (!value) return "Never messaged";
+  if (!value) return "";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Last messaged unknown";
+  if (Number.isNaN(date.getTime())) return "";
   return `Last messaged ${date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}`;
 };
 
 const getContactSourceLabel = (contact: Contact): string => {
   const source = (contact.source || "").toLowerCase();
-  if (contact.id.startsWith("manual-") || source.includes("manual")) return "Manual Entry";
+  if (contact.id.startsWith("manual-") || source.includes("manual")) return "";
   if (source.includes("import") || source.includes("csv")) return "Import";
   if (contact.ghl_contact_id || source.includes("ghl") || source.includes("highlevel")) return "GHL Sync";
-  return "Manual Entry";
+  return "";
 };
 
 const toProperContactName = (name: string): string =>
@@ -136,7 +136,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
       } else if (result.cacheMeta?.stale) {
         setContactsCacheNote('Showing last synced contacts.');
       } else if (result.cacheMeta?.cached) {
-        setContactsCacheNote('Updated just now');
+        setContactsCacheNote(null);
       } else {
         setContactsCacheNote(null);
       }
@@ -498,12 +498,12 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
       {/* Header */}
       <div className="flex-shrink-0 bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] rounded-b-[40px] shadow-[0_18px_45px_rgba(29,107,212,0.24)]">
         <div className="max-w-5xl mx-auto px-3 md:px-6 pt-5 pb-7">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 border border-white/20 flex items-center justify-center text-white shadow-md shadow-blue-950/10">
+          <div className="flex items-center justify-between gap-4 mb-5">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-white/20 border border-white/20 flex items-center justify-center text-white shadow-md shadow-blue-950/10 flex-shrink-0">
                 <FiUser className="h-5 w-5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-[20px] font-extrabold text-white tracking-tight">Contacts</h2>
                 <p className="text-[12px] text-white/75">
                   {contacts.length} contacts available{contactsRefreshing ? ' / Updating...' : ''}
@@ -516,6 +516,17 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                 )}
               </div>
             </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSearchQuery("");
+                setIsAddModalOpen(true);
+              }}
+              className="group flex flex-shrink-0 items-center justify-center gap-1 sm:gap-2 bg-white text-[#1d6bd4] px-3 sm:px-4 py-2.5 rounded-2xl text-[13px] font-bold hover:bg-white/90 hover:shadow-[0_8px_25px_rgba(0,0,0,0.16)] active:scale-95 transition-all duration-200"
+            >
+              <FiPlus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Contact</span>
+            </button>
           </div>
 
           {/* Search Bar and Tag Filter */}
@@ -599,7 +610,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
           </div>
 
           {/* Selection Controls */}
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/20">
+          <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-white/20">
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={isAllSelected ? handleClearSelection : handleSelectAll}
@@ -621,22 +632,9 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <span className="text-[12px] font-bold text-white bg-white/10 border border-white/20 px-3 py-1 rounded-full whitespace-nowrap">
-                {selectedContacts.length} selected
-              </span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSearchQuery("");
-                  setIsAddModalOpen(true);
-                }}
-                className="group flex items-center justify-center gap-1 sm:gap-2 bg-white text-[#1d6bd4] px-3 sm:px-4 py-2.5 rounded-2xl text-[13px] font-bold hover:bg-white/90 hover:shadow-[0_8px_25px_rgba(0,0,0,0.16)] active:scale-95 transition-all duration-200"
-              >
-                <FiPlus className="h-4 w-4" />
-                <span className="hidden sm:inline">Add Contact</span>
-              </button>
-            </div>
+            <span className="text-[12px] font-bold text-white bg-white/10 border border-white/20 px-3 py-1 rounded-full whitespace-nowrap">
+              {selectedContacts.length} selected
+            </span>
           </div>
         </div>
       </div>
@@ -739,6 +737,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                       const normalizedPhone = normalizePHPhone(contact.phone);
                       const isDuplicatePhone = /^09\d{9}$/.test(normalizedPhone) && (phoneCounts.get(normalizedPhone) || 0) > 1;
                       const sourceLabel = getContactSourceLabel(contact);
+                      const lastMessagedLabel = formatLastMessaged(contact.lastSentAt);
                       return (
                         <div
                           key={contact.id}
@@ -800,9 +799,11 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                               >
                                 {toProperCase(contact.name)}
                               </p>
-                              <span className="text-[10px] font-black uppercase bg-[#eef6ff] dark:bg-[#2b83fa]/15 text-[#1d6bd4] dark:text-[#8bbcff] px-1.5 py-0.5 rounded-md flex-shrink-0">
-                                {sourceLabel}
-                              </span>
+                              {sourceLabel && (
+                                <span className="text-[10px] font-black uppercase bg-[#eef6ff] dark:bg-[#2b83fa]/15 text-[#1d6bd4] dark:text-[#8bbcff] px-1.5 py-0.5 rounded-md flex-shrink-0">
+                                  {sourceLabel}
+                                </span>
+                              )}
                               {isDuplicatePhone && (
                                 <span className="text-[10px] font-black uppercase bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-md flex-shrink-0" title="Another contact has this phone number">
                                   Duplicate
@@ -821,9 +822,11 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                             <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
                               {formatDisplayPhone(contact.phone)}
                             </p>
-                            <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
-                              {formatLastMessaged(contact.lastSentAt)}
-                            </p>
+                            {lastMessagedLabel && (
+                              <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                                {lastMessagedLabel}
+                              </p>
+                            )}
                           </div>
                           {/* Last message preview */}
                           {contact.lastMessage && (
@@ -847,7 +850,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                             </button>
                             {openMenuId === contact.id && (
                               <div
-                                className="absolute right-0 top-full mt-1 bg-white dark:bg-[#2d2d2d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[120px] z-50"
+                                className="absolute right-0 top-full mt-1 bg-white dark:bg-[#2d2d2d] rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[168px] z-50"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <button
@@ -860,7 +863,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                                     });
                                     setOpenMenuId(null);
                                   }}
-                                  className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2"
+                                  className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2 whitespace-nowrap"
                                 >
                                   <FiEdit2 className="w-4 h-4" />
                                   Edit
@@ -871,7 +874,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                                     copyPhoneNumber(contact.phone);
                                     setOpenMenuId(null);
                                   }}
-                                  className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2"
+                                  className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2 whitespace-nowrap"
                                 >
                                   <FiCopy className="w-4 h-4" />
                                   Copy Phone
@@ -883,7 +886,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                                       onViewMessages(contact);
                                       setOpenMenuId(null);
                                     }}
-                                    className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2"
+                                    className="w-full px-3 py-2 text-left text-[13px] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2 whitespace-nowrap"
                                   >
                                     <FiMessageCircle className="w-4 h-4" />
                                     View Messages
@@ -895,7 +898,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                                     setDeleteConfirmId(contact.id);
                                     setOpenMenuId(null);
                                   }}
-                                  className="w-full px-3 py-2 text-left text-[13px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2"
+                                  className="w-full px-3 py-2 text-left text-[13px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 whitespace-nowrap"
                                 >
                                   <FiTrash2 className="w-4 h-4" />
                                   Delete

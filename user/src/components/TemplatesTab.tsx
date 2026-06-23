@@ -182,8 +182,6 @@ export const TemplatesTab: React.FC = () => {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isCustomValuesOpen, setIsCustomValuesOpen] = useState(false);
-  const [previewTemplate, setPreviewTemplate] = useState<TemplateListItem | null>(null);
-
   const [quickSendTemplate, setQuickSendTemplate] = useState<TemplateListItem | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
@@ -285,8 +283,6 @@ export const TemplatesTab: React.FC = () => {
     return [...filteredTemplates].sort((a, b) => a.name.localeCompare(b.name));
   }, [filteredTemplates]);
 
-  const selectedPreviewTemplate = previewTemplate || sortedTemplates[0] || visibleTemplates[0] || null;
-
   const filteredContacts = useMemo(() => {
     const query = contactQuery.trim().toLowerCase();
     if (!query) return contacts.slice(0, 8);
@@ -331,11 +327,9 @@ export const TemplatesTab: React.FC = () => {
       if (editingTemplate) {
         const updated = await updateTemplate(editingTemplate.id, formData.name, formData.content, formData.category);
         setTemplates(prev => prev.map(t => t.id === editingTemplate.id ? updated : t));
-        setPreviewTemplate(updated);
       } else {
         const created = await createTemplate(formData.name, formData.content, formData.category);
         setTemplates(prev => [created, ...prev]);
-        setPreviewTemplate(created);
       }
       handleCloseModal();
     } catch (err) {
@@ -350,7 +344,6 @@ export const TemplatesTab: React.FC = () => {
     try {
       await deleteTemplate(id);
       setTemplates(prev => prev.filter(t => t.id !== id));
-      if (previewTemplate?.id === id) setPreviewTemplate(null);
       if (deleteConfirmId === id) setDeleteConfirmId(null);
     } catch (err) {
       devLog.error(err);
@@ -413,7 +406,7 @@ export const TemplatesTab: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-[#f3f4f6] dark:bg-[#09090b]">
       <div className="flex-shrink-0 bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] rounded-b-[40px] shadow-[0_18px_45px_rgba(29,107,212,0.24)]">
-        <div className="max-w-6xl mx-auto px-3 md:px-6 pt-5 pb-7">
+        <div className="max-w-5xl mx-auto px-3 md:px-6 pt-5 pb-7">
           <div className="flex items-center justify-between gap-4 mb-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-white/20 border border-white/20 flex items-center justify-center text-white shadow-md shadow-blue-950/10">
@@ -477,7 +470,7 @@ export const TemplatesTab: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 md:px-6 py-4 custom-scrollbar">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           {notice && (
             <div className="mb-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
               <FiCheck className="h-4 w-4" />
@@ -491,8 +484,7 @@ export const TemplatesTab: React.FC = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_330px] gap-4">
-            <div>
+          <div>
               {loading ? (
                 <div className="space-y-1">
                   {[1, 2, 3, 4, 5, 6].map((i) => <TemplateSkeleton key={i} />)}
@@ -509,13 +501,11 @@ export const TemplatesTab: React.FC = () => {
               ) : (
                 <div className="flex flex-col gap-2">
                   {sortedTemplates.map((template) => {
-                    const isSelected = selectedPreviewTemplate?.id === template.id;
                     return (
                     <div
                       key={template.id}
                       role="button"
                       tabIndex={0}
-                      onMouseEnter={() => setPreviewTemplate(template)}
                       onClick={() => openQuickSend(template)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
@@ -523,7 +513,7 @@ export const TemplatesTab: React.FC = () => {
                           openQuickSend(template);
                         }
                       }}
-                      className={`group flex cursor-pointer items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white dark:bg-[#1a1b1e] border shadow-sm transition-all duration-200 hover:border-gray-300 dark:hover:border-white/20 hover:shadow-md focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-white/20 ${isSelected ? "border-gray-400 dark:border-white/30 shadow-sm" : "border-gray-100 dark:border-white/5"}`}
+                      className="group flex cursor-pointer items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white dark:bg-[#1a1b1e] border border-gray-100 dark:border-white/5 shadow-sm transition-all duration-200 hover:border-gray-300 dark:hover:border-white/20 hover:shadow-md focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-white/20"
                     >
                       <div className="w-9 sm:w-11 h-9 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center font-bold text-[13px] sm:text-[14px] flex-shrink-0 bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300">
                         {template.name.charAt(0).toUpperCase()}
@@ -600,11 +590,6 @@ export const TemplatesTab: React.FC = () => {
                   })}
                 </div>
               )}
-            </div>
-
-            <aside className="lg:sticky lg:top-4 h-fit">
-              <PhonePreview template={selectedPreviewTemplate || undefined} />
-            </aside>
           </div>
         </div>
       </div>
