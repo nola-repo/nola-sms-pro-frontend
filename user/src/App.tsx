@@ -15,43 +15,21 @@ import { isAuthenticated, saveSession } from "./services/authService";
 import { useLocationId } from "./context/LocationContext";
 import { getAccountSettings, saveAccountSettings } from "./utils/settingsStorage";
 import { apiFetch } from "./utils/apiFetch";
+import { detectLocationFromCurrentUrl } from "./utils/ghlLocationDetection";
 import { FiBookOpen, FiMessageSquare, FiMoon, FiMoreHorizontal, FiSun, FiX } from "react-icons/fi";
 import { UserNotificationBell } from "./components/ui/UserNotificationBell";
 import type { ViewTab } from "./components/Sidebar";
 import { TicketsTab } from "./components/TicketsTab";
 
 const getCurrentUrlLocationId = (): string => {
-  const keys = ["location_id", "locationId", "ghl_location_id", "app_location_id", "location", "id"];
-  const readParam = (query: string, key: string) => {
-    try {
-      return new URLSearchParams(query).get(key)?.trim() || "";
-    } catch {
-      return "";
-    }
-  };
-
-  for (const key of keys) {
-    const value = readParam(window.location.search, key);
-    if (value.length > 4) return value;
-  }
-
-  if (window.location.hash.includes("?")) {
-    const hashQuery = `?${window.location.hash.split("?")[1]}`;
-    for (const key of keys) {
-      const value = readParam(hashQuery, key);
-      if (value.length > 4) return value;
-    }
-  }
-
-  return "";
+  return detectLocationFromCurrentUrl()?.locationId || "";
 };
-
 const isGhlEmbeddedRequest = (): boolean => {
   const search = window.location.search;
   const hash = window.location.hash;
   const hasGhlParam =
-    /[?&](location_id|locationId|ghl_location_id|app_location_id|sessionkey)=/i.test(search) ||
-    /(location_id|locationId|ghl_location_id|app_location_id|sessionkey)=/i.test(hash);
+    /[?&](location_id|locationId|ghl_location_id|ghlLocationId|active_location_id|activeLocationId|sessionkey)=/i.test(search) ||
+    /(location_id|locationId|ghl_location_id|ghlLocationId|active_location_id|activeLocationId|sessionkey)=/i.test(hash);
 
   let isIframe = false;
   try {
@@ -84,7 +62,7 @@ const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
   const navigate = useNavigate();
   const [autoLoginFailed, setAutoLoginFailed] = useState(false);
   const isGhlRequest = isGhlEmbeddedRequest();
-  const resolvedLocationId = getCurrentUrlLocationId() || locationId || getAccountSettings().ghlLocationId;
+  const resolvedLocationId = getCurrentUrlLocationId() || locationId || (!isGhlRequest ? getAccountSettings().ghlLocationId : "");
 
   useEffect(() => {
     if (alreadySignedIn || isGhlRequest) return;

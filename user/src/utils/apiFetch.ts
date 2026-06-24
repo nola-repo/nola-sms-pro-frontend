@@ -1,6 +1,7 @@
 import { safeStorage } from './safeStorage';
 import { sessionSafeStorage } from './sessionSafeStorage';
 import { getAccountSettings } from './settingsStorage';
+import { detectLocationFromCurrentUrl } from './ghlLocationDetection';
 
 const SESSION_KEYS = {
   token: 'nola_auth_token',
@@ -52,61 +53,29 @@ const getStoredToken = (): string =>
 
 const getCurrentUrlLocationId = (): string => {
   if (typeof window === 'undefined') return '';
+  return detectLocationFromCurrentUrl()?.locationId || '';
+};
+const isCurrentGhlContext = (): boolean => {
+  if (typeof window === 'undefined') return false;
 
-  const keys = [
-    'location_id',
-    'locationId',
-    'ghl_location_id',
-    'ghlLocationId',
-    'app_location_id',
-    'appLocationId',
-    'selected_location_id',
-    'selectedLocationId',
-    'active_location_id',
-    'activeLocationId',
-    'location',
-    'id',
-  ];
-
-  const readParam = (query: string, key: string) => {
-    try {
-      const value = new URLSearchParams(query).get(key)?.trim() || '';
-      return value.length > 4 ? value : '';
-    } catch {
-      return '';
-    }
-  };
-
-  for (const key of keys) {
-    const value = readParam(window.location.search, key);
-    if (value) return value;
+  try {
+    return window.self !== window.top || sessionStorage.getItem('nola_is_ghl_frame') === 'true';
+  } catch {
+    return true;
   }
-
-  const hash = window.location.hash || '';
-  const hashQuery = hash.includes('?') ? `?${hash.split('?')[1]}` : hash.replace(/^#/, '?');
-  if (hashQuery.includes('=')) {
-    for (const key of keys) {
-      const value = readParam(hashQuery, key);
-      if (value) return value;
-    }
-  }
-
-  return '';
 };
 
 const getStoredLocationId = (): string => {
+  const fromCurrentUrl = getCurrentUrlLocationId();
+  if (fromCurrentUrl) return fromCurrentUrl;
+  if (isCurrentGhlContext()) return '';
+
   try {
-    return (
-      getCurrentUrlLocationId() ||
-      safeStorage.getItem(SESSION_KEYS.locationId) ||
-      getAccountSettings().ghlLocationId ||
-      ''
-    );
+    return safeStorage.getItem(SESSION_KEYS.locationId) || getAccountSettings().ghlLocationId || '';
   } catch {
-    return getCurrentUrlLocationId() || safeStorage.getItem(SESSION_KEYS.locationId) || '';
+    return safeStorage.getItem(SESSION_KEYS.locationId) || '';
   }
 };
-
 const clearStoredAuthSession = (): void => {
   Object.values(SESSION_KEYS).forEach((key) => {
     safeStorage.removeItem(key);

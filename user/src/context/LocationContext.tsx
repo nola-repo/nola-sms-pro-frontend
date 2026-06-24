@@ -17,6 +17,13 @@ import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorag
 import { safeStorage } from '../utils/safeStorage';
 import { getSession, clearAuthSession, saveSession } from '../services/authService';
 import { apiFetch } from '../utils/apiFetch';
+import {
+  detectLocationFromCurrentUrl,
+  detectLocationFromPostMessage,
+  normalizeLocationCandidate,
+  type LocationDetectionResult,
+  type LocationSource,
+} from '../utils/ghlLocationDetection';
 
 interface LocationContextValue {
   locationId: string;
@@ -35,122 +42,6 @@ export const useLocationId = () => useContext(LocationContext);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const LOCATION_ID_KEYS = [
-  'location_id',
-  'locationId',
-  'ghl_location_id',
-  'ghlLocationId',
-  'app_location_id',
-  'appLocationId',
-  'selected_location_id',
-  'selectedLocationId',
-  'active_location_id',
-  'activeLocationId',
-  'location',
-  'id',
-];
-
-function normalizeLocationCandidate(value: unknown): string | null {
-  if (typeof value !== 'string' && typeof value !== 'number') return null;
-  const candidate = String(value).trim();
-  if (!candidate || candidate.length <= 4) return null;
-  if (candidate === 'null' || candidate === 'undefined') return null;
-  return candidate;
-}
-
-function readLocationCandidate(source: unknown): string | null {
-  if (!source || typeof source !== 'object') return null;
-
-  for (const key of LOCATION_ID_KEYS) {
-    const candidate = normalizeLocationCandidate((source as Record<string, unknown>)[key]);
-    if (candidate) return candidate;
-  }
-
-  return null;
-}
-
-function extractLocationFromUrl(): string | null {
-  const search = window.location.search;
-  const hash = window.location.hash;
-
-  const getParam = (query: string, key: string) =>
-    new URLSearchParams(query).get(key);
-
-  for (const key of LOCATION_ID_KEYS) {
-    const val = normalizeLocationCandidate(getParam(search, key));
-    if (val) return val;
-  }
-
-  const hashQuery = hash.includes('?')
-    ? hash.slice(hash.indexOf('?') + 1)
-    : hash.replace(/^#/, '');
-
-  if (hashQuery.includes('=')) {
-    for (const key of LOCATION_ID_KEYS) {
-      const val = normalizeLocationCandidate(getParam('?' + hashQuery, key));
-      if (val) return val;
-    }
-  }
-
-  return null;
-}
-
-function extractLocationFromMessage(event: MessageEvent): string | null {
-  try {
-    let data: unknown = event.data;
-    if (typeof data === 'string') {
-      const rawMessage = data;
-      if (rawMessage.includes('location')) {
-        try {
-          data = JSON.parse(rawMessage);
-        } catch {
-          const query = rawMessage.includes('?') ? rawMessage.slice(rawMessage.indexOf('?') + 1) : rawMessage;
-          const params = new URLSearchParams(query);
-          for (const key of LOCATION_ID_KEYS) {
-            const candidate = normalizeLocationCandidate(params.get(key));
-            if (candidate) return candidate;
-          }
-          return null;
-        }
-      } else {
-        return null;
-      }
-    }
-
-    const queue: unknown[] = [data];
-    const visited = new Set<unknown>();
-    const nestedKeys = ['payload', 'data', 'context', 'message', 'detail', 'location', 'activeLocation', 'selectedLocation', 'account', 'company'];
-
-    for (let index = 0; index < queue.length && index < 30; index += 1) {
-      const item = queue[index];
-      if (!item || typeof item !== 'object' || visited.has(item)) continue;
-      visited.add(item);
-
-      const direct = readLocationCandidate(item);
-      if (direct) return direct;
-
-      for (const key of nestedKeys) {
-        const nested = (item as Record<string, unknown>)[key];
-        if (nested && typeof nested === 'object') queue.push(nested);
-      }
-
-      for (const key of ['locationIds', 'locations']) {
-        const values = (item as Record<string, unknown>)[key];
-        if (Array.isArray(values)) {
-          for (const value of values) {
-            const directArrayValue = normalizeLocationCandidate(value);
-            if (directArrayValue) return directArrayValue;
-            if (value && typeof value === 'object') queue.push(value);
-          }
-        }
-      }
-    }
-  } catch {
-    // Not JSON or irrelevant message
-  }
-  return null;
-}
-
 function isLikelyGhlEmbedded(): boolean {
   try {
     return window.self !== window.top || sessionStorage.getItem('nola_is_ghl_frame') === 'true';
@@ -159,59 +50,68 @@ function isLikelyGhlEmbedded(): boolean {
   }
 }
 
-function getStoredLocationId(): string {
+function getStoredLocationId(): LocationDetectionResult | null {
   try {
     const session = getSession();
     const sessionLocationId = normalizeLocationCandidate(session?.locationId);
-    if (sessionLocationId) return sessionLocationId;
+    if (sessionLocationId) return { locationId: sessionLocationId, source: 'storage', path: 'storage.session.locationId' };
   } catch {
     // ignore unavailable session storage
   }
 
-  const sessionLocationId = safeStorage.getItem('nola_location_id');
-  if (sessionLocationId && sessionLocationId.length > 4) {
-    return sessionLocationId;
+  const sessionLocationId = normalizeLocationCandidate(safeStorage.getItem('nola_location_id'));
+  if (sessionLocationId) {
+    return { locationId: sessionLocationId, source: 'storage', path: 'storage.nola_location_id' };
   }
 
   try {
     const authUser = JSON.parse(safeStorage.getItem('nola_auth_user') || 'null');
-    if (authUser?.location_id) return authUser.location_id;
-    if (authUser?.active_location_id) return authUser.active_location_id;
+    const authUserLocationId = normalizeLocationCandidate(authUser?.location_id);
+    if (authUserLocationId) return { locationId: authUserLocationId, source: 'storage', path: 'storage.nola_auth_user.location_id' };
+    const authUserActiveLocationId = normalizeLocationCandidate(authUser?.active_location_id);
+    if (authUserActiveLocationId) return { locationId: authUserActiveLocationId, source: 'storage', path: 'storage.nola_auth_user.active_location_id' };
 
     const nolaUser = JSON.parse(safeStorage.getItem('nola_user') || 'null');
-    if (nolaUser?.location_id) return nolaUser.location_id;
-    if (nolaUser?.active_location_id) return nolaUser.active_location_id;
+    const nolaUserLocationId = normalizeLocationCandidate(nolaUser?.location_id);
+    if (nolaUserLocationId) return { locationId: nolaUserLocationId, source: 'storage', path: 'storage.nola_user.location_id' };
+    const nolaUserActiveLocationId = normalizeLocationCandidate(nolaUser?.active_location_id);
+    if (nolaUserActiveLocationId) return { locationId: nolaUserActiveLocationId, source: 'storage', path: 'storage.nola_user.active_location_id' };
   } catch {
     // ignore parsing errors
   }
 
-  return getAccountSettings().ghlLocationId || '';
+  const settingsLocationId = normalizeLocationCandidate(getAccountSettings().ghlLocationId);
+  return settingsLocationId
+    ? { locationId: settingsLocationId, source: 'storage', path: 'storage.accountSettings.ghlLocationId' }
+    : null;
 }
-
-// ── Provider ─────────────────────────────────────────────────────────────────
-
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [locationId, setLocationIdState] = useState<string>(() => {
     // Priority 1: URL param on initial load
-    const fromUrl = extractLocationFromUrl();
+    const fromUrl = detectLocationFromCurrentUrl();
     if (fromUrl) {
       // Synchronously write to localStorage so children reading getAccountSettings on mount see it immediately
       const settings = getAccountSettings();
-      if (settings.ghlLocationId !== fromUrl) {
-        saveAccountSettings({ ...settings, ghlLocationId: fromUrl });
+      if (settings.ghlLocationId !== fromUrl.locationId) {
+        saveAccountSettings({ ...settings, ghlLocationId: fromUrl.locationId });
       }
-      return fromUrl;
+      devLog.log(`[LocationContext] Resolved GHL location from ${fromUrl.path}`);
+      return fromUrl.locationId;
     }
     
-    // Priority 2-4: explicit session, cached user profile, persisted storage.
-    return getStoredLocationId();
+    // Storage is only safe outside a live GHL iframe/context.
+    if (isLikelyGhlEmbedded()) return '';
+
+    const fromStorage = getStoredLocationId();
+    if (fromStorage) devLog.log(`[LocationContext] Resolved GHL location from ${fromStorage.path}`);
+    return fromStorage?.locationId ?? '';
   });
   const [isLocationResolving, setIsLocationResolving] = useState<boolean>(() => {
-    return !extractLocationFromUrl() && !getStoredLocationId() && isLikelyGhlEmbedded();
+    return !detectLocationFromCurrentUrl() && isLikelyGhlEmbedded();
   });
 
   // Persist and broadcast whenever locationId changes
-  const setLocationId = useCallback((newId: string) => {
+  const setLocationId = useCallback((newId: string, source: LocationSource = 'manual', sourcePath: string = source) => {
     if (!newId || newId === locationId) return;
 
     // Persist to localStorage
@@ -222,6 +122,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     setLocationIdState(newId);
     setIsLocationResolving(false);
+    devLog.log(`[LocationContext] Updated GHL location from ${sourcePath}: ${newId}`);
 
     // Broadcast so Dashboard and other listeners can reset state
     window.dispatchEvent(
@@ -237,8 +138,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const currentUrl = window.location.href;
       if (currentUrl !== lastUrl) {
         lastUrl = currentUrl;
-        const fromUrl = extractLocationFromUrl();
-        if (fromUrl) setLocationId(fromUrl);
+        const fromUrl = detectLocationFromCurrentUrl();
+        if (fromUrl) setLocationId(fromUrl.locationId, fromUrl.source, fromUrl.path);
       }
     };
 
@@ -261,15 +162,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setIsLocationResolving(true);
 
     const checkForLocation = () => {
-      const fromUrl = extractLocationFromUrl();
+      const fromUrl = detectLocationFromCurrentUrl();
       if (fromUrl) {
-        setLocationId(fromUrl);
+        setLocationId(fromUrl.locationId, fromUrl.source, fromUrl.path);
         return;
-      }
-
-      const fromStorage = getStoredLocationId();
-      if (fromStorage) {
-        setLocationId(fromStorage);
       }
     };
 
@@ -294,9 +190,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // ?? Source 3: GHL postMessage (handles subaccount switching in iframe) ????
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Accept messages from any origin since GHL parent is on a different domain
-      const fromId = extractLocationFromMessage(event);
-      if (fromId) setLocationId(fromId);
+      const fromMessage = detectLocationFromPostMessage(event);
+      if (fromMessage) setLocationId(fromMessage.locationId, fromMessage.source, fromMessage.path);
     };
 
     window.addEventListener('message', handleMessage);
@@ -307,7 +202,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     const handleManual = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      if (detail?.locationId) setLocationId(detail.locationId);
+      if (detail?.locationId) setLocationId(detail.locationId, 'manual', 'event.ghl-location-set');
     };
 
     window.addEventListener('ghl-location-set', handleManual);
