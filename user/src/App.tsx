@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
 import { GhlCallback } from "./pages/GhlCallback";
+import { ForgotPassword } from "./pages/ForgotPassword";
 
 import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
@@ -394,7 +395,7 @@ const AppLayout: React.FC = () => {
     navigate({ pathname: urlMap[tab] ?? '/', search: window.location.search });
   };
 
-  const hideTogglePaths = ['/login', '/register-from-install'];
+  const hideTogglePaths = ['/login', '/register-from-install', '/forgot-password'];
   const hideToggle = hideTogglePaths.includes(location.pathname.toLowerCase());
   const topControls = !hideToggle ? (
     <div className="hidden md:flex items-center gap-2 flex-shrink-0">
@@ -414,6 +415,7 @@ const AppLayout: React.FC = () => {
       <div className="relative h-screen overflow-hidden bg-[#ffffff] dark:bg-[#1a1b1e]">
       <Routes>
         <Route path="/login"                  element={<RedirectToBackend path="/login" />} />
+        <Route path="/forgot-password"        element={<ForgotPassword />} />
         <Route path="/register"               element={<RedirectToBackend path="/register" />} />
         <Route path="/register-from-install"  element={<RedirectInstallRegistration />} />
         <Route path="/oauth/callback"         element={<GhlCallback />} />
