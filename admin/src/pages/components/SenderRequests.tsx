@@ -418,7 +418,7 @@ export const AdminSenderRequests: React.FC = () => {
             ) : requests.length === 0 ? (
                 <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
                     <FiSend className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                    <p className="text-[14px] font-semibold">No sender requests found.</p>
+                    <p className="text-[14px] font-semibold">No sender requests yet.</p>
                 </div>
             ) : filteredRequests.length === 0 ? (
                 <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">

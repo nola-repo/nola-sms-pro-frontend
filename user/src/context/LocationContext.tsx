@@ -35,24 +35,60 @@ export const useLocationId = () => useContext(LocationContext);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+const LOCATION_ID_KEYS = [
+  'location_id',
+  'locationId',
+  'ghl_location_id',
+  'ghlLocationId',
+  'app_location_id',
+  'appLocationId',
+  'selected_location_id',
+  'selectedLocationId',
+  'active_location_id',
+  'activeLocationId',
+  'location',
+  'id',
+];
+
+function normalizeLocationCandidate(value: unknown): string | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const candidate = String(value).trim();
+  if (!candidate || candidate.length <= 4) return null;
+  if (candidate === 'null' || candidate === 'undefined') return null;
+  return candidate;
+}
+
+function readLocationCandidate(source: unknown): string | null {
+  if (!source || typeof source !== 'object') return null;
+
+  for (const key of LOCATION_ID_KEYS) {
+    const candidate = normalizeLocationCandidate((source as Record<string, unknown>)[key]);
+    if (candidate) return candidate;
+  }
+
+  return null;
+}
+
 function extractLocationFromUrl(): string | null {
-  const keys = ['location_id', 'locationId', 'location', 'id'];
   const search = window.location.search;
-  const hash   = window.location.hash;
+  const hash = window.location.hash;
 
   const getParam = (query: string, key: string) =>
     new URLSearchParams(query).get(key);
 
-  for (const k of keys) {
-    const val = getParam(search, k);
-    if (val && val.length > 4) return val;
+  for (const key of LOCATION_ID_KEYS) {
+    const val = normalizeLocationCandidate(getParam(search, key));
+    if (val) return val;
   }
 
-  if (hash.includes('?')) {
-    const hashQuery = hash.split('?')[1];
-    for (const k of keys) {
-      const val = getParam('?' + hashQuery, k);
-      if (val && val.length > 4) return val;
+  const hashQuery = hash.includes('?')
+    ? hash.slice(hash.indexOf('?') + 1)
+    : hash.replace(/^#/, '');
+
+  if (hashQuery.includes('=')) {
+    for (const key of LOCATION_ID_KEYS) {
+      const val = normalizeLocationCandidate(getParam('?' + hashQuery, key));
+      if (val) return val;
     }
   }
 
@@ -61,22 +97,53 @@ function extractLocationFromUrl(): string | null {
 
 function extractLocationFromMessage(event: MessageEvent): string | null {
   try {
-    const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-    if (!data || typeof data !== 'object') return null;
+    let data: unknown = event.data;
+    if (typeof data === 'string') {
+      const rawMessage = data;
+      if (rawMessage.includes('location')) {
+        try {
+          data = JSON.parse(rawMessage);
+        } catch {
+          const query = rawMessage.includes('?') ? rawMessage.slice(rawMessage.indexOf('?') + 1) : rawMessage;
+          const params = new URLSearchParams(query);
+          for (const key of LOCATION_ID_KEYS) {
+            const candidate = normalizeLocationCandidate(params.get(key));
+            if (candidate) return candidate;
+          }
+          return null;
+        }
+      } else {
+        return null;
+      }
+    }
 
-    // GHL sends different payloads depending on version/event
-    const candidates = [
-      data.locationId,
-      data.location_id,
-      data.location?.id,
-      data.payload?.locationId,
-      data.payload?.location_id,
-      data.data?.locationId,
-      data.data?.location_id,
-    ];
+    const queue: unknown[] = [data];
+    const visited = new Set<unknown>();
+    const nestedKeys = ['payload', 'data', 'context', 'message', 'detail', 'location', 'activeLocation', 'selectedLocation', 'account', 'company'];
 
-    for (const c of candidates) {
-      if (typeof c === 'string' && c.length > 4) return c;
+    for (let index = 0; index < queue.length && index < 30; index += 1) {
+      const item = queue[index];
+      if (!item || typeof item !== 'object' || visited.has(item)) continue;
+      visited.add(item);
+
+      const direct = readLocationCandidate(item);
+      if (direct) return direct;
+
+      for (const key of nestedKeys) {
+        const nested = (item as Record<string, unknown>)[key];
+        if (nested && typeof nested === 'object') queue.push(nested);
+      }
+
+      for (const key of ['locationIds', 'locations']) {
+        const values = (item as Record<string, unknown>)[key];
+        if (Array.isArray(values)) {
+          for (const value of values) {
+            const directArrayValue = normalizeLocationCandidate(value);
+            if (directArrayValue) return directArrayValue;
+            if (value && typeof value === 'object') queue.push(value);
+          }
+        }
+      }
     }
   } catch {
     // Not JSON or irrelevant message
@@ -93,6 +160,14 @@ function isLikelyGhlEmbedded(): boolean {
 }
 
 function getStoredLocationId(): string {
+  try {
+    const session = getSession();
+    const sessionLocationId = normalizeLocationCandidate(session?.locationId);
+    if (sessionLocationId) return sessionLocationId;
+  } catch {
+    // ignore unavailable session storage
+  }
+
   const sessionLocationId = safeStorage.getItem('nola_location_id');
   if (sessionLocationId && sessionLocationId.length > 4) {
     return sessionLocationId;
@@ -203,7 +278,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const fallbackTimer = window.setTimeout(() => {
       setIsLocationResolving(false);
       window.clearInterval(pollTimer);
-    }, 3500);
+    }, 8000);
 
     window.addEventListener('popstate', checkForLocation);
     window.addEventListener('hashchange', checkForLocation);

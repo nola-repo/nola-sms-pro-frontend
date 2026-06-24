@@ -42,6 +42,21 @@ export interface AccountSenderConfig {
     toggle_enabled?: boolean;
 }
 
+const DEFAULT_CONFIG: AccountSenderConfig = {
+    approved_sender_id: null,
+    nola_pro_api_key: null,
+    semaphore_api_key: null,
+    unisms_api_key: null,
+    provider_preference: "system",
+    free_usage_count: 0,
+    free_credits_total: 10,
+    system_default_sender: "NOLASMSPro",
+    toggle_enabled: true,
+};
+
+const missingLocationMessage =
+    "GHL location is not available yet. Please wait for the app to finish loading or enter the Location ID in Settings.";
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getLocationHeaders(explicitLocationId?: string): { headers: Record<string, string>; locationId: string } {
     const { ghlLocationId } = getAccountSettings();
@@ -66,6 +81,9 @@ export const submitSenderRequest = async (
 ): Promise<SenderRequest> => {
     const { headers, locationId } = getLocationHeaders();
     const normalizedId = requestedId.trim().toUpperCase();
+    if (!locationId) {
+        throw new Error(missingLocationMessage);
+    }
 
     const res = await apiFetch(API_CONFIG.sender_requests, {
         method: "POST",
@@ -99,6 +117,10 @@ export const submitSenderRequest = async (
  */
 export const fetchSenderRequests = async (explicitLocationId?: string): Promise<SenderRequest[]> => {
     const { headers, locationId } = getLocationHeaders(explicitLocationId);
+    if (!locationId) {
+        devLog.warn("[fetchSenderRequests] Skipping sender requests fetch until location_id is available.");
+        return [];
+    }
 
     let url = API_CONFIG.sender_requests;
     if (locationId) {
@@ -117,6 +139,9 @@ export const fetchSenderRequests = async (explicitLocationId?: string): Promise<
 
 export const cancelSenderRequest = async (requestId: string, explicitLocationId?: string): Promise<boolean> => {
     const { headers, locationId } = getLocationHeaders(explicitLocationId);
+    if (!locationId) {
+        throw new Error(missingLocationMessage);
+    }
 
     let url = API_CONFIG.sender_requests;
     if (locationId) {
@@ -149,18 +174,11 @@ export const cancelSenderRequest = async (requestId: string, explicitLocationId?
  */
 export const fetchAccountSenderConfig = async (explicitLocationId?: string): Promise<AccountSenderConfig> => {
     const { headers, locationId } = getLocationHeaders(explicitLocationId);
+    if (!locationId) {
+        devLog.warn("[fetchAccountSenderConfig] Skipping account sender fetch until location_id is available.");
+        return DEFAULT_CONFIG;
+    }
 
-    const DEFAULT_CONFIG: AccountSenderConfig = {
-        approved_sender_id: null,
-        nola_pro_api_key: null,
-        semaphore_api_key: null,
-        unisms_api_key: null,
-        provider_preference: "system",
-        free_usage_count: 0,
-        free_credits_total: 10,
-        system_default_sender: "NOLASMSPro",
-        toggle_enabled: true,
-    };
 
     let url = API_CONFIG.account_sender;
     if (locationId) {
@@ -208,6 +226,10 @@ export const fetchAccountSenderConfig = async (explicitLocationId?: string): Pro
  */
 export const saveAccountApiKey = async (apiKey: string, provider: "semaphore" | "unisms" = "semaphore"): Promise<boolean> => {
     const { headers, locationId } = getLocationHeaders();
+    if (!locationId) {
+        devLog.warn("[saveAccountApiKey] Skipping API key save because location_id is missing.");
+        return false;
+    }
 
     try {
         const providerPayload = provider === "unisms"

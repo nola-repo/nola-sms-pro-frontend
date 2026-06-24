@@ -9,7 +9,7 @@ let _id = 0;
 export const useToast = () => {
   const [toasts, setToasts] = useState([]);
 
-  const showToast = useCallback((message, type = 'info', duration = 3500) => {
+  const showToast = useCallback((message, type = 'info', duration = 3000) => {
     const id = ++_id;
     setToasts(prev => [...prev, { id, message, type }]);
     if (duration > 0) {

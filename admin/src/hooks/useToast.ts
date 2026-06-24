@@ -15,7 +15,7 @@ export interface ToastMessage {
 export const useToast = () => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const showToast = useCallback((message: string, type: ToastMessage['type'] = 'info', duration = 3500) => {
+  const showToast = useCallback((message: string, type: ToastMessage['type'] = 'info', duration = 3000) => {
     const id = ++_id;
     setToasts(prev => [...prev, { id, message, type }]);
     if (duration > 0) {

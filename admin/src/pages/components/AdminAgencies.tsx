@@ -564,7 +564,7 @@ export const AdminAgencies: React.FC = () => {
             ) : accounts.length === 0 ? (
                 <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
                     <FiBriefcase className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                    <p className="text-[14px] font-semibold">No agencies found.</p>
+                    <p className="text-[14px] font-semibold">No agencies yet.</p>
                 </div>
             ) : filteredAccounts.length === 0 ? (
                 <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
@@ -851,7 +851,7 @@ export const AdminAgencies: React.FC = () => {
                                             className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] text-white rounded-xl text-[13px] font-bold transition-all shadow-md shadow-blue-500/20 active:scale-[0.98] disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:shadow-none"
                                         >
                                             <FiDownload className="w-4 h-4" />
-                                            {canDownloadReport ? 'Download PDF' : 'No Events To Download'}
+                                            {canDownloadReport ? 'Download PDF' : 'No events to download'}
                                         </button>
                                     </>
                                 )}

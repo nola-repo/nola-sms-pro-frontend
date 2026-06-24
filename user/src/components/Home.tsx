@@ -108,6 +108,31 @@ const DashboardCardSkeleton = ({ valueWidth = "w-20" }: { valueWidth?: string })
     </div>
 );
 
+const HomeEmptyPanel: React.FC<{
+    icon: React.ReactNode;
+    title: string;
+    description: string;
+    actionLabel?: string;
+    onAction?: () => void;
+}> = ({ icon, title, description, actionLabel, onAction }) => (
+    <div className="rounded-[20px] border border-dashed border-[#d8e1ec] bg-[#f8fafc] px-5 py-8 text-center dark:border-white/10 dark:bg-[#0d0e10]">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef6ff] text-[#2b83fa] dark:bg-white/5">
+            {icon}
+        </div>
+        <h4 className="text-[14px] font-black text-[#111111] dark:text-white">{title}</h4>
+        <p className="mx-auto mt-1 max-w-xs text-[12.5px] font-medium leading-relaxed text-[#64748b] dark:text-[#9aa0a6]">{description}</p>
+        {actionLabel && onAction && (
+            <button
+                type="button"
+                onClick={onAction}
+                className="mt-4 inline-flex items-center justify-center rounded-xl bg-[#2b83fa] px-4 py-2 text-[12px] font-bold text-white transition-colors hover:bg-[#1d6bd4]"
+            >
+                {actionLabel}
+            </button>
+        )}
+    </div>
+);
+
 const profileMatchesLocation = (
     profile: { location_id?: string | null; active_location_id?: string | null } | null | undefined,
     locationId: string
@@ -916,7 +941,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                                     <h4 className="font-bold text-[#111111] dark:text-white text-[13.5px] truncate">
                                                         {getDisplayName(conv)}
                                                     </h4>
-                                                    <p className="text-[11.5px] text-gray-500 dark:text-gray-400 truncate max-w-[200px] font-medium">
+                                                    <p className="max-w-[200px] truncate text-[11.5px] font-medium text-gray-500 dark:text-gray-400" title={conv.last_message || "No messages yet"}>
                                                         {conv.last_message || "No messages yet"}
                                                     </p>
                                                 </div>
@@ -935,9 +960,13 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                 ))
                             ) : (
                                 <AnimatedContent delay={0.45} distance={30} direction="vertical">
-                                    <div className="p-10 text-center rounded-3xl border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
-                                        <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No recent activity found.</p>
-                                    </div>
+                                    <HomeEmptyPanel
+                                        icon={<FiMessageSquare className="h-5 w-5" />}
+                                        title="No conversations yet"
+                                        description="Start a single or bulk SMS thread and recent message activity will appear here."
+                                        actionLabel="Start Message"
+                                        onAction={() => onTabChange('compose')}
+                                    />
                                 </AnimatedContent>
                             )}
                         </div>
@@ -1000,7 +1029,7 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between mb-1 gap-2">
-                                                    <p className="text-[14px] font-bold text-[#111111] dark:text-white leading-tight truncate">
+                                                    <p className="truncate text-[14px] font-bold leading-tight text-[#111111] dark:text-white" title={isAdjustment ? `Manual credit adjustment (Applied ${tx.amount && tx.amount >= 0 ? '+' : '-'}${Math.abs(tx.amount || 0)} credits)` : (tx.description || (isUsage ? 'Credits Used' : 'Credits Purchased'))}>
                                                         {isAdjustment
                                                             ? `Manual credit adjustment (Applied ${tx.amount && tx.amount >= 0 ? '+' : '-'}${Math.abs(tx.amount || 0)} credits)`
                                                             : (tx.description || (isUsage ? 'Credits Used' : 'Credits Purchased'))}
@@ -1023,9 +1052,13 @@ export const Home: React.FC<HomeProps> = ({ onTabChange, onCreateContact, onSele
                                     );
                                 })
                             ) : (
-                                <div className="p-8 text-center rounded-[20px] border-2 border-dashed border-[#0000000a] dark:border-[#ffffff0a]">
-                                    <p className="text-gray-400 dark:text-gray-500 text-[14px] font-medium italic">No recent transactions found.</p>
-                                </div>
+                                <HomeEmptyPanel
+                                    icon={<FiCreditCard className="h-5 w-5" />}
+                                    title="No credit activity yet"
+                                    description="Top ups, SMS usage, refunds, and adjustments will be listed once the account has activity."
+                                    actionLabel="View Credits"
+                                    onAction={() => window.dispatchEvent(new CustomEvent('navigate-to-settings', { detail: { tab: 'credits' } }))}
+                                />
                             )}
                         </div>
                     </div>

@@ -1763,7 +1763,7 @@ const CreditsSection: React.FC = () => {
             );
 
             if (reportTransactions.length === 0) {
-                setReportDownloadError('No events were found for the selected period.');
+                setReportDownloadError('No reportable events were found for the selected period. Choose another month or generate account activity first.');
                 return;
             }
 
@@ -2010,8 +2010,8 @@ const CreditsSection: React.FC = () => {
         <div className="space-y-5">
             <SectionHeader title="Credits & Billing" subtitle="Monitor your SMS credit balance and request credits from your agency." />
             {reportModalOpen && (
-                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl w-full max-w-lg max-h-[92vh] shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col">
                         <div className="px-6 py-5 border-b border-[#e5e5e5] dark:border-white/10 flex items-start justify-between gap-4">
                             <div className="flex items-center gap-2.5 min-w-0">
                                 <div className="w-9 h-9 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center">
@@ -2032,15 +2032,15 @@ const CreditsSection: React.FC = () => {
                             </button>
                         </div>
 
-                        <div className="p-6 space-y-5">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-5 sm:p-6 custom-scrollbar">
                             {totalReportEventCount === 0 ? (
                                 <div className="py-8 flex flex-col items-center justify-center gap-3 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl border border-[#e5e5e5] dark:border-white/5 text-center">
                                     <div className="w-11 h-11 rounded-xl bg-[#2b83fa]/10 text-[#2b83fa] flex items-center justify-center">
                                         <FiDownload className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <p className="text-[14px] font-bold text-[#111111] dark:text-[#ececf1]">No reportable events</p>
-                                        <p className="text-[12px] text-[#9aa0a6] mt-1">PDF download is disabled until this account has credit activity.</p>
+                                        <p className="text-[14px] font-bold text-[#111111] dark:text-[#ececf1]">No reportable events yet</p>
+                                        <p className="text-[12px] text-[#9aa0a6] mt-1">Send SMS, top up credits, or choose another period before downloading a PDF report.</p>
                                     </div>
                                 </div>
                             ) : (
@@ -2092,7 +2092,7 @@ const CreditsSection: React.FC = () => {
                                         className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] text-white rounded-xl text-[13px] font-bold transition-all shadow-md shadow-blue-500/20 active:scale-[0.98] disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:shadow-none"
                                     >
                                         {reportDownloadLoading ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiDownload className="w-4 h-4" />}
-                                        {reportDownloadLoading ? 'Preparing PDF...' : reportModalEventCount > 0 ? 'Download PDF' : 'No Events To Download'}
+                                        {reportDownloadLoading ? 'Preparing PDF...' : reportModalEventCount > 0 ? 'Download PDF' : 'No events to download'}
                                     </button>
                                 </>
                             )}
@@ -2429,8 +2429,8 @@ const CreditsSection: React.FC = () => {
                         <div className="w-12 h-12 rounded-xl bg-[#2b83fa]/10 flex items-center justify-center">
                             <FiCreditCard className="w-6 h-6 text-[#2b83fa]/60" />
                         </div>
-                        <p className="text-[14px] font-semibold text-[#37352f] dark:text-[#ececf1]">No transactions yet</p>
-                        <p className="text-[12px] text-[#9aa0a6] max-w-xs">Send an SMS or top up your balance to see activity here.</p>
+                        <p className="text-[14px] font-semibold text-[#37352f] dark:text-[#ececf1]">No credit activity yet</p>
+                        <p className="text-[12px] text-[#9aa0a6] max-w-xs">Send SMS, top up your balance, or receive an adjustment to start building this ledger.</p>
                     </div>
                 ) : (
                     <>

@@ -9,6 +9,7 @@ import type { Contact } from "../types/Contact";
 import { useLocationId } from "../context/LocationContext";
 import { safeStorage } from "../utils/safeStorage";
 import { getCachedTemplates } from "../utils/templateCache";
+import { formatTemplateValidationMessage, validateTemplateContent } from "../utils/templateValidation";
 import {
   FiAlertCircle,
   FiCheck,
@@ -119,6 +120,33 @@ const TemplateSkeleton = () => (
       <div className="h-3 w-2/3 bg-gray-100 dark:bg-white/5 rounded-md" />
     </div>
     <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 flex-shrink-0" />
+  </div>
+);
+
+const TemplateEmptyState: React.FC<{
+  hasAnyTemplates: boolean;
+  onCreate: () => void;
+  onResetFilters: () => void;
+}> = ({ hasAnyTemplates, onCreate, onResetFilters }) => (
+  <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-gray-200 bg-white/70 px-6 py-14 text-center shadow-sm dark:border-white/10 dark:bg-[#1a1b1e]/60">
+    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#eef6ff] text-[#2b83fa] dark:bg-white/5">
+      {hasAnyTemplates ? <FiSearch className="h-8 w-8" /> : <FiMessageSquare className="h-8 w-8" />}
+    </div>
+    <h3 className="text-[16px] font-extrabold text-[#111111] dark:text-[#ececf1]">
+      {hasAnyTemplates ? "No templates match your filters" : "No templates yet"}
+    </h3>
+    <p className="mt-2 max-w-sm text-[13px] font-medium leading-relaxed text-gray-500 dark:text-gray-400">
+      {hasAnyTemplates
+        ? "Try another keyword or category to find the template you need."
+        : "Create reusable SMS messages with contact and company placeholders so first sends are faster and more consistent."}
+    </p>
+    <button
+      onClick={hasAnyTemplates ? onResetFilters : onCreate}
+      className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-[#2b83fa] px-4 py-2.5 text-[13px] font-bold text-white shadow-md shadow-blue-500/15 transition-all hover:bg-[#1d6bd4] active:scale-95"
+    >
+      {hasAnyTemplates ? <FiX className="h-4 w-4" /> : <FiPlus className="h-4 w-4" />}
+      {hasAnyTemplates ? "Clear filters" : "Create Template"}
+    </button>
   </div>
 );
 
@@ -320,6 +348,12 @@ export const TemplatesTab: React.FC = () => {
       return;
     }
 
+    const validation = validateTemplateContent(formData.content);
+    if (!validation.isValid) {
+      setError(formatTemplateValidationMessage(validation));
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -353,6 +387,12 @@ export const TemplatesTab: React.FC = () => {
   };
 
   const openQuickSend = (template: TemplateListItem) => {
+    const validation = validateTemplateContent(template.content);
+    if (!validation.isValid) {
+      setError(`Template is missing required variables. ${formatTemplateValidationMessage(validation)}`);
+      return;
+    }
+
     setQuickSendTemplate(template);
     setSelectedContact(null);
     setContactQuery("");
@@ -490,14 +530,14 @@ export const TemplatesTab: React.FC = () => {
                   {[1, 2, 3, 4, 5, 6].map((i) => <TemplateSkeleton key={i} />)}
                 </div>
               ) : sortedTemplates.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="w-16 h-16 mb-4 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center">
-                    <FiSearch className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <p className="text-[14px] text-gray-500 dark:text-gray-400 font-medium">
-                    {visibleTemplates.length === 0 ? "No templates available" : "No templates match your filters"}
-                  </p>
-                </div>
+                <TemplateEmptyState
+                  hasAnyTemplates={visibleTemplates.length > 0}
+                  onCreate={() => handleOpenModal()}
+                  onResetFilters={() => {
+                    setSearchQuery("");
+                    setActiveCategory("All");
+                  }}
+                />
               ) : (
                 <div className="flex flex-col gap-2">
                   {sortedTemplates.map((template) => {
@@ -520,7 +560,7 @@ export const TemplatesTab: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-[14px] font-semibold truncate text-[#111111] dark:text-[#ececf1]">{template.name}</p>
+                          <p className="min-w-0 truncate text-[14px] font-semibold text-[#111111] dark:text-[#ececf1]" title={template.name}>{template.name}</p>
                           <span className="hidden sm:inline-flex rounded-full bg-[#eef6ff] dark:bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#2b83fa]">
                             {template.category || "General"}
                           </span>
@@ -530,7 +570,7 @@ export const TemplatesTab: React.FC = () => {
                             </span>
                           )}
                         </div>
-                        <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{template.content}</p>
+                        <p className="mt-0.5 truncate text-[12px] text-gray-500 dark:text-gray-400" title={template.content}>{template.content}</p>
                       </div>
                       <button
                         onClick={(e) => {
@@ -653,7 +693,7 @@ export const TemplatesTab: React.FC = () => {
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider transition-colors"
                       >
                         <FiCode className="h-3 w-3" />
-                        Custom Values
+                        Variables
                       </button>
                       {isCustomValuesOpen && (
                         <div className="absolute top-full right-0 sm:left-0 sm:right-auto mt-2 w-52 bg-white dark:bg-[#202123] border border-gray-100 dark:border-white/10 rounded-xl shadow-xl z-50 py-1 max-h-56 overflow-y-auto">
@@ -683,6 +723,9 @@ export const TemplatesTab: React.FC = () => {
                   rows={6}
                   className="w-full px-4 py-3 bg-gray-50 dark:bg-[#111111] border border-gray-200/60 dark:border-white/10 rounded-xl text-[14px] leading-relaxed text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/20 focus:border-[#2b83fa] transition-all resize-none custom-scrollbar"
                 />
+                <p className="mt-2 text-[11.5px] font-medium leading-relaxed text-gray-500 dark:text-gray-400">
+                  Required: add a contact variable such as {"{{contact.first_name}}"} and company variable {"{{company.name}}"} before saving.
+                </p>
               </div>
               <PhonePreview template={formData} />
             </div>
@@ -694,7 +737,7 @@ export const TemplatesTab: React.FC = () => {
                 disabled={!formData.name.trim() || !formData.content.trim() || isSubmitting}
                 className="flex-[2] flex items-center justify-center gap-2 px-4 py-3.5 bg-[#2b83fa] hover:bg-[#1d6bd4] disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:cursor-not-allowed text-white disabled:text-gray-400 dark:disabled:text-gray-600 rounded-xl font-bold text-[14px] transition-all duration-200 shadow-md shadow-blue-500/10"
               >
-                {isSubmitting ? <FiLoader className="h-5 w-5 animate-spin" /> : "Save Template"}
+                {isSubmitting ? <FiLoader className="h-5 w-5 animate-spin" /> : "Save"}
               </button>
             </div>
           </div>

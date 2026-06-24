@@ -21,6 +21,7 @@ import { getAccountSettings, getPreferredSender, savePreferredSender } from "../
 import { fetchAccountSenderConfig } from "../api/senderRequests";
 import { buildDirectConversationId, buildGroupConversationId } from "../utils/conversationId";
 import { estimateSmsSegments } from "../utils/smsSegments";
+import { formatTemplateValidationMessage, validateTemplateContent } from "../utils/templateValidation";
 import { buildContactNameLookup, isPhoneLike, resolveContactNameByPhone } from "../utils/contactDisplay";
 
 interface ComposerProps {
@@ -642,6 +643,7 @@ export const Composer: React.FC<ComposerProps> = ({
     { label: "Contact Full Name", value: "{{contact.name}}" },
     { label: "Contact Phone", value: "{{contact.phone}}" },
     { label: "Contact Email", value: "{{contact.email}}" },
+    { label: "Company Name", value: "{{company.name}}" },
   ];
 
   const insertAtCursor = (text: string) => {
@@ -675,7 +677,7 @@ export const Composer: React.FC<ComposerProps> = ({
         setTemplateOptions(await fetchTemplates(locationId || undefined));
       } catch (error) {
         devLog.error("Failed to load templates:", error);
-        showToast("error", "Failed to load templates.");
+        showToast("error", "Templates could not be loaded. Check your connection and try again.");
       } finally {
         setTemplatesLoading(false);
       }
@@ -683,6 +685,12 @@ export const Composer: React.FC<ComposerProps> = ({
   };
 
   const handleTemplateSelect = (template: Template) => {
+    const validation = validateTemplateContent(template.content);
+    if (!validation.isValid) {
+      showToast("error", `Template needs variables before use. ${formatTemplateValidationMessage(validation)}`);
+      return;
+    }
+
     insertAtCursor(template.content);
     setIsTemplatesOpen(false);
     showToast("success", `Inserted ${template.name}.`);
@@ -1316,10 +1324,10 @@ export const Composer: React.FC<ComposerProps> = ({
                 {(getResolvedContactName(activeContact || selectedContacts[0]) || "?").charAt(0).toUpperCase()}
               </div>
               <div className="flex flex-col min-w-0">
-                <h2 className="text-[15px] sm:text-[17px] font-black text-white leading-tight tracking-tight truncate">
+                <h2 className="max-w-full truncate text-[15px] font-black leading-tight tracking-tight text-white sm:text-[17px]" title={toProperCase(getResolvedContactName(activeContact || selectedContacts[0]))}>
                   {toProperCase(getResolvedContactName(activeContact || selectedContacts[0]))}
                 </h2>
-                <div className="flex items-center gap-1.5 min-w-0">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                   <span className="text-[12px] sm:text-[13px] text-white/75 font-semibold truncate">
                     {activePhoneNumber}
                   </span>
@@ -1505,13 +1513,13 @@ export const Composer: React.FC<ComposerProps> = ({
               </div>
             </div>
             {/* Recipient Line */}
-            <div className="flex items-center gap-3 rounded-2xl border border-[#dce4ee] dark:border-white/10 bg-white/[0.65] dark:bg-white/[0.07] px-3 py-1.5 shadow-sm">
+            <div className="flex items-start gap-2 rounded-2xl border border-[#dce4ee] bg-white/[0.65] px-3 py-2 shadow-sm dark:border-white/10 dark:bg-white/[0.07] sm:items-center sm:gap-3 sm:py-1.5">
               <span className="text-[12px] font-black text-[#667085] dark:text-white/70 whitespace-nowrap uppercase">To</span>
 
-              <div className="flex-1 min-h-[40px] flex items-center">
+              <div className="flex min-h-[40px] min-w-0 flex-1 items-center">
                 <div className="relative w-full" ref={dropdownRef}>
                   <div
-                    className="flex flex-wrap items-center gap-2 py-1 cursor-text"
+                    className="flex max-h-[112px] cursor-text flex-wrap items-center gap-2 overflow-y-auto py-1 pr-1 custom-scrollbar sm:max-h-[88px]"
                     onClick={() => setIsPickerOpen(true)}
                   >
                     {bulkSelectedContacts.map(contact => {
@@ -1521,7 +1529,7 @@ export const Composer: React.FC<ComposerProps> = ({
                       return (
                         <span
                           key={contact.id}
-                          className={`flex min-w-0 max-w-[220px] flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-bold shadow-sm ring-1 transition-all
+                          className={`flex min-w-0 max-w-[152px] flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-bold shadow-sm ring-1 transition-all sm:max-w-[220px] sm:text-[13px]
                             ${isFocused
                               ? 'bg-[#1d6bd4] text-white ring-white/45 shadow-md scale-105'
                               : isBulkActive
@@ -1574,13 +1582,13 @@ export const Composer: React.FC<ComposerProps> = ({
                       }}
                       onFocus={() => setIsPickerOpen(true)}
                       placeholder={bulkSelectedContacts.length === 0 ? (composeMode === "single" ? "Search or enter number..." : "Search or enter multiple...") : ""}
-                      className="flex-1 bg-transparent border-none min-w-[120px] text-[15px] font-medium text-[#111111] dark:text-[#ececf1] placeholder-[#667085]/60 dark:placeholder-white/50 focus:outline-none py-1"
+                      className="min-w-[96px] flex-1 border-none bg-transparent py-1 text-[14px] font-medium text-[#111111] placeholder-[#667085]/60 focus:outline-none dark:text-[#ececf1] dark:placeholder-white/50 sm:min-w-[120px] sm:text-[15px]"
                     />
                   </div>
 
                   {/* Dropdown */}
                   {isPickerOpen && (
-                    <div className="absolute top-full left-0 right-0 z-40 max-h-64 overflow-y-auto rounded-2xl border border-gray-200/80 dark:border-white/10 bg-white/95 dark:bg-[#1a1b1e]/95 backdrop-blur-2xl shadow-2xl mt-1 py-2 custom-scrollbar transition-all scale-up-center">
+                    <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-[52vh] overflow-y-auto rounded-2xl border border-gray-200/80 bg-white/95 py-2 shadow-2xl backdrop-blur-2xl transition-all scale-up-center custom-scrollbar dark:border-white/10 dark:bg-[#1a1b1e]/95 sm:max-h-64">
                       {/* Manual Add Option */}
                       {searchQuery.replace(/\D/g, "").length >= 7 && (
                         <div
@@ -2221,8 +2229,8 @@ export const Composer: React.FC<ComposerProps> = ({
                 </div>
               )}
 
-              <div className="flex items-center justify-between gap-3 px-3 pt-2.5 pb-1.5 border-t border-[#edf1f6] dark:border-white/[0.08]">
-                <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex flex-col gap-3 border-t border-[#edf1f6] px-3 pb-1.5 pt-2.5 dark:border-white/[0.08] sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                   {/* Templates Button */}
                   <div className="relative" ref={templatePickerRef}>
                     <button
@@ -2235,14 +2243,17 @@ export const Composer: React.FC<ComposerProps> = ({
                     </button>
 
                     {isTemplatesOpen && (
-                      <div className="absolute bottom-full left-0 mb-2 p-2 bg-white dark:bg-[#1a1b1e] rounded-2xl border border-gray-200 dark:border-white/10 shadow-xl flex flex-col gap-1 z-50 animate-scale-up w-72 max-h-72 overflow-y-auto custom-scrollbar">
+                      <div className="absolute bottom-full left-0 z-50 mb-2 flex max-h-[44vh] w-[min(18rem,calc(100vw-2rem))] flex-col gap-1 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-xl animate-scale-up custom-scrollbar dark:border-white/10 dark:bg-[#1a1b1e] sm:max-h-72 sm:w-72">
                         {templatesLoading ? (
                           <div className="flex items-center justify-center gap-2 px-3 py-5 text-[12px] font-semibold text-gray-500">
                             <FiLoader className="h-4 w-4 animate-spin" />
                             Loading templates...
                           </div>
                         ) : templateOptions.length === 0 ? (
-                          <div className="px-3 py-5 text-center text-[12px] font-medium text-gray-500">No templates available</div>
+                          <div className="px-3 py-5 text-center">
+                            <p className="text-[12px] font-bold text-gray-600 dark:text-gray-300">No templates yet</p>
+                            <p className="mt-1 text-[11px] font-medium leading-relaxed text-gray-500 dark:text-gray-400">Create templates from the Templates page, then insert them here.</p>
+                          </div>
                         ) : (
                           templateOptions.map(template => (
                             <button
@@ -2343,8 +2354,8 @@ export const Composer: React.FC<ComposerProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <span className="text-[12px] font-semibold text-[#98a2b3] dark:text-[#737b89] tabular-nums whitespace-nowrap">
+                <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:gap-4">
+                  <span className="text-[11px] font-semibold tabular-nums text-[#98a2b3] dark:text-[#737b89] sm:text-[12px]">
                     {smsEstimate.lengthUnits} <span className="text-[10px] opacity-70">chars</span> / est. {estimatedCreditCost} <span className="text-[10px] opacity-70">credit{estimatedCreditCost === 1 ? "" : "s"}</span>
                   </span>
                   <button
@@ -2357,7 +2368,7 @@ export const Composer: React.FC<ComposerProps> = ({
                       ${isSendDisabled()
                         ? "opacity-35 cursor-not-allowed shadow-none"
                         : "hover:shadow-[0_16px_32px_rgba(37,99,235,0.36)] hover:-translate-y-0.5 active:scale-95 cursor-pointer"}
-                      ${isNewMessage || selectedContacts.length > 0 ? "px-5 py-2.5 rounded-2xl" : "p-3 rounded-full"}
+                      ${isNewMessage || selectedContacts.length > 0 ? "px-4 py-2.5 rounded-2xl sm:px-5" : "p-3 rounded-full"}
                       sm:px-6 sm:py-3 sm:rounded-2xl
                     `}
                     title={isSendDisabled() ? getSendDisabledReason() : undefined}
@@ -2461,7 +2472,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 onClick={() => handleSend(true)}
                 className="rounded-xl bg-[#2b83fa] px-5 py-2 text-[13px] font-black text-white shadow-sm hover:bg-[#1d6bd4]"
               >
-                Send now
+                Confirm Send
               </button>
             </div>
           </div>

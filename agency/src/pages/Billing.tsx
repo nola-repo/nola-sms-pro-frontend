@@ -1110,7 +1110,7 @@ export const Billing: React.FC = () => {
                       className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#2b83fa] hover:bg-[#1d6bd4] text-white text-[13px] font-bold transition-colors shadow-sm disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-[#2b83fa]"
                     >
                       <FiDownload className="w-4 h-4" />
-                      {canDownloadReport ? 'Download PDF' : 'No Events To Download'}
+                      {canDownloadReport ? 'Download PDF' : 'No events to download'}
                     </button>
                   </>
                 )}

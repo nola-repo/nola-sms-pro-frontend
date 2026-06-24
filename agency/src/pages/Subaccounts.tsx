@@ -672,7 +672,7 @@ export const Subaccounts = () => {
                       <FiDownload className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-[14px] font-bold text-[#111111] dark:text-white">No reportable events</p>
+                      <p className="text-[14px] font-bold text-[#111111] dark:text-white">No reportable events yet</p>
                       <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a9] mt-1">PDF download is disabled until this subaccount has credit activity.</p>
                     </div>
                   </div>
@@ -722,7 +722,7 @@ export const Subaccounts = () => {
                       className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#2b83fa] hover:bg-[#1d6bd4] text-white text-[13px] font-bold transition-colors shadow-sm disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:bg-[#2b83fa]"
                     >
                       <FiDownload className="w-4 h-4" />
-                      {canDownloadReport ? 'Download PDF' : 'No Events To Download'}
+                      {canDownloadReport ? 'Download PDF' : 'No events to download'}
                     </button>
                   </>
                 )}

@@ -657,7 +657,7 @@ export const AdminAccounts: React.FC = () => {
                     ) : accounts.length === 0 ? (
                         <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
                             <FiUsers className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                            <p className="text-[14px] font-semibold">No registered users found.</p>
+                            <p className="text-[14px] font-semibold">No registered users yet.</p>
                         </div>
                     ) : filteredAccounts.length === 0 ? (
                         <div className="p-12 text-center border-2 border-dashed border-[#e5e5e5] dark:border-[#3a3b3f] rounded-xl text-[#9aa0a6] bg-[#f7f7f7] dark:bg-[#0d0e10]">
@@ -974,7 +974,7 @@ export const AdminAccounts: React.FC = () => {
                                             <FiDownload className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <p className="text-[14px] font-bold text-[#111111] dark:text-white">No reportable events</p>
+                                            <p className="text-[14px] font-bold text-[#111111] dark:text-white">No reportable events yet</p>
                                             <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">PDF download is disabled until this subaccount has credit activity.</p>
                                         </div>
                                     </div>
@@ -1017,7 +1017,7 @@ export const AdminAccounts: React.FC = () => {
                                             className="w-full flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] text-white rounded-xl text-[13px] font-bold transition-all shadow-md shadow-blue-500/20 active:scale-[0.98] disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:shadow-none"
                                         >
                                             <FiDownload className="w-4 h-4" />
-                                            {canDownloadReport ? 'Download PDF' : 'No Events To Download'}
+                                            {canDownloadReport ? 'Download PDF' : 'No events to download'}
                                         </button>
                                     </>
                                 )}

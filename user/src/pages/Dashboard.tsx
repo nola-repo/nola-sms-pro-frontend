@@ -445,7 +445,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     isAuthenticated() || isRunningInGhlFrame();
   const workspaceBootstrapComplete =
     Boolean(locationId) ||
-    (!isLocationResolving && (workspaceProfileSyncComplete || isRunningInGhlFrame())) ||
+    (!isLocationResolving && workspaceProfileSyncComplete) ||
     !shouldWaitForWorkspaceBootstrap;
   const isAwaitingWorkspaceBootstrap =
     !locationId && (isLocationResolving || !workspaceBootstrapComplete);

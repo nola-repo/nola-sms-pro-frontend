@@ -88,6 +88,33 @@ const ContactSkeleton = () => (
   </div>
 );
 
+const ContactEmptyState: React.FC<{
+  isFiltered: boolean;
+  onCreate: () => void;
+  onClearFilters: () => void;
+}> = ({ isFiltered, onCreate, onClearFilters }) => (
+  <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-gray-200 bg-white/70 px-6 py-14 text-center shadow-sm dark:border-white/10 dark:bg-[#1a1b1e]/60">
+    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#eef6ff] text-[#2b83fa] dark:bg-white/5">
+      {isFiltered ? <FiSearch className="h-8 w-8" /> : <FiUser className="h-8 w-8" />}
+    </div>
+    <h3 className="text-[16px] font-extrabold text-[#111111] dark:text-[#ececf1]">
+      {isFiltered ? "No contacts match your filters" : "No contacts yet"}
+    </h3>
+    <p className="mt-2 max-w-sm text-[13px] font-medium leading-relaxed text-gray-500 dark:text-gray-400">
+      {isFiltered
+        ? "Clear the search or tag filters to return to your full contact list."
+        : "Add your first recipient or reconnect your CRM so synced contacts appear here."}
+    </p>
+    <button
+      onClick={isFiltered ? onClearFilters : onCreate}
+      className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-[#2b83fa] px-4 py-2.5 text-[13px] font-bold text-white shadow-md shadow-blue-500/15 transition-all hover:bg-[#1d6bd4] active:scale-95"
+    >
+      {isFiltered ? <FiX className="h-4 w-4" /> : <FiPlus className="h-4 w-4" />}
+      {isFiltered ? "Clear filters" : "Add Contact"}
+    </button>
+  </div>
+);
+
 export const ContactsTab: React.FC<ContactsTabProps> = ({
   onSendToComposer,
   onViewMessages,
@@ -173,7 +200,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
   const handleMutationError = (err: unknown, fallback: string): string => {
     if (isGhlReconnectError(err)) {
       setReconnectError(err.message);
-      return 'Reconnect your CRM to manage contacts.';
+      return 'Reconnect your CRM in Settings, then try again.';
     }
     return err instanceof Error ? err.message : fallback;
   };
@@ -197,7 +224,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
         devLog.error(err);
         if (!cancelled) {
           setContacts([]);
-          setGhlContactsError({ kind: 'generic', message: 'Failed to load contacts' });
+          setGhlContactsError({ kind: 'generic', message: 'Contacts could not be loaded. Check your connection and try again.' });
         }
       })
       .finally(() => {
@@ -229,7 +256,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
       applyContactsFetch(result);
     } catch (e) {
       devLog.error(e);
-      setGhlContactsError({ kind: 'generic', message: 'Failed to refresh contacts' });
+      setGhlContactsError({ kind: 'generic', message: 'Contacts could not be refreshed. Your previous list will remain visible when available.' });
     } finally {
       setIsPullRefreshing(false);
       setContactsRefreshing(false);
@@ -716,14 +743,18 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
               ))}
             </div>
           ) : ghlContactsError ? null : groupedContacts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-16 h-16 mb-4 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center">
-                <FiSearch className="h-8 w-8 text-gray-400" />
-              </div>
-              <p className="text-[14px] text-gray-500 dark:text-gray-400 font-medium">
-                {searchQuery ? "No contacts match your search" : "No contacts available"}
-              </p>
-            </div>
+            <ContactEmptyState
+              isFiltered={Boolean(searchQuery || selectedTags.length > 0)}
+              onCreate={() => {
+                setSearchQuery("");
+                setSelectedTags([]);
+                setIsAddModalOpen(true);
+              }}
+              onClearFilters={() => {
+                setSearchQuery("");
+                setSelectedTags([]);
+              }}
+            />
           ) : (
             <div className="space-y-6">
               {groupedContacts.map(([letter, letterContacts]) => (
@@ -819,7 +850,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
                                 </div>
                               )}
                             </div>
-                            <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                            <p className="mt-0.5 truncate text-[12px] text-gray-500 dark:text-gray-400" title={formatDisplayPhone(contact.phone)}>
                               {formatDisplayPhone(contact.phone)}
                             </p>
                             {lastMessagedLabel && (

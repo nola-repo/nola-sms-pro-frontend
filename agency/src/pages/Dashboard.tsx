@@ -462,8 +462,8 @@ export const Dashboard = () => {
       {!loading && total === 0 && !error && (
         <div className="bg-white/70 dark:bg-[#121415]/80 backdrop-blur-2xl border border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] rounded-2xl p-16 shadow-sm flex flex-col items-center justify-center text-center">
           <FiUsers className="w-10 h-10 text-[#9ca3af] opacity-50 mb-3" />
-          <div className="text-[15px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">No subaccounts found</div>
-          <div className="text-[13px] text-[#9ca3af] mt-1">No subaccounts are registered under your agency ID yet.</div>
+          <div className="text-[15px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">No subaccounts yet</div>
+          <div className="text-[13px] text-[#9ca3af] mt-1">Registered subaccounts will appear here after they are linked to your agency.</div>
         </div>
       )}
     </AgencyLayout>
