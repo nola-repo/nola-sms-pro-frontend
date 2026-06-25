@@ -40,6 +40,23 @@ const providerLabel = (provider: string) => {
     return 'Semaphore';
 };
 
+const detectProviderFromApiKey = (value: string): 'semaphore' | 'unisms' | null => {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return null;
+    if (/unisms|unismsapi|unis?ms[_\s-]?(api|key|token)/i.test(normalized)) return 'unisms';
+    if (/semaphore|api\.semaphore\.co|semaphore[_\s-]?(api|key|token)/i.test(normalized)) return 'semaphore';
+
+    const token = normalized
+        .replace(/^bearer\s+/i, '')
+        .split(/[?&\s"'<>]+/)
+        .find((part) => part.includes('apikey=') || part.includes('api_key=') || part.length >= 24) || normalized;
+    const cleanedToken = token.replace(/^.*(?:apikey|api_key)=/i, '').replace(/[^a-z0-9_-]/gi, '');
+
+    if (/^sk_[a-z0-9-]{20,}$/i.test(cleanedToken) || /^uni[a-z0-9_-]{12,}$/i.test(cleanedToken) || /^usms[a-z0-9_-]{12,}$/i.test(cleanedToken)) return 'unisms';
+    if (/^[a-z0-9]{32}$/i.test(cleanedToken) || /^sem[a-z0-9_-]{12,}$/i.test(cleanedToken)) return 'semaphore';
+
+    return null;
+};
 const shouldShowProviderBadge = (req: any) => String(req?.status || 'pending').toLowerCase() !== 'pending';
 
 const getRequestTimestamp = (req: any) => {
@@ -796,9 +813,12 @@ export const AdminSenderRequests: React.FC = () => {
                 if (!req) return null;
                 const isApprove = actionPrompt.action === 'approved';
                 const isActing = actionLoading?.startsWith(req.id);
-                const requiresKey = approvalProvider === 'semaphore';
                 const apiKey = apiKeyInput.trim();
-                const canApprove = approvalProvider === 'unisms' || apiKey.length > 0;
+                const detectedProvider = detectProviderFromApiKey(apiKeyInput);
+                const canApprove = apiKey.length > 0;
+                const approvalKeyPayload = approvalProvider === 'unisms'
+                    ? { api_key: apiKey, unisms_api_key: apiKey }
+                    : { api_key: apiKey, semaphore_api_key: apiKey, nola_pro_api_key: apiKey };
 
                 return (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -829,12 +849,12 @@ export const AdminSenderRequests: React.FC = () => {
                                                 {
                                                     id: 'unisms' as const,
                                                     label: 'UniSMS',
-                                                    description: 'Best for UniSMS-approved sender names and accounts using UniSMS delivery.',
+                                                    description: 'Approve this sender with a required UniSMS API key.',
                                                 },
                                                 {
                                                     id: 'semaphore' as const,
                                                     label: 'Semaphore',
-                                                    description: 'Use when this sender name should be reviewed and sent through Semaphore.',
+                                                    description: 'Approve this sender with a required Semaphore API key.',
                                                 },
                                             ].map((option) => {
                                                 const selected = approvalProvider === option.id;
@@ -848,29 +868,38 @@ export const AdminSenderRequests: React.FC = () => {
                                                             : 'border-[#e0e0e0] dark:border-white/10 bg-[#f7f7f7] dark:bg-[#0d0e10] hover:border-[#2b83fa]/40'
                                                         }`}
                                                     >
-                                                        <p className="text-[12.5px] font-black text-[#111111] dark:text-white">{option.label}</p>
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <p className="text-[12.5px] font-black text-[#111111] dark:text-white">{option.label}</p>
+                                                            {detectedProvider === option.id && (
+                                                                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-300">Detected</span>
+                                                            )}
+                                                        </div>
                                                         <p className="mt-1 text-[11px] font-semibold leading-snug text-[#6e6e73] dark:text-[#9aa0a6]">{option.description}</p>
                                                     </button>
                                                 );
                                             })}
                                         </div>
                                     </div>
-                                    <div className="rounded-xl border border-emerald-100 dark:border-emerald-800/30 bg-emerald-50 dark:bg-emerald-900/10 px-4 py-3">
-                                        <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">Ready to approve</p>
-                                        <p className="text-[12px] font-medium text-emerald-700/75 dark:text-emerald-300/75 mt-1 leading-relaxed">
-                                            This will activate the requested sender ID for the selected account.
-                                        </p>
-                                    </div>
                                     <div>
                                         <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">
-                                            API Key {requiresKey ? '' : '(optional)'}
+                                            API Key <span className="text-red-500">*</span>
                                         </label>
                                         <div className="relative">
                                             <input
                                                 type={showInputKey ? "text" : "password"}
                                                 value={apiKeyInput}
-                                                onChange={e => setApiKeyInput(e.target.value)}
-                                                placeholder={requiresKey ? "Required to approve" : "Optional custom key"}
+                                                onChange={e => {
+                                                    const nextValue = e.target.value;
+                                                    setApiKeyInput(nextValue);
+                                                    const detected = detectProviderFromApiKey(nextValue);
+                                                    if (detected) setApprovalProvider(detected);
+                                                }}
+                                                onPaste={e => {
+                                                    const pasted = e.clipboardData.getData('text');
+                                                    const detected = detectProviderFromApiKey(pasted);
+                                                    if (detected) setApprovalProvider(detected);
+                                                }}
+                                                placeholder="Required to approve"
                                                 className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 transition-shadow font-semibold"
                                             />
                                             <button
@@ -882,11 +911,18 @@ export const AdminSenderRequests: React.FC = () => {
                                             </button>
                                         </div>
                                     </div>
+                                    <div className="rounded-xl border border-emerald-100 dark:border-emerald-800/30 bg-emerald-50 dark:bg-emerald-900/10 px-4 py-3">
+                                        <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">Ready to approve</p>
+                                        <p className="text-[12px] font-medium text-emerald-700/75 dark:text-emerald-300/75 mt-1 leading-relaxed">
+                                            This will activate the requested sender ID for the selected account.
+                                        </p>
+                                    </div>
                                     <button
                                         disabled={!canApprove || !!isActing}
                                         onClick={() => doAction('approved', req.id, {
                                             provider: approvalProvider,
-                                            ...(apiKey ? { api_key: apiKey } : {}),
+                                            provider_preference: `${approvalProvider}_custom`,
+                                            ...approvalKeyPayload,
                                         })}
                                         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
                                     >
@@ -896,12 +932,6 @@ export const AdminSenderRequests: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    <div className="rounded-xl border border-red-100 dark:border-red-800/30 bg-red-50 dark:bg-red-900/10 px-4 py-3">
-                                        <p className="text-[12px] font-bold text-red-700 dark:text-red-300">Reject request</p>
-                                        <p className="text-[12px] font-medium text-red-700/75 dark:text-red-300/75 mt-1 leading-relaxed">
-                                            Add a clear customer-facing reason before rejecting this sender ID.
-                                        </p>
-                                    </div>
                                     <div>
                                         <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">Customer Note</label>
                                         <textarea
@@ -911,6 +941,12 @@ export const AdminSenderRequests: React.FC = () => {
                                             placeholder="Reason sent to the customer..."
                                             className="w-full px-4 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none transition-shadow font-medium"
                                         />
+                                    </div>
+                                    <div className="rounded-xl border border-red-100 dark:border-red-800/30 bg-red-50 dark:bg-red-900/10 px-4 py-3">
+                                        <p className="text-[12px] font-bold text-red-700 dark:text-red-300">Reject request</p>
+                                        <p className="text-[12px] font-medium text-red-700/75 dark:text-red-300/75 mt-1 leading-relaxed">
+                                            Add a clear customer-facing reason before rejecting this sender ID.
+                                        </p>
                                     </div>
                                     <button
                                         disabled={!rejectNote.trim() || !!isActing}
