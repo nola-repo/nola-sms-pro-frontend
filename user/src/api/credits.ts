@@ -7,6 +7,10 @@ export interface CreditStatus {
     free_usage_count: number;
     free_credits_total: number;
     currency: string;
+    created_at?: string;
+    updated_at?: string;
+    cached?: boolean;
+    meta?: any;
     stats?: {
         sent_today: number;
         credits_used_today: number;
@@ -41,13 +45,25 @@ const creditCacheKey = (locationId: string | null, resource: string, filtersHash
     filtersHash,
 });
 
-const normalizeCreditStatus = (data: any): CreditStatus => ({
-    credit_balance: data.credit_balance ?? data.balance ?? data.data?.balance ?? 0,
-    free_usage_count: data.free_usage_count ?? 0,
-    free_credits_total: data.free_credits_total ?? 0,
-    currency: data.currency ?? 'PHP',
-    stats: data.stats,
-});
+const normalizeCreditStatus = (payload: any): CreditStatus => {
+    if (payload && Object.prototype.hasOwnProperty.call(payload, "success") && payload.success !== true) {
+        throw new Error(payload.message || payload.error || "Failed to load credit status.");
+    }
+
+    const data = payload?.data && !Array.isArray(payload.data) ? payload.data : payload;
+
+    return {
+        credit_balance: data?.credit_balance ?? data?.balance ?? payload?.balance ?? 0,
+        free_usage_count: data?.free_usage_count ?? payload?.free_usage_count ?? 0,
+        free_credits_total: data?.free_credits_total ?? payload?.free_credits_total ?? 0,
+        currency: data?.currency ?? payload?.currency ?? 'PHP',
+        created_at: data?.created_at ?? payload?.created_at,
+        updated_at: data?.updated_at ?? payload?.updated_at,
+        cached: payload?.cached,
+        meta: payload?.meta,
+        stats: data?.stats ?? payload?.stats,
+    };
+};
 
 const normalizeTransactions = (data: any): CreditTransaction[] => {
     if (Array.isArray(data)) return data as CreditTransaction[];
@@ -63,10 +79,12 @@ export async function fetchCreditStatus(
     try {
         const accountSettings = getAccountSettings();
         const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (locationId) {
-            headers['X-GHL-Location-ID'] = locationId;
+        if (!locationId) {
+            return null;
         }
+
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        headers['X-GHL-Location-ID'] = locationId;
 
         const params = new URLSearchParams();
         if (options.forceRefresh) params.set("fresh", "1");
@@ -104,10 +122,12 @@ export async function fetchCreditTransactions(
     try {
         const accountSettings = getAccountSettings();
         const locationId = explicitLocationId || accountSettings.ghlLocationId || null;
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (locationId) {
-            headers['X-GHL-Location-ID'] = locationId;
+        if (!locationId) {
+            return [];
         }
+
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        headers['X-GHL-Location-ID'] = locationId;
 
         let url = `${API_CONFIG.base}/api/get_credit_transactions?account_id=${encodeURIComponent(accountId)}&limit=${limit}`;
         if (locationId) url += `&location_id=${encodeURIComponent(locationId)}`;

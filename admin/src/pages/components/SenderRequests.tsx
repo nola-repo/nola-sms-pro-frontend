@@ -40,6 +40,8 @@ const providerLabel = (provider: string) => {
     return 'Semaphore';
 };
 
+const shouldShowProviderBadge = (req: any) => String(req?.status || 'pending').toLowerCase() !== 'pending';
+
 const getRequestTimestamp = (req: any) => {
     const raw = req.created_at || req.createdAt || req.updated_at || req.date_created || '';
     const parsed = new Date(raw);
@@ -104,6 +106,7 @@ export const AdminSenderRequests: React.FC = () => {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [showInputKey, setShowInputKey] = useState(false);
     const [actionPrompt, setActionPrompt] = useState<{ requestId: string; action: 'approved' | 'rejected' } | null>(null);
+    const [approvalProvider, setApprovalProvider] = useState<'semaphore' | 'unisms'>('semaphore');
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'revoked'>('all');
     const [providerFilter, setProviderFilter] = useState<'all' | 'semaphore' | 'unisms' | 'system'>('all');
     const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'sender' | 'account'>('newest');
@@ -216,12 +219,21 @@ export const AdminSenderRequests: React.FC = () => {
         setActionPrompt(null);
     };
 
+    const openActionPrompt = (req: any, action: 'approved' | 'rejected') => {
+        setApprovalProvider(normalizeProvider(req) === 'unisms' ? 'unisms' : 'semaphore');
+        setRejectNote(req?.admin_notes || '');
+        setApiKeyInput('');
+        setShowInputKey(false);
+        setActionPrompt({ requestId: req.id, action });
+    };
+
     const requestStats = useMemo(() => {
         const byStatus = requests.reduce((acc: Record<string, number>, req: any) => {
             acc[req.status || 'pending'] = (acc[req.status || 'pending'] || 0) + 1;
             return acc;
         }, {});
         const byProvider = requests.reduce((acc: Record<string, number>, req: any) => {
+            if (!shouldShowProviderBadge(req)) return acc;
             const provider = normalizeProvider(req);
             acc[provider] = (acc[provider] || 0) + 1;
             return acc;
@@ -241,7 +253,7 @@ export const AdminSenderRequests: React.FC = () => {
         const lowSearch = searchTerm.toLowerCase().trim();
         const matched = requests.filter((req: any) => {
             const isStatusMatch = filter === 'all' || req.status === filter;
-            const isProviderMatch = providerFilter === 'all' || normalizeProvider(req) === providerFilter;
+            const isProviderMatch = providerFilter === 'all' || (shouldShowProviderBadge(req) && normalizeProvider(req) === providerFilter);
             if (!isStatusMatch || !isProviderMatch) return false;
 
             if (!lowSearch) return true;
@@ -447,7 +459,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                     <div className="flex flex-col min-w-0">
                                                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                             <span className="font-black text-[15px] text-[#2b83fa] dark:text-[#4da3ff] leading-none">{req.requested_id}</span>
-                                                            <ProviderBadge provider={normalizeProvider(req)} />
+                                                            {shouldShowProviderBadge(req) && <ProviderBadge provider={normalizeProvider(req)} />}
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <p className="text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] truncate uppercase tracking-tight max-w-[150px]">{locName}</p>
@@ -473,7 +485,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                                     e.stopPropagation();
                                                                     setApiKeyInput('');
                                                                     setShowInputKey(false);
-                                                                    setActionPrompt({ requestId: req.id, action: 'approved' });
+                                                                    openActionPrompt(req, 'approved');
                                                                 }}
                                                                 disabled={!!isActing}
                                                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-[11px] font-black hover:bg-emerald-600 disabled:opacity-50 transition-colors"
@@ -485,7 +497,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setRejectNote(req.admin_notes || '');
-                                                                    setActionPrompt({ requestId: req.id, action: 'rejected' });
+                                                                    openActionPrompt(req, 'rejected');
                                                                 }}
                                                                 disabled={!!isActing}
                                                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-100 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30 text-[11px] font-black hover:bg-red-100 dark:hover:bg-red-900/20 disabled:opacity-50 transition-colors"
@@ -625,7 +637,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                     </div>
                                                     <div className="flex flex-wrap items-center justify-end gap-2">
                                                         <StatusBadge status={req.status} />
-                                                        <ProviderBadge provider={normalizeProvider(req)} />
+                                                        {shouldShowProviderBadge(req) && <ProviderBadge provider={normalizeProvider(req)} />}
                                                     </div>
                                                 </div>
                                             </div>
@@ -680,7 +692,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                         onClick={() => {
                                                             setApiKeyInput('');
                                                             setShowInputKey(false);
-                                                            setActionPrompt({ requestId: req.id, action: 'approved' });
+                                                            openActionPrompt(req, 'approved');
                                                         }}
                                                         className="flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
                                                     >
@@ -692,7 +704,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                         disabled={!!isActing}
                                                         onClick={() => {
                                                             setRejectNote(req.admin_notes || '');
-                                                            setActionPrompt({ requestId: req.id, action: 'rejected' });
+                                                            openActionPrompt(req, 'rejected');
                                                         }}
                                                         className="flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-red-500 hover:bg-red-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
                                                     >
@@ -784,10 +796,9 @@ export const AdminSenderRequests: React.FC = () => {
                 if (!req) return null;
                 const isApprove = actionPrompt.action === 'approved';
                 const isActing = actionLoading?.startsWith(req.id);
-                const reqProvider = normalizeProvider(req);
-                const requiresKey = reqProvider === 'semaphore';
+                const requiresKey = approvalProvider === 'semaphore';
                 const apiKey = apiKeyInput.trim();
-                const canApprove = reqProvider === 'unisms' || apiKey.length > 0;
+                const canApprove = approvalProvider === 'unisms' || apiKey.length > 0;
 
                 return (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -809,6 +820,41 @@ export const AdminSenderRequests: React.FC = () => {
 
                             {isApprove ? (
                                 <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">
+                                            Provider <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {[
+                                                {
+                                                    id: 'unisms' as const,
+                                                    label: 'UniSMS',
+                                                    description: 'Best for UniSMS-approved sender names and accounts using UniSMS delivery.',
+                                                },
+                                                {
+                                                    id: 'semaphore' as const,
+                                                    label: 'Semaphore',
+                                                    description: 'Use when this sender name should be reviewed and sent through Semaphore.',
+                                                },
+                                            ].map((option) => {
+                                                const selected = approvalProvider === option.id;
+                                                return (
+                                                    <button
+                                                        key={option.id}
+                                                        type="button"
+                                                        onClick={() => setApprovalProvider(option.id)}
+                                                        className={`text-left rounded-xl border p-3 transition-all ${selected
+                                                            ? 'border-[#111111] dark:border-white bg-[#eef5ff] dark:bg-white/10 shadow-sm'
+                                                            : 'border-[#e0e0e0] dark:border-white/10 bg-[#f7f7f7] dark:bg-[#0d0e10] hover:border-[#2b83fa]/40'
+                                                        }`}
+                                                    >
+                                                        <p className="text-[12.5px] font-black text-[#111111] dark:text-white">{option.label}</p>
+                                                        <p className="mt-1 text-[11px] font-semibold leading-snug text-[#6e6e73] dark:text-[#9aa0a6]">{option.description}</p>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                     <div className="rounded-xl border border-emerald-100 dark:border-emerald-800/30 bg-emerald-50 dark:bg-emerald-900/10 px-4 py-3">
                                         <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">Ready to approve</p>
                                         <p className="text-[12px] font-medium text-emerald-700/75 dark:text-emerald-300/75 mt-1 leading-relaxed">
@@ -839,7 +885,7 @@ export const AdminSenderRequests: React.FC = () => {
                                     <button
                                         disabled={!canApprove || !!isActing}
                                         onClick={() => doAction('approved', req.id, {
-                                            provider: reqProvider,
+                                            provider: approvalProvider,
                                             ...(apiKey ? { api_key: apiKey } : {}),
                                         })}
                                         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"

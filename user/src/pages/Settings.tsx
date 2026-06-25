@@ -1039,7 +1039,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
             submittedAt: req.created_at,
             adminNotes: req.admin_notes,
             sampleMessage: req.sample_message,
-            provider: providerLabel(req.provider_preference || req.provider),
+            provider: displayStatus === "pending" ? undefined : providerLabel(req.provider_preference || req.provider),
         });
     }
 

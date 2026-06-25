@@ -204,11 +204,14 @@ const SkeletonRows = ({ count = 5 }) => (
             <div className="skeleton h-2.5 w-24 rounded-md" />
           </div>
         </td>
+        <td className="px-6 py-4"><div className="skeleton h-6 w-24 rounded-full" /></td>
+        <td className="px-6 py-4"><div className="skeleton h-4 w-28 rounded-md" /></td>
         <td className="px-6 py-4"><div className="skeleton h-4 w-28 rounded-md" /></td>
         <td className="px-6 py-4"><div className="skeleton h-[30px] w-24 rounded-lg" /></td>
         <td className="px-6 py-4"><div className="skeleton h-6 w-16 rounded-full" /></td>
         <td className="px-6 py-4"><div className="skeleton h-[30px] w-20 rounded-lg" /></td>
         <td className="px-6 py-4"><div className="skeleton h-[30px] w-20 rounded-lg" /></td>
+        <td className="px-6 py-4"><div className="skeleton h-9 w-9 rounded-lg" /></td>
         <td className="px-6 py-4 flex justify-end"><div className="skeleton h-6 w-11 rounded-full" /></td>
       </tr>
     ))}
@@ -273,6 +276,87 @@ const buildSubaccountReportProfile = (subaccount: any, agencyId: string | null) 
   reportTitle: 'SUBACCOUNT CREDIT REPORT',
   currentBalance: subaccount.credit_balance ?? subaccount.credits ?? 0,
 });
+const SUBACCOUNT_STATUS_FILTERS = [
+  { id: 'all', label: 'All Statuses' },
+  { id: 'active', label: 'Active' },
+  { id: 'sms_off', label: 'SMS Off' },
+  { id: 'not_installed', label: 'Not Installed' },
+  { id: 'at_limit', label: 'At Limit' },
+  { id: 'low_credit', label: 'Low/No Credits' },
+];
+
+const getSubaccountLastActiveRaw = (subaccount: any) => (
+  subaccount.last_active_at ||
+  subaccount.last_active ||
+  subaccount.lastActiveAt ||
+  subaccount.lastActive ||
+  subaccount.last_login_at ||
+  subaccount.last_login ||
+  subaccount.lastLoginAt ||
+  subaccount.lastLogin ||
+  subaccount.updated_at ||
+  subaccount.updatedAt ||
+  subaccount.created_at ||
+  subaccount.createdAt ||
+  ''
+);
+
+const getSubaccountTimestamp = (value: any) => {
+  if (!value) return 0;
+  if (typeof value === 'object' && value.seconds) return Number(value.seconds) * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const formatSubaccountLastActive = (subaccount: any) => {
+  const raw = getSubaccountLastActiveRaw(subaccount);
+  const timestamp = getSubaccountTimestamp(raw);
+  if (!timestamp) return 'No activity yet';
+  return new Date(timestamp).toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    year: new Date(timestamp).getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const getSubaccountStatusMeta = (subaccount: any, installedLocations: Set<any>) => {
+  const isInstalled = installedLocations.size === 0 || installedLocations.has(subaccount.location_id) || subaccount.is_live;
+  const rateLimit = Number(subaccount.rate_limit ?? 0);
+  const attempts = Number(subaccount.attempt_count ?? 0);
+  const credits = Number(subaccount.credit_balance ?? subaccount.credits ?? 0);
+
+  if (!isInstalled) {
+    return { id: 'not_installed', label: 'Not Installed', className: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-white/5 dark:text-slate-300 dark:border-white/10' };
+  }
+  if (!subaccount.toggle_enabled) {
+    return { id: 'sms_off', label: 'SMS Off', className: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/5 dark:text-gray-400 dark:border-white/10' };
+  }
+  if (rateLimit > 0 && attempts >= rateLimit) {
+    return { id: 'at_limit', label: 'At Limit', className: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20' };
+  }
+  if (credits <= 0) {
+    return { id: 'no_credit', label: 'No Credits', className: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20' };
+  }
+  if (credits < 25) {
+    return { id: 'low_credit', label: 'Low Credits', className: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20' };
+  }
+  return { id: 'active', label: 'Active', className: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20' };
+};
+
+const matchesSubaccountStatusFilter = (subaccount: any, statusFilter: string, installedLocations: Set<any>) => {
+  if (statusFilter === 'all') return true;
+  const status = getSubaccountStatusMeta(subaccount, installedLocations).id;
+  if (statusFilter === 'low_credit') return status === 'low_credit' || status === 'no_credit';
+  return status === statusFilter;
+};
+
+const SubaccountStatusBadge = ({ meta }: { meta: any }) => (
+  <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-black uppercase tracking-wider whitespace-nowrap ${meta.className}`}>
+    {meta.label}
+  </span>
+);
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export const Subaccounts = () => {
@@ -291,6 +375,7 @@ export const Subaccounts = () => {
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [sortField, setSortField] = useState('location_name');
   const [sortDirection, setSortDirection] = useState('asc');
   const [reportSubaccount, setReportSubaccount] = useState<any>(null);
@@ -570,15 +655,23 @@ export const Subaccounts = () => {
     ? `Your subscription is ${normalizedSubscription.status.replace(/_/g, ' ')}. Please renew before adding subaccounts.`
     : `You have reached the limit of your ${normalizedSubscription.plan} plan (${getSubscriptionLimitText(normalizedSubscription.subaccount_limit)} subaccounts). Please upgrade in the Subscription tab.`;
 
-  const filtered = subaccounts.filter(s =>
-    s.location_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.location_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = subaccounts.filter(s => {
+    const statusMeta = getSubaccountStatusMeta(s, installedLocations);
+    const search = searchTerm.toLowerCase().trim();
+    const matchesSearch = !search || [
+      s.location_name,
+      s.location_id,
+      s.company_name,
+      s.agency_name,
+      statusMeta.label,
+    ].filter(Boolean).join(' ').toLowerCase().includes(search);
+
+    return matchesSearch && matchesSubaccountStatusFilter(s, statusFilter, installedLocations);
+  });
 
   const sorted = [...filtered].sort((a, b) => {
-    let valA = a[sortField];
-    let valB = b[sortField];
+    let valA = sortField === 'last_active' ? getSubaccountTimestamp(getSubaccountLastActiveRaw(a)) : a[sortField];
+    let valB = sortField === 'last_active' ? getSubaccountTimestamp(getSubaccountLastActiveRaw(b)) : b[sortField];
     if (typeof valA === 'string') valA = valA.toLowerCase();
     if (typeof valB === 'string') valB = valB.toLowerCase();
 
@@ -825,10 +918,26 @@ export const Subaccounts = () => {
                   type="text"
                   placeholder="Search subaccounts..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="pl-9 pr-4 py-1.5 rounded-lg text-[12.5px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all w-48 sm:w-64"
                 />
               </div>
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all min-w-[150px]"
+                aria-label="Filter subaccounts by status"
+              >
+                {SUBACCOUNT_STATUS_FILTERS.map(option => (
+                  <option key={option.id} value={option.id}>{option.label}</option>
+                ))}
+              </select>
               {/* Add Subaccount */}
               {atSubscriptionLimit ? (
                 <button
@@ -860,7 +969,9 @@ export const Subaccounts = () => {
               <thead>
                 <tr className="border-b border-[#0000000a] dark:border-[#ffffff0a]">
                   <th onClick={() => handleSort('location_name')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Subaccount <SortIcon field="location_name" /></th>
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Status</th>
                   <th onClick={() => handleSort('agency_name')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Agency Name <SortIcon field="agency_name" /></th>
+                  <th onClick={() => handleSort('last_active')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Last Active <SortIcon field="last_active" /></th>
                   <th onClick={() => handleSort('rate_limit')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Credit Limit <SortIcon field="rate_limit" /></th>
                   <th onClick={() => handleSort('attempt_count')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Sends Used <SortIcon field="attempt_count" /></th>
                   <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Credits</th>
@@ -877,6 +988,7 @@ export const Subaccounts = () => {
                     const isAtLimit = sub.attempt_count >= sub.rate_limit;
                     const isNearLimit = !isAtLimit && sub.attempt_count >= sub.rate_limit * 0.8;
                     const isBusy = !!toggleLoading[sub.location_id];
+                    const statusMeta = getSubaccountStatusMeta(sub, installedLocations);
 
                     return (
                       <tr key={sub.location_id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
@@ -890,10 +1002,22 @@ export const Subaccounts = () => {
                           </div>
                         </td>
 
+                        {/* Status */}
+                        <td className="px-6 py-4 align-middle">
+                          <SubaccountStatusBadge meta={statusMeta} />
+                        </td>
+
                         {/* Agency Name */}
                         <td className="px-6 py-4 align-middle">
                           <span className="text-[13px] font-medium text-[#6b7280] dark:text-[#9ca3af]">
                             {sub.agency_name || sub.company_name || <em className="text-[#9ca3af] opacity-50">Unknown Agency</em>}
+                          </span>
+                        </td>
+
+                        {/* Last Active */}
+                        <td className="px-6 py-4 align-middle">
+                          <span className="text-[12.5px] font-semibold text-[#6e6e73] dark:text-[#9ca3af] whitespace-nowrap">
+                            {formatSubaccountLastActive(sub)}
                           </span>
                         </td>
 

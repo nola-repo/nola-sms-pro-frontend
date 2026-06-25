@@ -77,7 +77,7 @@ export const submitSenderRequest = async (
     requestedId: string,
     purpose: string,
     sampleMessage: string,
-    provider: SenderProvider = "unisms"
+    provider?: SenderProvider
 ): Promise<SenderRequest> => {
     const { headers, locationId } = getLocationHeaders();
     const normalizedId = requestedId.trim().toUpperCase();
@@ -91,7 +91,7 @@ export const submitSenderRequest = async (
         body: JSON.stringify({
             location_id: locationId,
             requested_id: normalizedId,
-            provider,
+            ...(provider ? { provider } : {}),
             purpose: purpose.trim(),
             sample_message: sampleMessage.trim(),
         }),
