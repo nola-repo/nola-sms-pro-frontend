@@ -30,20 +30,24 @@ const responseMessage = async (response: Response): Promise<string> => {
   }
 };
 
-const shouldRedirectToAdminLogin = async (response: Response) => {
-  if (response.status !== 401 && response.status !== 403) return false;
+const getAdminAuthRequiredReason = async (response: Response) => {
+  if (response.status !== 401 && response.status !== 403) return null;
 
   const message = await responseMessage(response);
 
-  if (response.status === 401) {
-    return AUTH_401_MESSAGES.some(expected => message.includes(expected));
+  if (response.status === 401 && AUTH_401_MESSAGES.some(expected => message.includes(expected))) {
+    return 'Your admin session expired or could not be verified. Please sign in again to continue.';
   }
 
-  return INACTIVE_403_MESSAGES.some(expected => message.includes(expected));
+  if (response.status === 403 && INACTIVE_403_MESSAGES.some(expected => message.includes(expected))) {
+    return 'Your admin account is inactive or no longer has access. Contact a super admin if this looks wrong.';
+  }
+
+  return null;
 };
 
-const emitAdminAuthRequired = () => {
-  window.dispatchEvent(new CustomEvent(ADMIN_AUTH_REQUIRED_EVENT));
+const emitAdminAuthRequired = (message: string) => {
+  window.dispatchEvent(new CustomEvent(ADMIN_AUTH_REQUIRED_EVENT, { detail: { message } }));
 };
 
 const mergeAdminHeaders = (headers?: HeadersInit) => {
@@ -62,8 +66,9 @@ export const adminFetch = async (input: RequestInfo | URL, init: RequestInit = {
     headers: mergeAdminHeaders(init.headers),
   });
 
-  if (await shouldRedirectToAdminLogin(response)) {
-    emitAdminAuthRequired();
+  const authRequiredReason = await getAdminAuthRequiredReason(response);
+  if (authRequiredReason) {
+    emitAdminAuthRequired(authRequiredReason);
   }
 
   return response;

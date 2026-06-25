@@ -9,6 +9,7 @@ interface AdminLoginProps {
   onLogin: (username: string, token: string, rememberMe: boolean) => void;
   darkMode?: boolean;
   toggleDarkMode?: () => void;
+  notice?: string | null;
 }
 
 type AdminLoginView = 'login' | 'forgot_request' | 'forgot_verify' | 'forgot_change_password';
@@ -21,7 +22,7 @@ const formatCountdown = (seconds: number) => {
 
 
 
-export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggleDarkMode }) => {
+export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggleDarkMode, notice }) => {
   const [view, setView] = useState<AdminLoginView>('login');
   
   const [email, setEmail] = useState('');
@@ -53,6 +54,10 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
   const primaryColor = '#3b82f6';
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (notice) setError(notice);
+  }, [notice]);
 
   useEffect(() => {
     if (location.state?.resetSuccess) {

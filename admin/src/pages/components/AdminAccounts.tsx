@@ -41,6 +41,12 @@ type Account = {
     phone?: string;
     role?: string;
     active?: boolean;
+    status?: string;
+    last_active_at?: any;
+    last_active?: any;
+    last_login_at?: any;
+    last_login?: any;
+    updated_at?: any;
     location_id?: string;
     active_location_id?: string;
     location_name?: string;
@@ -77,6 +83,8 @@ const normalizeAccount = (item: any): Account => {
         phone: raw.phone || raw.phone_number || '',
         role: raw.role || 'user',
         active: raw.active !== false,
+        status: raw.status || (raw.active === false ? 'inactive' : 'active'),
+        last_active_at: raw.last_active_at || raw.last_active || raw.lastActiveAt || raw.lastActive || raw.last_login_at || raw.last_login || raw.lastLoginAt || raw.lastLogin || raw.updated_at || raw.updatedAt || raw.created_at || raw.createdAt || '',
         location_id: raw.location_id || raw.active_location_id || '',
         active_location_id: raw.active_location_id || raw.location_id || '',
         location_name: locationName,
@@ -113,7 +121,93 @@ const roleBadge = (role?: string) => {
     );
 };
 
-const emptyValue = (value?: string | null) => value?.trim() || '—';
+type AccountStatusFilter = 'all' | 'active' | 'inactive' | 'missing_location' | 'low_credit';
+
+const accountStatusFilters: Array<{ id: AccountStatusFilter; label: string }> = [
+    { id: 'all', label: 'All statuses' },
+    { id: 'active', label: 'Active' },
+    { id: 'inactive', label: 'Inactive' },
+    { id: 'missing_location', label: 'Missing Location' },
+    { id: 'low_credit', label: 'Low Credits' },
+];
+
+const emptyValue = (value?: string | null) => value?.trim() || '-';
+
+const getCreditBalance = (account: Account) => account.credit_balance ?? account.credits ?? 0;
+
+const getAccountLastActiveValue = (account: Account) =>
+    account.last_active_at ||
+    account.last_active ||
+    account.last_login_at ||
+    account.last_login ||
+    account.updated_at ||
+    account.created_at ||
+    '';
+
+const parseDateValue = (value: any) => {
+    if (!value) return null;
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+    if (typeof value === 'object' && value.seconds) {
+        const date = new Date(Number(value.seconds) * 1000);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatLastActive = (account: Account) => {
+    const date = parseDateValue(getAccountLastActiveValue(account));
+    if (!date) return 'No activity';
+    const diffMin = Math.floor((Date.now() - date.getTime()) / 60000);
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHrs = Math.floor(diffMin / 60);
+    if (diffHrs < 24) return `${diffHrs}h ago`;
+    const diffDays = Math.floor(diffHrs / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const getAccountStatusMeta = (account: Account) => {
+    const hasLocation = Boolean((account.location_id || account.active_location_id || '').trim());
+    const credits = getCreditBalance(account);
+    const normalized = String(account.status || '').toLowerCase();
+
+    if (!hasLocation) {
+        return { label: 'Missing Location', classes: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800/30' };
+    }
+    if (account.active === false || normalized === 'inactive' || normalized === 'disabled' || normalized === 'suspended') {
+        return { label: 'Inactive', classes: 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-white/5 dark:text-[#9aa0a6] dark:border-white/10' };
+    }
+    if (credits <= 0) {
+        return { label: 'No Credits', classes: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/10 dark:text-red-400 dark:border-red-800/30' };
+    }
+    if (credits < 25) {
+        return { label: 'Low Credits', classes: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/10 dark:text-orange-400 dark:border-orange-800/30' };
+    }
+    return { label: 'Active', classes: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' };
+};
+
+const renderAccountStatusBadge = (account: Account) => {
+    const status = getAccountStatusMeta(account);
+    return (
+        <span className={`inline-flex px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider whitespace-nowrap ${status.classes}`}>
+            {status.label}
+        </span>
+    );
+};
+
+const matchesAccountStatusFilter = (account: Account, filter: AccountStatusFilter) => {
+    if (filter === 'all') return true;
+    const hasLocation = Boolean((account.location_id || account.active_location_id || '').trim());
+    const credits = getCreditBalance(account);
+    const normalized = String(account.status || '').toLowerCase();
+    if (filter === 'missing_location') return !hasLocation;
+    if (filter === 'low_credit') return credits < 25;
+    if (filter === 'inactive') return account.active === false || ['inactive', 'disabled', 'suspended'].includes(normalized);
+    if (filter === 'active') return hasLocation && account.active !== false && !['inactive', 'disabled', 'suspended'].includes(normalized);
+    return true;
+};
 
 const getLocationLine = (account: Account) => {
     const locationName = account.location_name?.trim();
@@ -194,6 +288,7 @@ export const AdminAccounts: React.FC = () => {
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [agencyFilter, setAgencyFilter] = useState('all');
+    const [accountStatusFilter, setAccountStatusFilter] = useState<AccountStatusFilter>('all');
     const [sortField, setSortField] = useState<'subaccount' | 'agency' | 'credits'>('subaccount');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     const editContainerRef = useRef<HTMLDivElement>(null);
@@ -220,7 +315,7 @@ export const AdminAccounts: React.FC = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, agencyFilter, sortField, sortDir]);
+    }, [searchTerm, agencyFilter, accountStatusFilter, sortField, sortDir]);
 
     useEffect(() => {
         if (!filterMenuOpen) return;
@@ -335,8 +430,9 @@ export const AdminAccounts: React.FC = () => {
                 acc.approved_sender_id?.toLowerCase().includes(query);
 
             const matchesAgency = agencyFilter === 'all' || agencyName === agencyFilter;
+            const matchesStatus = matchesAccountStatusFilter(acc, accountStatusFilter);
 
-            return matchesSearch && matchesAgency;
+            return matchesSearch && matchesAgency && matchesStatus;
         });
 
         return [...matches].sort((a, b) => {
@@ -357,7 +453,7 @@ export const AdminAccounts: React.FC = () => {
             }
             return 0;
         });
-    }, [accounts, searchTerm, agencyFilter, sortField, sortDir]);
+    }, [accounts, searchTerm, agencyFilter, accountStatusFilter, sortField, sortDir]);
 
     const totalPages = Math.ceil(filteredAccounts.length / ITEMS_PER_PAGE);
     const currentAccounts = filteredAccounts.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -626,6 +722,19 @@ export const AdminAccounts: React.FC = () => {
                                                 </select>
                                             </label>
 
+                                            <label className="block">
+                                                <span className="block text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] mb-1.5 uppercase tracking-wider">Status</span>
+                                                <select
+                                                    value={accountStatusFilter}
+                                                    onChange={e => setAccountStatusFilter(e.target.value as AccountStatusFilter)}
+                                                    className="w-full px-3 py-2 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 text-[12px] text-[#111111] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 font-bold"
+                                                >
+                                                    {accountStatusFilters.map(filter => (
+                                                        <option key={filter.id} value={filter.id}>{filter.label}</option>
+                                                    ))}
+                                                </select>
+                                            </label>
+
                                             {/* Sorting is managed directly by clicking column headers */}
                                         </div>
                                     </div>
@@ -685,6 +794,9 @@ export const AdminAccounts: React.FC = () => {
                                             </button>
                                         </th>
                                         <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                            STATUS
+                                        </th>
+                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                             <button
                                                 onClick={() => handleSort('agency')}
                                                 className="flex items-center gap-1 hover:text-[#2b83fa] transition-colors group"
@@ -704,6 +816,9 @@ export const AdminAccounts: React.FC = () => {
                                         </th>
                                         <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                             PHONE
+                                        </th>
+                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                            LAST ACTIVE
                                         </th>
                                         <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                             <button
@@ -737,9 +852,12 @@ export const AdminAccounts: React.FC = () => {
                                                         {account.location_name || getAccountName(account)}
                                                     </p>
                                                     <p className="text-[10px] font-mono text-[#9aa0a6] truncate max-w-[200px]">
-                                                        {account.location_id || account.active_location_id || '—'}
+                                                        {account.location_id || account.active_location_id || '-'}
                                                     </p>
                                                 </div>
+                                            </td>
+                                            <td className="py-4 pr-4 min-w-[130px]">
+                                                {renderAccountStatusBadge(account)}
                                             </td>
                                             <td className="py-4 pr-4 text-[12px] font-bold text-[#111111] dark:text-white min-w-[170px]">
                                                 <div className="flex flex-col">
@@ -751,6 +869,7 @@ export const AdminAccounts: React.FC = () => {
                                             </td>
                                             <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[190px]">{emptyValue(account.email)}</td>
                                             <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[130px]">{emptyValue(account.phone)}</td>
+                                            <td className="py-4 pr-4 text-[12px] font-bold text-[#111111] dark:text-white min-w-[120px]">{formatLastActive(account)}</td>
                                             <td className="py-4 pr-4 min-w-[110px]">
                                                 {editingCreditId === account.id ? (
                                                     <div

@@ -43,6 +43,7 @@ export const AdminTeamManagement: React.FC = () => {
     const [editPhone, setEditPhone] = useState('');
     const [editRole, setEditRole] = useState('support');
     const [actionLoading, setActionLoading] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
     // Close menu on outside click
@@ -256,8 +257,14 @@ export const AdminTeamManagement: React.FC = () => {
         }
     };
 
-    const handleDeleteAdmin = async (emailToDelete: string) => {
-        if (!confirm(`Are you sure you want to delete '${emailToDelete}'? This cannot be undone.`)) return;
+    const requestDeleteAdmin = (emailToDelete: string) => {
+        setDeleteTarget(emailToDelete);
+        setActionMenuId(null);
+    };
+
+    const handleDeleteAdmin = async () => {
+        const emailToDelete = deleteTarget;
+        if (!emailToDelete) return;
         setActionLoading(true); setActionMenuId(null);
         try {
             const res = await adminFetch(USERS_API, {
@@ -269,13 +276,13 @@ export const AdminTeamManagement: React.FC = () => {
             if (res.ok && json.status === 'success') {
                 toast(`Admin "${emailToDelete}" deleted.`);
                 setAdmins(prev => prev.filter(a => a.email !== emailToDelete));
+                setDeleteTarget(null);
             } else {
                 toast(json.message || 'Failed to delete admin.', true);
             }
         } catch { toast('Network error deleting admin.', true); }
         finally { setActionLoading(false); }
     };
-
     const getRoleBadge = (role: string) => {
         const map: Record<string, { bg: string; label: string }> = {
             super_admin: { bg: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30', label: 'Super Admin' },
@@ -412,7 +419,7 @@ export const AdminTeamManagement: React.FC = () => {
                                 </button>
                                 <div className="border-t border-[#f0f0f0] dark:border-white/5" />
                                 <button
-                                    onClick={() => handleDeleteAdmin(admin.email)}
+                                    onClick={() => requestDeleteAdmin(admin.email)}
                                     disabled={actionLoading}
                                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left disabled:opacity-50"
                                 >
@@ -424,6 +431,44 @@ export const AdminTeamManagement: React.FC = () => {
                 </div>
             )}
 
+            {/* Delete Admin Confirmation Modal */}
+            {deleteTarget && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center justify-center">
+                                <FiAlertCircle className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-[18px] font-bold text-[#111111] dark:text-white">Delete admin?</h3>
+                                <p className="text-[12px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">This cannot be undone</p>
+                            </div>
+                        </div>
+                        <p className="text-[13px] leading-6 text-[#6e6e73] dark:text-[#9aa0a6] mb-5">
+                            You are about to permanently remove <span className="font-bold text-[#111111] dark:text-white">{deleteTarget}</span> from the admin team.
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setDeleteTarget(null)}
+                                disabled={actionLoading}
+                                className="flex-1 py-2.5 rounded-xl border border-[#e5e5e5] dark:border-white/10 text-[13px] font-bold text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleDeleteAdmin}
+                                disabled={actionLoading}
+                                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-[13px] transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
+                            >
+                                {actionLoading ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiTrash2 className="w-4 h-4" />}
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Edit Admin Modal */}
             {editingAdmin && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -571,4 +616,3 @@ export const AdminTeamManagement: React.FC = () => {
         </div>
     );
 };
-

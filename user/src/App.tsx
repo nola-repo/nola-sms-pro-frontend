@@ -15,7 +15,7 @@ import { isAuthenticated, saveSession } from "./services/authService";
 import { useLocationId } from "./context/LocationContext";
 import { getAccountSettings, saveAccountSettings } from "./utils/settingsStorage";
 import { apiFetch } from "./utils/apiFetch";
-import { detectLocationFromCurrentUrl } from "./utils/ghlLocationDetection";
+import { detectLocationFromCurrentUrl, hasGhlLaunchSignalInCurrentUrl } from "./utils/ghlLocationDetection";
 import { FiBookOpen, FiMessageSquare, FiMoon, FiMoreHorizontal, FiSun, FiX } from "react-icons/fi";
 import { UserNotificationBell } from "./components/ui/UserNotificationBell";
 import type { ViewTab } from "./components/Sidebar";
@@ -25,11 +25,7 @@ const getCurrentUrlLocationId = (): string => {
   return detectLocationFromCurrentUrl()?.locationId || "";
 };
 const isGhlEmbeddedRequest = (): boolean => {
-  const search = window.location.search;
-  const hash = window.location.hash;
-  const hasGhlParam =
-    /[?&](location_id|locationId|ghl_location_id|ghlLocationId|active_location_id|activeLocationId|sessionkey)=/i.test(search) ||
-    /(location_id|locationId|ghl_location_id|ghlLocationId|active_location_id|activeLocationId|sessionkey)=/i.test(hash);
+  const hasGhlParam = hasGhlLaunchSignalInCurrentUrl();
 
   let isIframe = false;
   try {

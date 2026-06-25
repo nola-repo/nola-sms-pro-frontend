@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { isAuthenticated } from '../services/authService';
+import { hasGhlLaunchSignalInCurrentUrl } from '../utils/ghlLocationDetection';
 
 /**
  * ProtectedRoute
@@ -13,21 +14,7 @@ import { isAuthenticated } from '../services/authService';
 export const ProtectedRoute: React.FC = () => {
   const isAuth = isAuthenticated();
 
-  // Only accept unambiguous GHL params — NOT generic ?id= or ?location=
-  const searchParams = new URLSearchParams(window.location.search);
-  const hashString = window.location.hash;
-  let urlHasParams = false;
-  try {
-    urlHasParams =
-      searchParams.has('location_id') ||
-      searchParams.has('locationId') ||
-      searchParams.has('sessionkey') ||
-      hashString.includes('location_id=') ||
-      hashString.includes('locationId=') ||
-      hashString.includes('sessionkey=');
-  } catch {
-    // Ignore URL parsing errors
-  }
+  const urlHasParams = hasGhlLaunchSignalInCurrentUrl();
 
   let isIframe = false;
   try {
@@ -40,7 +27,7 @@ export const ProtectedRoute: React.FC = () => {
   let savedGhlState = false;
   try {
     if (urlHasParams || isIframe) {
-      // Use sessionStorage only — clears when the tab/browser is closed
+      // Use sessionStorage only; clears when the tab/browser is closed
       sessionStorage.setItem('nola_is_ghl_frame', 'true');
     }
     savedGhlState = sessionStorage.getItem('nola_is_ghl_frame') === 'true';

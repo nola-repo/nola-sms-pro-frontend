@@ -4,6 +4,8 @@ import { getSession, SESSION_KEYS, redirectToLogin } from '../services/authServi
 import { safeStorage } from '../utils/safeStorage';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 import { apiFetch } from '../utils/apiFetch';
+import { detectLocationFromCurrentUrl } from '../utils/ghlLocationDetection';
+import { persistActiveGhlLocation, readActiveGhlLocation } from '../utils/ghlLocationStorage';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -155,15 +157,20 @@ export const useUserProfile = () => {
               const cachedUser = getCachedUser();
               const userChanged = cachedUser && cachedUser.email !== profile.email;
               const isStandardUser = profile.role === 'user';
+              const activeGhlLocationId = detectLocationFromCurrentUrl()?.locationId || readActiveGhlLocation();
+              const profileMatchesActiveGhl = !!activeGhlLocationId && activeGhlLocationId === profile.location_id;
+              const canUseProfileLocation = !appIsRunningInGhl || profileMatchesActiveGhl;
 
-              const shouldUseProfileLocation =
+              const shouldUseProfileLocation = canUseProfileLocation && (
                 isStandardUser ||
                 userChanged ||
                 !settings.ghlLocationId ||
                 settings.ghlLocationId === profile.location_id ||
-                !appIsRunningInGhl;
+                !appIsRunningInGhl
+              );
 
               if (shouldUseProfileLocation) {
+                persistActiveGhlLocation(profile.location_id);
                 safeStorage.setItem('nola_location_id', profile.location_id);
                 saveAccountSettings({
                   ...settings,
@@ -174,6 +181,11 @@ export const useUserProfile = () => {
                 window.dispatchEvent(
                   new CustomEvent('ghl-location-set', { detail: { locationId: profile.location_id } })
                 );
+              } else if (appIsRunningInGhl && activeGhlLocationId && activeGhlLocationId !== profile.location_id) {
+                devLog.warn('[useUserProfile] Skipped stale profile location while running in GHL.', {
+                  profileLocationId: profile.location_id,
+                  activeGhlLocationId,
+                });
               }
             }
           }

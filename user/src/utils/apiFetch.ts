@@ -2,6 +2,7 @@ import { safeStorage } from './safeStorage';
 import { sessionSafeStorage } from './sessionSafeStorage';
 import { getAccountSettings } from './settingsStorage';
 import { detectLocationFromCurrentUrl } from './ghlLocationDetection';
+import { readActiveGhlLocation } from './ghlLocationStorage';
 
 const SESSION_KEYS = {
   token: 'nola_auth_token',
@@ -68,7 +69,9 @@ const isCurrentGhlContext = (): boolean => {
 const getStoredLocationId = (): string => {
   const fromCurrentUrl = getCurrentUrlLocationId();
   if (fromCurrentUrl) return fromCurrentUrl;
-  if (isCurrentGhlContext()) return '';
+
+  const activeGhlLocationId = readActiveGhlLocation();
+  if (isCurrentGhlContext()) return activeGhlLocationId;
 
   try {
     return safeStorage.getItem(SESSION_KEYS.locationId) || getAccountSettings().ghlLocationId || '';

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { FiUsers, FiSend, FiLogOut, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX, FiBriefcase, FiUser } from 'react-icons/fi';
+import { FiUsers, FiSend, FiLogOut, FiHome, FiActivity, FiShield, FiSun, FiMoon, FiMenu, FiX, FiBriefcase, FiServer } from 'react-icons/fi';
 import { NotificationBell } from '../components/ui/NotificationBell';
 import faviconLogo from '../assets/FAV ICON - NOLA SMS PRO.png';
 
@@ -14,12 +14,14 @@ import { AdminTeamManagement } from './components/AdminUsersManagement';
 import { AdminLogs } from './components/SystemSettings';
 import { AdminAgencies } from './components/AdminAgencies';
 import { AdminProfile } from './components/AdminProfile';
+import { SystemHealth } from './components/SystemHealth';
 import { ADMIN_AUTH_REQUIRED_EVENT } from '../utils/adminApi';
 
 const NAV_ITEMS = [
     { path: '/dashboard',  label: 'Dashboard',        icon: <FiHome /> },
     { path: '/requests',   label: 'Sender Requests',  icon: <FiSend /> },
     { path: '/activity',   label: 'Platform Activity', icon: <FiActivity /> },
+    { path: '/health',     label: 'System Health',    icon: <FiServer /> },
     { path: '/accounts',   label: 'All Subaccounts',  icon: <FiUsers /> },
     { path: '/agencies',   label: 'All Agencies',     icon: <FiBriefcase /> },
     { path: '/admins',     label: 'Admin Users',      icon: <FiShield /> },
@@ -38,6 +40,10 @@ const PAGE_HEADERS = {
     accounts: {
         title: 'All Subaccounts',
         subtitle: 'Manage connected subaccounts, credit balances, and sender access.',
+    },
+    health: {
+        title: 'System Health',
+        subtitle: 'Monitor platform status, SMS failures, provider connectivity, and billing signals.',
     },
     agencies: {
         title: 'All Agencies',
@@ -236,18 +242,20 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
     const [isAuthenticated, setIsAuthenticated] = useState(readRememberedAdminSession);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [authNotice, setAuthNotice] = useState<string | null>(null);
     const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const navigate = useNavigate();
     const adminIdentity = readAdminIdentity();
 
-    const clearAdminSession = useCallback((includeRemembered = true) => {
+    const clearAdminSession = useCallback((includeRemembered = true, notice?: string) => {
         ADMIN_AUTH_KEYS.forEach(key => sessionStorage.removeItem(key));
         if (includeRemembered) {
             ADMIN_AUTH_KEYS.forEach(key => localStorage.removeItem(key));
             localStorage.removeItem(ADMIN_REMEMBER_KEY);
         }
         setShowLogoutConfirm(false);
+        setAuthNotice(notice || null);
         setIsAuthenticated(false);
         navigate('/dashboard');
     }, [navigate]);
@@ -255,7 +263,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
     const resetIdleTimer = useCallback(() => {
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
         if (localStorage.getItem(ADMIN_REMEMBER_KEY) === 'true') return;
-        idleTimerRef.current = setTimeout(() => clearAdminSession(false), ADMIN_IDLE_TIMEOUT_MS);
+        idleTimerRef.current = setTimeout(() => clearAdminSession(false, 'Your admin session timed out after 30 minutes of inactivity. Please sign in again to continue.'), ADMIN_IDLE_TIMEOUT_MS);
     }, [clearAdminSession]);
 
     useEffect(() => {
@@ -270,8 +278,12 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
     }, [isAuthenticated, resetIdleTimer]);
 
     useEffect(() => {
-        window.addEventListener(ADMIN_AUTH_REQUIRED_EVENT, clearAdminSession);
-        return () => window.removeEventListener(ADMIN_AUTH_REQUIRED_EVENT, clearAdminSession);
+        const handleAdminAuthRequired = (event: Event) => {
+            const detail = (event as CustomEvent<{ message?: string }>).detail;
+            clearAdminSession(true, detail?.message || 'Your admin access could not be verified. Please sign in again to continue.');
+        };
+        window.addEventListener(ADMIN_AUTH_REQUIRED_EVENT, handleAdminAuthRequired);
+        return () => window.removeEventListener(ADMIN_AUTH_REQUIRED_EVENT, handleAdminAuthRequired);
     }, [clearAdminSession]);
 
     const handleLogin = (username: string, token: string, rememberMe = true) => {
@@ -287,6 +299,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
             ADMIN_AUTH_KEYS.forEach(key => localStorage.removeItem(key));
             localStorage.removeItem(ADMIN_REMEMBER_KEY);
         }
+        setAuthNotice(null);
         setIsAuthenticated(true);
     };
 
@@ -298,7 +311,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
         return (
             <Routes>
                 <Route path="/forgot-password" element={<AdminForgotPassword darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-                <Route path="*" element={<AdminLogin onLogin={handleLogin} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+                <Route path="*" element={<AdminLogin onLogin={handleLogin} darkMode={darkMode} toggleDarkMode={toggleDarkMode} notice={authNotice} />} />
             </Routes>
         );
     }
@@ -412,6 +425,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                         <Route path="/requests" element={renderPage(<AdminSenderRequests />, 'requests')} />
                         <Route path="/activity" element={renderPage(<AdminLogs />, 'activity')} />
                         <Route path="/accounts" element={renderPage(<AdminAccounts />, 'accounts')} />
+                        <Route path="/health" element={renderPage(<SystemHealth />, 'health')} />
                         <Route path="/agencies" element={renderPage(<AdminAgencies />, 'agencies')} />
                         <Route path="/profile" element={renderPage(<AdminProfile />, 'profile')} />
                         <Route path="/admins" element={renderPage(<AdminTeamManagement />, 'admins')} />

@@ -24,6 +24,7 @@ import {
   type LocationDetectionResult,
   type LocationSource,
 } from '../utils/ghlLocationDetection';
+import { persistActiveGhlLocation } from '../utils/ghlLocationStorage';
 
 interface LocationContextValue {
   locationId: string;
@@ -90,6 +91,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Priority 1: URL param on initial load
     const fromUrl = detectLocationFromCurrentUrl();
     if (fromUrl) {
+      persistActiveGhlLocation(fromUrl.locationId);
       // Synchronously write to localStorage so children reading getAccountSettings on mount see it immediately
       const settings = getAccountSettings();
       if (settings.ghlLocationId !== fromUrl.locationId) {
@@ -112,25 +114,33 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Persist and broadcast whenever locationId changes
   const setLocationId = useCallback((newId: string, source: LocationSource = 'manual', sourcePath: string = source) => {
-    if (!newId || newId === locationId) return;
+    const normalizedId = normalizeLocationCandidate(newId);
+    if (!normalizedId) return;
 
-    // Persist to localStorage
+    persistActiveGhlLocation(normalizedId);
+
+    // Persist the active workspace fallback without mutating the auth session location.
     const settings = getAccountSettings();
-    if (settings.ghlLocationId !== newId) {
-      saveAccountSettings({ ...settings, ghlLocationId: newId });
+    if (settings.ghlLocationId !== normalizedId) {
+      saveAccountSettings({ ...settings, ghlLocationId: normalizedId });
     }
 
-    setLocationIdState(newId);
+    if (normalizedId === locationId) {
+      setIsLocationResolving(false);
+      return;
+    }
+
+    setLocationIdState(normalizedId);
     setIsLocationResolving(false);
-    devLog.log(`[LocationContext] Updated GHL location from ${sourcePath}: ${newId}`);
+    devLog.log(`[LocationContext] Updated GHL location from ${sourcePath}: ${normalizedId}`);
 
     // Broadcast so Dashboard and other listeners can reset state
     window.dispatchEvent(
-      new CustomEvent('ghl-location-changed', { detail: { locationId: newId } })
+      new CustomEvent('ghl-location-changed', { detail: { locationId: normalizedId } })
     );
   }, [locationId]);
 
-  // ── Source 1: URL polling (handles iframe src changes) ────────────────────
+  // Source 1: URL polling (handles iframe src changes) ────────────────────
   useEffect(() => {
     let lastUrl = window.location.href;
 
@@ -209,9 +219,9 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => window.removeEventListener('ghl-location-set', handleManual);
   }, [setLocationId]);
 
-  const autoLoginInFlightRef = React.useRef(false);
+  const autoLoginInFlightRef = React.useRef<string | null>(null);
 
-  // ── Source 4: Silent Sub-Account Auto-Login (Option A) ──────────────────────
+  // Source 4: Silent Sub-Account Auto-Login (Option A)
   useEffect(() => {
     const session = getSession();
     const hasLocationId = !!locationId && locationId.length > 4;
@@ -220,8 +230,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const isMismatch = session && session.role !== 'agency' && session.locationId !== locationId;
 
     if (hasLocationId && (isUnauthenticated || isMismatch)) {
-      if (autoLoginInFlightRef.current) return;
-      autoLoginInFlightRef.current = true;
+      if (autoLoginInFlightRef.current === locationId) return;
+      autoLoginInFlightRef.current = locationId;
 
       devLog.log(
         `[LocationContext] Triggering silent auto-login for location: ${locationId}. Reason: ${
@@ -244,6 +254,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       })
         .then(async (res) => {
           const data = await res.json().catch(() => null);
+          if (autoLoginInFlightRef.current !== locationId) return;
           if (res.ok) {
             if (data?.token) {
               devLog.log(`[LocationContext] Silent auto-login succeeded for ${locationId}. Saving session and reloading.`);
@@ -256,7 +267,9 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
           const message = data?.message || data?.error || data?.details || res.statusText;
           devLog.warn(`[LocationContext] Silent auto-login failed for location ${locationId}. Status: ${res.status}`, message);
-          autoLoginInFlightRef.current = false;
+          if (autoLoginInFlightRef.current === locationId) {
+            autoLoginInFlightRef.current = null;
+          }
 
           if (isMismatch) {
             clearAuthSession();
@@ -268,7 +281,9 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         })
         .catch((err) => {
           devLog.error('[LocationContext] Silent auto-login error:', err);
-          autoLoginInFlightRef.current = false;
+          if (autoLoginInFlightRef.current === locationId) {
+            autoLoginInFlightRef.current = null;
+          }
           if (isMismatch) {
             clearAuthSession();
             const searchParams = new URLSearchParams(window.location.search);

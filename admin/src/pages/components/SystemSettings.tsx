@@ -495,6 +495,12 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
         { id: 'credit_usage', label: 'Credits Used', icon: <FiActivity size={11} /> },
     ] as const;
 
+    const smsStatusFilters = [
+        { id: 'failed', label: 'Failed SMS', icon: <FiAlertCircle size={11} /> },
+        { id: 'pending', label: 'Pending SMS', icon: <FiClock size={11} /> },
+        { id: 'successful', label: 'Sent SMS', icon: <FiSend size={11} /> },
+    ] as const;
+
     const pillColors: Record<string, { active: string; inactive: string }> = {
         neutral: {
             active: 'bg-[#111111] text-white dark:bg-white dark:text-[#111111] border-transparent shadow-sm',
@@ -785,6 +791,33 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                                 );
                             })}
                         </div>
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
+                            <span className="flex-shrink-0 text-[10px] font-black uppercase tracking-widest text-[#9aa0a6]">SMS Status</span>
+                            {smsStatusFilters.map(filter => {
+                                const isActive = filterType === 'message' && statusFilter === filter.id;
+                                const count = logs.filter(l => getType(l) === 'message' && getStatusGroup(l) === filter.id).length;
+                                return (
+                                    <button
+                                        key={filter.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setFilterType('message');
+                                            setStatusFilter(filter.id as any);
+                                            setCurrentPage(1);
+                                        }}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap border opacity-90 hover:opacity-100 ${
+                                            isActive
+                                                ? 'bg-[#111111] text-white dark:bg-white dark:text-[#111111] border-transparent shadow-sm'
+                                                : 'bg-white dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] border-[#e5e5e5] dark:border-white/5 hover:text-[#111111] dark:hover:text-white'
+                                        }`}
+                                    >
+                                        {filter.icon}
+                                        <span>{filter.label}</span>
+                                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black min-w-[18px] text-center ${isActive ? 'bg-white/20' : 'opacity-60'}`}>{count}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -889,4 +922,3 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
         </div>
     );
 };
-

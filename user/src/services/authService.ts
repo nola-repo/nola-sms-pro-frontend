@@ -2,6 +2,7 @@ import { safeStorage } from '../utils/safeStorage';
 import { sessionSafeStorage } from '../utils/sessionSafeStorage';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 import { apiFetch } from '../utils/apiFetch';
+import { clearActiveGhlLocation, persistActiveGhlLocation } from '../utils/ghlLocationStorage';
 /**
  * authService.ts
  * Centralized auth API calls and localStorage session management.
@@ -178,6 +179,7 @@ export const saveSession = (data: LoginResponse): void => {
   }
 
   if (locationId) {
+    persistActiveGhlLocation(locationId);
     const current = getAccountSettings();
     saveAccountSettings({
       ...current,
@@ -196,6 +198,7 @@ export const clearAuthSession = (): void => {
   safeStorage.removeItem('nola_settings_account');
   safeStorage.removeItem('nola_settings_api');
   safeStorage.removeItem('nola_settings_preferred_sender');
+  clearActiveGhlLocation();
   // Clear GHL iframe flag so it doesn't bypass login on future visits (#11)
   safeStorage.removeItem('nola_is_ghl_frame');
   try { sessionStorage.removeItem('nola_is_ghl_frame'); } catch { /* ignore */ }
