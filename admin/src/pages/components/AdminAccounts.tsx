@@ -756,154 +756,156 @@ export const AdminAccounts: React.FC = () => {
                             <p className="text-[14px] font-semibold">No subaccounts match your filters.</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto pb-4">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="border-b border-[#e5e5e5] dark:border-white/5">
-                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
-                                            <button
-                                                onClick={() => handleSort('subaccount')}
-                                                className="flex items-center gap-1 hover:text-[#2b83fa] transition-colors group"
-                                            >
-                                                SUBACCOUNT
-                                                <span className="opacity-50 group-hover:opacity-100 transition-opacity">
-                                                    {sortField === 'subaccount' ? (
-                                                        sortDir === 'asc' ? <FiChevronUp className="w-3 h-3" /> : <FiChevronDown className="w-3 h-3" />
-                                                    ) : (
-                                                        <FiChevronUp className="w-3 h-3 opacity-40" />
-                                                    )}
-                                                </span>
-                                            </button>
-                                        </th>
-                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
-                                            STATUS
-                                        </th>
-                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
-                                            <button
-                                                onClick={() => handleSort('agency')}
-                                                className="flex items-center gap-1 hover:text-[#2b83fa] transition-colors group"
-                                            >
-                                                AGENCY
-                                                <span className="opacity-50 group-hover:opacity-100 transition-opacity">
-                                                    {sortField === 'agency' ? (
-                                                        sortDir === 'asc' ? <FiChevronUp className="w-3 h-3" /> : <FiChevronDown className="w-3 h-3" />
-                                                    ) : (
-                                                        <FiChevronUp className="w-3 h-3 opacity-40" />
-                                                    )}
-                                                </span>
-                                            </button>
-                                        </th>
-                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
-                                            EMAIL
-                                        </th>
-
-                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
-                                            <button
-                                                onClick={() => handleSort('credits')}
-                                                className="flex items-center gap-1 hover:text-[#2b83fa] transition-colors group"
-                                            >
-                                                CREDITS
-                                                <span className="opacity-50 group-hover:opacity-100 transition-opacity">
-                                                    {sortField === 'credits' ? (
-                                                        sortDir === 'asc' ? <FiChevronUp className="w-3 h-3" /> : <FiChevronDown className="w-3 h-3" />
-                                                    ) : (
-                                                        <FiChevronUp className="w-3 h-3 opacity-40" />
-                                                    )}
-                                                </span>
-                                            </button>
-                                        </th>
-                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
-                                            FREE USED
-                                        </th>
-                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
-                                            ACTIONS
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
-                                    {currentAccounts.map(account => (
-                                        <tr key={account.id} className="group hover:bg-[#f7f7f7] dark:hover:bg-white/[0.015] transition-colors">
-                                            <td className="py-4 pr-4 min-w-[220px]">
-                                                <div className="flex flex-col gap-0.5">
-                                                    <p className="font-bold text-[13px] text-[#111111] dark:text-white truncate max-w-[200px]">
-                                                        {account.location_name || getAccountName(account)}
-                                                    </p>
-                                                    <p className="text-[10px] font-mono text-[#9aa0a6] truncate max-w-[200px]">
-                                                        {account.location_id || account.active_location_id || '-'}
-                                                    </p>
-                                                </div>
-                                            </td>
-                                            <td className="py-4 pr-4 min-w-[130px]">
-                                                {renderAccountStatusBadge(account)}
-                                            </td>
-                                            <td className="py-4 pr-4 text-[12px] font-bold text-[#111111] dark:text-white min-w-[170px]">
-                                                <div className="flex flex-col">
-                                                    <span className="truncate max-w-[190px]">{getAgencyName(account)}</span>
-                                                    {account.company_id && (
-                                                        <span className="text-[10px] text-[#9aa0a6] font-medium truncate max-w-[190px]">{account.company_id}</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[190px]">{emptyValue(account.email)}</td>
-
-                                            <td className="py-4 pr-4 min-w-[110px]">
-                                                {editingCreditId === account.id ? (
-                                                    <div
-                                                        ref={editContainerRef}
-                                                        className="inline-flex items-center rounded-lg border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] overflow-hidden shadow-sm"
-                                                    >
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setEditingCreditValue(prev => String(Math.max(0, (parseInt(prev) || 0) - 1)))}
-                                                            className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors border-r border-[#e0e0e0] dark:border-white/10"
-                                                        >
-                                                            <FiMinus className="w-3 h-3" />
-                                                        </button>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            autoFocus
-                                                            value={editingCreditValue}
-                                                            onChange={e => setEditingCreditValue(e.target.value)}
-                                                            onKeyDown={e => {
-                                                                if (e.key === 'Enter') saveEditCredit(account);
-                                                                if (e.key === 'Escape') setEditingCreditId(null);
-                                                            }}
-                                                            className="w-14 text-center text-[13px] font-bold bg-transparent text-[#111111] dark:text-white focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setEditingCreditValue(prev => String((parseInt(prev) || 0) + 1))}
-                                                            className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors border-l border-[#e0e0e0] dark:border-white/10"
-                                                        >
-                                                            <FiPlus className="w-3 h-3" />
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => startEditCredit(account)}
-                                                        title="Click to edit credits"
-                                                        className="flex flex-col items-start hover:bg-[#f0f7ff] dark:hover:bg-blue-900/10 rounded-lg px-2 py-1 transition-colors group/credits"
-                                                    >
-                                                        <span className="text-[13px] font-bold text-[#111111] dark:text-white group-hover/credits:text-[#2b83fa] transition-colors">{(account.credit_balance ?? account.credits ?? 0).toLocaleString()}</span>
-                                                        <span className="text-[9px] text-[#9aa0a6] font-medium uppercase tracking-tight group-hover/credits:text-[#2b83fa]/60 transition-colors">click to edit</span>
-                                                    </button>
-                                                )}
-                                            </td>
-                                            <td className="py-4 pr-4">{renderFreeUsage(account)}</td>
-                                            <td className="py-4 pr-2 text-right min-w-[60px]">
+                        <>
+                            <div className="overflow-x-auto pb-4">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-[#e5e5e5] dark:border-white/5">
+                                            <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                                 <button
-                                                    onClick={(event) => openActionMenu(account.id, event.currentTarget)}
-                                                    className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
-                                                    title="More actions"
+                                                    onClick={() => handleSort('subaccount')}
+                                                    className="flex items-center gap-1 hover:text-[#2b83fa] transition-colors group"
                                                 >
-                                                    <FiMoreVertical className="w-4 h-4" />
+                                                    SUBACCOUNT
+                                                    <span className="opacity-50 group-hover:opacity-100 transition-opacity">
+                                                        {sortField === 'subaccount' ? (
+                                                            sortDir === 'asc' ? <FiChevronUp className="w-3 h-3" /> : <FiChevronDown className="w-3 h-3" />
+                                                        ) : (
+                                                            <FiChevronUp className="w-3 h-3 opacity-40" />
+                                                        )}
+                                                    </span>
                                                 </button>
-                                            </td>
+                                            </th>
+                                            <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                                STATUS
+                                            </th>
+                                            <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                                <button
+                                                    onClick={() => handleSort('agency')}
+                                                    className="flex items-center gap-1 hover:text-[#2b83fa] transition-colors group"
+                                                >
+                                                    AGENCY
+                                                    <span className="opacity-50 group-hover:opacity-100 transition-opacity">
+                                                        {sortField === 'agency' ? (
+                                                            sortDir === 'asc' ? <FiChevronUp className="w-3 h-3" /> : <FiChevronDown className="w-3 h-3" />
+                                                        ) : (
+                                                            <FiChevronUp className="w-3 h-3 opacity-40" />
+                                                        )}
+                                                    </span>
+                                                </button>
+                                            </th>
+                                            <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                                EMAIL
+                                            </th>
+
+                                            <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                                <button
+                                                    onClick={() => handleSort('credits')}
+                                                    className="flex items-center gap-1 hover:text-[#2b83fa] transition-colors group"
+                                                >
+                                                    CREDITS
+                                                    <span className="opacity-50 group-hover:opacity-100 transition-opacity">
+                                                        {sortField === 'credits' ? (
+                                                            sortDir === 'asc' ? <FiChevronUp className="w-3 h-3" /> : <FiChevronDown className="w-3 h-3" />
+                                                        ) : (
+                                                            <FiChevronUp className="w-3 h-3 opacity-40" />
+                                                        )}
+                                                    </span>
+                                                </button>
+                                            </th>
+                                            <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                                FREE USED
+                                            </th>
+                                            <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
+                                                ACTIONS
+                                            </th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-[#f0f0f0] dark:divide-white/[0.03]">
+                                        {currentAccounts.map(account => (
+                                            <tr key={account.id} className="group hover:bg-[#f7f7f7] dark:hover:bg-white/[0.015] transition-colors">
+                                                <td className="py-4 pr-4 min-w-[220px]">
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <p className="font-bold text-[13px] text-[#111111] dark:text-white truncate max-w-[200px]">
+                                                            {account.location_name || getAccountName(account)}
+                                                        </p>
+                                                        <p className="text-[10px] font-mono text-[#9aa0a6] truncate max-w-[200px]">
+                                                            {account.location_id || account.active_location_id || '-'}
+                                                        </p>
+                                                    </div>
+                                                </td>
+                                                <td className="py-4 pr-4 min-w-[130px]">
+                                                    {renderAccountStatusBadge(account)}
+                                                </td>
+                                                <td className="py-4 pr-4 text-[12px] font-bold text-[#111111] dark:text-white min-w-[170px]">
+                                                    <div className="flex flex-col">
+                                                        <span className="truncate max-w-[190px]">{getAgencyName(account)}</span>
+                                                        {account.company_id && (
+                                                            <span className="text-[10px] text-[#9aa0a6] font-medium truncate max-w-[190px]">{account.company_id}</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[190px]">{emptyValue(account.email)}</td>
+
+                                                <td className="py-4 pr-4 min-w-[110px]">
+                                                    {editingCreditId === account.id ? (
+                                                        <div
+                                                            ref={editContainerRef}
+                                                            className="inline-flex items-center rounded-lg border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] overflow-hidden shadow-sm"
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setEditingCreditValue(prev => String(Math.max(0, (parseInt(prev) || 0) - 1)))}
+                                                                className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors border-r border-[#e0e0e0] dark:border-white/10"
+                                                            >
+                                                                <FiMinus className="w-3 h-3" />
+                                                            </button>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                autoFocus
+                                                                value={editingCreditValue}
+                                                                onChange={e => setEditingCreditValue(e.target.value)}
+                                                                onKeyDown={e => {
+                                                                    if (e.key === 'Enter') saveEditCredit(account);
+                                                                    if (e.key === 'Escape') setEditingCreditId(null);
+                                                                }}
+                                                                className="w-14 text-center text-[13px] font-bold bg-transparent text-[#111111] dark:text-white focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setEditingCreditValue(prev => String((parseInt(prev) || 0) + 1))}
+                                                                className="px-2.5 py-1.5 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors border-l border-[#e0e0e0] dark:border-white/10"
+                                                            >
+                                                                <FiPlus className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => startEditCredit(account)}
+                                                            title="Click to edit credits"
+                                                            className="flex flex-col items-start hover:bg-[#f0f7ff] dark:hover:bg-blue-900/10 rounded-lg px-2 py-1 transition-colors group/credits"
+                                                        >
+                                                            <span className="text-[13px] font-bold text-[#111111] dark:text-white group-hover/credits:text-[#2b83fa] transition-colors">{(account.credit_balance ?? account.credits ?? 0).toLocaleString()}</span>
+                                                            <span className="text-[9px] text-[#9aa0a6] font-medium uppercase tracking-tight group-hover/credits:text-[#2b83fa]/60 transition-colors">click to edit</span>
+                                                        </button>
+                                                    )}
+                                                </td>
+                                                <td className="py-4 pr-4">{renderFreeUsage(account)}</td>
+                                                <td className="py-4 pr-2 text-right min-w-[60px]">
+                                                    <button
+                                                        onClick={(event) => openActionMenu(account.id, event.currentTarget)}
+                                                        className="p-2 rounded-xl text-[#6e6e73] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] border border-transparent hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
+                                                        title="More actions"
+                                                    >
+                                                        <FiMoreVertical className="w-4 h-4" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
 
                             {totalPages > 1 && (
                                 <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#e5e5e5] dark:border-white/5">
@@ -919,7 +921,7 @@ export const AdminAccounts: React.FC = () => {
                                     </div>
                                 </div>
                             )}
-                        </div>
+                        </>
                     )}
                 </div>
             </div>

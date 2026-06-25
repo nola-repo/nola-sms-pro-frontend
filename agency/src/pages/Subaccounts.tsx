@@ -26,6 +26,7 @@ import {
 } from '../services/api.ts';
 import { agencyFetch } from '../services/agencyApi.ts';
 import { generateMonthlyReport } from '../utils/pdfGenerator';
+import { AgencySubaccountProfile } from '../components/AgencySubaccountProfile.tsx';
 import {
   getSubscriptionLimitText,
   isSubscriptionActive,
@@ -363,7 +364,7 @@ export const Subaccounts = () => {
   const { agencyId } = useAgency();
   const { toasts, showToast, dismissToast } = useToast();
 
-
+  const [profileSubaccount, setProfileSubaccount] = useState<any>(null);
   const [subaccounts, setSubaccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1236,7 +1237,7 @@ export const Subaccounts = () => {
           >
             <button
               type="button"
-              onClick={() => { setActionMenuSubId(null); /* view profile - placeholder */ showToast('Profile view coming soon.', 'info'); }}
+              onClick={() => { setActionMenuSubId(null); setProfileSubaccount(sub); }}
               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#111111] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/[0.04] transition-colors text-left"
             >
               <FiEye className="w-3.5 h-3.5 text-[#2b83fa]" /> View Profile
@@ -1251,6 +1252,20 @@ export const Subaccounts = () => {
           </div>
         );
       })()}
+
+      {profileSubaccount && (
+        <AgencySubaccountProfile
+          subaccount={profileSubaccount}
+          onClose={() => setProfileSubaccount(null)}
+          onSaved={(updatedSub) => {
+            setSubaccounts(prev => prev.map(s => s.location_id === updatedSub.location_id ? { ...s, ...updatedSub } : s));
+            setProfileSubaccount(updatedSub);
+          }}
+          onToggleActive={async (locationId, enabled) => {
+            await handleToggle(locationId, enabled);
+          }}
+        />
+      )}
     </AgencyLayout>
   );
 };
