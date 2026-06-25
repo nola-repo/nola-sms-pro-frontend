@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { FiAlertCircle, FiCheck, FiEdit2, FiEye, FiEyeOff, FiLock, FiMoreVertical, FiRefreshCw, FiShield, FiX } from 'react-icons/fi';
+import { FiAlertCircle, FiCheck, FiEdit3, FiEye, FiEyeOff, FiLock, FiMoreVertical, FiRefreshCw, FiSave, FiShield, FiX } from 'react-icons/fi';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { useToast } from '../../hooks/useToast';
 import { adminFetch } from '../../utils/adminApi';
@@ -39,113 +39,48 @@ const displayFullName = (value?: unknown, fallback = 'Admin Account') => {
         .replace(/\b\w/g, char => char.toUpperCase());
 };
 
-const FieldRow = ({ label, value, icon }: { label: string; value: React.ReactNode; icon?: React.ReactNode }) => (
+const FieldInput: React.FC<{
+    label: string;
+    value: string;
+    type?: string;
+    placeholder?: string;
+    onChange: (value: string) => void;
+}> = ({ label, value, type = 'text', placeholder, onChange }) => (
     <div>
-        <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-[#9aa0a6]">
+        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">
             {label}
         </label>
-        <div className="flex min-h-[46px] items-center justify-between gap-3 rounded-xl border border-[#e0e0e0] bg-[#f7f7f7] px-4 py-2.5 text-[13px] font-bold text-[#111111] dark:border-[#ffffff0a] dark:bg-[#0d0e10] dark:text-[#ececf1]">
-            <span className="min-w-0 break-words">{value || <span className="font-normal text-[#9aa0a6]">Not available</span>}</span>
-            {icon && <span className="shrink-0 text-[#6e6e73] dark:text-[#9aa0a6]">{icon}</span>}
+        <div className="relative">
+            <input
+                type={type}
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                placeholder={placeholder}
+                className="w-full px-4 py-3 pr-10 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all"
+            />
+            <FiEdit3 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9aa0a6]" />
         </div>
     </div>
 );
 
-interface EditableFieldRowProps {
+const ReadOnlyField: React.FC<{
     label: string;
-    value: string;
-    isEditing: boolean;
-    onEditToggle: () => void;
-    onSave: (newValue: string) => void;
-    onCancel: () => void;
-    placeholder?: string;
-    type?: string;
-}
-
-const EditableFieldRow: React.FC<EditableFieldRowProps> = ({
-    label,
-    value,
-    isEditing,
-    onEditToggle,
-    onSave,
-    onCancel,
-    placeholder,
-    type = 'text',
-}) => {
-    const [tempValue, setTempValue] = useState(value);
-
-    useEffect(() => {
-        setTempValue(value);
-    }, [value, isEditing]);
-
-    const handleSave = () => {
-        onSave(tempValue);
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            handleSave();
-        } else if (e.key === 'Escape') {
-            onCancel();
-        }
-    };
-
-    return (
-        <div>
-            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-[#9aa0a6]">
-                {label}
-            </label>
-            <div className="flex min-h-[46px] items-center justify-between gap-3 rounded-xl border border-[#e0e0e0] bg-[#f7f7f7] px-4 py-2 dark:border-[#ffffff0a] dark:bg-[#0d0e10] dark:text-[#ececf1]">
-                {isEditing ? (
-                    <input
-                        type={type}
-                        value={tempValue}
-                        onChange={(e) => setTempValue(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder={placeholder}
-                        className="w-full bg-transparent text-[13px] font-bold text-[#111111] dark:text-[#ececf1] focus:outline-none py-1"
-                        autoFocus
-                    />
-                ) : (
-                    <span className="min-w-0 break-words text-[13px] font-bold text-[#111111] dark:text-[#ececf1]">
-                        {value || <span className="font-normal text-[#9aa0a6]">Not available</span>}
-                    </span>
-                )}
-                <div className="flex items-center gap-2 shrink-0">
-                    {isEditing ? (
-                        <>
-                            <button
-                                type="button"
-                                onClick={handleSave}
-                                className="p-1 rounded text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                                title="Save"
-                            >
-                                <FiCheck className="h-4 w-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={onCancel}
-                                className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
-                                title="Cancel"
-                            >
-                                <FiX className="h-4 w-4" />
-                            </button>
-                        </>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={onEditToggle}
-                            className="p-1 rounded text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-black/5 dark:hover:bg-white/5"
-                            title="Edit"
-                        >
-                            <FiEdit2 className="h-4 w-4" />
-                        </button>
-                    )}
-                </div>
+    value: string | null | undefined;
+    mono?: boolean;
+    action?: React.ReactNode;
+}> = ({ label, value, mono, action }) => (
+    <div>
+        <label className="block text-[11px] font-bold text-[#9aa0a6] uppercase tracking-wider mb-1.5">
+            {label}
+        </label>
+        <div className="flex items-center gap-2">
+            <div className={`min-w-0 flex-1 px-4 py-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[13px] text-[#111111] dark:text-[#ececf1] font-semibold truncate ${mono ? 'font-mono' : ''}`}>
+                {value || <span className="text-[#9aa0a6] font-normal">N/A</span>}
             </div>
+            {action}
         </div>
-    );
-};
+    </div>
+);
 
 export const AdminProfile: React.FC = () => {
     const [, setLoading] = useState(true);
@@ -156,8 +91,6 @@ export const AdminProfile: React.FC = () => {
     const [showConfirm, setShowConfirm] = useState(false);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [passwordPanelOpen, setPasswordPanelOpen] = useState(false);
-    
-    const [editingField, setEditingField] = useState<'name' | 'email' | 'phone' | null>(null);
     
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
     const { toasts, showToast, dismissToast } = useToast();
@@ -181,6 +114,9 @@ export const AdminProfile: React.FC = () => {
         created_at: '',
         last_login: ''
     });
+
+    const [profileForm, setProfileForm] = useState({ name: '', email: '', phone: '' });
+    const [savingProfile, setSavingProfile] = useState(false);
 
     const fetchAdminProfile = useCallback(async () => {
         setLoading(true);
@@ -209,6 +145,14 @@ export const AdminProfile: React.FC = () => {
     }, [fetchAdminProfile]);
 
     useEffect(() => {
+        setProfileForm({
+            name: profile.name,
+            email: profile.email,
+            phone: profile.phone,
+        });
+    }, [profile.name, profile.email, profile.phone]);
+
+    useEffect(() => {
         if (!profileMenuOpen) return;
         const handler = (event: MouseEvent) => {
             if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
@@ -219,18 +163,24 @@ export const AdminProfile: React.FC = () => {
         return () => document.removeEventListener('mousedown', handler);
     }, [profileMenuOpen]);
 
-    const handleUpdateField = async (field: 'name' | 'email' | 'phone', value: string) => {
-        if (field !== 'phone' && !value.trim()) {
-            showToast(`${field.charAt(0).toUpperCase() + field.slice(1)} cannot be empty.`, 'error');
+    const profileChanged =
+        profileForm.name.trim() !== profile.name ||
+        profileForm.email.trim() !== profile.email ||
+        profileForm.phone.trim() !== profile.phone;
+
+    const handleSaveProfile = async () => {
+        if (!profileForm.name.trim() || !profileForm.email.trim()) {
+            showToast('Name and email are required.', 'error');
             return;
         }
 
+        setSavingProfile(true);
         try {
             const payload: any = {
                 action: 'update_profile',
-                name: field === 'name' ? value.trim() : profile.name,
-                email: field === 'email' ? value.trim() : profile.email,
-                phone: field === 'phone' ? value.trim() : profile.phone,
+                name: profileForm.name.trim(),
+                email: profileForm.email.trim(),
+                phone: profileForm.phone.trim(),
             };
 
             const res = await adminFetch('/api/admin_auth.php', {
@@ -271,12 +221,13 @@ export const AdminProfile: React.FC = () => {
                     email: json.user?.email || prev.email,
                     phone: json.user?.phone || prev.phone,
                 }));
-                setEditingField(null);
             } else {
                 showToast(json.message || 'Failed to update profile.', 'error');
             }
         } catch {
             showToast('Network error updating profile.', 'error');
+        } finally {
+            setSavingProfile(false);
         }
     };
 
@@ -312,7 +263,7 @@ export const AdminProfile: React.FC = () => {
         }
     };
 
-    const initialLetter = (profile.name || profile.email || 'A').charAt(0).toUpperCase();
+    const initialLetter = (profileForm.name || profileForm.email || 'A').charAt(0).toUpperCase();
 
     return (
         <div className="mx-auto w-full max-w-4xl space-y-5">
@@ -320,15 +271,17 @@ export const AdminProfile: React.FC = () => {
 
             <div className="overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
                 <div className="p-5 sm:p-6">
-                    <div className="mb-6 flex items-center gap-4">
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] text-[24px] font-black text-white shadow-sm shadow-blue-500/20">
-                            {initialLetter}
+                    <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 min-w-0">
+                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] text-[30px] font-black text-white shadow-sm shadow-blue-500/20 ring-4 ring-black/5 dark:ring-white/5">
+                                {initialLetter}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <h3 className="truncate text-[22px] font-black text-[#111111] dark:text-[#ececf1]">{profileForm.name || 'Admin Account'}</h3>
+                                <p className="mt-1 truncate text-[13px] font-medium text-[#9aa0a6]">{profileForm.email || 'admin@example.com'}</p>
+                            </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                            <h3 className="truncate text-[20px] font-black text-[#111111] dark:text-white">{profile.name}</h3>
-                            <p className="mt-1 truncate text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">{profile.email || 'Admin account'}</p>
-                        </div>
-                        <div className="relative" ref={profileMenuRef}>
+                        <div className="relative self-start sm:self-center" ref={profileMenuRef}>
                             <button
                                 type="button"
                                 onClick={() => setProfileMenuOpen(open => !open)}
@@ -356,39 +309,61 @@ export const AdminProfile: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="space-y-3.5 border-t border-[#f0f0f0] pt-5 dark:border-[#ffffff05]">
-                        <EditableFieldRow
+                    <div className="space-y-4 border-t border-[#f0f0f0] pt-5 dark:border-[#ffffff05]">
+                        <FieldInput
                             label="Full Name"
-                            value={profile.name}
-                            isEditing={editingField === 'name'}
-                            onEditToggle={() => setEditingField('name')}
-                            onCancel={() => setEditingField(null)}
-                            onSave={(val) => handleUpdateField('name', val)}
+                            value={profileForm.name}
                             placeholder="Full name"
+                            onChange={(value) => setProfileForm(prev => ({ ...prev, name: value }))}
                         />
-                        <EditableFieldRow
+                        <FieldInput
                             label="Email Address"
-                            value={profile.email}
-                            isEditing={editingField === 'email'}
-                            onEditToggle={() => setEditingField('email')}
-                            onCancel={() => setEditingField(null)}
-                            onSave={(val) => handleUpdateField('email', val)}
-                            placeholder="Email address"
                             type="email"
+                            value={profileForm.email}
+                            placeholder="Email address"
+                            onChange={(value) => setProfileForm(prev => ({ ...prev, email: value }))}
                         />
-                        <EditableFieldRow
+                        <FieldInput
                             label="Phone Number"
-                            value={profile.phone}
-                            isEditing={editingField === 'phone'}
-                            onEditToggle={() => setEditingField('phone')}
-                            onCancel={() => setEditingField(null)}
-                            onSave={(val) => handleUpdateField('phone', val)}
-                            placeholder="Phone number"
                             type="tel"
+                            value={profileForm.phone}
+                            placeholder="Phone number"
+                            onChange={(value) => setProfileForm(prev => ({ ...prev, phone: value }))}
                         />
-                        <FieldRow label="Admin Role" value={roleLabel(profile.role)} icon={<FiShield className="h-4 w-4" />} />
-                        {profile.created_at && <FieldRow label="Created" value={formatDateTime(profile.created_at)} />}
-                        {profile.last_login && <FieldRow label="Last Login" value={formatDateTime(profile.last_login)} />}
+
+                        {(profileChanged || savingProfile) && (
+                            <div className="mt-5">
+                                <button
+                                    type="button"
+                                    onClick={handleSaveProfile}
+                                    disabled={savingProfile || !profileForm.name.trim() || !profileForm.email.trim()}
+                                    className="w-full h-12 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] text-white text-[13px] font-black hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    {savingProfile ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiSave className="w-4 h-4" />}
+                                    {savingProfile ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
+                        )}
+
+                        <div className="my-6 border-t border-[#f0f0f0] dark:border-[#ffffff08]" />
+
+                        <ReadOnlyField
+                            label="Admin Role"
+                            value={roleLabel(profile.role)}
+                            action={<FiShield className="h-4 w-4 text-[#9aa0a6]" />}
+                        />
+                        {profile.created_at && (
+                            <ReadOnlyField
+                                label="Created"
+                                value={formatDateTime(profile.created_at)}
+                            />
+                        )}
+                        {profile.last_login && (
+                            <ReadOnlyField
+                                label="Last Login"
+                                value={formatDateTime(profile.last_login)}
+                            />
+                        )}
                     </div>
                 </div>
             </div>
