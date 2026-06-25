@@ -796,9 +796,6 @@ export const AdminAccounts: React.FC = () => {
                                         <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                             EMAIL
                                         </th>
-                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
-                                            PHONE
-                                        </th>
 
                                         <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                             <button
@@ -848,7 +845,6 @@ export const AdminAccounts: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[190px]">{emptyValue(account.email)}</td>
-                                            <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[130px]">{emptyValue(account.phone)}</td>
 
                                             <td className="py-4 pr-4 min-w-[110px]">
                                                 {editingCreditId === account.id ? (

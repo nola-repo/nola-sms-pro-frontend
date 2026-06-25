@@ -1,7 +1,7 @@
 import { devLog } from '../utils/devLog';
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  FiAlertTriangle, FiUsers, FiRotateCcw, FiChevronLeft, FiChevronRight, FiChevronDown, FiSearch, FiPlus, FiMinus, FiArrowUp, FiArrowDown, FiExternalLink, FiDownload, FiRefreshCw, FiX
+  FiAlertTriangle, FiUsers, FiRotateCcw, FiChevronLeft, FiChevronRight, FiChevronDown, FiSearch, FiPlus, FiMinus, FiArrowUp, FiArrowDown, FiExternalLink, FiDownload, FiRefreshCw, FiX, FiFilter, FiMoreVertical, FiEye
 } from 'react-icons/fi';
 
 const ADD_SUBACCOUNT_URL =
@@ -382,6 +382,11 @@ export const Subaccounts = () => {
   const [reportTransactions, setReportTransactions] = useState<any[]>([]);
   const [reportSelectedMonth, setReportSelectedMonth] = useState('All');
   const [reportLoading, setReportLoading] = useState(false);
+  const [statusFilterMenuOpen, setStatusFilterMenuOpen] = useState(false);
+  const statusFilterMenuRef = React.useRef<HTMLDivElement>(null);
+  const [actionMenuSubId, setActionMenuSubId] = useState<string | null>(null);
+  const [actionMenuPos, setActionMenuPos] = useState({ top: 0, right: 0 });
+  const actionMenuRef = React.useRef<HTMLDivElement>(null);
 
   // ── Initial load (PHP) ───────────────────────────────────────────────────────
   // The PHP API aggregates richer data (location name, rate limit, credits, etc.)
@@ -691,6 +696,34 @@ export const Subaccounts = () => {
     }
   }, [total, currentPage, totalPages]);
 
+  useEffect(() => {
+    if (!statusFilterMenuOpen) return;
+    const handler = (event: MouseEvent) => {
+      if (statusFilterMenuRef.current && !statusFilterMenuRef.current.contains(event.target as Node)) {
+        setStatusFilterMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [statusFilterMenuOpen]);
+
+  useEffect(() => {
+    if (!actionMenuSubId) return;
+    const handler = (event: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+        setActionMenuSubId(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [actionMenuSubId]);
+
+  const openSubActionMenu = (id: string, el: HTMLElement) => {
+    const rect = el.getBoundingClientRect();
+    setActionMenuPos({ top: rect.bottom + window.scrollY + 4, right: window.innerWidth - rect.right });
+    setActionMenuSubId(id);
+  };
+
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -925,19 +958,47 @@ export const Subaccounts = () => {
                   className="pl-9 pr-4 py-1.5 rounded-lg text-[12.5px] border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all w-48 sm:w-64"
                 />
               </div>
-              <select
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 transition-all min-w-[150px]"
-                aria-label="Filter subaccounts by status"
-              >
-                {SUBACCOUNT_STATUS_FILTERS.map(option => (
-                  <option key={option.id} value={option.id}>{option.label}</option>
-                ))}
-              </select>
+              {/* Status filter as icon button */}
+              <div ref={statusFilterMenuRef} className="relative flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilterMenuOpen(open => !open)}
+                  className={`h-9 w-9 rounded-lg border flex items-center justify-center transition-all ${
+                    statusFilter !== 'all'
+                      ? 'border-[#2b83fa] bg-[#2b83fa]/10 text-[#2b83fa]'
+                      : 'border-[#e0e0e0] dark:border-[#ffffff0a] bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 hover:border-[#2b83fa]/30'
+                  }`}
+                  title={`Filter by status${statusFilter !== 'all' ? ': ' + (SUBACCOUNT_STATUS_FILTERS.find(f => f.id === statusFilter)?.label || statusFilter) : ''}`}
+                  aria-label="Filter by status"
+                  aria-expanded={statusFilterMenuOpen}
+                >
+                  <FiFilter className="w-3.5 h-3.5" />
+                </button>
+                {statusFilterMenuOpen && (
+                  <div className="absolute right-0 top-full z-30 mt-2 w-52 rounded-xl border border-[#e5e5e5] dark:border-white/10 bg-white dark:bg-[#1e2023] shadow-2xl py-1.5 overflow-hidden">
+                    <div className="px-3 pb-1.5 pt-0.5">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-[#5f6368] dark:text-[#9aa0a6]">Status</span>
+                    </div>
+                    {SUBACCOUNT_STATUS_FILTERS.map(option => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => { setStatusFilter(option.id); setCurrentPage(1); setStatusFilterMenuOpen(false); }}
+                        className={`w-full text-left px-3 py-2 text-[12.5px] font-semibold transition-colors flex items-center justify-between ${
+                          statusFilter === option.id
+                            ? 'text-[#2b83fa] bg-[#2b83fa]/[0.06]'
+                            : 'text-[#111111] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        {option.label}
+                        {statusFilter === option.id && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#2b83fa] flex-shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               {/* Add Subaccount */}
               {atSubscriptionLimit ? (
                 <button
@@ -971,12 +1032,11 @@ export const Subaccounts = () => {
                   <th onClick={() => handleSort('location_name')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Subaccount <SortIcon field="location_name" /></th>
                   <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Status</th>
                   <th onClick={() => handleSort('agency_name')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Agency Name <SortIcon field="agency_name" /></th>
-                  <th onClick={() => handleSort('last_active')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Last Active <SortIcon field="last_active" /></th>
                   <th onClick={() => handleSort('rate_limit')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Credit Limit <SortIcon field="rate_limit" /></th>
                   <th onClick={() => handleSort('attempt_count')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Sends Used <SortIcon field="attempt_count" /></th>
                   <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Credits</th>
                   <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Free Used</th>
-                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Report</th>
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Actions</th>
                   <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap text-right">SMS Active</th>
                 </tr>
               </thead>
@@ -1014,12 +1074,7 @@ export const Subaccounts = () => {
                           </span>
                         </td>
 
-                        {/* Last Active */}
-                        <td className="px-6 py-4 align-middle">
-                          <span className="text-[12.5px] font-semibold text-[#6e6e73] dark:text-[#9ca3af] whitespace-nowrap">
-                            {formatSubaccountLastActive(sub)}
-                          </span>
-                        </td>
+
 
                         {/* Rate Limit */}
                         <td className="px-6 py-4 align-middle">
@@ -1071,15 +1126,15 @@ export const Subaccounts = () => {
                           </div>
                         </td>
 
-                        {/* Report Download */}
+                        {/* Actions menu */}
                         <td className="px-6 py-4 align-middle">
                           <button
-                            onClick={() => fetchReportForSubaccount(sub)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#d8dce3] dark:border-white/10 bg-white dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-[#f3f4f6] dark:hover:bg-white/5 transition-colors shadow-sm"
-                            title="Select a month and download this subaccount report"
-                            aria-label={`Download report for ${sub.location_name || sub.location_id}`}
+                            onClick={(event) => openSubActionMenu(sub.location_id, event.currentTarget)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
+                            title="More actions"
+                            aria-label={`Actions for ${sub.location_name || sub.location_id}`}
                           >
-                            <FiDownload className="w-3.5 h-3.5" />
+                            <FiMoreVertical className="w-4 h-4" />
                           </button>
                         </td>
 
@@ -1168,6 +1223,34 @@ export const Subaccounts = () => {
           )}
         </div>
       )}
+
+      {/* Floating action menu */}
+      {actionMenuSubId && (() => {
+        const sub = subaccounts.find(s => s.location_id === actionMenuSubId);
+        if (!sub) return null;
+        return (
+          <div
+            ref={actionMenuRef}
+            style={{ position: 'fixed', top: actionMenuPos.top, right: actionMenuPos.right, zIndex: 9999 }}
+            className="w-52 bg-white dark:bg-[#1e2023] border border-[#e5e5e5] dark:border-white/10 rounded-xl shadow-2xl overflow-hidden py-1"
+          >
+            <button
+              type="button"
+              onClick={() => { setActionMenuSubId(null); /* view profile - placeholder */ showToast('Profile view coming soon.', 'info'); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#111111] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/[0.04] transition-colors text-left"
+            >
+              <FiEye className="w-3.5 h-3.5 text-[#2b83fa]" /> View Profile
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActionMenuSubId(null); fetchReportForSubaccount(sub); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[12px] font-bold text-[#111111] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/[0.04] transition-colors text-left"
+            >
+              <FiDownload className="w-3.5 h-3.5 text-emerald-500" /> Download Report
+            </button>
+          </div>
+        );
+      })()}
     </AgencyLayout>
   );
 };

@@ -16,13 +16,13 @@ import {
     FiCpu,
     FiSliders,
     FiAlertTriangle,
+    FiChevronLeft,
+    FiChevronRight,
 } from 'react-icons/fi';
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const POLL_INTERVAL = 15000;
-
-type SmsFilter = 'failed' | 'pending' | 'sent';
 
 const asArray = (value: any): any[] => {
     if (Array.isArray(value)) return value;
@@ -33,14 +33,14 @@ const asArray = (value: any): any[] => {
 };
 
 const getType = (log: any) => {
-    if (log.type === 'message' && (log.amount === undefined || log.amount === null)) return 'message';
-    if (log.message_id || log.provider_message_id || log.provider_reference_id || log.number || log.to) return 'message';
-    return log.type || 'message';
+    if (log.type === 'sender_request') return 'sender_request';
+    if (log.type === 'credit_purchase') return 'credit_purchase';
+    return 'message';
 };
 
-const getStatusGroup = (log: any): SmsFilter | 'other' => {
+const getStatusGroup = (log: any): 'sent' | 'pending' | 'failed' | 'other' => {
     const status = String(log.status || log.delivery_status || log.provider_status || '').toLowerCase();
-    if (['sent', 'delivered', 'success', 'successful', 'completed'].includes(status)) return 'sent';
+    if (['sent', 'delivered', 'success', 'successful', 'completed', 'approved'].includes(status)) return 'sent';
     if (['pending', 'queued', 'processing', 'requested', 'sending'].includes(status)) return 'pending';
     if (['failed', 'rejected', 'revoked', 'error', 'denied', 'undelivered'].includes(status)) return 'failed';
     return status ? 'pending' : 'sent';
@@ -79,7 +79,7 @@ const normalizeProvider = (log: any, settings: any) => {
     return 'System';
 };
 
-const statusPill = (status: SmsFilter | 'other') => {
+const statusPill = (status: 'sent' | 'pending' | 'failed' | 'other') => {
     const map = {
         sent: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30',
         pending: 'bg-blue-50 text-[#2b83fa] border-blue-200 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30',
@@ -90,9 +90,36 @@ const statusPill = (status: SmsFilter | 'other') => {
 };
 
 const healthTone = (state: 'ok' | 'warn' | 'bad') => {
-    if (state === 'ok') return 'border-emerald-100/60 bg-emerald-50/30 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/5 dark:text-emerald-400 hover:bg-emerald-500/10 transition-all';
-    if (state === 'warn') return 'border-amber-100/60 bg-amber-50/30 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/5 dark:text-amber-400 hover:bg-amber-500/10 transition-all';
-    return 'border-red-100/60 bg-red-50/30 text-red-600 dark:border-red-500/20 dark:bg-red-500/5 dark:text-red-400 hover:bg-red-500/10 transition-all';
+    if (state === 'ok') return 'border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] hover:border-emerald-500/20 dark:hover:border-emerald-500/30';
+    if (state === 'warn') return 'border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] hover:border-amber-500/20 dark:hover:border-amber-500/30';
+    return 'border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] hover:border-red-500/20 dark:hover:border-red-500/30';
+};
+
+const iconTone = (state: 'ok' | 'warn' | 'bad') => {
+    if (state === 'ok') return 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10';
+    if (state === 'warn') return 'text-amber-500 bg-amber-50 dark:bg-amber-500/10';
+    return 'text-red-500 bg-red-50 dark:bg-red-500/10';
+};
+
+const getLogEventName = (log: any) => {
+    const type = getType(log);
+    if (type === 'sender_request') return 'Sender Request';
+    if (type === 'credit_purchase') return 'Credits Added';
+    return 'SMS Send';
+};
+
+const getLogDetails = (log: any) => {
+    const type = getType(log);
+    if (type === 'sender_request') return log.requested_id || '-';
+    if (type === 'credit_purchase') return `+${(log.amount ?? 0).toLocaleString()} credits`;
+    return log.number || log.to || '-';
+};
+
+const getLogDiagnostics = (log: any) => {
+    const type = getType(log);
+    if (type === 'sender_request') return log.admin_notes || log.reject_reason || '-';
+    if (type === 'credit_purchase') return log.description || log.notes || '-';
+    return log.failure_reason || log.error_message || log.provider_error || log.error || log.diagnostics || log.details || log.status_message || '-';
 };
 
 export const SystemHealth: React.FC = () => {
@@ -102,10 +129,9 @@ export const SystemHealth: React.FC = () => {
     const [providerInfo, setProviderInfo] = useState<any>(null);
     const [dbConnected, setDbConnected] = useState<boolean>(true);
     const [stats, setStats] = useState<any>(null);
-    const [endpointState, setEndpointState] = useState<Record<string, boolean>>({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [smsFilter, setSmsFilter] = useState<SmsFilter>('failed');
+    const [logTypeFilter, setLogTypeFilter] = useState<'all' | 'message' | 'sender_request' | 'credit_purchase'>('all');
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
     const fetchHealth = useCallback(async (isInitial = false) => {
@@ -124,12 +150,6 @@ export const SystemHealth: React.FC = () => {
                 setProviderInfo(healthData.provider || null);
                 setDbConnected(healthData.database_connected !== false);
                 setStats(healthData.stats || null);
-
-                setEndpointState({
-                    db: healthData.database_connected !== false,
-                    provider: healthData.provider?.status === 'active',
-                    logs: true
-                });
             } else {
                 setError(json.message || 'Failed to fetch system health diagnostics.');
             }
@@ -147,16 +167,22 @@ export const SystemHealth: React.FC = () => {
         return () => clearInterval(timer);
     }, [fetchHealth]);
 
-    const smsLogs = useMemo(() => logs.filter((log) => getType(log) === 'message'), [logs]);
-    const smsByStatus = useMemo(() => ({
-        failed: smsLogs.filter((log) => getStatusGroup(log) === 'failed'),
-        pending: smsLogs.filter((log) => getStatusGroup(log) === 'pending'),
-        sent: smsLogs.filter((log) => getStatusGroup(log) === 'sent'),
-    }), [smsLogs]);
+    const typeCounts = useMemo(() => {
+        return {
+            all: logs.length,
+            message: logs.filter(log => getType(log) === 'message').length,
+            sender_request: logs.filter(log => getType(log) === 'sender_request').length,
+            credit_purchase: logs.filter(log => getType(log) === 'credit_purchase').length,
+        };
+    }, [logs]);
 
-    const filteredSms = useMemo(() => (
-        [...smsByStatus[smsFilter]].sort((a, b) => getTimestamp(b) - getTimestamp(a)).slice(0, 50)
-    ), [smsByStatus, smsFilter]);
+    const filteredLogs = useMemo(() => {
+        let items = [...logs];
+        if (logTypeFilter !== 'all') {
+            items = items.filter(log => getType(log) === logTypeFilter);
+        }
+        return items.sort((a, b) => getTimestamp(b) - getTimestamp(a)).slice(0, 50);
+    }, [logs, logTypeFilter]);
 
     const recentErrors = useMemo(() => (
         logs
@@ -228,17 +254,17 @@ export const SystemHealth: React.FC = () => {
     ];
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-5 text-[#111111] dark:text-white">
             {/* Header section with real-time health indicator */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border bg-gradient-to-r shadow-sm transition-all duration-300 dark:shadow-none hover:shadow-md backdrop-blur-md opacity-95 border-opacity-60 dark:border-white/5 bg-white dark:bg-[#1a1b1e] text-[#111111] dark:text-white">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border bg-white dark:bg-[#1a1b1e] border-[#e5e5e5] dark:border-white/5 shadow-sm transition-all duration-300">
                 <div className="flex items-center gap-3">
                     <div className={`relative flex h-3 w-3`}>
                         <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${systemStatus.dot}`}></span>
                         <span className={`relative inline-flex rounded-full h-3 w-3 ${systemStatus.dot}`}></span>
                     </div>
                     <div>
-                        <h2 className="text-[15px] font-black tracking-tight">{systemStatus.label}</h2>
-                        <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5">
+                        <h2 className="text-[15px] font-bold tracking-tight">{systemStatus.label}</h2>
+                        <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5 font-medium">
                             Last checked: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </p>
                     </div>
@@ -246,7 +272,7 @@ export const SystemHealth: React.FC = () => {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => fetchHealth(true)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-[#e5e5e5] bg-white px-4 py-2 text-[12px] font-bold text-[#6e6e73] shadow-sm transition-all hover:bg-[#f7f7f7] hover:text-[#111111] dark:border-white/10 dark:bg-[#1a1b1e] dark:text-[#9aa0a6] dark:hover:bg-white/5 dark:hover:text-white hover:scale-[1.02] active:scale-[0.98]"
+                        className="inline-flex items-center gap-2 rounded-xl border border-[#e5e5e5] bg-white px-4 py-2 text-[12px] font-bold text-[#6e6e73] shadow-sm transition-all hover:bg-[#f7f7f7] hover:text-[#111111] dark:border-white/10 dark:bg-[#1a1b1e] dark:text-[#9aa0a6] dark:hover:bg-white/5 dark:hover:text-white"
                     >
                         <FiRefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
                         Trigger Diagnostic Check
@@ -264,14 +290,14 @@ export const SystemHealth: React.FC = () => {
             {/* Health Metric Cards Grid */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {healthCards.map((card) => (
-                    <div key={card.label} className={`rounded-2xl border p-5 shadow-sm hover:shadow-md dark:shadow-none hover:translate-y-[-2px] transition-all duration-300 ${healthTone(card.state)}`}>
+                    <div key={card.label} className={`rounded-2xl border p-5 shadow-sm hover:shadow-md transition-all duration-300 ${healthTone(card.state)}`}>
                         <div className="flex items-start justify-between gap-3">
                             <div className="space-y-1.5">
-                                <div className="text-[10px] font-black uppercase tracking-widest opacity-75">{card.label}</div>
-                                <div className="text-[26px] font-black tracking-tight">{card.value}</div>
-                                <div className="text-[11px] font-bold opacity-80 leading-relaxed">{card.detail}</div>
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[#6e6e73] dark:text-[#9aa0a6]">{card.label}</div>
+                                <div className="text-[26px] font-extrabold tracking-tight text-[#111111] dark:text-white">{card.value}</div>
+                                <div className="text-[11px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] leading-relaxed">{card.detail}</div>
                             </div>
-                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/80 dark:bg-white/5 shadow-sm text-[20px] backdrop-blur-sm border border-black/5 dark:border-white/5">
+                            <div className={`flex h-11 w-11 items-center justify-center rounded-xl shadow-sm text-[20px] border border-black/5 dark:border-white/5 ${iconTone(card.state)}`}>
                                 {card.icon}
                             </div>
                         </div>
@@ -283,12 +309,12 @@ export const SystemHealth: React.FC = () => {
             {settings && (
                 <div className="rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
                     <div className="flex items-center justify-between border-b border-[#e5e5e5] dark:border-white/5 pb-3 mb-4">
-                        <h3 className="text-[13px] font-black uppercase tracking-wider text-[#111111] dark:text-white flex items-center gap-2">
+                        <h3 className="text-[13px] font-bold uppercase tracking-wider text-[#111111] dark:text-white flex items-center gap-2">
                             <FiSliders className="w-4 h-4 text-[#2b83fa]" />
                             System Config Quick-View
                         </h3>
                         {settings.maintenance_mode && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 dark:bg-amber-900/10 dark:text-amber-400 border border-amber-200/50">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-900/10 dark:text-amber-400 border border-amber-200/50">
                                 <FiAlertTriangle className="w-3 h-3" /> MAINTENANCE MODE ACTIVE
                             </span>
                         )}
@@ -321,27 +347,28 @@ export const SystemHealth: React.FC = () => {
                 <div className="overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
                     <div className="flex flex-col gap-3 border-b border-[#e5e5e5] px-5 py-4 dark:border-white/5 lg:flex-row lg:items-center lg:justify-between">
                         <div>
-                            <h3 className="flex items-center gap-2 text-[14px] font-black text-[#111111] dark:text-white">
-                                <FiMessageSquare className="h-4 w-4 text-[#2b83fa]" />
-                                SMS Diagnostics Feed
+                            <h3 className="flex items-center gap-2 text-[14px] font-bold text-[#111111] dark:text-white">
+                                <FiActivity className="h-4 w-4 text-[#2b83fa]" />
+                                Platform Activity Logs
                             </h3>
                             <p className="mt-0.5 text-[11px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
-                                Delivery status, provider references, and diagnostics from active platform logs.
+                                Detailed audit trail of platform events, credit changes, sends and sender requests.
                             </p>
                         </div>
                         <div className="flex items-center gap-2 overflow-x-auto">
                             {[
-                                { id: 'failed', label: 'Failed', count: smsByStatus.failed.length },
-                                { id: 'pending', label: 'Pending', count: smsByStatus.pending.length },
-                                { id: 'sent', label: 'Sent', count: smsByStatus.sent.length },
+                                { id: 'all', label: 'All Events', count: typeCounts.all },
+                                { id: 'message', label: 'SMS Sends', count: typeCounts.message },
+                                { id: 'sender_request', label: 'Sender ID Requests', count: typeCounts.sender_request },
+                                { id: 'credit_purchase', label: 'Credits Added', count: typeCounts.credit_purchase },
                             ].map((item) => {
-                                const active = smsFilter === item.id;
+                                const active = logTypeFilter === item.id;
                                 return (
                                     <button
                                         key={item.id}
                                         type="button"
-                                        onClick={() => setSmsFilter(item.id as SmsFilter)}
-                                        className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-black transition-all ${
+                                        onClick={() => setLogTypeFilter(item.id as any)}
+                                        className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-bold transition-all whitespace-nowrap ${
                                             active
                                                 ? 'border-[#111111] bg-[#111111] text-white dark:border-white dark:bg-white dark:text-[#111111] shadow-sm'
                                                 : 'border-[#e5e5e5] bg-[#f7f7f7] text-[#6e6e73] hover:text-[#111111] dark:border-white/5 dark:bg-[#0d0e10] dark:text-[#9aa0a6] dark:hover:text-white'
@@ -358,13 +385,13 @@ export const SystemHealth: React.FC = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[820px] text-left">
                             <thead>
-                                <tr className="border-b border-[#f0f0f0] text-[10px] font-black uppercase tracking-widest text-[#6e6e73] dark:border-white/5 dark:text-[#9aa0a6]">
+                                <tr className="border-b border-[#f0f0f0] text-[10px] font-bold uppercase tracking-widest text-[#6e6e73] dark:border-white/5 dark:text-[#9aa0a6]">
                                     <th className="px-5 py-3.5">Time</th>
                                     <th className="px-5 py-3.5">Subaccount</th>
-                                    <th className="px-5 py-3.5">Recipient</th>
+                                    <th className="px-5 py-3.5">Event</th>
+                                    <th className="px-5 py-3.5">Details</th>
                                     <th className="px-5 py-3.5">Status</th>
-                                    <th className="px-5 py-3.5">Provider</th>
-                                    <th className="px-5 py-3.5">Diagnostics</th>
+                                    <th className="px-5 py-3.5">Diagnostics & Notes</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#f3f4f6] dark:divide-white/[0.04] text-[12px]">
@@ -376,19 +403,19 @@ export const SystemHealth: React.FC = () => {
                                             </td>
                                         </tr>
                                     ))
-                                ) : filteredSms.length === 0 ? (
+                                ) : filteredLogs.length === 0 ? (
                                     <tr>
                                         <td colSpan={6} className="px-5 py-16 text-center">
                                             <FiCheckCircle className="mx-auto mb-3 h-10 w-10 text-emerald-500/60" />
-                                            <div className="text-[13px] font-black text-[#111111] dark:text-white">No {smsFilter} SMS records found</div>
+                                            <div className="text-[13px] font-bold text-[#111111] dark:text-white">No records found</div>
                                             <div className="mt-1 text-[11px] text-[#9aa0a6]">Use the quick filter above to inspect other logs.</div>
                                         </td>
                                     </tr>
-                                ) : filteredSms.map((log, index) => {
+                                ) : filteredLogs.map((log, index) => {
                                     const locId = log.location_id || log.account_id;
                                     const account = accountsByLocation.get(locId) || {};
                                     const status = getStatusGroup(log);
-                                    const diagnostics = log.failure_reason || log.error_message || log.provider_error || log.error || log.diagnostics || log.details || log.status_message || '-';
+                                    const diagnostics = getLogDiagnostics(log);
                                     return (
                                         <tr key={log.id || log.message_id || log.provider_message_id || `${locId}-${index}`} className="hover:bg-[#f7f7f7] dark:hover:bg-white/[0.01] transition-colors">
                                             <td className="whitespace-nowrap px-5 py-3.5 font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">
@@ -396,23 +423,20 @@ export const SystemHealth: React.FC = () => {
                                             </td>
                                             <td className="px-5 py-3.5">
                                                 <div className="max-w-[190px] truncate font-bold text-[#111111] dark:text-white" title={account.location_name || log.location_name || locId}>
-                                                    {account.location_name || log.location_name || locId || 'Unknown'}
+                                                    {account.location_name || log.location_name || locId || 'System'}
                                                 </div>
                                                 <div className="max-w-[190px] truncate font-mono text-[9px] text-[#9aa0a6] mt-0.5" title={locId}>{locId || '-'}</div>
                                             </td>
-                                            <td className="px-5 py-3.5 font-mono font-semibold text-[#111111] dark:text-white">{log.number || log.to || '-'}</td>
+                                            <td className="px-5 py-3.5 font-bold text-[#6e6e73] dark:text-[#9aa0a6]">
+                                                {getLogEventName(log)}
+                                            </td>
+                                            <td className="px-5 py-3.5 font-mono font-semibold text-[#111111] dark:text-white">
+                                                {getLogDetails(log)}
+                                            </td>
                                             <td className="px-5 py-3.5">
-                                                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${statusPill(status)}`}>
+                                                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${statusPill(status)}`}>
                                                     {log.status || status}
                                                 </span>
-                                            </td>
-                                            <td className="px-5 py-3.5 font-bold text-[#6e6e73] dark:text-[#9aa0a6]">
-                                                {normalizeProvider(log, settings)}
-                                                {(log.provider_message_id || log.provider_reference_id) && (
-                                                    <div className="mt-0.5 max-w-[160px] truncate font-mono text-[9px] text-[#9aa0a6]" title={log.provider_message_id || log.provider_reference_id}>
-                                                        {log.provider_message_id || log.provider_reference_id}
-                                                    </div>
-                                                )}
                                             </td>
                                             <td className="max-w-[260px] px-5 py-3.5 font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
                                                 <span className="line-clamp-2 leading-relaxed" title={String(diagnostics)}>{String(diagnostics)}</span>
@@ -429,7 +453,7 @@ export const SystemHealth: React.FC = () => {
                 <div className="rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
                     <div className="mb-4 flex items-center justify-between border-b border-[#e5e5e5] dark:border-white/5 pb-3">
                         <div>
-                            <h3 className="flex items-center gap-2 text-[14px] font-black text-[#111111] dark:text-white">
+                            <h3 className="flex items-center gap-2 text-[14px] font-bold text-[#111111] dark:text-white">
                                 <FiAlertCircle className="h-4 w-4 text-red-500" />
                                 Critical Issues Feed
                             </h3>
@@ -441,18 +465,18 @@ export const SystemHealth: React.FC = () => {
                     {recentErrors.length === 0 ? (
                         <div className="rounded-xl border border-emerald-100/50 bg-emerald-50/20 px-4 py-6 text-center text-emerald-700 dark:border-emerald-500/10 dark:bg-emerald-500/[0.02] dark:text-emerald-400">
                             <FiCheckCircle className="mx-auto mb-2 h-8 w-8 text-emerald-500/70" />
-                            <div className="text-[12px] font-black">All Diagnostics Normal</div>
+                            <div className="text-[12px] font-bold">All Diagnostics Normal</div>
                             <div className="mt-0.5 text-[11px] font-medium opacity-80">Current log window is clear of errors.</div>
                         </div>
                     ) : (
                         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                             {recentErrors.map((log, index) => {
                                 const status = getStatusGroup(log);
-                                const message = log.failure_reason || log.error_message || log.provider_error || log.error || log.message || log.details || 'Review event details';
+                                const message = getLogDiagnostics(log);
                                 return (
                                     <div key={log.id || `${getTimestamp(log)}-${index}`} className="rounded-xl border border-red-100/60 bg-red-50/20 p-3.5 dark:border-red-900/20 dark:bg-red-950/10">
                                         <div className="mb-2 flex items-center justify-between gap-2 border-b border-red-100/30 dark:border-red-900/10 pb-1.5">
-                                            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${statusPill(status)}`}>
+                                            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${statusPill(status)}`}>
                                                 {log.status || status}
                                             </span>
                                             <span className="text-[9px] font-bold uppercase tracking-tight text-[#9aa0a6]">{formatDateTime(log.timestamp || log.date_created || log.created_at)}</span>

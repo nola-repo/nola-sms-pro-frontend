@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { FiAlertCircle, FiCheck, FiEdit2, FiEye, FiEyeOff, FiLock, FiMoreVertical, FiRefreshCw, FiShield, FiX } from 'react-icons/fi';
 import { ToastContainer } from '../../components/ui/ToastContainer';
@@ -46,13 +46,108 @@ const FieldRow = ({ label, value, icon }: { label: string; value: React.ReactNod
         </label>
         <div className="flex min-h-[46px] items-center justify-between gap-3 rounded-xl border border-[#e0e0e0] bg-[#f7f7f7] px-4 py-2.5 text-[13px] font-bold text-[#111111] dark:border-[#ffffff0a] dark:bg-[#0d0e10] dark:text-[#ececf1]">
             <span className="min-w-0 break-words">{value || <span className="font-normal text-[#9aa0a6]">Not available</span>}</span>
-            {icon && <span className="shrink-0 text-[#2b83fa]">{icon}</span>}
+            {icon && <span className="shrink-0 text-[#6e6e73] dark:text-[#9aa0a6]">{icon}</span>}
         </div>
     </div>
 );
 
+interface EditableFieldRowProps {
+    label: string;
+    value: string;
+    isEditing: boolean;
+    onEditToggle: () => void;
+    onSave: (newValue: string) => void;
+    onCancel: () => void;
+    placeholder?: string;
+    type?: string;
+}
+
+const EditableFieldRow: React.FC<EditableFieldRowProps> = ({
+    label,
+    value,
+    isEditing,
+    onEditToggle,
+    onSave,
+    onCancel,
+    placeholder,
+    type = 'text',
+}) => {
+    const [tempValue, setTempValue] = useState(value);
+
+    useEffect(() => {
+        setTempValue(value);
+    }, [value, isEditing]);
+
+    const handleSave = () => {
+        onSave(tempValue);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            handleSave();
+        } else if (e.key === 'Escape') {
+            onCancel();
+        }
+    };
+
+    return (
+        <div>
+            <label className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-[#9aa0a6]">
+                {label}
+            </label>
+            <div className="flex min-h-[46px] items-center justify-between gap-3 rounded-xl border border-[#e0e0e0] bg-[#f7f7f7] px-4 py-2 dark:border-[#ffffff0a] dark:bg-[#0d0e10] dark:text-[#ececf1]">
+                {isEditing ? (
+                    <input
+                        type={type}
+                        value={tempValue}
+                        onChange={(e) => setTempValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder={placeholder}
+                        className="w-full bg-transparent text-[13px] font-bold text-[#111111] dark:text-[#ececf1] focus:outline-none py-1"
+                        autoFocus
+                    />
+                ) : (
+                    <span className="min-w-0 break-words text-[13px] font-bold text-[#111111] dark:text-[#ececf1]">
+                        {value || <span className="font-normal text-[#9aa0a6]">Not available</span>}
+                    </span>
+                )}
+                <div className="flex items-center gap-2 shrink-0">
+                    {isEditing ? (
+                        <>
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                className="p-1 rounded text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                                title="Save"
+                            >
+                                <FiCheck className="h-4 w-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={onCancel}
+                                className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                title="Cancel"
+                            >
+                                <FiX className="h-4 w-4" />
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={onEditToggle}
+                            className="p-1 rounded text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-black/5 dark:hover:bg-white/5"
+                            title="Edit"
+                        >
+                            <FiEdit2 className="h-4 w-4" />
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const AdminProfile: React.FC = () => {
-    const [admins, setAdmins] = useState<any[]>([]);
     const [, setLoading] = useState(true);
     const [savingPassword, setSavingPassword] = useState(false);
     const [password, setPassword] = useState('');
@@ -61,6 +156,9 @@ export const AdminProfile: React.FC = () => {
     const [showConfirm, setShowConfirm] = useState(false);
     const [profileMenuOpen, setProfileMenuOpen] = useState(false);
     const [passwordPanelOpen, setPasswordPanelOpen] = useState(false);
+    
+    const [editingField, setEditingField] = useState<'name' | 'email' | 'phone' | null>(null);
+    
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
     const { toasts, showToast, dismissToast } = useToast();
 
@@ -68,39 +166,47 @@ export const AdminProfile: React.FC = () => {
     const storedUser = sessionStorage.getItem('nola_admin_user') || localStorage.getItem('nola_admin_user') || '';
     const claims = useMemo(() => decodeJwt(token), [token]);
     const email = normalizeIdentity(claims.email || claims.username || storedUser);
-    const identityCandidates = [
-        claims.email,
-        claims.username,
-        storedUser,
-    ].map(normalizeIdentity).filter(Boolean);
-    const currentAdmin = admins.find(admin => [
-        admin.email,
-        admin.username,
-    ].some(value => identityCandidates.includes(normalizeIdentity(value))));
-    const displayRole = currentAdmin?.role || claims.role || 'viewer';
-    const displayName = displayFullName(currentAdmin?.full_name || currentAdmin?.name || claims.full_name || claims.name || claims.display_name || email);
-    const displayPhone = currentAdmin?.phone || currentAdmin?.phone_number || claims.phone || '';
-    const initial = (displayName || email || 'A').charAt(0).toUpperCase();
+    
+    const displayRole = claims.role || 'viewer';
+    const displayPhone = claims.phone || '';
+    const initialName = useMemo(() => {
+        return displayFullName(claims.full_name || claims.name || claims.display_name || email);
+    }, [claims, email]);
+
+    const [profile, setProfile] = useState({
+        name: initialName,
+        email: email,
+        phone: displayPhone,
+        role: displayRole,
+        created_at: '',
+        last_login: ''
+    });
+
+    const fetchAdminProfile = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await adminFetch('/api/admin_auth.php', { headers: getAdminAuthHeaders() });
+            const json = await res.json().catch(() => ({}));
+            if (res.ok && json.status === 'success') {
+                setProfile({
+                    name: json.full_name || json.name || '',
+                    email: json.email || '',
+                    phone: json.phone || '',
+                    role: json.role || 'viewer',
+                    created_at: json.created_at || '',
+                    last_login: json.last_login || ''
+                });
+            }
+        } catch {
+            // fallback
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        let cancelled = false;
-        const fetchAdmin = async () => {
-            setLoading(true);
-            try {
-                const res = await adminFetch(USERS_API, { headers: getAdminAuthHeaders() });
-                const json = await res.json().catch(() => ({}));
-                if (!cancelled && res.ok && json.status === 'success') {
-                    setAdmins(json.data || []);
-                }
-            } catch {
-                // Profile remains useful from the active session token.
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        };
-        fetchAdmin();
-        return () => { cancelled = true; };
-    }, []);
+        fetchAdminProfile();
+    }, [fetchAdminProfile]);
 
     useEffect(() => {
         if (!profileMenuOpen) return;
@@ -112,6 +218,67 @@ export const AdminProfile: React.FC = () => {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [profileMenuOpen]);
+
+    const handleUpdateField = async (field: 'name' | 'email' | 'phone', value: string) => {
+        if (field !== 'phone' && !value.trim()) {
+            showToast(`${field.charAt(0).toUpperCase() + field.slice(1)} cannot be empty.`, 'error');
+            return;
+        }
+
+        try {
+            const payload: any = {
+                action: 'update_profile',
+                name: field === 'name' ? value.trim() : profile.name,
+                email: field === 'email' ? value.trim() : profile.email,
+                phone: field === 'phone' ? value.trim() : profile.phone,
+            };
+
+            const res = await adminFetch('/api/admin_auth.php', {
+                method: 'POST',
+                headers: getAdminAuthHeaders(),
+                body: JSON.stringify(payload),
+            });
+            const json = await res.json().catch(() => ({}));
+
+            if (res.ok && json.status === 'success') {
+                showToast(json.message || 'Profile updated successfully.', 'success');
+                if (json.token) {
+                    sessionStorage.setItem('nola_admin_token', json.token);
+                    if (localStorage.getItem('nola_admin_token')) {
+                        localStorage.setItem('nola_admin_token', json.token);
+                    }
+                }
+                if (json.user) {
+                    sessionStorage.setItem('nola_admin_user', json.user.email);
+                    if (localStorage.getItem('nola_admin_user')) {
+                        localStorage.setItem('nola_admin_user', json.user.email);
+                    }
+                    if (json.user.name) {
+                        sessionStorage.setItem('nola_admin_name', json.user.name);
+                        if (localStorage.getItem('nola_admin_name')) {
+                            localStorage.setItem('nola_admin_name', json.user.name);
+                        }
+                    }
+                }
+                window.dispatchEvent(new Event('storage'));
+                if (json.user?.name) {
+                    window.dispatchEvent(new CustomEvent('nola-admin-name-updated', { detail: { name: json.user.name } }));
+                }
+                
+                setProfile(prev => ({
+                    ...prev,
+                    name: json.user?.name || json.user?.full_name || prev.name,
+                    email: json.user?.email || prev.email,
+                    phone: json.user?.phone || prev.phone,
+                }));
+                setEditingField(null);
+            } else {
+                showToast(json.message || 'Failed to update profile.', 'error');
+            }
+        } catch {
+            showToast('Network error updating profile.', 'error');
+        }
+    };
 
     const handlePasswordReset = async (event: React.FormEvent) => {
         event.preventDefault();
@@ -128,7 +295,7 @@ export const AdminProfile: React.FC = () => {
             const res = await adminFetch(USERS_API, {
                 method: 'POST',
                 headers: getAdminAuthHeaders(),
-                body: JSON.stringify({ action: 'reset_password', email, new_password: password }),
+                body: JSON.stringify({ action: 'reset_password', email: profile.email, new_password: password }),
             });
             const json = await res.json().catch(() => ({}));
             if (!res.ok || json.status !== 'success') {
@@ -145,6 +312,8 @@ export const AdminProfile: React.FC = () => {
         }
     };
 
+    const initialLetter = (profile.name || profile.email || 'A').charAt(0).toUpperCase();
+
     return (
         <div className="mx-auto w-full max-w-4xl space-y-5">
             <ToastContainer toasts={toasts} onDismiss={dismissToast} />
@@ -153,11 +322,11 @@ export const AdminProfile: React.FC = () => {
                 <div className="p-5 sm:p-6">
                     <div className="mb-6 flex items-center gap-4">
                         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] text-[24px] font-black text-white shadow-sm shadow-blue-500/20">
-                            {initial}
+                            {initialLetter}
                         </div>
                         <div className="min-w-0 flex-1">
-                            <h3 className="truncate text-[20px] font-black text-[#111111] dark:text-white">{displayName}</h3>
-                            <p className="mt-1 truncate text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">{email || 'Admin account'}</p>
+                            <h3 className="truncate text-[20px] font-black text-[#111111] dark:text-white">{profile.name}</h3>
+                            <p className="mt-1 truncate text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">{profile.email || 'Admin account'}</p>
                         </div>
                         <div className="relative" ref={profileMenuRef}>
                             <button
@@ -188,12 +357,38 @@ export const AdminProfile: React.FC = () => {
                     </div>
 
                     <div className="space-y-3.5 border-t border-[#f0f0f0] pt-5 dark:border-[#ffffff05]">
-                        <FieldRow label="Full Name" value={displayName} icon={<FiEdit2 className="h-4 w-4" />} />
-                        <FieldRow label="Email Address" value={email} icon={<FiEdit2 className="h-4 w-4" />} />
-                        <FieldRow label="Phone Number" value={displayPhone} icon={<FiEdit2 className="h-4 w-4" />} />
-                        <FieldRow label="Admin Role" value={roleLabel(displayRole)} icon={<FiShield className="h-4 w-4" />} />
-                        {currentAdmin?.created_at && <FieldRow label="Created" value={formatDateTime(currentAdmin.created_at)} />}
-                        {currentAdmin?.last_login && <FieldRow label="Last Login" value={formatDateTime(currentAdmin.last_login)} />}
+                        <EditableFieldRow
+                            label="Full Name"
+                            value={profile.name}
+                            isEditing={editingField === 'name'}
+                            onEditToggle={() => setEditingField('name')}
+                            onCancel={() => setEditingField(null)}
+                            onSave={(val) => handleUpdateField('name', val)}
+                            placeholder="Full name"
+                        />
+                        <EditableFieldRow
+                            label="Email Address"
+                            value={profile.email}
+                            isEditing={editingField === 'email'}
+                            onEditToggle={() => setEditingField('email')}
+                            onCancel={() => setEditingField(null)}
+                            onSave={(val) => handleUpdateField('email', val)}
+                            placeholder="Email address"
+                            type="email"
+                        />
+                        <EditableFieldRow
+                            label="Phone Number"
+                            value={profile.phone}
+                            isEditing={editingField === 'phone'}
+                            onEditToggle={() => setEditingField('phone')}
+                            onCancel={() => setEditingField(null)}
+                            onSave={(val) => handleUpdateField('phone', val)}
+                            placeholder="Phone number"
+                            type="tel"
+                        />
+                        <FieldRow label="Admin Role" value={roleLabel(profile.role)} icon={<FiShield className="h-4 w-4" />} />
+                        {profile.created_at && <FieldRow label="Created" value={formatDateTime(profile.created_at)} />}
+                        {profile.last_login && <FieldRow label="Last Login" value={formatDateTime(profile.last_login)} />}
                     </div>
                 </div>
             </div>
@@ -248,24 +443,28 @@ export const AdminProfile: React.FC = () => {
                                     onChange={event => setConfirmPassword(event.target.value)}
                                     minLength={8}
                                     className="h-11 w-full rounded-xl border border-transparent bg-[#f5f5f6] px-4 pr-10 text-[13px] font-semibold text-[#111111] placeholder-[#9aa0a6] focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/30 dark:border-[#ffffff0a] dark:bg-[#0d0e10] dark:text-[#ececf1]"
-                                    placeholder="Confirm password"
+                                    placeholder="Confirm new password"
                                     autoComplete="new-password"
                                 />
                                 <button type="button" onClick={() => setShowConfirm(value => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9aa0a6] hover:text-[#2b83fa]">
                                     {showConfirm ? <FiEyeOff className="h-4 w-4" /> : <FiEye className="h-4 w-4" />}
                                 </button>
                             </div>
-                            <button
-                                type="submit"
-                                disabled={savingPassword || !password || !confirmPassword}
-                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#111111] text-[12.5px] font-bold text-white transition-all disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-[#111111]"
-                            >
-                                {savingPassword ? <FiRefreshCw className="h-4 w-4 animate-spin" /> : <FiCheck className="h-4 w-4" />}
-                                Change Password
-                            </button>
-                            <div className="flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5 dark:border-amber-800/30 dark:bg-amber-900/10">
-                                <FiAlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                                <p className="text-[11px] font-medium leading-relaxed text-amber-700 dark:text-amber-400">Password changes apply immediately to this admin account.</p>
+                            <div className="flex justify-end gap-3 border-t border-[#f0f0f0] pt-4 dark:border-[#ffffff08]">
+                                <button
+                                    type="button"
+                                    onClick={() => setPasswordPanelOpen(false)}
+                                    className="h-11 rounded-xl px-5 text-[13px] font-bold text-[#6e6e73] transition-colors hover:bg-[#f5f5f6] dark:text-[#9aa0a6] dark:hover:bg-white/5"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={savingPassword || password.length < 8 || password !== confirmPassword}
+                                    className="h-11 rounded-xl bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] px-6 text-[13px] font-bold text-white shadow-md shadow-blue-500/20 transition-all hover:shadow-[0_8px_25px_rgba(43,131,250,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {savingPassword ? 'Updating...' : 'Update Password'}
+                                </button>
                             </div>
                         </form>
                     </div>
