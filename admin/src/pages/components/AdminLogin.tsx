@@ -6,7 +6,7 @@ import { apiFetch } from '../../utils/apiFetch';
 import defaultLogo from '../../assets/NOLA SMS PRO Logo.png';
 
 interface AdminLoginProps {
-  onLogin: (username: string, token: string, rememberMe: boolean) => void;
+  onLogin: (username: string, token: string, rememberMe: boolean, name?: string) => void;
   darkMode?: boolean;
   toggleDarkMode?: () => void;
   notice?: string | null;
@@ -113,7 +113,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin, darkMode, toggl
               setError('Admin login did not return a session token. Check JWT_SECRET on the backend.');
               return;
             }
-            onLogin(trimmedEmail, adminToken, rememberMe);
+            onLogin(trimmedEmail, adminToken, rememberMe, json.user?.name || json.user?.full_name);
         } else {
             setError(json.message || 'Incorrect email or password.');
         }

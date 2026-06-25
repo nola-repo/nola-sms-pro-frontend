@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FiAlertCircle, FiCheck, FiEye, FiEyeOff, FiLock, FiMoreVertical, FiPhone, FiRefreshCw, FiShield, FiUser, FiX } from 'react-icons/fi';
+import { FiAlertCircle, FiCheck, FiEdit2, FiEye, FiEyeOff, FiLock, FiMoreVertical, FiRefreshCw, FiShield, FiX } from 'react-icons/fi';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { useToast } from '../../hooks/useToast';
 import { adminFetch } from '../../utils/adminApi';
@@ -188,9 +188,9 @@ export const AdminProfile: React.FC = () => {
                     </div>
 
                     <div className="space-y-3.5 border-t border-[#f0f0f0] pt-5 dark:border-[#ffffff05]">
-                        <FieldRow label="Full Name" value={displayName} icon={<FiUser className="h-4 w-4" />} />
-                        <FieldRow label="Email Address" value={email} />
-                        <FieldRow label="Phone Number" value={displayPhone} icon={<FiPhone className="h-4 w-4" />} />
+                        <FieldRow label="Full Name" value={displayName} icon={<FiEdit2 className="h-4 w-4" />} />
+                        <FieldRow label="Email Address" value={email} icon={<FiEdit2 className="h-4 w-4" />} />
+                        <FieldRow label="Phone Number" value={displayPhone} icon={<FiEdit2 className="h-4 w-4" />} />
                         <FieldRow label="Admin Role" value={roleLabel(displayRole)} icon={<FiShield className="h-4 w-4" />} />
                         {currentAdmin?.created_at && <FieldRow label="Created" value={formatDateTime(currentAdmin.created_at)} />}
                         {currentAdmin?.last_login && <FieldRow label="Last Login" value={formatDateTime(currentAdmin.last_login)} />}

@@ -135,14 +135,7 @@ const emptyValue = (value?: string | null) => value?.trim() || '-';
 
 const getCreditBalance = (account: Account) => account.credit_balance ?? account.credits ?? 0;
 
-const getAccountLastActiveValue = (account: Account) =>
-    account.last_active_at ||
-    account.last_active ||
-    account.last_login_at ||
-    account.last_login ||
-    account.updated_at ||
-    account.created_at ||
-    '';
+
 
 const parseDateValue = (value: any) => {
     if (!value) return null;
@@ -155,18 +148,7 @@ const parseDateValue = (value: any) => {
     return Number.isNaN(date.getTime()) ? null : date;
 };
 
-const formatLastActive = (account: Account) => {
-    const date = parseDateValue(getAccountLastActiveValue(account));
-    if (!date) return 'No activity';
-    const diffMin = Math.floor((Date.now() - date.getTime()) / 60000);
-    if (diffMin < 1) return 'Just now';
-    if (diffMin < 60) return `${diffMin}m ago`;
-    const diffHrs = Math.floor(diffMin / 60);
-    if (diffHrs < 24) return `${diffHrs}h ago`;
-    const diffDays = Math.floor(diffHrs / 24);
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-};
+
 
 const getAccountStatusMeta = (account: Account) => {
     const hasLocation = Boolean((account.location_id || account.active_location_id || '').trim());
@@ -817,9 +799,7 @@ export const AdminAccounts: React.FC = () => {
                                         <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                             PHONE
                                         </th>
-                                        <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
-                                            LAST ACTIVE
-                                        </th>
+
                                         <th className="pb-3 pr-4 text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider whitespace-nowrap">
                                             <button
                                                 onClick={() => handleSort('credits')}
@@ -869,7 +849,7 @@ export const AdminAccounts: React.FC = () => {
                                             </td>
                                             <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[190px]">{emptyValue(account.email)}</td>
                                             <td className="py-4 pr-4 text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6] min-w-[130px]">{emptyValue(account.phone)}</td>
-                                            <td className="py-4 pr-4 text-[12px] font-bold text-[#111111] dark:text-white min-w-[120px]">{formatLastActive(account)}</td>
+
                                             <td className="py-4 pr-4 min-w-[110px]">
                                                 {editingCreditId === account.id ? (
                                                     <div

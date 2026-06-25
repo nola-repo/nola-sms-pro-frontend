@@ -15,7 +15,7 @@ import { AdminLogs } from './components/SystemSettings';
 import { AdminAgencies } from './components/AdminAgencies';
 import { AdminProfile } from './components/AdminProfile';
 import { SystemHealth } from './components/SystemHealth';
-import { ADMIN_AUTH_REQUIRED_EVENT } from '../utils/adminApi';
+import { ADMIN_AUTH_REQUIRED_EVENT, adminFetch } from '../utils/adminApi';
 
 const NAV_ITEMS = [
     { path: '/dashboard',  label: 'Dashboard',        icon: <FiHome /> },
@@ -106,8 +106,9 @@ const readRememberedAdminSession = () => {
 const readAdminIdentity = () => {
     const token = sessionStorage.getItem('nola_admin_token') || localStorage.getItem('nola_admin_token') || '';
     const storedUser = sessionStorage.getItem('nola_admin_user') || localStorage.getItem('nola_admin_user') || '';
+    const storedName = sessionStorage.getItem('nola_admin_name') || localStorage.getItem('nola_admin_name') || '';
     let email = storedUser;
-    let name = '';
+    let name = storedName;
 
     try {
         const payload = token.split('.')[1];
@@ -116,7 +117,9 @@ const readAdminIdentity = () => {
             const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
             const claims = JSON.parse(atob(padded));
             email = claims.email || claims.username || email;
-            name = claims.name || claims.full_name || claims.display_name || '';
+            if (!name) {
+                name = claims.name || claims.full_name || claims.display_name || '';
+            }
         }
     } catch {
         // Stored username remains a useful fallback.
@@ -243,17 +246,32 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [authNotice, setAuthNotice] = useState<string | null>(null);
+    const [adminName, setAdminName] = useState(() => {
+        return sessionStorage.getItem('nola_admin_name') || localStorage.getItem('nola_admin_name') || '';
+    });
     const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const navigate = useNavigate();
-    const adminIdentity = readAdminIdentity();
+    const baseIdentity = readAdminIdentity();
+    const adminIdentity = React.useMemo(() => {
+        if (!adminName) return baseIdentity;
+        const formattedName = adminName.replace(/\b\w/g, char => char.toUpperCase());
+        return {
+            ...baseIdentity,
+            name: formattedName,
+            initial: (formattedName || baseIdentity.email || 'A').charAt(0).toUpperCase(),
+        };
+    }, [adminName, baseIdentity.email]);
 
     const clearAdminSession = useCallback((includeRemembered = true, notice?: string) => {
         ADMIN_AUTH_KEYS.forEach(key => sessionStorage.removeItem(key));
+        sessionStorage.removeItem('nola_admin_name');
         if (includeRemembered) {
             ADMIN_AUTH_KEYS.forEach(key => localStorage.removeItem(key));
             localStorage.removeItem(ADMIN_REMEMBER_KEY);
+            localStorage.removeItem('nola_admin_name');
         }
+        setAdminName('');
         setShowLogoutConfirm(false);
         setAuthNotice(notice || null);
         setIsAuthenticated(false);
@@ -286,17 +304,60 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
         return () => window.removeEventListener(ADMIN_AUTH_REQUIRED_EVENT, handleAdminAuthRequired);
     }, [clearAdminSession]);
 
-    const handleLogin = (username: string, token: string, rememberMe = true) => {
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        const fetchSelf = async () => {
+            try {
+                const res = await adminFetch('/api/admin_auth.php');
+                if (res.ok) {
+                    const json = await res.json().catch(() => ({}));
+                    if (json.status === 'success' && json.name) {
+                        setAdminName(json.name);
+                        sessionStorage.setItem('nola_admin_name', json.name);
+                        if (localStorage.getItem('nola_admin_remember') === 'true') {
+                            localStorage.setItem('nola_admin_name', json.name);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch admin self profile:', err);
+            }
+        };
+
+        fetchSelf();
+    }, [isAuthenticated]);
+
+    useEffect(() => {
+        const handleNameUpdated = (event: Event) => {
+            const detail = (event as CustomEvent<{ name: string }>).detail;
+            if (detail?.name) {
+                setAdminName(detail.name);
+            }
+        };
+        window.addEventListener('nola-admin-name-updated', handleNameUpdated);
+        return () => window.removeEventListener('nola-admin-name-updated', handleNameUpdated);
+    }, []);
+
+    const handleLogin = (username: string, token: string, rememberMe = true, name?: string) => {
         sessionStorage.setItem('nola_admin_auth', 'true');
         sessionStorage.setItem('nola_admin_user', username);
         sessionStorage.setItem('nola_admin_token', token);
+        if (name) {
+            sessionStorage.setItem('nola_admin_name', name);
+            setAdminName(name);
+        }
         if (rememberMe) {
             localStorage.setItem('nola_admin_auth', 'true');
             localStorage.setItem('nola_admin_user', username);
             localStorage.setItem('nola_admin_token', token);
             localStorage.setItem(ADMIN_REMEMBER_KEY, 'true');
+            if (name) {
+                localStorage.setItem('nola_admin_name', name);
+            }
         } else {
             ADMIN_AUTH_KEYS.forEach(key => localStorage.removeItem(key));
+            localStorage.removeItem('nola_admin_name');
             localStorage.removeItem(ADMIN_REMEMBER_KEY);
         }
         setAuthNotice(null);

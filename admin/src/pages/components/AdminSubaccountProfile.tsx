@@ -204,6 +204,7 @@ export const AdminSubaccountProfile = ({ account, onClose, onSaved, onToggleActi
                             ['Provider', displayValue(account?.approved_provider || account?.provider)],
                             ['Source', displayValue(account?.source)],
                             ['Created At', formatDate(account?.created_at)],
+                            ['Last Active', formatDate(account?.last_active_at || account?.last_active || account?.last_login_at || account?.last_login || account?.updated_at)],
                             ['User ID', displayValue(account?.id)],
                         ].map(([label, value]) => (
                             <div key={label} className="rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e5e5e5] dark:border-white/5 px-4 py-3">
