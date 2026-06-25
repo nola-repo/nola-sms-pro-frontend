@@ -211,8 +211,8 @@ const SkeletonRows = ({ count = 5 }) => (
         <td className="px-6 py-4"><div className="skeleton h-6 w-16 rounded-full" /></td>
         <td className="px-6 py-4"><div className="skeleton h-[30px] w-20 rounded-lg" /></td>
         <td className="px-6 py-4"><div className="skeleton h-[30px] w-20 rounded-lg" /></td>
-        <td className="px-6 py-4"><div className="skeleton h-9 w-9 rounded-lg" /></td>
-        <td className="px-6 py-4 flex justify-end"><div className="skeleton h-6 w-11 rounded-full" /></td>
+        <td className="px-6 py-4"><div className="skeleton h-6 w-11 rounded-full" /></td>
+        <td className="px-6 py-4 flex justify-end"><div className="skeleton h-9 w-9 rounded-lg" /></td>
       </tr>
     ))}
   </>
@@ -1036,8 +1036,8 @@ export const Subaccounts = () => {
                   <th onClick={() => handleSort('attempt_count')} className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap cursor-pointer hover:text-[#111111] dark:hover:text-white transition-colors">Sends Used <SortIcon field="attempt_count" /></th>
                   <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Credits</th>
                   <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Free Used</th>
-                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">Actions</th>
-                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap text-right">SMS Active</th>
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap">SMS Active</th>
+                  <th className="px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-[#6e6e73] dark:text-[#94959b] whitespace-nowrap text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[rgba(0,0,0,0.05)] dark:divide-[rgba(255,255,255,0.05)]">
@@ -1126,21 +1126,9 @@ export const Subaccounts = () => {
                           </div>
                         </td>
 
-                        {/* Actions menu */}
+                        {/* SMS Active Toggle */}
                         <td className="px-6 py-4 align-middle">
-                          <button
-                            onClick={(event) => openSubActionMenu(sub.location_id, event.currentTarget)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
-                            title="More actions"
-                            aria-label={`Actions for ${sub.location_name || sub.location_id}`}
-                          >
-                            <FiMoreVertical className="w-4 h-4" />
-                          </button>
-                        </td>
-
-                        {/* SMS Active Toggle (Rightmost) */}
-                        <td className="px-6 py-4 align-middle">
-                          <div className="flex flex-col items-end gap-1">
+                          <div className="flex flex-col items-start gap-1">
                             {(installedLocations.size === 0 || installedLocations.has(sub.location_id) || sub.is_live) ? (
                               <>
                                 <div className="flex items-center gap-2.5">
@@ -1159,7 +1147,7 @@ export const Subaccounts = () => {
                                 </div>
                               </>
                             ) : (
-                              <div className="flex flex-col items-end gap-1.5">
+                              <div className="flex flex-col items-start gap-1.5">
                                 <a
                                   href="https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=https%3A%2F%2Fsmspro-api.nolacrm.io%2Foauth%2Fcallback&client_id=69d31f33b3071b25dbcc5656-mnqxvt3&scope=workflows.readonly+conversations%2Fmessage.readonly+conversations.readonly+conversations.write+contacts.readonly+contacts.write+conversations%2Fmessage.write+saas%2Flocation.read+locations.readonly+locations%2Ftags.readonly+locations%2Ftags.write+locations%2FcustomFields.readonly&version_id=69d31f33b3071b25dbcc5656"
                                   target="_blank"
@@ -1172,6 +1160,18 @@ export const Subaccounts = () => {
                               </div>
                             )}
                           </div>
+                        </td>
+
+                        {/* Actions menu (Rightmost) */}
+                        <td className="px-6 py-4 align-middle text-right">
+                          <button
+                            onClick={(event) => openSubActionMenu(sub.location_id, event.currentTarget)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-[#6e6e73] dark:text-[#9aa0a6] hover:text-[#111111] dark:hover:text-white hover:bg-white dark:hover:bg-[#1a1b1e] hover:border-[#e5e5e5] dark:hover:border-white/10 hover:shadow-sm transition-all"
+                            title="More actions"
+                            aria-label={`Actions for ${sub.location_name || sub.location_id}`}
+                          >
+                            <FiMoreVertical className="w-4 h-4" />
+                          </button>
                         </td>
                       </tr>
                     );
