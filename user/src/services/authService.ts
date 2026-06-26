@@ -204,6 +204,9 @@ export const clearAuthSession = (): void => {
   safeStorage.removeItem('nola_is_ghl_frame');
   try { sessionStorage.removeItem('nola_is_ghl_frame'); } catch { /* ignore */ }
   try { localStorage.removeItem('nola_is_ghl_frame'); } catch { /* ignore */ }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('nola-auth-session-updated', { detail: { cleared: true } }));
+  }
 };
 
 export const clearSession = clearAuthSession;

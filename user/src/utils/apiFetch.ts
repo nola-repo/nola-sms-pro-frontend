@@ -1,8 +1,10 @@
 import { safeStorage } from './safeStorage';
 import { sessionSafeStorage } from './sessionSafeStorage';
-import { getAccountSettings } from './settingsStorage';
-import { detectLocationFromCurrentUrl } from './ghlLocationDetection';
-import { readActiveGhlLocation } from './ghlLocationStorage';
+import {
+  ensureGhlSessionForLocation,
+  getRequestedGhlLocationId,
+  isLocationSessionMismatchPayload,
+} from './ghlSessionReauth';
 
 const SESSION_KEYS = {
   token: 'nola_auth_token',
@@ -53,33 +55,8 @@ const getStoredToken = (): string =>
   safeStorage.getItem(SESSION_KEYS.token) ||
   '';
 
-const getCurrentUrlLocationId = (): string => {
-  if (typeof window === 'undefined') return '';
-  return detectLocationFromCurrentUrl()?.locationId || '';
-};
-const isCurrentGhlContext = (): boolean => {
-  if (typeof window === 'undefined') return false;
+const getStoredLocationId = (): string => getRequestedGhlLocationId();
 
-  try {
-    return window.self !== window.top || sessionStorage.getItem('nola_is_ghl_frame') === 'true';
-  } catch {
-    return true;
-  }
-};
-
-const getStoredLocationId = (): string => {
-  const fromCurrentUrl = getCurrentUrlLocationId();
-  if (fromCurrentUrl) return fromCurrentUrl;
-
-  const activeGhlLocationId = readActiveGhlLocation();
-  if (isCurrentGhlContext()) return activeGhlLocationId;
-
-  try {
-    return safeStorage.getItem(SESSION_KEYS.locationId) || getAccountSettings().ghlLocationId || '';
-  } catch {
-    return safeStorage.getItem(SESSION_KEYS.locationId) || '';
-  }
-};
 const clearStoredAuthSession = (): void => {
   Object.values(SESSION_KEYS).forEach((key) => {
     safeStorage.removeItem(key);
@@ -92,6 +69,9 @@ const clearStoredAuthSession = (): void => {
   safeStorage.removeItem('nola_is_ghl_frame');
   try { sessionStorage.removeItem('nola_is_ghl_frame'); } catch { /* ignore */ }
   try { localStorage.removeItem('nola_is_ghl_frame'); } catch { /* ignore */ }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('nola-auth-session-updated', { detail: { cleared: true } }));
+  }
 };
 
 export function withRequestId(headers?: HeadersInit): Headers {
@@ -121,22 +101,46 @@ export function withApiHeaders(headers?: HeadersInit): Headers {
 }
 
 export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  const tokenAtRequestStart = getStoredToken();
-  const response = await fetch(input, {
-    ...init,
-    headers: withApiHeaders(init.headers),
-  });
+  const isPublicAuthPath = isPublicAuthRequest(input);
 
-  if (response.status === 401 && tokenAtRequestStart && !isPublicAuthRequest(input)) {
-    clearStoredAuthSession();
-    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-      window.location.assign('/login');
+  const execute = async (hasRetriedMismatch = false): Promise<Response> => {
+    if (!isPublicAuthPath) {
+      const sessionReady = await ensureGhlSessionForLocation();
+      if (!sessionReady) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication refresh required.', code: 'GHL_REAUTH_REQUIRED', requires_reauth: true }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
     }
-  }
 
-  if (response.status === 503 && typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('nola-api-maintenance', { detail: { input: String(input) } }));
-  }
+    const tokenAtRequestStart = getStoredToken();
+    const response = await fetch(input, {
+      ...init,
+      headers: withApiHeaders(init.headers),
+    });
 
-  return response;
+    if (!isPublicAuthPath && !hasRetriedMismatch && response.status === 403) {
+      const mismatchPayload = await response.clone().json().catch(() => null);
+      if (isLocationSessionMismatchPayload(mismatchPayload)) {
+        const refreshed = await ensureGhlSessionForLocation(getStoredLocationId(), { force: true });
+        if (refreshed) return execute(true);
+      }
+    }
+
+    if (response.status === 401 && tokenAtRequestStart && !isPublicAuthPath) {
+      clearStoredAuthSession();
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.assign('/login');
+      }
+    }
+
+    if (response.status === 503 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('nola-api-maintenance', { detail: { input: String(input) } }));
+    }
+
+    return response;
+  };
+
+  return execute();
 }

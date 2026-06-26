@@ -16,8 +16,7 @@ import { devLog } from '../utils/devLog';
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 import { safeStorage } from '../utils/safeStorage';
-import { getSession, clearAuthSession, saveSession } from '../services/authService';
-import { apiFetch } from '../utils/apiFetch';
+import { getSession, clearAuthSession } from '../services/authService';
 import {
   detectLocationFromCurrentUrl,
   detectLocationFromPostMessage,
@@ -26,6 +25,7 @@ import {
   type LocationSource,
 } from '../utils/ghlLocationDetection';
 import { persistActiveGhlLocation } from '../utils/ghlLocationStorage';
+import { ensureGhlSessionForLocation, storedSessionMatchesLocation } from '../utils/ghlSessionReauth';
 
 interface LocationContextValue {
   locationId: string;
@@ -239,76 +239,54 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const hasLocationId = !!locationId && locationId.length > 4;
 
     const isUnauthenticated = !session;
-    const isMismatch = session && session.role !== 'agency' && session.locationId !== locationId;
+    const isMismatch = !!session && session.role !== 'agency' && !storedSessionMatchesLocation(locationId);
 
-    if (hasLocationId && (isUnauthenticated || isMismatch)) {
-      if (autoLoginInFlightRef.current === locationId) return;
-      autoLoginInFlightRef.current = locationId;
-      setIsLocationResolving(true);
+    if (!hasLocationId || (!isUnauthenticated && !isMismatch)) return;
+    if (autoLoginInFlightRef.current === locationId) return;
 
-      devLog.log(
-        `[LocationContext] Triggering silent auto-login for location: ${locationId}. Reason: ${
-          isUnauthenticated ? 'Unauthenticated' : 'Session mismatch'
-        }`
-      );
+    autoLoginInFlightRef.current = locationId;
+    setIsLocationResolving(true);
 
-      const autoLoginParams = new URLSearchParams({ location_id: locationId });
-      apiFetch(`/api/auth/ghl_autologin?${autoLoginParams.toString()}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-GHL-Location-ID': locationId,
-        },
-        body: JSON.stringify({
-          location_id: locationId,
-          locationId,
-          active_location_id: locationId,
-        }),
+    devLog.log(
+      `[LocationContext] Triggering silent auto-login for location: ${locationId}. Reason: ${
+        isUnauthenticated ? 'Unauthenticated' : 'Session mismatch'
+      }`
+    );
+
+    ensureGhlSessionForLocation(locationId, { force: isMismatch })
+      .then((refreshed) => {
+        if (autoLoginInFlightRef.current !== locationId) return;
+        autoLoginInFlightRef.current = null;
+        setIsLocationResolving(false);
+
+        if (refreshed) {
+          devLog.log(`[LocationContext] Silent auto-login reconciled session for ${locationId}.`);
+          return;
+        }
+
+        devLog.warn(`[LocationContext] Silent auto-login failed for location ${locationId}.`);
+        if (isMismatch) {
+          clearAuthSession();
+          const searchParams = new URLSearchParams(window.location.search);
+          searchParams.set('location_id', locationId);
+          searchParams.set('locationId', locationId);
+          window.location.href = `/login?${searchParams.toString()}`;
+        }
       })
-        .then(async (res) => {
-          const data = await res.json().catch(() => null);
-          if (autoLoginInFlightRef.current !== locationId) return;
-          if (res.ok) {
-            if (data?.token) {
-              devLog.log(`[LocationContext] Silent auto-login succeeded for ${locationId}. Saving session and reloading.`);
-              clearAuthSession();
-              saveSession(data);
-              setIsLocationResolving(false);
-              window.location.reload();
-              return;
-            }
-          }
-
-          const message = data?.message || data?.error || data?.details || res.statusText;
-          devLog.warn(`[LocationContext] Silent auto-login failed for location ${locationId}. Status: ${res.status}`, message);
-          if (autoLoginInFlightRef.current === locationId) {
-            autoLoginInFlightRef.current = null;
-          }
-
-          setIsLocationResolving(false);
-          if (isMismatch) {
-            clearAuthSession();
-            const searchParams = new URLSearchParams(window.location.search);
-            searchParams.set('location_id', locationId);
-            searchParams.set('locationId', locationId);
-            window.location.href = `/login?${searchParams.toString()}`;
-          }
-        })
-        .catch((err) => {
-          devLog.error('[LocationContext] Silent auto-login error:', err);
-          if (autoLoginInFlightRef.current === locationId) {
-            autoLoginInFlightRef.current = null;
-          }
-          setIsLocationResolving(false);
-          if (isMismatch) {
-            clearAuthSession();
-            const searchParams = new URLSearchParams(window.location.search);
-            searchParams.set('location_id', locationId);
-            searchParams.set('locationId', locationId);
-            window.location.href = `/login?${searchParams.toString()}`;
-          }
-        });
-    }
+      .catch((err) => {
+        devLog.error('[LocationContext] Silent auto-login error:', err);
+        if (autoLoginInFlightRef.current === locationId) {
+          autoLoginInFlightRef.current = null;
+        }
+        setIsLocationResolving(false);
+        if (isMismatch) {
+          clearAuthSession();
+          const searchParams = new URLSearchParams(window.location.search);
+          searchParams.set('location_id', locationId);
+          searchParams.set('locationId', locationId);
+          window.location.href = `/login?${searchParams.toString()}`;
+        }
+      });
   }, [locationId]);
 
   return (
