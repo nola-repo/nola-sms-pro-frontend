@@ -10,8 +10,7 @@ import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorag
 import { safeStorage } from '../utils/safeStorage';
 import { apiFetch } from '../utils/apiFetch';
 
-// Change this to match the Redirect URI you set in GHL Marketplace
-const REDIRECT_URI = window.location.origin + window.location.pathname; // If they go to /?code=...
+const REDIRECT_URI = window.location.origin + window.location.pathname;
 
 const getPostConnectPath = (): string => {
     const returnView = safeStorage.getItem(GHL_OAUTH_RETURN_VIEW_STORAGE_KEY);
@@ -34,8 +33,9 @@ export const GhlCallback: React.FC = () => {
             const errorDescription = params.get('error_description');
 
             if (error) {
+                devLog.warn('GHL authorization returned an error', { error, errorDescription });
                 setStatus('error');
-                setMessage(`Authorization failed: ${errorDescription || error}`);
+                setMessage('GoHighLevel authorization was cancelled or could not be completed. Please try reconnecting.');
                 return;
             }
 
@@ -48,7 +48,6 @@ export const GhlCallback: React.FC = () => {
             try {
                 const accountSettings = getAccountSettings();
 
-                // Call our PHP backend to exchange code for token
                 const response = await apiFetch(`${API_CONFIG.base}/api/ghl_oauth`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -56,8 +55,9 @@ export const GhlCallback: React.FC = () => {
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to exchange token');
+                    const errorData = await response.json().catch(() => ({}));
+                    devLog.warn('GHL token exchange failed', { status: response.status, error: errorData?.error || errorData?.message });
+                    throw new Error('token_exchange_failed');
                 }
 
                 const data = await response.json();
@@ -67,7 +67,6 @@ export const GhlCallback: React.FC = () => {
                 saveAccountSettings({
                     ...accountSettings,
                     ghlOAuthConnected: true,
-                    // Store the sub-account name if returned by backend
                     displayName: locationName || accountSettings.displayName,
                     ghlLocationId: data.locationId || accountSettings.ghlLocationId
                 });
@@ -89,7 +88,7 @@ export const GhlCallback: React.FC = () => {
             } catch (err: unknown) {
                 devLog.error('OAuth Error:', err);
                 setStatus('error');
-                setMessage(`Failed to connect: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                setMessage('Could not connect GoHighLevel right now. Please try reconnecting from Settings.');
             }
         };
 

@@ -16,6 +16,7 @@ import { AdminAgencies } from './components/AdminAgencies';
 import { AdminProfile } from './components/AdminProfile';
 import { SystemHealth } from './components/SystemHealth';
 import { ADMIN_AUTH_REQUIRED_EVENT, adminFetch } from '../utils/adminApi';
+import { devLog } from '../utils/devLog';
 
 const NAV_ITEMS = [
     { path: '/dashboard',  label: 'Dashboard',        icon: <FiHome /> },
@@ -252,6 +253,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
     const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const navigate = useNavigate();
+    const { pathname } = useLocation();
     const baseIdentity = readAdminIdentity();
     const adminIdentity = React.useMemo(() => {
         if (!adminName) return baseIdentity;
@@ -277,6 +279,19 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
         setIsAuthenticated(false);
         navigate('/dashboard');
     }, [navigate]);
+
+    useEffect(() => {
+        if (!isAuthenticated) {
+            document.title = 'Admin Login | NOLA SMS Pro';
+            return;
+        }
+
+        const routeKey = pathname.replace(/^\//, '') || 'dashboard';
+        const routeTitle = routeKey === 'dashboard'
+            ? 'Admin Dashboard'
+            : PAGE_HEADERS[routeKey as keyof typeof PAGE_HEADERS]?.title || 'Admin Dashboard';
+        document.title = `${routeTitle} | NOLA SMS Pro Admin`;
+    }, [isAuthenticated, pathname]);
 
     const resetIdleTimer = useCallback(() => {
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -321,7 +336,7 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                     }
                 }
             } catch (err) {
-                console.error('Failed to fetch admin self profile:', err);
+                devLog.error('Failed to fetch admin self profile:', err);
             }
         };
 

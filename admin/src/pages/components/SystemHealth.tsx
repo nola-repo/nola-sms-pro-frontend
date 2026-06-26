@@ -7,7 +7,6 @@ import {
     FiClock,
     FiCreditCard,
     FiDatabase,
-    FiMessageSquare,
     FiRefreshCw,
     FiSend,
     FiServer,
@@ -16,8 +15,6 @@ import {
     FiCpu,
     FiSliders,
     FiAlertTriangle,
-    FiChevronLeft,
-    FiChevronRight,
 } from 'react-icons/fi';
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
@@ -131,7 +128,6 @@ export const SystemHealth: React.FC = () => {
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [logTypeFilter, setLogTypeFilter] = useState<'all' | 'message' | 'sender_request' | 'credit_purchase'>('all');
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
     const fetchHealth = useCallback(async (isInitial = false) => {
@@ -166,23 +162,6 @@ export const SystemHealth: React.FC = () => {
         const timer = setInterval(() => fetchHealth(false), POLL_INTERVAL);
         return () => clearInterval(timer);
     }, [fetchHealth]);
-
-    const typeCounts = useMemo(() => {
-        return {
-            all: logs.length,
-            message: logs.filter(log => getType(log) === 'message').length,
-            sender_request: logs.filter(log => getType(log) === 'sender_request').length,
-            credit_purchase: logs.filter(log => getType(log) === 'credit_purchase').length,
-        };
-    }, [logs]);
-
-    const filteredLogs = useMemo(() => {
-        let items = [...logs];
-        if (logTypeFilter !== 'all') {
-            items = items.filter(log => getType(log) === logTypeFilter);
-        }
-        return items.sort((a, b) => getTimestamp(b) - getTimestamp(a)).slice(0, 50);
-    }, [logs, logTypeFilter]);
 
     const recentErrors = useMemo(() => (
         logs
@@ -253,6 +232,83 @@ export const SystemHealth: React.FC = () => {
         },
     ];
 
+
+    const redactDiagnostic = useCallback((value: any) => {
+        return String(value ?? '-')
+            .replace(/(bearer\s+)[^\s]+/gi, '$1[redacted]')
+            .replace(/(authorization|token|secret|password|api[_-]?key)(=|:)?\s*[^\s,}]+/gi, '$1=[redacted]');
+    }, []);
+
+    const diagnosticRows = useMemo(() => (
+        [...logs]
+            .sort((a, b) => getTimestamp(b) - getTimestamp(a))
+            .slice(0, 24)
+            .map((log, index) => {
+                const locId = log.location_id || log.account_id || log.locationId || '';
+                const account = accountsByLocation.get(locId) || {};
+                const status = getStatusGroup(log);
+                return {
+                    id: log.id || log.message_id || log.provider_message_id || `${locId || 'global'}-${index}`,
+                    time: formatDateTime(log.timestamp || log.date_created || log.created_at || log.updated_at),
+                    status,
+                    event: getLogEventName(log),
+                    accountName: account.location_name || log.location_name || locId || 'System',
+                    message: redactDiagnostic(getLogDiagnostics(log)),
+                    reference: log.provider_message_id || log.message_id || log.request_id || log.id || '',
+                };
+            })
+    ), [logs, accountsByLocation, redactDiagnostic]);
+
+    const lowBalanceAccounts = useMemo(() => (
+        accounts
+            .map((account) => {
+                const data = account.data ? { id: account.id, ...account.data } : account;
+                const balance = Number(data.balance ?? data.credit_balance ?? data.credits ?? 0);
+                return {
+                    id: data.location_id || data.active_location_id || data.id || account.id || 'unknown',
+                    name: data.location_name || data.name || data.company_name || data.email || 'Unnamed account',
+                    balance: Number.isFinite(balance) ? balance : 0,
+                };
+            })
+            .filter((account) => account.balance <= 50)
+            .sort((a, b) => a.balance - b.balance)
+            .slice(0, 8)
+    ), [accounts]);
+
+    const lastFailure = recentErrors[0];
+    const lastFailureDetail = lastFailure ? redactDiagnostic(getLogDiagnostics(lastFailure)) : '';
+    const lastSend = useMemo(() => (
+        [...logs]
+            .filter(log => getType(log) === 'message')
+            .sort((a, b) => getTimestamp(b) - getTimestamp(a))[0]
+    ), [logs]);
+
+    const serviceChecks = [
+        {
+            label: 'API Health Endpoint',
+            value: error ? 'Attention' : 'Responding',
+            detail: error || 'Latest diagnostic payload loaded successfully.',
+            state: error ? 'bad' : 'ok',
+        },
+        {
+            label: 'Database Read Path',
+            value: dbConnected ? 'Connected' : 'Disconnected',
+            detail: dbConnected ? `${accounts.length.toLocaleString()} account records readable` : 'Health endpoint reported a database connection issue.',
+            state: dbConnected ? 'ok' : 'bad',
+        },
+        {
+            label: 'Gateway Readiness',
+            value: providerInfo?.status === 'active' ? 'Ready' : 'Needs Review',
+            detail: providerInfo?.name ? `${normalizeProvider({ provider: providerInfo.name }, settings)} provider status: ${providerInfo.status || 'unknown'}` : 'Provider details were not returned by the health endpoint.',
+            state: providerInfo?.status === 'active' ? 'ok' : 'warn',
+        },
+        {
+            label: 'Failure Window',
+            value: `${recentErrors.length.toLocaleString()} issue${recentErrors.length === 1 ? '' : 's'}`,
+            detail: lastFailure ? `${getLogEventName(lastFailure)} - ${lastFailureDetail}` : 'No failed events in the current diagnostic window.',
+            state: recentErrors.length === 0 ? 'ok' : recentErrors.length < 5 ? 'warn' : 'bad',
+        },
+    ];
     return (
         <div className="space-y-5 text-[#111111] dark:text-white">
             {/* Header section with real-time health indicator */}
@@ -275,7 +331,7 @@ export const SystemHealth: React.FC = () => {
                         className="inline-flex items-center gap-2 rounded-xl border border-[#e5e5e5] bg-white px-4 py-2 text-[12px] font-bold text-[#6e6e73] shadow-sm transition-all hover:bg-[#f7f7f7] hover:text-[#111111] dark:border-white/10 dark:bg-[#1a1b1e] dark:text-[#9aa0a6] dark:hover:bg-white/5 dark:hover:text-white"
                     >
                         <FiRefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-                        Trigger Diagnostic Check
+                        Run Health Check
                     </button>
                 </div>
             </div>
@@ -311,7 +367,7 @@ export const SystemHealth: React.FC = () => {
                     <div className="flex items-center justify-between border-b border-[#e5e5e5] dark:border-white/5 pb-3 mb-4">
                         <h3 className="text-[13px] font-bold uppercase tracking-wider text-[#111111] dark:text-white flex items-center gap-2">
                             <FiSliders className="w-4 h-4 text-[#2b83fa]" />
-                            System Config Quick-View
+                            Provider Configuration
                         </h3>
                         {settings.maintenance_mode && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-900/10 dark:text-amber-400 border border-amber-200/50">
@@ -335,164 +391,133 @@ export const SystemHealth: React.FC = () => {
                         <div>
                             <span className="block text-[10px] font-bold uppercase tracking-wider text-[#9aa0a6]">Active Route</span>
                             <span className="font-bold text-[#111111] dark:text-white uppercase">
-                                {settings.sms_provider?.active_provider === 'auto_failover' ? 'Failover (Semaphore ➔ UniSMS)' : settings.sms_provider?.active_provider}
+                                {settings.sms_provider?.active_provider === 'auto_failover' ? 'Failover (Semaphore -> UniSMS)' : settings.sms_provider?.active_provider}
                             </span>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Logs and Diagnostic Feed */}
-            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-                <div className="overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
-                    <div className="flex flex-col gap-3 border-b border-[#e5e5e5] px-5 py-4 dark:border-white/5 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                            <h3 className="flex items-center gap-2 text-[14px] font-bold text-[#111111] dark:text-white">
-                                <FiActivity className="h-4 w-4 text-[#2b83fa]" />
-                                Platform Activity Logs
-                            </h3>
-                            <p className="mt-0.5 text-[11px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
-                                Detailed audit trail of platform events, credit changes, sends and sender requests.
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2 overflow-x-auto">
-                            {[
-                                { id: 'all', label: 'All Events', count: typeCounts.all },
-                                { id: 'message', label: 'SMS Sends', count: typeCounts.message },
-                                { id: 'sender_request', label: 'Sender ID Requests', count: typeCounts.sender_request },
-                                { id: 'credit_purchase', label: 'Credits Added', count: typeCounts.credit_purchase },
-                            ].map((item) => {
-                                const active = logTypeFilter === item.id;
-                                return (
-                                    <button
-                                        key={item.id}
-                                        type="button"
-                                        onClick={() => setLogTypeFilter(item.id as any)}
-                                        className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-bold transition-all whitespace-nowrap ${
-                                            active
-                                                ? 'border-[#111111] bg-[#111111] text-white dark:border-white dark:bg-white dark:text-[#111111] shadow-sm'
-                                                : 'border-[#e5e5e5] bg-[#f7f7f7] text-[#6e6e73] hover:text-[#111111] dark:border-white/5 dark:bg-[#0d0e10] dark:text-[#9aa0a6] dark:hover:text-white'
-                                        }`}
-                                    >
-                                        {item.label}
-                                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${active ? 'bg-white/20' : 'bg-white dark:bg-white/5'}`}>{item.count}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        {serviceChecks.map((check) => (
+                            <div key={check.label} className={`rounded-2xl border p-4 shadow-sm ${healthTone(check.state as 'ok' | 'warn' | 'bad')}`}>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#6e6e73] dark:text-[#9aa0a6]">{check.label}</div>
+                                        <div className="mt-1 text-[18px] font-extrabold text-[#111111] dark:text-white">{check.value}</div>
+                                        <p className="mt-1 line-clamp-2 text-[11.5px] font-medium leading-relaxed text-[#6e6e73] dark:text-[#9aa0a6]" title={String(check.detail)}>{String(check.detail)}</p>
+                                    </div>
+                                    <span className={`mt-0.5 flex h-2.5 w-2.5 rounded-full ${check.state === 'ok' ? 'bg-emerald-500' : check.state === 'warn' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                                </div>
+                            </div>
+                        ))}
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[820px] text-left">
-                            <thead>
-                                <tr className="border-b border-[#f0f0f0] text-[10px] font-bold uppercase tracking-widest text-[#6e6e73] dark:border-white/5 dark:text-[#9aa0a6]">
-                                    <th className="px-5 py-3.5">Time</th>
-                                    <th className="px-5 py-3.5">Subaccount</th>
-                                    <th className="px-5 py-3.5">Event</th>
-                                    <th className="px-5 py-3.5">Details</th>
-                                    <th className="px-5 py-3.5">Status</th>
-                                    <th className="px-5 py-3.5">Diagnostics & Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#f3f4f6] dark:divide-white/[0.04] text-[12px]">
-                                {loading ? (
-                                    [...Array(5)].map((_, index) => (
-                                        <tr key={index}>
-                                            <td colSpan={6} className="px-5 py-4">
-                                                <div className="h-10 animate-pulse rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10]" />
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : filteredLogs.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={6} className="px-5 py-16 text-center">
-                                            <FiCheckCircle className="mx-auto mb-3 h-10 w-10 text-emerald-500/60" />
-                                            <div className="text-[13px] font-bold text-[#111111] dark:text-white">No records found</div>
-                                            <div className="mt-1 text-[11px] text-[#9aa0a6]">Use the quick filter above to inspect other logs.</div>
-                                        </td>
-                                    </tr>
-                                ) : filteredLogs.map((log, index) => {
-                                    const locId = log.location_id || log.account_id;
-                                    const account = accountsByLocation.get(locId) || {};
-                                    const status = getStatusGroup(log);
-                                    const diagnostics = getLogDiagnostics(log);
-                                    return (
-                                        <tr key={log.id || log.message_id || log.provider_message_id || `${locId}-${index}`} className="hover:bg-[#f7f7f7] dark:hover:bg-white/[0.01] transition-colors">
-                                            <td className="whitespace-nowrap px-5 py-3.5 font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">
-                                                {formatDateTime(log.timestamp || log.date_created || log.created_at)}
-                                            </td>
-                                            <td className="px-5 py-3.5">
-                                                <div className="max-w-[190px] truncate font-bold text-[#111111] dark:text-white" title={account.location_name || log.location_name || locId}>
-                                                    {account.location_name || log.location_name || locId || 'System'}
-                                                </div>
-                                                <div className="max-w-[190px] truncate font-mono text-[9px] text-[#9aa0a6] mt-0.5" title={locId}>{locId || '-'}</div>
-                                            </td>
-                                            <td className="px-5 py-3.5 font-bold text-[#6e6e73] dark:text-[#9aa0a6]">
-                                                {getLogEventName(log)}
-                                            </td>
-                                            <td className="px-5 py-3.5 font-mono font-semibold text-[#111111] dark:text-white">
-                                                {getLogDetails(log)}
-                                            </td>
-                                            <td className="px-5 py-3.5">
-                                                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${statusPill(status)}`}>
-                                                    {log.status || status}
-                                                </span>
-                                            </td>
-                                            <td className="max-w-[260px] px-5 py-3.5 font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
-                                                <span className="line-clamp-2 leading-relaxed" title={String(diagnostics)}>{String(diagnostics)}</span>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                    <div className="rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
+                        <div className="mb-4 flex flex-col gap-2 border-b border-[#e5e5e5] pb-3 dark:border-white/5 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h3 className="flex items-center gap-2 text-[14px] font-bold text-[#111111] dark:text-white">
+                                    <FiActivity className="h-4 w-4 text-[#2b83fa]" />
+                                    Diagnostic Console
+                                </h3>
+                                <p className="mt-0.5 text-[11px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
+                                    Latest backend health events for troubleshooting. Sensitive values are not shown here.
+                                </p>
+                            </div>
+                            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[#e5e5e5] bg-[#f7f7f7] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#6e6e73] dark:border-white/5 dark:bg-[#0d0e10] dark:text-[#9aa0a6]">
+                                {diagnosticRows.length} lines
+                            </span>
+                        </div>
+
+                        <div className="max-h-[420px] overflow-y-auto rounded-xl border border-[#111111]/10 bg-[#0b1020] p-3 font-mono text-[11px] shadow-inner dark:border-white/10">
+                            {loading ? (
+                                <div className="space-y-2">
+                                    {[...Array(6)].map((_, index) => (
+                                        <div key={index} className="h-5 animate-pulse rounded bg-white/10" />
+                                    ))}
+                                </div>
+                            ) : diagnosticRows.length === 0 ? (
+                                <div className="py-8 text-center font-sans text-[12px] font-bold text-slate-300">No diagnostic events returned.</div>
+                            ) : (
+                                <div className="space-y-1.5">
+                                    {diagnosticRows.map((row) => (
+                                        <div key={row.id} className="grid grid-cols-[74px_64px_minmax(0,1fr)] gap-2 rounded-lg px-2 py-1.5 text-slate-300 hover:bg-white/[0.04]">
+                                            <span className="text-slate-500">{row.time}</span>
+                                            <span className={row.status === 'failed' ? 'text-red-300' : row.status === 'pending' ? 'text-amber-300' : 'text-emerald-300'}>
+                                                {row.status.toUpperCase()}
+                                            </span>
+                                            <span className="min-w-0 truncate" title={`${row.event} | ${row.accountName} | ${row.message}`}>
+                                                <span className="text-sky-300">{row.event}</span>
+                                                <span className="text-slate-500"> :: </span>
+                                                <span>{row.accountName}</span>
+                                                <span className="text-slate-500"> :: </span>
+                                                <span>{row.message}</span>
+                                                {row.reference && <span className="text-slate-500"> #{row.reference}</span>}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Right panel: Recent Errors feed */}
-                <div className="rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
-                    <div className="mb-4 flex items-center justify-between border-b border-[#e5e5e5] dark:border-white/5 pb-3">
-                        <div>
-                            <h3 className="flex items-center gap-2 text-[14px] font-bold text-[#111111] dark:text-white">
-                                <FiAlertCircle className="h-4 w-4 text-red-500" />
-                                Critical Issues Feed
-                            </h3>
-                            <p className="mt-0.5 text-[11px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">Latest failed send or validation events.</p>
+                <div className="space-y-4">
+                    <div className="rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
+                        <h3 className="flex items-center gap-2 text-[14px] font-bold text-[#111111] dark:text-white">
+                            <FiAlertCircle className="h-4 w-4 text-red-500" />
+                            Failure Triage
+                        </h3>
+                        <div className="mt-4 space-y-3">
+                            <div className="rounded-xl border border-[#e5e5e5] bg-[#f7f7f7] p-3 dark:border-white/5 dark:bg-[#0d0e10]">
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-[#9aa0a6]">Latest failure</div>
+                                <div className="mt-1 text-[12.5px] font-bold text-[#111111] dark:text-white">
+                                    {lastFailure ? getLogEventName(lastFailure) : 'None in current window'}
+                                </div>
+                                <p className="mt-1 line-clamp-3 text-[11px] font-medium leading-relaxed text-[#6e6e73] dark:text-[#9aa0a6]" title={lastFailure ? lastFailureDetail : undefined}>
+                                    {lastFailure ? lastFailureDetail : 'No failed provider, sender, or billing events were returned.'}
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="rounded-xl border border-[#e5e5e5] bg-[#f7f7f7] p-3 dark:border-white/5 dark:bg-[#0d0e10]">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#9aa0a6]">Last SMS event</div>
+                                    <div className="mt-1 truncate text-[12px] font-bold text-[#111111] dark:text-white" title={lastSend ? getLogDetails(lastSend) : undefined}>{lastSend ? getLogDetails(lastSend) : '-'}</div>
+                                    <div className="mt-1 text-[10.5px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">{lastSend ? formatDateTime(lastSend.timestamp || lastSend.date_created || lastSend.created_at) : 'No sends'}</div>
+                                </div>
+                                <div className="rounded-xl border border-[#e5e5e5] bg-[#f7f7f7] p-3 dark:border-white/5 dark:bg-[#0d0e10]">
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#9aa0a6]">Active provider</div>
+                                    <div className="mt-1 truncate text-[12px] font-bold text-[#111111] dark:text-white">{providerInfo?.name || settings?.sms_provider?.active_provider || 'Unknown'}</div>
+                                    <div className="mt-1 text-[10.5px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">{providerInfo?.balance !== undefined ? `${providerInfo.balance.toLocaleString()} credits` : 'Balance unavailable'}</div>
+                                </div>
+                            </div>
                         </div>
-                        <FiCpu className="h-5 w-5 text-[#9aa0a6]" />
                     </div>
 
-                    {recentErrors.length === 0 ? (
-                        <div className="rounded-xl border border-emerald-100/50 bg-emerald-50/20 px-4 py-6 text-center text-emerald-700 dark:border-emerald-500/10 dark:bg-emerald-500/[0.02] dark:text-emerald-400">
-                            <FiCheckCircle className="mx-auto mb-2 h-8 w-8 text-emerald-500/70" />
-                            <div className="text-[12px] font-bold">All Diagnostics Normal</div>
-                            <div className="mt-0.5 text-[11px] font-medium opacity-80">Current log window is clear of errors.</div>
-                        </div>
-                    ) : (
-                        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-                            {recentErrors.map((log, index) => {
-                                const status = getStatusGroup(log);
-                                const message = getLogDiagnostics(log);
-                                return (
-                                    <div key={log.id || `${getTimestamp(log)}-${index}`} className="rounded-xl border border-red-100/60 bg-red-50/20 p-3.5 dark:border-red-900/20 dark:bg-red-950/10">
-                                        <div className="mb-2 flex items-center justify-between gap-2 border-b border-red-100/30 dark:border-red-900/10 pb-1.5">
-                                            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${statusPill(status)}`}>
-                                                {log.status || status}
-                                            </span>
-                                            <span className="text-[9px] font-bold uppercase tracking-tight text-[#9aa0a6]">{formatDateTime(log.timestamp || log.date_created || log.created_at)}</span>
-                                        </div>
-                                        <div className="text-[11.5px] font-semibold text-[#111111] dark:text-white leading-relaxed" title={String(message)}>
-                                            {String(message)}
-                                        </div>
-                                        <div className="mt-2 truncate font-mono text-[9px] text-[#9aa0a6] flex items-center gap-1.5">
-                                            <span className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/5">{log.location_id || log.account_id || 'global'}</span>
-                                            {log.provider_message_id || log.provider_reference_id ? `• ${log.provider_message_id || log.provider_reference_id}` : ''}
-                                        </div>
+                    <div className="rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
+                        <h3 className="flex items-center gap-2 text-[14px] font-bold text-[#111111] dark:text-white">
+                            <FiCreditCard className="h-4 w-4 text-[#2b83fa]" />
+                            Low Credit Watch
+                        </h3>
+                        <div className="mt-4 space-y-2">
+                            {lowBalanceAccounts.length === 0 ? (
+                                <div className="rounded-xl border border-emerald-100/50 bg-emerald-50/30 px-4 py-5 text-center text-[12px] font-bold text-emerald-700 dark:border-emerald-500/10 dark:bg-emerald-500/[0.03] dark:text-emerald-400">
+                                    No accounts are at or below 50 credits.
+                                </div>
+                            ) : lowBalanceAccounts.map((account) => (
+                                <div key={account.id} className="flex items-center justify-between gap-3 rounded-xl border border-[#e5e5e5] bg-[#f7f7f7] px-3 py-2.5 dark:border-white/5 dark:bg-[#0d0e10]">
+                                    <div className="min-w-0">
+                                        <div className="truncate text-[12px] font-bold text-[#111111] dark:text-white" title={account.name}>{account.name}</div>
+                                        <div className="truncate font-mono text-[9.5px] text-[#9aa0a6]" title={account.id}>{account.id}</div>
                                     </div>
-                                );
-                            })}
+                                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${account.balance <= 0 ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-400' : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/30 dark:bg-amber-900/10 dark:text-amber-400'}`}>
+                                        {account.balance.toLocaleString()}
+                                    </span>
+                                </div>
+                            ))}
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
         </div>

@@ -323,6 +323,27 @@ const AppLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const pathTitle: Record<string, string> = {
+      '/': 'Dashboard',
+      '/compose': 'Compose',
+      '/contacts': 'Contacts',
+      '/settings': 'Account Settings',
+      '/settings/account': 'Account Settings',
+      '/settings/notifications': 'Notification Settings',
+      '/settings/sender-id': 'Sender IDs',
+      '/settings/credits': 'Credits & Billing',
+      '/templates': 'Templates',
+      '/tickets': 'Support Tickets',
+      '/login': 'Login',
+      '/forgot-password': 'Reset Password',
+      '/register': 'Register',
+      '/register-from-install': 'Installation Setup',
+      '/oauth/callback': 'GoHighLevel Connection',
+    };
+    document.title = `${pathTitle[location.pathname] || 'Dashboard'} | NOLA SMS Pro`;
+  }, [location.pathname]);
+
   // Dynamically fetch and sync profile immediately on app boot
   const userProfile = useUserProfile();
 
@@ -393,7 +414,7 @@ const AppLayout: React.FC = () => {
         <Route path="/register"               element={<RedirectToBackend path="/register" />} />
         <Route path="/register-from-install"  element={<RedirectInstallRegistration />} />
         <Route path="/oauth/callback"         element={<GhlCallback />} />
-        {/* Protected routes — requires a valid auth token */}
+        {/* Protected routes - requires a valid auth token */}
         <Route element={<ProtectedRoute />}>
           <Route
             path="/"
