@@ -226,6 +226,12 @@ const runGhlAutologin = async (locationId: string): Promise<boolean> => {
   return false;
 };
 
+export const refreshGhlSessionForLocation = async (locationId: string): Promise<boolean> => {
+  const requestedLocationId = normalizeLocationCandidate(locationId);
+  if (!requestedLocationId) return false;
+  return runGhlAutologin(requestedLocationId);
+};
+
 export const ensureGhlSessionForLocation = async (
   locationId = getCurrentGhlContextLocationId(),
   options: { force?: boolean } = {},

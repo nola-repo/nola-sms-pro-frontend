@@ -4,7 +4,14 @@ import {
   ensureGhlSessionForLocation,
   getRequestedGhlLocationId,
   isLocationSessionMismatchPayload,
+  refreshGhlSessionForLocation,
 } from './ghlSessionReauth';
+import {
+  createBootstrapBlockedResponse,
+  ensureLocationBootstrapAllowsProtectedData,
+  getCachedLocationBootstrapState,
+  resolveLocationBootstrap,
+} from './locationBootstrap';
 
 const SESSION_KEYS = {
   token: 'nola_auth_token',
@@ -21,6 +28,14 @@ const PUBLIC_AUTH_PATHS = [
   '/api/auth/reset_password_otp.php',
   '/api/auth/ghl_autologin',
   '/api/auth/me',
+];
+
+const BOOTSTRAP_GATED_PATHS = [
+  '/api/account',
+  '/api/ghl-contacts',
+  '/api/conversations',
+  '/api/notifications',
+  '/api/templates',
 ];
 
 export function createRequestId(): string {
@@ -48,6 +63,15 @@ const getRequestPath = (input: RequestInfo | URL): string => {
 const isPublicAuthRequest = (input: RequestInfo | URL): boolean => {
   const path = getRequestPath(input);
   return PUBLIC_AUTH_PATHS.some((publicPath) => path === publicPath || path.startsWith(publicPath + '/'));
+};
+
+const isBootstrapGatedRequest = (input: RequestInfo | URL): boolean => {
+  const path = getRequestPath(input);
+  return BOOTSTRAP_GATED_PATHS.some((gatedPath) => path === gatedPath || path.startsWith(gatedPath + '/'));
+};
+
+const payloadRequiresReconnect = (payload: unknown): boolean => {
+  return !!payload && typeof payload === 'object' && (payload as Record<string, unknown>).requires_reconnect === true;
 };
 
 const getStoredToken = (): string =>
@@ -104,7 +128,13 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
   const isPublicAuthPath = isPublicAuthRequest(input);
 
   const execute = async (hasRetriedMismatch = false): Promise<Response> => {
-    if (!isPublicAuthPath) {
+    if (!isPublicAuthPath && isBootstrapGatedRequest(input)) {
+      const locationId = getStoredLocationId();
+      const ready = await ensureLocationBootstrapAllowsProtectedData(locationId);
+      if (!ready) {
+        return createBootstrapBlockedResponse(getCachedLocationBootstrapState(locationId));
+      }
+    } else if (!isPublicAuthPath) {
       const sessionReady = await ensureGhlSessionForLocation();
       if (!sessionReady) {
         return new Response(
@@ -123,8 +153,19 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
     if (!isPublicAuthPath && !hasRetriedMismatch && response.status === 403) {
       const mismatchPayload = await response.clone().json().catch(() => null);
       if (isLocationSessionMismatchPayload(mismatchPayload)) {
-        const refreshed = await ensureGhlSessionForLocation(getStoredLocationId(), { force: true });
-        if (refreshed) return execute(true);
+        const locationId = getStoredLocationId();
+        const refreshed = await refreshGhlSessionForLocation(locationId);
+        if (refreshed) {
+          await resolveLocationBootstrap(locationId, { force: true, allowAutologin: false });
+          return execute(true);
+        }
+      }
+    }
+
+    if (!isPublicAuthPath && isBootstrapGatedRequest(input) && !response.ok) {
+      const reconnectPayload = await response.clone().json().catch(() => null);
+      if (payloadRequiresReconnect(reconnectPayload)) {
+        await resolveLocationBootstrap(getStoredLocationId(), { force: true, allowAutologin: false });
       }
     }
 

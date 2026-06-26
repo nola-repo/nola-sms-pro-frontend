@@ -16,7 +16,7 @@ import { devLog } from '../utils/devLog';
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 import { safeStorage } from '../utils/safeStorage';
-import { getSession, clearAuthSession } from '../services/authService';
+import { getSession } from '../services/authService';
 import {
   detectLocationFromCurrentUrl,
   detectLocationFromPostMessage,
@@ -25,7 +25,6 @@ import {
   type LocationSource,
 } from '../utils/ghlLocationDetection';
 import { persistActiveGhlLocation } from '../utils/ghlLocationStorage';
-import { ensureGhlSessionForLocation, storedSessionMatchesLocation } from '../utils/ghlSessionReauth';
 
 interface LocationContextValue {
   locationId: string;
@@ -231,63 +230,6 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   }, [locationId]);
 
-  const autoLoginInFlightRef = React.useRef<string | null>(null);
-
-  // Source 4: Silent Sub-Account Auto-Login (Option A)
-  useEffect(() => {
-    const session = getSession();
-    const hasLocationId = !!locationId && locationId.length > 4;
-
-    const isUnauthenticated = !session;
-    const isMismatch = !!session && session.role !== 'agency' && !storedSessionMatchesLocation(locationId);
-
-    if (!hasLocationId || (!isUnauthenticated && !isMismatch)) return;
-    if (autoLoginInFlightRef.current === locationId) return;
-
-    autoLoginInFlightRef.current = locationId;
-    setIsLocationResolving(true);
-
-    devLog.log(
-      `[LocationContext] Triggering silent auto-login for location: ${locationId}. Reason: ${
-        isUnauthenticated ? 'Unauthenticated' : 'Session mismatch'
-      }`
-    );
-
-    ensureGhlSessionForLocation(locationId, { force: isMismatch })
-      .then((refreshed) => {
-        if (autoLoginInFlightRef.current !== locationId) return;
-        autoLoginInFlightRef.current = null;
-        setIsLocationResolving(false);
-
-        if (refreshed) {
-          devLog.log(`[LocationContext] Silent auto-login reconciled session for ${locationId}.`);
-          return;
-        }
-
-        devLog.warn(`[LocationContext] Silent auto-login failed for location ${locationId}.`);
-        if (isMismatch) {
-          clearAuthSession();
-          const searchParams = new URLSearchParams(window.location.search);
-          searchParams.set('location_id', locationId);
-          searchParams.set('locationId', locationId);
-          window.location.href = `/login?${searchParams.toString()}`;
-        }
-      })
-      .catch((err) => {
-        devLog.error('[LocationContext] Silent auto-login error:', err);
-        if (autoLoginInFlightRef.current === locationId) {
-          autoLoginInFlightRef.current = null;
-        }
-        setIsLocationResolving(false);
-        if (isMismatch) {
-          clearAuthSession();
-          const searchParams = new URLSearchParams(window.location.search);
-          searchParams.set('location_id', locationId);
-          searchParams.set('locationId', locationId);
-          window.location.href = `/login?${searchParams.toString()}`;
-        }
-      });
-  }, [locationId]);
 
   return (
     <LocationContext.Provider value={{ locationId, isLocationResolving, setLocationId }}>

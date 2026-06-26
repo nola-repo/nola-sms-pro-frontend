@@ -1,4 +1,3 @@
-import { devLog } from '../utils/devLog';
 import { safeStorage } from '../utils/safeStorage';
 import { useState, useEffect } from "react";
 import nolaLogo from "../assets/NOLA SMS PRO Logo.png";
@@ -18,9 +17,10 @@ import { useOnboarding } from "../components/onboarding/useOnboarding";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
 import { useLocationId } from "../context/LocationContext";
 import { GHL_BACKEND_ONBOARDING_URL, GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
-import { fetchAccountProfile, type AccountProfile } from "../api/account";
 import faviconLogo from "../assets/FAV ICON - NOLA SMS PRO.png";
 import { isAuthenticated } from "../services/authService";
+import { useLocationBootstrap } from "../hooks/useLocationBootstrap";
+import type { LocationBootstrapResponse } from "../utils/locationBootstrap";
 
 interface DashboardProps {
   isMobileMenuOpen?: boolean;
@@ -32,18 +32,14 @@ interface DashboardProps {
   topControls?: React.ReactNode;
 }
 
-type RegistrationCheckState =
-  | { status: 'idle' | 'checking' | 'registered'; locationId?: string }
-  | { status: 'required'; locationId: string; profile: AccountProfile }
-  | { status: 'error'; locationId: string; message: string };
-
-const profileRequiresRegistration = (profile: AccountProfile): boolean =>
-  profile.is_registered === false ||
-  (!!profile.registration_status && profile.registration_status !== 'registered');
-
 const buildBackendOnboardingUrl = (locationId: string): string => {
   const state = encodeURIComponent(JSON.stringify({ selected_location_id: locationId }));
   return `${GHL_BACKEND_ONBOARDING_URL}&state=${state}`;
+};
+
+const getBootstrapDiagnostic = (response?: LocationBootstrapResponse): string => {
+  if (!response) return 'Workspace verification did not return diagnostics.';
+  return response.code || response.message || response.error || response.next_action || 'Workspace verification did not return diagnostics.';
 };
 
 const isRunningInGhlFrame = (): boolean => {
@@ -54,13 +50,56 @@ const isRunningInGhlFrame = (): boolean => {
   }
 };
 
+const WorkspaceActionState: React.FC<{
+  title: string;
+  message: string;
+  locationId: string;
+  response?: LocationBootstrapResponse;
+  primaryLabel?: string;
+  onPrimary?: () => void;
+  onRetry: () => void;
+}> = ({ title, message, locationId, response, primaryLabel, onPrimary, onRetry }) => (
+  <div className="min-h-screen bg-[#f7f7f7] dark:bg-[#18191d] flex items-center justify-center px-4 py-8">
+    <div className="w-full max-w-xl bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl shadow-xl p-6 sm:p-8">
+      <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300 flex items-center justify-center mb-5">
+        <FiAlertCircle className="w-6 h-6" />
+      </div>
+      <h1 className="text-[24px] sm:text-[28px] font-black tracking-tight text-[#111111] dark:text-white mb-3">{title}</h1>
+      <p className="text-[14px] leading-6 text-[#5f6368] dark:text-[#b6bac2] mb-5">{message}</p>
+      <div className="rounded-xl border border-[#e5e5e5] dark:border-white/10 bg-[#fafafa] dark:bg-white/[0.03] px-4 py-3 mb-6">
+        <div className="text-[11px] font-bold uppercase text-[#8a8f98] dark:text-[#8f949e] mb-1">GHL Location ID</div>
+        <div className="font-mono text-[13px] text-[#111111] dark:text-white break-all">{locationId}</div>
+        <div className="mt-2 font-mono text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] break-all">{getBootstrapDiagnostic(response)}</div>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-3">
+        {primaryLabel && onPrimary && (
+          <button
+            onClick={onPrimary}
+            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white text-[13px] font-bold shadow-md shadow-blue-500/20 hover:shadow-lg transition-all"
+          >
+            {primaryLabel}
+            <FiArrowRight className="w-4 h-4" />
+          </button>
+        )}
+        <button
+          onClick={onRetry}
+          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#f1f3f4] dark:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] text-[13px] font-bold hover:bg-[#e8eaed] dark:hover:bg-[#34363d] transition-all"
+        >
+          <FiRefreshCw className="w-4 h-4" />
+          Try again
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 const RegistrationRequiredState: React.FC<{
   locationId: string;
-  profile: AccountProfile;
+  response: LocationBootstrapResponse;
   onRetry: () => void;
-}> = ({ locationId, profile, onRetry }) => {
-  const locationName = profile.location_name && profile.location_name !== 'Unknown'
-    ? profile.location_name
+}> = ({ locationId, response, onRetry }) => {
+  const locationName = response.location_name && response.location_name !== 'Unknown'
+    ? response.location_name
     : 'this subaccount';
 
   return (
@@ -82,8 +121,9 @@ const RegistrationRequiredState: React.FC<{
           <div className="font-mono text-[13px] text-[#111111] dark:text-white break-all">{locationId}</div>
           <div className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-amber-700 dark:text-amber-300">
             <FiAlertCircle className="w-3.5 h-3.5" />
-            {profile.registration_status === 'not_installed' ? 'Not installed' : 'Not registered'}
+            {response.registration_status === 'not_installed' ? 'Not installed' : 'Not registered'}
           </div>
+          <div className="mt-2 font-mono text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] break-all">{getBootstrapDiagnostic(response)}</div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
@@ -111,7 +151,6 @@ const RegistrationRequiredState: React.FC<{
     </div>
   );
 };
-
 const SETTINGS_TAB_ROUTES: Record<SettingsTab, string> = {
   account: '/settings/account',
   senderIds: '/settings/sender-id',
@@ -135,18 +174,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const onboarding = useOnboarding();
   // Reactive location ID from context — re-renders whenever subaccount changes
   const { locationId, isLocationResolving } = useLocationId();
-  const [registrationCheck, setRegistrationCheck] = useState<RegistrationCheckState>(() => {
-    if (locationId) {
-      try {
-        const isCached = safeStorage.getItem('nola_registered_location_' + locationId) === 'true';
-        if (isCached) return { status: 'registered', locationId };
-      } catch { /* ignore */ }
-
-      return { status: 'checking', locationId };
-    }
-
-    return { status: 'idle' };
-  });
+  const { state: bootstrapState, retry: retryBootstrap } = useLocationBootstrap(locationId, Boolean(locationId));
 
   const [activeContact, setActiveContact] = useState<Contact | null>(() => {
     try {
@@ -178,34 +206,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const [workspaceProfileSyncComplete, setWorkspaceProfileSyncComplete] = useState(false);
 
   const isMobileMenuOpen = externalIsMobileMenuOpen !== undefined ? externalIsMobileMenuOpen : false;
-
-  const checkRegistration = async () => {
-    if (!locationId) {
-      setRegistrationCheck({ status: 'idle' });
-      return;
-    }
-
-    setRegistrationCheck({ status: 'checking', locationId });
-    try {
-      const profile = await fetchAccountProfile(locationId, { includeAuth: false, forceRefresh: true });
-      if (!profile) {
-        setRegistrationCheck({ status: 'error', locationId, message: 'Unable to verify this subaccount right now.' });
-        return;
-      }
-
-      if (profileRequiresRegistration(profile)) {
-        safeStorage.removeItem('nola_registered_location_' + locationId);
-        setRegistrationCheck({ status: 'required', locationId, profile });
-        return;
-      }
-
-      safeStorage.setItem('nola_registered_location_' + locationId, 'true');
-      setRegistrationCheck({ status: 'registered', locationId });
-    } catch (error) {
-      devLog.error('[Dashboard] Registration check failed', error);
-      setRegistrationCheck({ status: 'error', locationId, message: 'Unable to verify this subaccount right now.' });
-    }
-  };
 
   const handleSelectContact = (contact: Contact) => {
     setSelectedContacts([contact]);
@@ -302,57 +302,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      if (!locationId) {
-        if (!cancelled) setRegistrationCheck({ status: 'idle' });
-        return;
-      }
-
-      // Check if already cached as registered
-      const isCached = safeStorage.getItem('nola_registered_location_' + locationId) === 'true';
-      if (!isCached) {
-        if (!cancelled) setRegistrationCheck({ status: 'checking', locationId });
-      } else {
-        // If cached, immediately ensure it is in the registered state to avoid any screen flashing
-        if (!cancelled) setRegistrationCheck({ status: 'registered', locationId });
-      }
-
-      try {
-        const profile = await fetchAccountProfile(locationId, { includeAuth: false });
-        if (cancelled) return;
-
-        if (!profile) {
-          safeStorage.removeItem('nola_registered_location_' + locationId);
-          setRegistrationCheck({ status: 'error', locationId, message: 'Unable to verify this subaccount right now.' });
-          return;
-        }
-
-        if (profileRequiresRegistration(profile)) {
-          safeStorage.removeItem('nola_registered_location_' + locationId);
-          setRegistrationCheck({ status: 'required', locationId, profile });
-          return;
-        }
-
-        safeStorage.setItem('nola_registered_location_' + locationId, 'true');
-        setRegistrationCheck({ status: 'registered', locationId });
-      } catch (error) {
-        if (cancelled) return;
-        devLog.error('[Dashboard] Registration check failed', error);
-        if (!isCached) {
-          setRegistrationCheck({ status: 'error', locationId, message: 'Unable to verify this subaccount right now.' });
-        }
-      }
-    };
-
-    run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [locationId]);
 
   useEffect(() => {
     if (locationId) return;
@@ -439,8 +388,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     return () => window.removeEventListener('nola-contact-updated', handleContactUpdated);
   }, []);
 
-  const registrationCheckIsCurrent =
-    !locationId || registrationCheck.locationId === locationId;
+  const bootstrapIsCurrent = !locationId || bootstrapState.locationId === locationId;
   const shouldWaitForWorkspaceBootstrap =
     isAuthenticated() || isRunningInGhlFrame();
   const workspaceBootstrapComplete =
@@ -452,9 +400,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
   const isCheckingActiveLocation =
     isAwaitingWorkspaceBootstrap ||
     (!!locationId &&
-      (!registrationCheckIsCurrent ||
-        registrationCheck.status === 'checking' ||
-        registrationCheck.status === 'idle'));
+      (!bootstrapIsCurrent ||
+        bootstrapState.status === 'checking' ||
+        bootstrapState.status === 'idle'));
 
   if (isCheckingActiveLocation) {
     return (
@@ -484,37 +432,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     );
   }
 
-  if (locationId && registrationCheckIsCurrent && registrationCheck.status === 'required') {
+  if (locationId && bootstrapIsCurrent && bootstrapState.status === 'action_required') {
+    const response = bootstrapState.response;
+    const nextAction = response.next_action;
+
+    if (nextAction === 'complete_registration' || nextAction === 'show_not_installed') {
+      return (
+        <RegistrationRequiredState
+          locationId={locationId}
+          response={response}
+          onRetry={retryBootstrap}
+        />
+      );
+    }
+
+    if (nextAction === 'show_reconnect' || response.requires_reconnect) {
+      return (
+        <WorkspaceActionState
+          title="GHL reconnect required"
+          message="This workspace needs its GoHighLevel connection refreshed before contacts and messages can load."
+          locationId={locationId}
+          response={response}
+          primaryLabel="Reconnect GHL"
+          onPrimary={() => { window.location.href = GHL_MARKETPLACE_CONNECT_URL; }}
+          onRetry={retryBootstrap}
+        />
+      );
+    }
+
     return (
-      <RegistrationRequiredState
+      <WorkspaceActionState
+        title="Workspace temporarily unavailable"
+        message="The backend could not finish workspace verification yet. No protected data will load until this check passes."
         locationId={locationId}
-        profile={registrationCheck.profile}
-        onRetry={checkRegistration}
+        response={response}
+        onRetry={retryBootstrap}
       />
     );
   }
 
-  if (locationId && registrationCheckIsCurrent && registrationCheck.status === 'error') {
+  if (locationId && bootstrapIsCurrent && bootstrapState.status === 'error') {
     return (
-      <div className="min-h-screen bg-[#f7f7f7] dark:bg-[#18191d] flex items-center justify-center px-4">
-        <div className="w-full max-w-md bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl shadow-xl p-6 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-300 flex items-center justify-center mx-auto mb-4">
-            <FiAlertCircle className="w-6 h-6" />
-          </div>
-          <h1 className="text-[20px] font-black tracking-tight text-[#111111] dark:text-white mb-2">Could not verify registration</h1>
-          <p className="text-[13px] leading-6 text-[#5f6368] dark:text-[#b6bac2] mb-5">{registrationCheck.message}</p>
-          <button
-            onClick={checkRegistration}
-            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#f1f3f4] dark:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] text-[13px] font-bold hover:bg-[#e8eaed] dark:hover:bg-[#34363d] transition-all"
-          >
-            <FiRefreshCw className="w-4 h-4" />
-            Try again
-          </button>
-        </div>
-      </div>
+      <WorkspaceActionState
+        title="Workspace verification failed"
+        message={bootstrapState.message}
+        locationId={locationId}
+        response={bootstrapState.response}
+        onRetry={retryBootstrap}
+      />
     );
   }
-
   return (
     <div className="flex h-[100dvh] min-h-0 bg-[#ffffff] dark:bg-[#202123] overflow-hidden">
       {/* Sidebar - Left */}
