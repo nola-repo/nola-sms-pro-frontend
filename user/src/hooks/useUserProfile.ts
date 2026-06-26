@@ -1,17 +1,18 @@
 import { devLog } from '../utils/devLog';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getSession, SESSION_KEYS, redirectToLogin } from '../services/authService';
 import { safeStorage } from '../utils/safeStorage';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
 import { apiFetch } from '../utils/apiFetch';
 import { detectLocationFromCurrentUrl } from '../utils/ghlLocationDetection';
 import { persistActiveGhlLocation, readActiveGhlLocation } from '../utils/ghlLocationStorage';
+import { useLocationId } from '../context/LocationContext';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 /**
  * Matches the Firestore `users/{uid}` document shape.
- * 1:1 mapping — one user account per GHL sub-account.
+ * 1:1 mapping - one user account per GHL sub-account.
  * `location_memberships` is intentionally excluded.
  */
 export interface UserProfile {
@@ -37,7 +38,7 @@ export interface UserProfile {
 
 /**
  * Normalise a raw API/cache response to a clean UserProfile.
- * - Maps `active_location_id` → `location_id` when `location_id` is absent.
+ * - Maps `active_location_id` to `location_id` when `location_id` is absent.
  * - Strips `location_memberships` (account is 1:1 with sub-account).
  */
 function normalizeProfile(raw: Record<string, unknown>): UserProfile {
@@ -111,96 +112,111 @@ function getToken(): string | null {
 
 export const useUserProfile = () => {
   const [user, setUser] = useState<UserProfile | null>(getCachedUser);
+  const { locationId, isLocationResolving } = useLocationId();
 
-  useEffect(() => {
-    const appIsRunningInGhl = (() => {
-      try {
-        return window.self !== window.top || sessionStorage.getItem('nola_is_ghl_frame') === 'true';
-      } catch {
-        return true;
+  const appIsRunningInGhl = (() => {
+    try {
+      return window.self !== window.top || sessionStorage.getItem('nola_is_ghl_frame') === 'true';
+    } catch {
+      return true;
+    }
+  })();
+
+  const fetchFreshProfile = useCallback(async () => {
+    try {
+      const token = getToken();
+      if (!token) {
+        if (appIsRunningInGhl && (isLocationResolving || locationId)) {
+          devLog.warn('[useUserProfile] Waiting for GHL auto-login before fetching profile.');
+        } else {
+          devLog.warn('[useUserProfile] Cannot fetch profile, no token available.');
+        }
+        return;
       }
-    })();
 
-    const fetchFreshProfile = async () => {
-      try {
-        const token = getToken();
-        if (!token) {
-          devLog.warn("[useUserProfile] Cannot fetch profile, no token available.");
+      const res = await apiFetch(`${API_BASE}/api/auth/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (res.status === 401) {
+        if (appIsRunningInGhl && (isLocationResolving || locationId)) {
+          devLog.warn('[useUserProfile] /api/auth/me returned 401 while GHL session is still resolving. Waiting for auto-login retry.');
           return;
         }
 
-        const res = await apiFetch(`${API_BASE}/api/auth/me`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        devLog.warn('[useUserProfile] Auth token expired or invalid. Clearing session.');
+        redirectToLogin();
+        return;
+      }
 
-        if (res.status === 401) {
-          devLog.warn("[useUserProfile] Auth token expired or invalid. Clearing session.");
-          redirectToLogin();
-          return;
-        }
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          const profile = normalizeProfile(data.user);
+          setUser(profile);
+          safeStorage.setItem('nola_auth_user', JSON.stringify(profile));
+          safeStorage.setItem('nola_user', JSON.stringify(profile));
 
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user) {
-            const profile = normalizeProfile(data.user);
-            setUser(profile);
-            // Self-heal: write normalised profile to both keys
-            safeStorage.setItem('nola_auth_user', JSON.stringify(profile));
-            safeStorage.setItem('nola_user', JSON.stringify(profile));
+          if (profile.location_id) {
+            const settings = getAccountSettings();
+            const cachedUser = getCachedUser();
+            const userChanged = cachedUser && cachedUser.email !== profile.email;
+            const isStandardUser = profile.role === 'user';
+            const activeGhlLocationId = detectLocationFromCurrentUrl()?.locationId || readActiveGhlLocation();
+            const profileMatchesActiveGhl = !!activeGhlLocationId && activeGhlLocationId === profile.location_id;
+            const canUseProfileLocation = !appIsRunningInGhl || profileMatchesActiveGhl;
 
-            if (profile.location_id) {
-              const settings = getAccountSettings();
-              const cachedUser = getCachedUser();
-              const userChanged = cachedUser && cachedUser.email !== profile.email;
-              const isStandardUser = profile.role === 'user';
-              const activeGhlLocationId = detectLocationFromCurrentUrl()?.locationId || readActiveGhlLocation();
-              const profileMatchesActiveGhl = !!activeGhlLocationId && activeGhlLocationId === profile.location_id;
-              const canUseProfileLocation = !appIsRunningInGhl || profileMatchesActiveGhl;
+            const shouldUseProfileLocation = canUseProfileLocation && (
+              isStandardUser ||
+              userChanged ||
+              !settings.ghlLocationId ||
+              settings.ghlLocationId === profile.location_id ||
+              !appIsRunningInGhl
+            );
 
-              const shouldUseProfileLocation = canUseProfileLocation && (
-                isStandardUser ||
-                userChanged ||
-                !settings.ghlLocationId ||
-                settings.ghlLocationId === profile.location_id ||
-                !appIsRunningInGhl
+            if (shouldUseProfileLocation) {
+              persistActiveGhlLocation(profile.location_id);
+              safeStorage.setItem('nola_location_id', profile.location_id);
+              saveAccountSettings({
+                ...settings,
+                ghlLocationId: profile.location_id
+              });
+
+              window.dispatchEvent(
+                new CustomEvent('ghl-location-set', { detail: { locationId: profile.location_id } })
               );
-
-              if (shouldUseProfileLocation) {
-                persistActiveGhlLocation(profile.location_id);
-                safeStorage.setItem('nola_location_id', profile.location_id);
-                saveAccountSettings({
-                  ...settings,
-                  ghlLocationId: profile.location_id
-                });
-
-                // Dispatch event to force LocationContext to re-sync
-                window.dispatchEvent(
-                  new CustomEvent('ghl-location-set', { detail: { locationId: profile.location_id } })
-                );
-              } else if (appIsRunningInGhl && activeGhlLocationId && activeGhlLocationId !== profile.location_id) {
-                devLog.warn('[useUserProfile] Skipped stale profile location while running in GHL.', {
-                  profileLocationId: profile.location_id,
-                  activeGhlLocationId,
-                });
-              }
+            } else if (appIsRunningInGhl && activeGhlLocationId && activeGhlLocationId !== profile.location_id) {
+              devLog.warn('[useUserProfile] Skipped stale profile location while running in GHL.', {
+                profileLocationId: profile.location_id,
+                activeGhlLocationId,
+              });
             }
           }
-        } else {
-          devLog.error("[useUserProfile] Fetch failed. Status:", res.status, "Text:", await res.text().catch(() => ""));
         }
-      } catch (err) {
-        devLog.error('[useUserProfile] Failed to fetch fresh user profile', err);
-      } finally {
-        window.dispatchEvent(new Event('nola-profile-sync-complete'));
+      } else {
+        devLog.error('[useUserProfile] Fetch failed. Status:', res.status, 'Text:', await res.text().catch(() => ''));
       }
+    } catch (err) {
+      devLog.error('[useUserProfile] Failed to fetch fresh user profile', err);
+    } finally {
+      window.dispatchEvent(new Event('nola-profile-sync-complete'));
+    }
+  }, [appIsRunningInGhl, isLocationResolving, locationId]);
+
+  useEffect(() => {
+    fetchFreshProfile();
+
+    const handleSessionUpdated = () => {
+      fetchFreshProfile();
     };
 
-    fetchFreshProfile();
-  }, []);
+    window.addEventListener('nola-auth-session-updated', handleSessionUpdated);
+    return () => window.removeEventListener('nola-auth-session-updated', handleSessionUpdated);
+  }, [fetchFreshProfile]);
 
   return user;
 };

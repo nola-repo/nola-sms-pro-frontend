@@ -11,7 +11,7 @@ import { clearActiveGhlLocation, persistActiveGhlLocation } from '../utils/ghlLo
 
 const BASE = '/api/auth';
 
-// ── Keys ────────────────────────────────────────────────────────────────────
+// Keys
 export const SESSION_KEYS = {
   token:      'nola_auth_token',
   role:       'nola_auth_role',
@@ -20,7 +20,7 @@ export const SESSION_KEYS = {
   user:       'nola_auth_user',
 } as const;
 
-// ── Types ───────────────────────────────────────────────────────────────────
+// Types
 export interface AuthUser {
   name:  string;
   email: string;
@@ -80,7 +80,7 @@ const firstString = (...values: unknown[]): string | null => {
   return null;
 };
 
-// ── Session helpers ─────────────────────────────────────────────────────────
+// Session helpers
 export const getSession = (): AuthSession | null => {
   // Try getting token from sessionStorage first, then fall back to localStorage (safeStorage)
   let token = sessionSafeStorage.getItem(SESSION_KEYS.token);
@@ -187,6 +187,7 @@ export const saveSession = (data: LoginResponse): void => {
       displayName: data.user?.location_name || current.displayName,
     });
   }
+  window.dispatchEvent(new CustomEvent('nola-auth-session-updated', { detail: { locationId, role } }));
 };
 
 export const clearAuthSession = (): void => {
@@ -214,7 +215,7 @@ export const redirectToLogin = (): void => {
   }
 };
 
-// ── API calls ───────────────────────────────────────────────────────────────
+// API calls
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
   const res = await apiFetch(`${BASE}/login.php`, {
     method:  'POST',

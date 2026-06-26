@@ -18,6 +18,7 @@ const PUBLIC_AUTH_PATHS = [
   '/api/auth/forgot_password_otp.php',
   '/api/auth/reset_password_otp.php',
   '/api/auth/ghl_autologin',
+  '/api/auth/me',
 ];
 
 export function createRequestId(): string {

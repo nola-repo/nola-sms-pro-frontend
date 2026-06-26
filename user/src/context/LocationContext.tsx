@@ -1,16 +1,17 @@
 import { devLog } from '../utils/devLog';
 /**
- * LocationContext — Reactive GHL Location ID for the User Panel
+ * LocationContext - Reactive GHL Location ID for the User Panel
  *
  * Provides the current GHL location_id as React state so all child components
  * re-render automatically whenever the subaccount changes. This is the single
  * source of truth for location_id across the entire user panel.
  *
- * Detection sources (in priority order):
- *  1. URL query/hash params (e.g. ?location_id=xxx) — GHL iframe direct load
- *  2. postMessage from GHL parent frame — fires when GHL switches subaccounts
- *  3. localStorage via getAccountSettings() — persisted fallback
+ * Detection sources, in priority order:
+ *  1. URL query/hash/path values from GHL iframe launch.
+ *  2. postMessage from GHL parent frame when switching subaccounts.
+ *  3. local storage via getAccountSettings as a persisted fallback.
  */
+
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { getAccountSettings, saveAccountSettings } from '../utils/settingsStorage';
@@ -41,7 +42,7 @@ const LocationContext = createContext<LocationContextValue>({
 // eslint-disable-next-line react-refresh/only-export-components
 export const useLocationId = () => useContext(LocationContext);
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers
 
 function isLikelyGhlEmbedded(): boolean {
   try {
@@ -92,6 +93,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const fromUrl = detectLocationFromCurrentUrl();
     if (fromUrl) {
       persistActiveGhlLocation(fromUrl.locationId);
+      safeStorage.setItem('nola_location_id', fromUrl.locationId);
       // Synchronously write to localStorage so children reading getAccountSettings on mount see it immediately
       const settings = getAccountSettings();
       if (settings.ghlLocationId !== fromUrl.locationId) {
@@ -140,7 +142,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   }, [locationId]);
 
-  // Source 1: URL polling (handles iframe src changes) ────────────────────
+  // Source 1: URL polling handles iframe src changes.
   useEffect(() => {
     let lastUrl = window.location.href;
 
@@ -157,7 +159,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => clearInterval(timer);
   }, [setLocationId]);
 
-  // ── Source 2: GHL postMessage (handles subaccount switching in iframe) ────
+  // Source 2: GHL postMessage handles subaccount switching in iframe.
   useEffect(() => {
     if (locationId) {
       setIsLocationResolving(false);
@@ -208,7 +210,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => window.removeEventListener('message', handleMessage);
   }, [setLocationId]);
 
-  // ── Source 3: Listen for manual location changes from Settings ────────────
+  // Source 3: Listen for manual location changes from Settings.
   useEffect(() => {
     const handleManual = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -218,6 +220,16 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     window.addEventListener('ghl-location-set', handleManual);
     return () => window.removeEventListener('ghl-location-set', handleManual);
   }, [setLocationId]);
+
+  const lastLocationSetBroadcastRef = React.useRef('');
+
+  useEffect(() => {
+    if (!locationId || lastLocationSetBroadcastRef.current === locationId) return;
+    lastLocationSetBroadcastRef.current = locationId;
+    window.dispatchEvent(
+      new CustomEvent('ghl-location-set', { detail: { locationId } })
+    );
+  }, [locationId]);
 
   const autoLoginInFlightRef = React.useRef<string | null>(null);
 
@@ -232,6 +244,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (hasLocationId && (isUnauthenticated || isMismatch)) {
       if (autoLoginInFlightRef.current === locationId) return;
       autoLoginInFlightRef.current = locationId;
+      setIsLocationResolving(true);
 
       devLog.log(
         `[LocationContext] Triggering silent auto-login for location: ${locationId}. Reason: ${
@@ -260,6 +273,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               devLog.log(`[LocationContext] Silent auto-login succeeded for ${locationId}. Saving session and reloading.`);
               clearAuthSession();
               saveSession(data);
+              setIsLocationResolving(false);
               window.location.reload();
               return;
             }
@@ -271,6 +285,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             autoLoginInFlightRef.current = null;
           }
 
+          setIsLocationResolving(false);
           if (isMismatch) {
             clearAuthSession();
             const searchParams = new URLSearchParams(window.location.search);
@@ -284,6 +299,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (autoLoginInFlightRef.current === locationId) {
             autoLoginInFlightRef.current = null;
           }
+          setIsLocationResolving(false);
           if (isMismatch) {
             clearAuthSession();
             const searchParams = new URLSearchParams(window.location.search);

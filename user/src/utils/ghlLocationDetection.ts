@@ -1,5 +1,6 @@
 export type LocationSource =
   | 'url'
+  | 'path'
   | 'hash'
   | 'postMessage'
   | 'storage'
@@ -56,6 +57,30 @@ const ENCODED_LOCATION_PARAM_KEYS = [
   'context',
   'data',
 ] as const;
+const detectLocationFromPathname = (pathname: string): LocationDetectionResult | null => {
+  const segments = pathname.split('/').filter(Boolean).map((segment) => {
+    try {
+      return decodeURIComponent(segment);
+    } catch {
+      return segment;
+    }
+  });
+
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const current = segments[index]?.toLowerCase();
+    const previous = index > 0 ? segments[index - 1]?.toLowerCase() : '';
+    const isGhlLocationPath = current === 'location' && (index === 0 || previous === 'v2');
+
+    if (!isGhlLocationPath) continue;
+
+    const candidate = normalizeLocationCandidate(segments[index + 1]);
+    if (candidate) {
+      return { locationId: candidate, source: 'path', path: index === 0 ? 'path.location' : 'path.v2.location' };
+    }
+  }
+
+  return null;
+};
 
 export function normalizeLocationCandidate(value: unknown): string | null {
   if (typeof value !== 'string' && typeof value !== 'number') return null;
@@ -183,6 +208,9 @@ export function detectLocationFromCurrentUrl(): LocationDetectionResult | null {
 
   const fromSearch = detectLocationFromParams(window.location.search, 'url');
   if (fromSearch) return fromSearch;
+
+  const fromPath = detectLocationFromPathname(window.location.pathname);
+  if (fromPath) return fromPath;
 
   const hash = window.location.hash || '';
   const hashQuery = hash.includes('?')
