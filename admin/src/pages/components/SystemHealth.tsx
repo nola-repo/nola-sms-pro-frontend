@@ -3,20 +3,18 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     FiActivity,
     FiAlertCircle,
-    FiChevronDown,
     FiClock,
     FiCreditCard,
-    FiDatabase,
     FiRefreshCw,
-    FiSearch,
     FiSend,
-    FiTerminal,
     FiXCircle,
 } from 'react-icons/fi';
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 
 const POLL_INTERVAL = 15000;
+const LOG_POLL_INTERVAL = 5000;
+const ADMIN_LOGS_API = '/api/admin_sender_requests.php?action=logs';
 
 const healthTone = (state: 'ok' | 'warn' | 'bad') => {
     if (state === 'ok') return 'border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] hover:border-emerald-500/20 dark:hover:border-emerald-500/30';
@@ -32,12 +30,15 @@ const iconTone = (state: 'ok' | 'warn' | 'bad') => {
 
 
 export const SystemHealth: React.FC = () => {
-    const [accounts, setAccounts] = useState<any[]>([]);
     const [dbConnected, setDbConnected] = useState<boolean>(true);
     const [stats, setStats] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [logsLoading, setLogsLoading] = useState(true);
     const [error, setError] = useState('');
+    const [logsError, setLogsError] = useState('');
+    const [logs, setLogs] = useState<any[]>([]);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+    const [lastLogsRefreshed, setLastLogsRefreshed] = useState<Date>(new Date());
 
     const fetchHealth = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
@@ -49,7 +50,6 @@ export const SystemHealth: React.FC = () => {
 
             if (res.ok && json.status === 'success') {
                 const healthData = json.data;
-                setAccounts(healthData.accounts || []);
                 setDbConnected(healthData.database_connected !== false);
                 setStats(healthData.stats || null);
             } else {
@@ -63,11 +63,38 @@ export const SystemHealth: React.FC = () => {
         }
     }, []);
 
+    const fetchLogs = useCallback(async (isInitial = false) => {
+        if (isInitial) setLogsLoading(true);
+        setLogsError('');
+
+        try {
+            const res = await adminFetch(ADMIN_LOGS_API, { headers: getAdminAuthHeaders() });
+            const json = await res.json().catch(() => ({}));
+
+            if (res.ok && json.status === 'success') {
+                setLogs(Array.isArray(json.data) ? json.data : []);
+            } else {
+                setLogsError(json.message || 'Failed to load live system logs.');
+            }
+            setLastLogsRefreshed(new Date());
+        } catch (e) {
+            setLogsError('Network error. Could not refresh live system logs.');
+        } finally {
+            if (isInitial) setLogsLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
         fetchHealth(true);
         const timer = setInterval(() => fetchHealth(false), POLL_INTERVAL);
         return () => clearInterval(timer);
     }, [fetchHealth]);
+
+    useEffect(() => {
+        fetchLogs(true);
+        const timer = setInterval(() => fetchLogs(false), LOG_POLL_INTERVAL);
+        return () => clearInterval(timer);
+    }, [fetchLogs]);
 
 
 
@@ -80,13 +107,6 @@ export const SystemHealth: React.FC = () => {
     }, [dbConnected, stats]);
 
     const healthCards = [
-        {
-            label: 'Database Integrity',
-            value: dbConnected ? 'Online' : 'Offline',
-            detail: dbConnected ? 'Core Firestore operational' : 'Database connection error',
-            icon: <FiDatabase />,
-            state: dbConnected ? 'ok' : 'bad',
-        },
         {
             label: 'SMS Success Rate',
             value: `${stats?.delivery_rate ?? 100}%`,
@@ -110,65 +130,74 @@ export const SystemHealth: React.FC = () => {
         },
     ];
 
-
-    const lowBalanceAccounts = useMemo(() => (
-        accounts
-            .map((account) => {
-                const data = account.data ? { id: account.id, ...account.data } : account;
-                const balance = Number(data.balance ?? data.credit_balance ?? data.credits ?? 0);
-                return {
-                    id: data.location_id || data.active_location_id || data.id || account.id || 'unknown',
-                    name: data.location_name || data.name || data.company_name || data.email || 'Unnamed account',
-                    balance: Number.isFinite(balance) ? balance : 0,
-                };
-            })
-            .filter((account) => account.balance <= 50)
-            .sort((a, b) => a.balance - b.balance)
-            .slice(0, 8)
-    ), [accounts]);
-
     const logRows = useMemo(() => {
-        const stamp = (offsetSeconds: number) => new Date(lastRefreshed.getTime() - offsetSeconds * 1000).toISOString().replace('T', ' ').slice(0, 23);
-        const rows = [
-            {
-                severity: dbConnected ? 'INFO' : 'ERROR',
-                time: stamp(0),
-                summary: `GET /api/v2/admin_health status=${dbConnected ? 200 : 503} database_connected=${dbConnected}`,
-            },
-            {
-                severity: (stats?.failed_messages ?? 0) > 0 ? 'WARN' : 'INFO',
-                time: stamp(3),
-                summary: `SMS delivery window total=${stats?.total_messages ?? 0} sent=${stats?.sent_messages ?? 0} failed=${stats?.failed_messages ?? 0} success_rate=${stats?.delivery_rate ?? 100}%`,
-            },
-            {
-                severity: (stats?.low_balance_subaccounts ?? 0) > 0 ? 'WARN' : 'INFO',
-                time: stamp(7),
-                summary: `Billing monitor low_credit_subaccounts=${stats?.low_balance_subaccounts ?? 0} total_subaccounts=${stats?.total_subaccounts ?? 0}`,
-            },
-            {
-                severity: 'INFO',
-                time: stamp(12),
-                summary: `Low Credit Watch evaluated accounts=${accounts.length} threshold=50`,
-            },
-        ];
+        const timestampOf = (log: any): string => (
+            log.timestamp
+            || log.date_created
+            || log.created_at
+            || log.updated_at
+            || ''
+        );
 
-        lowBalanceAccounts.slice(0, 4).forEach((account, index) => {
-            rows.push({
-                severity: account.balance <= 0 ? 'ERROR' : 'WARN',
-                time: stamp(18 + index * 2),
-                summary: `credit_watch location=${account.id} name="${account.name}" balance=${account.balance}`,
+        const statusOf = (log: any): string => String(log.status || log.delivery_status || '').toLowerCase();
+        const typeOf = (log: any): string => {
+            if (log.type === 'message' && (log.amount === undefined || log.amount === null)) return 'SMS';
+            const amount = log.amount;
+            const isNegative = (typeof amount === 'number' && amount < 0) || (typeof amount === 'string' && amount.startsWith('-'));
+            if (isNegative || log.type === 'deduction' || log.type === 'credit_usage' || amount === 0) return 'Credits Used';
+            if (amount !== undefined || log.type === 'top_up' || log.type === 'credit_purchase') return 'Credits Added';
+            if (log.type === 'sender_request') return 'Sender Request';
+            return log.type ? String(log.type).replace(/_/g, ' ') : 'System';
+        };
+
+        const severityOf = (log: any): 'INFO' | 'WARN' | 'ERROR' => {
+            const status = statusOf(log);
+            if (['failed', 'rejected', 'revoked', 'error', 'denied'].includes(status)) return 'ERROR';
+            if (['pending', 'queued', 'processing', 'requested'].includes(status)) return 'WARN';
+            return 'INFO';
+        };
+
+        const summaryOf = (log: any): string => {
+            const type = typeOf(log);
+            const status = statusOf(log) || 'recorded';
+            const loc = log.location_id || log.account_id || 'system';
+
+            if (type === 'SMS') {
+                const target = log.number || log.to || 'unknown recipient';
+                const body = String(log.message || 'No message content').replace(/\s+/g, ' ').trim();
+                return `SMS ${status} to ${target} | ${body}`;
+            }
+
+            if (type === 'Sender Request') {
+                return `Sender request ${status} | ${log.requested_id || log.sender_id || log.sendername || 'unknown sender'} | ${loc}`;
+            }
+
+            if (type === 'Credits Added' || type === 'Credits Used') {
+                const amount = log.amount ?? 0;
+                const balance = log.balance_after !== undefined ? ` | balance=${log.balance_after}` : '';
+                return `${type} amount=${amount}${balance} | ${loc}`;
+            }
+
+            return `${type} ${status} | ${loc}`;
+        };
+
+        return [...logs]
+            .sort((a, b) => String(timestampOf(b)).localeCompare(String(timestampOf(a))))
+            .slice(0, 12)
+            .map((log, index) => {
+                const rawTime = timestampOf(log);
+                const parsed = rawTime ? new Date(rawTime) : null;
+                return {
+                    id: log.id || `${rawTime}-${index}`,
+                    severity: severityOf(log),
+                    time: parsed && !Number.isNaN(parsed.getTime())
+                        ? parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                        : 'Just now',
+                    type: typeOf(log),
+                    summary: summaryOf(log),
+                };
             });
-        });
-
-        return rows;
-    }, [accounts.length, dbConnected, lastRefreshed, lowBalanceAccounts, stats]);
-
-    const timelineBars = useMemo(() => Array.from({ length: 72 }, (_, index) => {
-        const base = ((index * 17) % 42) + 8;
-        const spike = index % 13 === 0 ? 22 : 0;
-        const warn = index % 19 === 0;
-        return { height: Math.min(base + spike, 72), warn };
-    }), []);
+    }, [logs]);
 
     return (
         <div className="space-y-5 text-[#111111] dark:text-white">
@@ -222,111 +251,62 @@ export const SystemHealth: React.FC = () => {
                 ))}
             </div>
 
-            <section className="overflow-hidden rounded-lg border border-[#30343b] bg-[#111315] shadow-sm">
-                <div className="flex flex-col gap-3 border-b border-[#2b2f36] bg-[#15171a] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex items-center gap-2 text-white">
-                        <FiTerminal className="h-4 w-4 text-[#8ab4f8]" />
-                        <h3 className="text-[14px] font-bold">Logs Explorer</h3>
+            <section className="rounded-2xl border border-[#e5e5e5] bg-white shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
+                <div className="flex flex-col gap-3 border-b border-[#e5e5e5] px-5 py-4 dark:border-white/5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h3 className="flex items-center gap-2 text-[14px] font-bold text-[#111111] dark:text-white">
+                            <FiActivity className="h-4 w-4 text-[#2b83fa]" />
+                            Live System Logs
+                        </h3>
+                        <p className="mt-0.5 flex items-center gap-2 text-[11px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">
+                            <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+                            Updates every 5 seconds
+                            <span className="text-[#d0d0d0] dark:text-white/20">/</span>
+                            <FiClock className="h-3 w-3" />
+                            {lastLogsRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-[#9aa0a6]">
-                        <button className="inline-flex items-center gap-1 rounded border border-[#3c4043] px-2.5 py-1 text-[#cbd5e1] hover:bg-white/5">
-                            <FiClock className="h-3.5 w-3.5 text-[#8ab4f8]" />
-                            Last 5 minutes
-                            <FiChevronDown className="h-3 w-3" />
-                        </button>
-                        <button onClick={() => fetchHealth(true)} className="rounded bg-[#8ab4f8] px-3 py-1.5 text-[#07111f] transition hover:bg-[#a8c7fa]">
-                            Run query
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => fetchLogs(true)}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e5e5e5] bg-[#f7f7f7] px-3.5 py-2 text-[12px] font-bold text-[#6e6e73] transition-all hover:text-[#2b83fa] dark:border-white/5 dark:bg-[#0d0e10] dark:text-[#9aa0a6] dark:hover:text-white"
+                    >
+                        <FiRefreshCw className={`h-3.5 w-3.5 ${logsLoading ? 'animate-spin' : ''}`} />
+                        Refresh
+                    </button>
                 </div>
 
-                <div className="border-b border-[#2b2f36] bg-[#202124] px-4 py-2">
-                    <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-                        <button className="inline-flex w-fit items-center gap-1 rounded border border-[#3c4043] bg-[#17191c] px-3 py-1.5 text-[11px] font-bold text-[#e8eaed]">
-                            <FiActivity className="h-3.5 w-3.5" />
-                            Project logs
-                            <FiChevronDown className="h-3 w-3" />
-                        </button>
-                        <div className="flex min-w-0 flex-1 items-center gap-2 rounded border border-[#30343b] bg-[#17191c] px-3 py-1.5 text-[#9aa0a6]">
-                            <FiSearch className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate text-[11px] font-semibold">Search all fields</span>
+                {logsError && (
+                    <div className="mx-5 mt-4 flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-600 dark:border-red-900/20 dark:bg-red-900/10 dark:text-red-400">
+                        <FiAlertCircle className="h-4 w-4" />
+                        {logsError}
+                    </div>
+                )}
+
+                <div className="divide-y divide-[#e5e5e5] dark:divide-white/5">
+                    {logsLoading && logRows.length === 0 ? (
+                        <div className="space-y-2 p-5">
+                            {[...Array(5)].map((_, index) => (
+                                <div key={index} className="h-12 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />
+                            ))}
                         </div>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {['All resources', 'All log names', 'All severities', 'Correlate by'].map((filter) => (
-                            <button key={filter} className="inline-flex items-center gap-1 rounded border border-[#3c4043] bg-[#17191c] px-2.5 py-1 text-[10px] font-bold text-[#cbd5e1]">
-                                {filter}
-                                <FiChevronDown className="h-3 w-3" />
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="border-b border-[#2b2f36] bg-black px-4 py-3 font-mono text-[11px] text-[#d2e3fc]">
-                    <div className="flex gap-3">
-                        <span className="select-none text-[#8ab4f8]">1</span>
-                        <span className="italic">resource.type="cloud_run_revision" severity&gt;=DEFAULT</span>
-                    </div>
-                </div>
-
-                <div className="border-b border-[#2b2f36] bg-[#15171a] px-4 py-3">
-                    <div className="mb-2 flex items-center justify-between text-[11px] font-bold text-[#cbd5e1]">
-                        <span>Timeline</span>
-                        <span className="font-mono text-[#8ab4f8]">{logRows.length.toLocaleString()} results</span>
-                    </div>
-                    <div className="flex h-16 items-end gap-1 border-b border-[#5f6368] px-1">
-                        {timelineBars.map((bar, index) => (
-                            <span
-                                key={index}
-                                className={`flex-1 min-w-[3px] rounded-t-sm ${bar.warn ? 'bg-[#f28b82]' : 'bg-[#8ab4f8]'}`}
-                                style={{ height: `${bar.height}%` }}
-                            />
-                        ))}
-                    </div>
-                </div>
-
-                <div className="max-h-[320px] overflow-auto bg-[#111315]">
-                    <div className="grid min-w-[760px] grid-cols-[72px_176px_1fr] border-b border-[#30343b] bg-[#202124] px-4 py-2 text-[10px] font-black uppercase tracking-wide text-[#9aa0a6]">
-                        <span>Severity</span>
-                        <span>Time</span>
-                        <span>Summary</span>
-                    </div>
-                    {logRows.map((row, index) => (
-                        <div key={`${row.time}-${index}`} className="grid min-w-[760px] grid-cols-[72px_176px_1fr] items-center border-b border-[#282c32] px-4 py-2 font-mono text-[11px] text-[#e8eaed] hover:bg-[#1b1f24]">
-                            <span className="flex items-center gap-2">
-                                <span className={`h-2 w-2 rounded-full ${row.severity === 'ERROR' ? 'bg-[#f28b82]' : row.severity === 'WARN' ? 'bg-[#fdd663]' : 'bg-[#8ab4f8]'}`} />
-                                <span className="text-[#9aa0a6]">{row.severity}</span>
+                    ) : logRows.length === 0 ? (
+                        <div className="px-5 py-10 text-center">
+                            <FiActivity className="mx-auto mb-3 h-8 w-8 text-[#d0d0d0] dark:text-white/20" />
+                            <p className="text-[13px] font-bold text-[#111111] dark:text-white">No live logs yet</p>
+                            <p className="mt-1 text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">Recent platform activity will appear here automatically.</p>
+                        </div>
+                    ) : logRows.map((row) => (
+                        <div key={row.id} className="grid gap-3 px-5 py-3 sm:grid-cols-[84px_116px_120px_1fr] sm:items-center">
+                            <span className={`w-fit rounded-full border px-2 py-0.5 text-[10px] font-black ${row.severity === 'ERROR' ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-400' : row.severity === 'WARN' ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/30 dark:bg-amber-900/10 dark:text-amber-400' : 'border-blue-200 bg-blue-50 text-[#2b83fa] dark:border-blue-900/30 dark:bg-blue-900/10 dark:text-blue-400'}`}>
+                                {row.severity}
                             </span>
-                            <span className="text-[#d2e3fc]">{row.time}</span>
-                            <span className="truncate" title={row.summary}>{row.summary}</span>
+                            <span className="font-mono text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6]">{row.time}</span>
+                            <span className="text-[11px] font-black uppercase tracking-wider text-[#111111] dark:text-white">{row.type}</span>
+                            <span className="min-w-0 truncate text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]" title={row.summary}>{row.summary}</span>
                         </div>
                     ))}
                 </div>
             </section>
-
-            <div className="rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
-                <h3 className="flex items-center gap-2 text-[14px] font-bold text-[#111111] dark:text-white">
-                    <FiCreditCard className="h-4 w-4 text-[#2b83fa]" />
-                    Low Credit Watch
-                </h3>
-                <div className="mt-4 space-y-2">
-                    {lowBalanceAccounts.length === 0 ? (
-                        <div className="rounded-xl border border-emerald-100/50 bg-emerald-50/30 px-4 py-5 text-center text-[12px] font-bold text-emerald-700 dark:border-emerald-500/10 dark:bg-emerald-500/[0.03] dark:text-emerald-400">
-                            No accounts are at or below 50 credits.
-                        </div>
-                    ) : lowBalanceAccounts.map((account) => (
-                        <div key={account.id} className="flex items-center justify-between gap-3 rounded-xl border border-[#e5e5e5] bg-[#f7f7f7] px-3 py-2.5 dark:border-white/5 dark:bg-[#0d0e10]">
-                            <div className="min-w-0">
-                                <div className="truncate text-[12px] font-bold text-[#111111] dark:text-white" title={account.name}>{account.name}</div>
-                                <div className="truncate font-mono text-[9.5px] text-[#9aa0a6]" title={account.id}>{account.id}</div>
-                            </div>
-                            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black ${account.balance <= 0 ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-400' : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/30 dark:bg-amber-900/10 dark:text-amber-400'}`}>
-                                {account.balance.toLocaleString()}
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            </div>
         </div>
     );
 };
