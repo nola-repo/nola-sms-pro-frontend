@@ -236,7 +236,7 @@ const runGhlAutologin = async (locationId: string): Promise<boolean> => {
       'X-GHL-Location-ID': locationId,
       'X-Request-ID': createRequestId(),
     },
-    body: JSON.stringify(buildGhlAutologinPayload(locationId)),
+    body: JSON.stringify(buildGhlAutologinPayload(locationId, { includeIdentity: false })),
   });
 
   const data = await response.json().catch(() => null) as SessionRefreshResponse | null;

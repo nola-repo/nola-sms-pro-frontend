@@ -323,7 +323,10 @@ export const resolveGhlIframeContext = (locationId?: string): GhlIframeContext =
   return context;
 };
 
-export const buildGhlAutologinPayload = (locationId: string): Record<string, string> => {
+export const buildGhlAutologinPayload = (
+  locationId: string,
+  options: { includeIdentity?: boolean } = {},
+): Record<string, string> => {
   const context = resolveGhlIframeContext(locationId);
   const payload: Record<string, string> = {
     location_id: locationId,
@@ -336,12 +339,12 @@ export const buildGhlAutologinPayload = (locationId: string): Record<string, str
     payload.companyId = context.companyId;
   }
 
-  if (context.userId) {
+  if (options.includeIdentity !== false && context.userId) {
     payload.ghl_user_id = context.userId;
     payload.ghlUserId = context.userId;
   }
 
-  if (context.email) {
+  if (options.includeIdentity !== false && context.email) {
     payload.email = context.email;
   }
 
