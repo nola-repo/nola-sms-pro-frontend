@@ -14,7 +14,7 @@ import { AdminTeamManagement } from './components/AdminUsersManagement';
 import { AdminLogs } from './components/SystemSettings';
 import { AdminAgencies } from './components/AdminAgencies';
 import { AdminProfile } from './components/AdminProfile';
-import { SystemHealth } from './components/SystemHealth';
+import { LogsExplorer } from './components/LogsExplorer';
 import { ADMIN_AUTH_REQUIRED_EVENT, adminFetch } from '../utils/adminApi';
 import { devLog } from '../utils/devLog';
 
@@ -22,7 +22,7 @@ const NAV_ITEMS = [
     { path: '/dashboard',  label: 'Dashboard',        icon: <FiHome /> },
     { path: '/requests',   label: 'Sender Requests',  icon: <FiSend /> },
     { path: '/activity',   label: 'Platform Activity', icon: <FiActivity /> },
-    { path: '/health',     label: 'Logs Explorer',    icon: <FiServer /> },
+    { path: '/logs-explorer', label: 'Logs Explorer',    icon: <FiServer /> },
     { path: '/accounts',   label: 'All Subaccounts',  icon: <FiUsers /> },
     { path: '/agencies',   label: 'All Agencies',     icon: <FiBriefcase /> },
     { path: '/admins',     label: 'Admin Users',      icon: <FiShield /> },
@@ -42,7 +42,7 @@ const PAGE_HEADERS = {
         title: 'All Subaccounts',
         subtitle: 'Manage connected subaccounts, credit balances, and sender access.',
     },
-    health: {
+    'logs-explorer': {
         title: 'Logs Explorer',
         subtitle: 'Review live platform logs, SMS events, billing activity, and system signals.',
     },
@@ -501,7 +501,8 @@ export const AdminLayout: React.FC<{ darkMode: boolean; toggleDarkMode: () => vo
                         <Route path="/requests" element={renderPage(<AdminSenderRequests />, 'requests')} />
                         <Route path="/activity" element={renderPage(<AdminLogs />, 'activity')} />
                         <Route path="/accounts" element={renderPage(<AdminAccounts />, 'accounts')} />
-                        <Route path="/health" element={renderPage(<SystemHealth />, 'health')} />
+                        <Route path="/logs-explorer" element={renderPage(<LogsExplorer />, 'logs-explorer')} />
+                        <Route path="/health" element={<Navigate to="/logs-explorer" replace />} />
                         <Route path="/agencies" element={renderPage(<AdminAgencies />, 'agencies')} />
                         <Route path="/profile" element={renderPage(<AdminProfile />, 'profile')} />
                         <Route path="/admins" element={renderPage(<AdminTeamManagement />, 'admins')} />
