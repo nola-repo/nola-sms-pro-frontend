@@ -5,7 +5,6 @@ import {
     FiAlertCircle,
     FiChevronLeft,
     FiChevronRight,
-    FiCalendar,
     FiCreditCard,
     FiRefreshCw,
     FiSearch,
@@ -46,7 +45,6 @@ export const LogsExplorer: React.FC = () => {
     const [apiDebugLogs, setApiDebugLogs] = useState<any[]>(() => getStoredAdminApiLogs());
     const [currentLogPage, setCurrentLogPage] = useState(1);
     const [logSearch, setLogSearch] = useState('');
-    const [logDate, setLogDate] = useState('');
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
     const fetchLogsOverview = useCallback(async (isInitial = false) => {
@@ -170,13 +168,6 @@ export const LogsExplorer: React.FC = () => {
         );
 
         const normalizeStatus = (value: any): string => String(value || '').toLowerCase();
-        const dateKeyOf = (date: Date | null): string => {
-            if (!date || Number.isNaN(date.getTime())) return '';
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
         const titleCase = (value: string): string => value
             .replace(/_/g, ' ')
             .replace(/\b\w/g, (char) => char.toUpperCase());
@@ -287,7 +278,6 @@ export const LogsExplorer: React.FC = () => {
                     date: parsed && !Number.isNaN(parsed.getTime())
                         ? parsed.toLocaleDateString([], { year: 'numeric', month: 'short', day: '2-digit' })
                         : 'Today',
-                    dateKey: dateKeyOf(parsed),
                     time: parsed && !Number.isNaN(parsed.getTime())
                         ? parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                         : 'Just now',
@@ -298,19 +288,16 @@ export const LogsExplorer: React.FC = () => {
     }, [apiDebugLogs, diagnosticLogs, logs]);
     const normalizedLogSearch = logSearch.trim().toLowerCase();
     const filteredLogRows = useMemo(() => {
-        return logRows.filter((row) => {
-            const matchesDate = !logDate || row.dateKey === logDate;
-            const matchesSearch = !normalizedLogSearch || [
-                row.severity,
-                row.date,
-                row.time,
-                row.type,
-                row.summary,
-            ].join(' ').toLowerCase().includes(normalizedLogSearch);
+        if (!normalizedLogSearch) return logRows;
 
-            return matchesDate && matchesSearch;
-        });
-    }, [logRows, logDate, normalizedLogSearch]);
+        return logRows.filter((row) => [
+            row.severity,
+            row.date,
+            row.time,
+            row.type,
+            row.summary,
+        ].join(' ').toLowerCase().includes(normalizedLogSearch));
+    }, [logRows, normalizedLogSearch]);
 
     const totalLogPages = Math.max(1, Math.ceil(filteredLogRows.length / LOGS_PER_PAGE));
     const paginatedLogRows = useMemo(() => {
@@ -320,7 +307,7 @@ export const LogsExplorer: React.FC = () => {
 
     useEffect(() => {
         setCurrentLogPage(1);
-    }, [logDate, normalizedLogSearch]);
+    }, [normalizedLogSearch]);
 
     useEffect(() => {
         if (currentLogPage > totalLogPages) setCurrentLogPage(totalLogPages);
@@ -396,15 +383,6 @@ export const LogsExplorer: React.FC = () => {
                         Logs Explorer
                     </h3>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <label className="relative block w-full sm:w-[180px]">
-                            <FiCalendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa0a6]" />
-                            <input
-                                type="date"
-                                value={logDate}
-                                onChange={(event) => setLogDate(event.target.value)}
-                                className="h-9 w-full rounded-xl border border-[#e5e5e5] bg-[#f7f7f7] pl-9 pr-3 text-[12px] font-semibold text-[#111111] outline-none transition focus:border-[#2b83fa]/40 focus:bg-white focus:ring-2 focus:ring-[#2b83fa]/10 dark:border-white/5 dark:bg-[#0d0e10] dark:text-white dark:focus:bg-[#111216]"
-                            />
-                        </label>
                         <label className="relative block w-full sm:w-[320px]">
                             <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa0a6]" />
                             <input
@@ -455,7 +433,7 @@ export const LogsExplorer: React.FC = () => {
                             ) : paginatedLogRows.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="px-5 py-10 text-center text-[13px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">
-                                        {normalizedLogSearch || logDate ? 'No logs match your filters.' : 'No logs found.'}
+                                        {normalizedLogSearch ? 'No logs match your search.' : 'No logs found.'}
                                     </td>
                                 </tr>
                             ) : paginatedLogRows.map((row) => (
