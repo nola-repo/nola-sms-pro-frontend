@@ -3,7 +3,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     FiActivity,
     FiAlertCircle,
-    FiClock,
+    FiChevronLeft,
+    FiChevronRight,
     FiCreditCard,
     FiRefreshCw,
     FiSend,
@@ -15,6 +16,7 @@ import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 const POLL_INTERVAL = 15000;
 const LOG_POLL_INTERVAL = 5000;
 const ADMIN_LOGS_API = '/api/admin_sender_requests.php?action=logs';
+const LOGS_PER_PAGE = 10;
 
 const healthTone = (state: 'ok' | 'warn' | 'bad') => {
     if (state === 'ok') return 'border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] hover:border-emerald-500/20 dark:hover:border-emerald-500/30';
@@ -37,8 +39,8 @@ export const SystemHealth: React.FC = () => {
     const [error, setError] = useState('');
     const [logsError, setLogsError] = useState('');
     const [logs, setLogs] = useState<any[]>([]);
+    const [currentLogPage, setCurrentLogPage] = useState(1);
     const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
-    const [lastLogsRefreshed, setLastLogsRefreshed] = useState<Date>(new Date());
 
     const fetchHealth = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
@@ -76,7 +78,6 @@ export const SystemHealth: React.FC = () => {
             } else {
                 setLogsError(json.message || 'Failed to load live system logs.');
             }
-            setLastLogsRefreshed(new Date());
         } catch (e) {
             setLogsError('Network error. Could not refresh live system logs.');
         } finally {
@@ -183,7 +184,6 @@ export const SystemHealth: React.FC = () => {
 
         return [...logs]
             .sort((a, b) => String(timestampOf(b)).localeCompare(String(timestampOf(a))))
-            .slice(0, 12)
             .map((log, index) => {
                 const rawTime = timestampOf(log);
                 const parsed = rawTime ? new Date(rawTime) : null;
@@ -198,6 +198,16 @@ export const SystemHealth: React.FC = () => {
                 };
             });
     }, [logs]);
+
+    const totalLogPages = Math.max(1, Math.ceil(logRows.length / LOGS_PER_PAGE));
+    const paginatedLogRows = useMemo(() => {
+        const start = (currentLogPage - 1) * LOGS_PER_PAGE;
+        return logRows.slice(start, start + LOGS_PER_PAGE);
+    }, [currentLogPage, logRows]);
+
+    useEffect(() => {
+        if (currentLogPage > totalLogPages) setCurrentLogPage(totalLogPages);
+    }, [currentLogPage, totalLogPages]);
 
     return (
         <div className="space-y-5 text-[#111111] dark:text-white">
@@ -251,21 +261,12 @@ export const SystemHealth: React.FC = () => {
                 ))}
             </div>
 
-            <section className="rounded-2xl border border-[#e5e5e5] bg-white shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
+            <section className="overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white shadow-sm dark:border-white/5 dark:bg-[#1a1b1e]">
                 <div className="flex flex-col gap-3 border-b border-[#e5e5e5] px-5 py-4 dark:border-white/5 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h3 className="flex items-center gap-2 text-[14px] font-bold text-[#111111] dark:text-white">
-                            <FiActivity className="h-4 w-4 text-[#2b83fa]" />
-                            Live System Logs
-                        </h3>
-                        <p className="mt-0.5 flex items-center gap-2 text-[11px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">
-                            <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
-                            Updates every 5 seconds
-                            <span className="text-[#d0d0d0] dark:text-white/20">/</span>
-                            <FiClock className="h-3 w-3" />
-                            {lastLogsRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        </p>
-                    </div>
+                    <h3 className="flex items-center gap-2 text-[14px] font-bold text-[#111111] dark:text-white">
+                        <FiActivity className="h-4 w-4 text-[#2b83fa]" />
+                        Logs Explorer
+                    </h3>
                     <button
                         onClick={() => fetchLogs(true)}
                         className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e5e5e5] bg-[#f7f7f7] px-3.5 py-2 text-[12px] font-bold text-[#6e6e73] transition-all hover:text-[#2b83fa] dark:border-white/5 dark:bg-[#0d0e10] dark:text-[#9aa0a6] dark:hover:text-white"
@@ -282,29 +283,74 @@ export const SystemHealth: React.FC = () => {
                     </div>
                 )}
 
-                <div className="divide-y divide-[#e5e5e5] dark:divide-white/5">
-                    {logsLoading && logRows.length === 0 ? (
-                        <div className="space-y-2 p-5">
-                            {[...Array(5)].map((_, index) => (
-                                <div key={index} className="h-12 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[860px] table-fixed border-collapse">
+                        <thead className="bg-[#f7f7f7] dark:bg-[#0d0e10]">
+                            <tr className="border-b border-[#e5e5e5] dark:border-white/5">
+                                <th className="w-[90px] px-5 py-3 text-left text-[10px] font-black uppercase tracking-wider text-[#6e6e73] dark:text-[#9aa0a6]">Severity</th>
+                                <th className="w-[120px] px-5 py-3 text-left text-[10px] font-black uppercase tracking-wider text-[#6e6e73] dark:text-[#9aa0a6]">Time</th>
+                                <th className="w-[150px] px-5 py-3 text-left text-[10px] font-black uppercase tracking-wider text-[#6e6e73] dark:text-[#9aa0a6]">Type</th>
+                                <th className="px-5 py-3 text-left text-[10px] font-black uppercase tracking-wider text-[#6e6e73] dark:text-[#9aa0a6]">Summary</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#e5e5e5] dark:divide-white/5">
+                            {logsLoading && logRows.length === 0 ? (
+                                [...Array(LOGS_PER_PAGE)].map((_, index) => (
+                                    <tr key={index}>
+                                        <td colSpan={4} className="px-5 py-3">
+                                            <div className="h-8 rounded-lg bg-[#f7f7f7] dark:bg-[#0d0e10] animate-pulse" />
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : paginatedLogRows.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="px-5 py-10 text-center text-[13px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">
+                                        No logs found.
+                                    </td>
+                                </tr>
+                            ) : paginatedLogRows.map((row) => (
+                                <tr key={row.id} className="transition-colors hover:bg-[#f7f7f7] dark:hover:bg-white/[0.03]">
+                                    <td className="px-5 py-3 align-middle">
+                                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black ${row.severity === 'ERROR' ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-400' : row.severity === 'WARN' ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/30 dark:bg-amber-900/10 dark:text-amber-400' : 'border-blue-200 bg-blue-50 text-[#2b83fa] dark:border-blue-900/30 dark:bg-blue-900/10 dark:text-blue-400'}`}>
+                                            {row.severity}
+                                        </span>
+                                    </td>
+                                    <td className="px-5 py-3 align-middle font-mono text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6]">{row.time}</td>
+                                    <td className="px-5 py-3 align-middle text-[11px] font-black uppercase tracking-wider text-[#111111] dark:text-white">{row.type}</td>
+                                    <td className="px-5 py-3 align-middle text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
+                                        <div className="truncate" title={row.summary}>{row.summary}</div>
+                                    </td>
+                                </tr>
                             ))}
-                        </div>
-                    ) : logRows.length === 0 ? (
-                        <div className="px-5 py-10 text-center">
-                            <FiActivity className="mx-auto mb-3 h-8 w-8 text-[#d0d0d0] dark:text-white/20" />
-                            <p className="text-[13px] font-bold text-[#111111] dark:text-white">No live logs yet</p>
-                            <p className="mt-1 text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">Recent platform activity will appear here automatically.</p>
-                        </div>
-                    ) : logRows.map((row) => (
-                        <div key={row.id} className="grid gap-3 px-5 py-3 sm:grid-cols-[84px_116px_120px_1fr] sm:items-center">
-                            <span className={`w-fit rounded-full border px-2 py-0.5 text-[10px] font-black ${row.severity === 'ERROR' ? 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-400' : row.severity === 'WARN' ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/30 dark:bg-amber-900/10 dark:text-amber-400' : 'border-blue-200 bg-blue-50 text-[#2b83fa] dark:border-blue-900/30 dark:bg-blue-900/10 dark:text-blue-400'}`}>
-                                {row.severity}
-                            </span>
-                            <span className="font-mono text-[11px] font-bold text-[#6e6e73] dark:text-[#9aa0a6]">{row.time}</span>
-                            <span className="text-[11px] font-black uppercase tracking-wider text-[#111111] dark:text-white">{row.type}</span>
-                            <span className="min-w-0 truncate text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]" title={row.summary}>{row.summary}</span>
-                        </div>
-                    ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className="flex flex-col gap-3 border-t border-[#e5e5e5] px-5 py-3 dark:border-white/5 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-[12px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">
+                        Showing {logRows.length === 0 ? 0 : ((currentLogPage - 1) * LOGS_PER_PAGE) + 1}-{Math.min(currentLogPage * LOGS_PER_PAGE, logRows.length)} of {logRows.length.toLocaleString()}
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            disabled={currentLogPage <= 1}
+                            onClick={() => setCurrentLogPage((page) => Math.max(1, page - 1))}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e5e5e5] bg-[#f7f7f7] text-[#6e6e73] transition hover:text-[#111111] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/5 dark:bg-[#0d0e10] dark:text-[#9aa0a6] dark:hover:text-white"
+                        >
+                            <FiChevronLeft className="h-4 w-4" />
+                        </button>
+                        <span className="min-w-[88px] text-center text-[12px] font-bold text-[#111111] dark:text-white">
+                            Page {currentLogPage} of {totalLogPages}
+                        </span>
+                        <button
+                            type="button"
+                            disabled={currentLogPage >= totalLogPages}
+                            onClick={() => setCurrentLogPage((page) => Math.min(totalLogPages, page + 1))}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e5e5e5] bg-[#f7f7f7] text-[#6e6e73] transition hover:text-[#111111] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/5 dark:bg-[#0d0e10] dark:text-[#9aa0a6] dark:hover:text-white"
+                        >
+                            <FiChevronRight className="h-4 w-4" />
+                        </button>
+                    </div>
                 </div>
             </section>
         </div>

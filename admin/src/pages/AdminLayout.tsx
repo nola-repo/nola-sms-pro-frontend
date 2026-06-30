@@ -22,7 +22,7 @@ const NAV_ITEMS = [
     { path: '/dashboard',  label: 'Dashboard',        icon: <FiHome /> },
     { path: '/requests',   label: 'Sender Requests',  icon: <FiSend /> },
     { path: '/activity',   label: 'Platform Activity', icon: <FiActivity /> },
-    { path: '/health',     label: 'System Health',    icon: <FiServer /> },
+    { path: '/health',     label: 'Logs Explorer',    icon: <FiServer /> },
     { path: '/accounts',   label: 'All Subaccounts',  icon: <FiUsers /> },
     { path: '/agencies',   label: 'All Agencies',     icon: <FiBriefcase /> },
     { path: '/admins',     label: 'Admin Users',      icon: <FiShield /> },
@@ -43,8 +43,8 @@ const PAGE_HEADERS = {
         subtitle: 'Manage connected subaccounts, credit balances, and sender access.',
     },
     health: {
-        title: 'System Health',
-        subtitle: 'Monitor platform status, SMS failures, provider connectivity, and billing signals.',
+        title: 'Logs Explorer',
+        subtitle: 'Review live platform logs, SMS events, billing activity, and system signals.',
     },
     agencies: {
         title: 'All Agencies',
