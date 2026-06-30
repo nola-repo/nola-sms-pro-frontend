@@ -1,8 +1,10 @@
 import { normalizeLocationCandidate } from './ghlLocationDetection';
 import {
   getCurrentGhlContextLocationId,
+  getLastGhlSessionRefreshFailure,
   getStoredAuthToken,
   refreshGhlSessionForLocation,
+  storedSessionMatchesLocation,
 } from './ghlSessionReauth';
 
 export type LocationBootstrapNextAction =
@@ -92,6 +94,12 @@ const bootstrapMessage = (response?: LocationBootstrapResponse): string => {
   return response.message || response.error || response.code || 'Unable to verify this workspace right now.';
 };
 
+const autologinFailureNextAction = (code?: string): LocationBootstrapNextAction | string => {
+  if (code === 'DUPLICATE_LOCATION_USERS' || code === 'DUPLICATE_LOCATION_USER_IDENTITY') return 'show_admin_setup';
+  if (code === 'LOCATION_USER_NOT_LINKED') return 'complete_registration';
+  return 'show_retry';
+};
+
 const fetchLocationBootstrap = async (locationId: string): Promise<LocationBootstrapResponse> => {
   const params = new URLSearchParams({ location_id: locationId });
   const headers = new Headers({
@@ -131,7 +139,29 @@ const runBootstrapFlow = async (
   publishBootstrapState({ status: 'checking', locationId });
 
   try {
-    let response = await fetchLocationBootstrap(locationId);
+    let response: LocationBootstrapResponse | null = null;
+
+    if (
+      options.allowAutologin !== false &&
+      getStoredAuthToken() &&
+      !storedSessionMatchesLocation(locationId)
+    ) {
+      const refreshed = await refreshGhlSessionForLocation(locationId);
+      const failure = getLastGhlSessionRefreshFailure(locationId);
+      if (!refreshed && failure?.code) {
+        response = {
+          location_id: locationId,
+          contacts_can_load: false,
+          requires_autologin: false,
+          next_action: autologinFailureNextAction(failure.code),
+          code: failure.code,
+          message: failure.message || failure.error || 'Unable to refresh this workspace session.',
+          error: failure.error || failure.message,
+        };
+      }
+    }
+
+    response = response || await fetchLocationBootstrap(locationId);
 
     if (
       options.allowAutologin !== false &&
@@ -140,6 +170,20 @@ const runBootstrapFlow = async (
       const refreshed = await refreshGhlSessionForLocation(locationId);
       if (refreshed) {
         response = await fetchLocationBootstrap(locationId);
+      } else {
+        const failure = getLastGhlSessionRefreshFailure(locationId);
+        if (failure?.code) {
+          response = {
+            ...response,
+            location_id: locationId,
+            contacts_can_load: false,
+            requires_autologin: false,
+            next_action: autologinFailureNextAction(failure.code),
+            code: failure.code,
+            message: failure.message || failure.error || response.message,
+            error: failure.error || failure.message || response.error,
+          };
+        }
       }
     }
 

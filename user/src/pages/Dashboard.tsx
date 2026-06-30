@@ -42,6 +42,41 @@ const getBootstrapDiagnostic = (response?: LocationBootstrapResponse): string =>
   return response.code || response.message || response.error || response.next_action || 'Workspace verification did not return diagnostics.';
 };
 
+const getWorkspaceBlockedCopy = (response: LocationBootstrapResponse): { title: string; message: string; retryLabel?: string } => {
+  switch (response.code) {
+    case 'DUPLICATE_LOCATION_USERS':
+      return {
+        title: 'Default account needs setup',
+        message: 'Ask your admin to choose the default NOLA SMS Pro account for this subaccount. No linked account list is shown here for privacy.',
+        retryLabel: 'Recheck',
+      };
+    case 'DUPLICATE_LOCATION_USER_IDENTITY':
+      return {
+        title: 'Account match needs support',
+        message: 'We found more than one matching NOLA account for this GHL user. Please contact support to repair the account mapping.',
+        retryLabel: 'Recheck',
+      };
+    case 'LOCATION_USER_NOT_LINKED':
+      return {
+        title: 'Account link required',
+        message: 'Your GHL user is not linked to a NOLA SMS Pro account for this subaccount. Complete account linking, then recheck.',
+        retryLabel: 'Recheck',
+      };
+    case 'GHL_AUTOLOGIN_REQUIRED':
+    case 'LOCATION_SESSION_MISMATCH':
+      return {
+        title: 'Workspace session needs refresh',
+        message: 'The stored NOLA session does not match this GHL subaccount yet. Recheck to request a fresh location-scoped session.',
+        retryLabel: 'Recheck',
+      };
+    default:
+      return {
+        title: 'Workspace temporarily unavailable',
+        message: 'The backend could not finish workspace verification yet. No protected data will load until this check passes.',
+      };
+  }
+};
+
 const isRunningInGhlFrame = (): boolean => {
   try {
     return window.self !== window.top || sessionStorage.getItem('nola_is_ghl_frame') === 'true';
@@ -57,8 +92,9 @@ const WorkspaceActionState: React.FC<{
   response?: LocationBootstrapResponse;
   primaryLabel?: string;
   onPrimary?: () => void;
+  retryLabel?: string;
   onRetry: () => void;
-}> = ({ title, message, locationId, response, primaryLabel, onPrimary, onRetry }) => (
+}> = ({ title, message, locationId, response, primaryLabel, onPrimary, retryLabel = 'Try again', onRetry }) => (
   <div className="min-h-screen bg-[#f7f7f7] dark:bg-[#18191d] flex items-center justify-center px-4 py-8">
     <div className="w-full max-w-xl bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl shadow-xl p-6 sm:p-8">
       <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300 flex items-center justify-center mb-5">
@@ -86,7 +122,7 @@ const WorkspaceActionState: React.FC<{
           className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#f1f3f4] dark:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] text-[13px] font-bold hover:bg-[#e8eaed] dark:hover:bg-[#34363d] transition-all"
         >
           <FiRefreshCw className="w-4 h-4" />
-          Try again
+          {retryLabel}
         </button>
       </div>
     </div>
@@ -460,12 +496,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       );
     }
 
+    const copy = getWorkspaceBlockedCopy(response);
     return (
       <WorkspaceActionState
-        title="Workspace temporarily unavailable"
-        message="The backend could not finish workspace verification yet. No protected data will load until this check passes."
+        title={copy.title}
+        message={copy.message}
         locationId={locationId}
         response={response}
+        retryLabel={copy.retryLabel}
         onRetry={retryBootstrap}
       />
     );

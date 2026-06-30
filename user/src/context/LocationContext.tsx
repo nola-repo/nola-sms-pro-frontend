@@ -24,6 +24,7 @@ import {
   type LocationDetectionResult,
   type LocationSource,
 } from '../utils/ghlLocationDetection';
+import { detectGhlContextFromPostMessage, persistGhlIframeContext } from '../utils/ghlIframeContext';
 import { persistActiveGhlLocation } from '../utils/ghlLocationStorage';
 
 interface LocationContextValue {
@@ -201,6 +202,15 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // ?? Source 3: GHL postMessage (handles subaccount switching in iframe) ????
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      const context = detectGhlContextFromPostMessage(event);
+      if (context) {
+        persistGhlIframeContext(context);
+        if (context.locationId) {
+          setLocationId(context.locationId, 'postMessage', context.sourcePath || 'postMessage');
+          return;
+        }
+      }
+
       const fromMessage = detectLocationFromPostMessage(event);
       if (fromMessage) setLocationId(fromMessage.locationId, fromMessage.source, fromMessage.path);
     };

@@ -16,6 +16,7 @@ import { useLocationId } from "./context/LocationContext";
 import { getAccountSettings, saveAccountSettings } from "./utils/settingsStorage";
 import { apiFetch } from "./utils/apiFetch";
 import { detectLocationFromCurrentUrl, hasGhlLaunchSignalInCurrentUrl } from "./utils/ghlLocationDetection";
+import { buildGhlAutologinPayload } from "./utils/ghlIframeContext";
 import { FiBookOpen, FiMessageSquare, FiMoon, FiMoreHorizontal, FiSun, FiX } from "react-icons/fi";
 import { UserNotificationBell } from "./components/ui/UserNotificationBell";
 import type { ViewTab } from "./components/Sidebar";
@@ -88,11 +89,7 @@ const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
         "Content-Type": "application/json",
         "X-GHL-Location-ID": resolvedLocationId,
       },
-      body: JSON.stringify({
-        location_id: resolvedLocationId,
-        locationId: resolvedLocationId,
-        active_location_id: resolvedLocationId,
-      }),
+      body: JSON.stringify(buildGhlAutologinPayload(resolvedLocationId)),
     })
       .then(async (res) => {
         const data = await res.json().catch(() => null);

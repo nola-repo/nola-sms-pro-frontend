@@ -1,4 +1,5 @@
 import { detectLocationFromCurrentUrl, normalizeLocationCandidate } from './ghlLocationDetection';
+import { buildGhlAutologinPayload } from './ghlIframeContext';
 import { persistActiveGhlLocation, readActiveGhlLocation } from './ghlLocationStorage';
 import { safeStorage } from './safeStorage';
 import { sessionSafeStorage } from './sessionSafeStorage';
@@ -17,6 +18,17 @@ const AUTH_SESSION_REFRESH_FAILED_EVENT = 'nola-auth-session-refresh-failed';
 
 type StoredUser = Record<string, unknown> | null;
 
+export interface SessionRefreshFailure {
+  locationId: string;
+  status: number;
+  code?: string;
+  error?: string;
+  message?: string;
+  requires_reauth?: boolean;
+  requires_login?: boolean;
+  requires_account_link?: boolean;
+}
+
 interface SessionRefreshResponse {
   token?: string;
   role?: string;
@@ -26,9 +38,16 @@ interface SessionRefreshResponse {
   location_id?: string | null;
   active_location_id?: string | null;
   user?: Record<string, unknown> | null;
+  code?: string;
+  error?: string;
+  message?: string;
+  requires_reauth?: boolean;
+  requires_login?: boolean;
+  requires_account_link?: boolean;
 }
 
 const reauthInFlight = new Map<string, Promise<boolean>>();
+const reauthFailureByLocation = new Map<string, SessionRefreshFailure>();
 
 const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
   try {
@@ -120,6 +139,21 @@ export const storedSessionMatchesLocation = (locationId: string): boolean => {
   return getStoredSessionLocationId() === requestedLocationId;
 };
 
+const clearStaleAuthSessionForLocation = (locationId: string): void => {
+  const requestedLocationId = normalizeLocationCandidate(locationId);
+  if (!requestedLocationId || !getStoredAuthToken() || storedSessionMatchesLocation(requestedLocationId)) return;
+
+  Object.values(SESSION_KEYS).forEach((key) => {
+    safeStorage.removeItem(key);
+    sessionSafeStorage.removeItem(key);
+  });
+  safeStorage.removeItem('nola_user');
+  safeStorage.removeItem('nola_settings_account');
+
+  safeStorage.setItem(SESSION_KEYS.locationId, requestedLocationId);
+  persistActiveGhlLocation(requestedLocationId);
+};
+
 const createRequestId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -202,23 +236,32 @@ const runGhlAutologin = async (locationId: string): Promise<boolean> => {
       'X-GHL-Location-ID': locationId,
       'X-Request-ID': createRequestId(),
     },
-    body: JSON.stringify({
-      location_id: locationId,
-      locationId,
-      active_location_id: locationId,
-    }),
+    body: JSON.stringify(buildGhlAutologinPayload(locationId)),
   });
 
   const data = await response.json().catch(() => null) as SessionRefreshResponse | null;
   if (response.ok && data?.token) {
+    reauthFailureByLocation.delete(locationId);
     saveRefreshedSession(data, locationId);
     return true;
   }
 
+  const failure: SessionRefreshFailure = {
+    locationId,
+    status: response.status,
+    code: data?.code,
+    error: data?.error,
+    message: data?.message,
+    requires_reauth: Boolean(data && 'requires_reauth' in data ? data.requires_reauth : false),
+    requires_login: Boolean(data && 'requires_login' in data ? data.requires_login : false),
+    requires_account_link: Boolean(data && 'requires_account_link' in data ? data.requires_account_link : false),
+  };
+  reauthFailureByLocation.set(locationId, failure);
+
   if (typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent(AUTH_SESSION_REFRESH_FAILED_EVENT, {
-        detail: { locationId, status: response.status, code: data && 'code' in data ? data.code : undefined },
+        detail: failure,
       })
     );
   }
@@ -226,9 +269,16 @@ const runGhlAutologin = async (locationId: string): Promise<boolean> => {
   return false;
 };
 
+export const getLastGhlSessionRefreshFailure = (locationId: string): SessionRefreshFailure | null => {
+  const requestedLocationId = normalizeLocationCandidate(locationId);
+  if (!requestedLocationId) return null;
+  return reauthFailureByLocation.get(requestedLocationId) || null;
+};
+
 export const refreshGhlSessionForLocation = async (locationId: string): Promise<boolean> => {
   const requestedLocationId = normalizeLocationCandidate(locationId);
   if (!requestedLocationId) return false;
+  clearStaleAuthSessionForLocation(requestedLocationId);
   return runGhlAutologin(requestedLocationId);
 };
 
@@ -246,6 +296,8 @@ export const ensureGhlSessionForLocation = async (
   const key = requestedLocationId;
   const existing = reauthInFlight.get(key);
   if (existing) return existing;
+
+  clearStaleAuthSessionForLocation(requestedLocationId);
 
   const promise = runGhlAutologin(requestedLocationId)
     .catch(() => false)
