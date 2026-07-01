@@ -7,7 +7,27 @@
 import { agencyFetch, getAgencyAuthHeaders } from './agencyApi';
 
 const BASE = '/api/agency';
+const SUBACCOUNTS_CACHE_TTL_MS = 30_000;
+const SUBACCOUNTS_STALE_TTL_MS = 5 * 60_000;
 
+type SubaccountsResponse = {
+  status?: string;
+  subaccounts?: any[];
+  [key: string]: any;
+};
+
+type SubaccountsCacheEntry = {
+  data?: SubaccountsResponse;
+  fetchedAt: number;
+  inFlight?: Promise<SubaccountsResponse>;
+};
+
+type GetSubaccountsOptions = {
+  force?: boolean;
+  allowStale?: boolean;
+};
+
+const subaccountsCache = new Map<string, SubaccountsCacheEntry>();
 const defaultHeaders = (agencyId, extra = {}) => ({
   ...getAgencyAuthHeaders(true),
   'X-Agency-ID': agencyId || '',
@@ -29,15 +49,7 @@ const handleResponse = async (res: Response) => {
   }
   return json;
 };
-
-// ── GET all subaccounts for this agency (standardized endpoint) ───────────────
-export const getSubaccounts = async (agencyId) => {
-  const res = await agencyFetch(`${BASE}/get_subaccounts.php?agency_id=${encodeURIComponent(agencyId)}`, {
-    method: 'GET',
-  });
-  const json = await handleResponse(res);
-  
-  // Keep support for the legacy admin-style shape { id, data: { ... } }.
+const normalizeSubaccountsResponse = (json: any): SubaccountsResponse => {
   if (json.status === 'success' && Array.isArray(json.data)) {
     return {
       status: 'success',
@@ -48,6 +60,79 @@ export const getSubaccounts = async (agencyId) => {
     };
   }
   return json;
+};
+
+const setSubaccountsCache = (agencyId: string, data: SubaccountsResponse) => {
+  subaccountsCache.set(agencyId, {
+    ...(subaccountsCache.get(agencyId) ?? { fetchedAt: Date.now() }),
+    data,
+    fetchedAt: Date.now(),
+    inFlight: undefined,
+  });
+};
+
+const updateCachedSubaccount = (agencyId: string, locationId: string, patch: Record<string, unknown>) => {
+  const entry = subaccountsCache.get(agencyId);
+  if (!entry?.data?.subaccounts || !locationId) return;
+  setSubaccountsCache(agencyId, {
+    ...entry.data,
+    subaccounts: entry.data.subaccounts.map((subaccount: any) => {
+      const id = subaccount.location_id ?? subaccount.locationId ?? subaccount.id;
+      return id === locationId ? { ...subaccount, ...patch } : subaccount;
+    }),
+  });
+};
+
+export const invalidateSubaccountsCache = (agencyId?: string) => {
+  if (agencyId) {
+    subaccountsCache.delete(agencyId);
+    return;
+  }
+  subaccountsCache.clear();
+};
+
+// ── GET all subaccounts for this agency (standardized endpoint) ───────────────
+export const getSubaccounts = async (agencyId, options: GetSubaccountsOptions = {}) => {
+  const key = String(agencyId || '');
+  const now = Date.now();
+  const cached = subaccountsCache.get(key);
+  const allowStale = options.allowStale === true;
+
+  if (!options.force && cached?.data && now - cached.fetchedAt < SUBACCOUNTS_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  if (!options.force && cached?.inFlight) {
+    return cached.inFlight;
+  }
+
+  const fetchFresh = async () => {
+    const res = await agencyFetch(`${BASE}/get_subaccounts.php?agency_id=${encodeURIComponent(key)}`, {
+      method: 'GET',
+    });
+    const json = normalizeSubaccountsResponse(await handleResponse(res));
+    setSubaccountsCache(key, json);
+    return json;
+  };
+
+  const inFlight = fetchFresh().finally(() => {
+    const latest = subaccountsCache.get(key);
+    if (latest?.inFlight === inFlight) {
+      subaccountsCache.set(key, { ...latest, inFlight: undefined });
+    }
+  });
+
+  subaccountsCache.set(key, {
+    ...(cached ?? { fetchedAt: 0 }),
+    inFlight,
+  });
+
+  if (!options.force && allowStale && cached?.data && now - cached.fetchedAt < SUBACCOUNTS_STALE_TTL_MS) {
+    inFlight.catch(() => undefined);
+    return cached.data;
+  }
+
+  return inFlight;
 };
 
 // ── POST toggle a single subaccount ON/OFF ────────────────────────────────────
@@ -86,7 +171,9 @@ export const toggleSubaccount = async (agencyId: string, payload: {
     }
   }
 
-  return handleResponse(res);
+  const result = await handleResponse(res);
+  updateCachedSubaccount(agencyId, payload.subaccount_id, { toggle_enabled: payload.enabled });
+  return result;
 };
 
 // ── POST update subaccount settings ──────────────────────────────────────────
@@ -101,7 +188,13 @@ export const updateSubaccountSettings = async (agencyId, payload: {
     headers: defaultHeaders(agencyId),
     body: JSON.stringify(payload),
   });
-  return handleResponse(res);
+  const result = await handleResponse(res);
+  updateCachedSubaccount(agencyId, payload.location_id, {
+    toggle_enabled: payload.toggle_enabled,
+    rate_limit: payload.rate_limit,
+    ...(payload.reset_counter ? { attempt_count: 0 } : {}),
+  });
+  return result;
 };
 
 // ── GET all toggle-ON subaccounts (used by main admin panel) ──────────────────

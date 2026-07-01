@@ -159,7 +159,7 @@ export const Subscription: React.FC = () => {
     } : prev);
   }, []);
 
-  const fetchSubscription = useCallback(async () => {
+  const fetchSubscription = useCallback(async (forceSubaccountRefresh = false) => {
     setLoading(true);
     try {
       const [subscriptionResult, subaccountsResult] = await Promise.allSettled([
@@ -169,7 +169,7 @@ export const Subscription: React.FC = () => {
           if (!res.ok) throw new Error('API failed');
           return res.json();
         }),
-        getSubaccounts(effectiveAgencyId),
+        getSubaccounts(effectiveAgencyId, { force: forceSubaccountRefresh }),
       ]);
       if (!mountedRef.current) return;
 
@@ -348,7 +348,7 @@ export const Subscription: React.FC = () => {
                 </div>
               )}
             </div>
-            <button onClick={fetchSubscription} title="Refresh" className="p-2 rounded-xl bg-[#f7f7f7] dark:bg-white/5 border border-[#e0e0e0] dark:border-white/5 text-[#6e6e73] hover:text-[#111111] dark:hover:text-white transition-all">
+            <button onClick={() => fetchSubscription(true)} title="Refresh" className="p-2 rounded-xl bg-[#f7f7f7] dark:bg-white/5 border border-[#e0e0e0] dark:border-white/5 text-[#6e6e73] hover:text-[#111111] dark:hover:text-white transition-all">
               <FiRefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
