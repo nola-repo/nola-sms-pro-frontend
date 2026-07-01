@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { FiCheck, FiRefreshCw, FiZap, FiAlertTriangle, FiStar, FiShield, FiTrendingUp } from 'react-icons/fi';
 import { AgencyLayout } from '../components/layout/AgencyLayout.tsx';
 import { useAgency } from '../context/AgencyContext.tsx';
 import { useToast } from '../hooks/useToast.ts';
 import { ToastContainer } from '../components/ui/ToastContainer.tsx';
 import { agencyFetch } from '../services/agencyApi.ts';
+import { getSubaccounts } from '../services/api.ts';
+import { ensureFirestoreAuth } from '../services/firestoreAuth.ts';
+import { db } from '../services/firebaseConfig.ts';
+import { devLog } from '../utils/devLog.ts';
 import {
   DEFAULT_SUBSCRIPTION_STATE,
   getSubscriptionLimitText,
@@ -116,6 +121,21 @@ const formatSubscriptionDate = (value: string | null) => {
   return date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+type ConnectedSubaccountUsageRow = {
+  id?: string;
+  location_id?: string;
+  locationId?: string;
+  toggle_enabled?: boolean;
+};
+
+const getConnectedSubaccountId = (row: ConnectedSubaccountUsageRow) =>
+  String(row.location_id ?? row.locationId ?? row.id ?? '');
+
+const getConnectedUsageCounts = (rows: ConnectedSubaccountUsageRow[]) => ({
+  subaccounts_used: rows.filter(row => !!row.toggle_enabled).length,
+  total_subaccounts: rows.length,
+});
+
 export const Subscription: React.FC = () => {
   const { agencyId, agencySession } = useAgency();
   const { toasts, showToast, dismissToast } = useToast();
@@ -124,21 +144,60 @@ export const Subscription: React.FC = () => {
   const [subState, setSubState] = useState<SubscriptionState | null>(null);
   const [loading, setLoading] = useState(true);
   const popupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const connectedSubaccountsRef = useRef<ConnectedSubaccountUsageRow[]>([]);
 
   const effectiveAgencyId = agencyId || AGENCY_ID;
   const userName = agencySession?.user ? `${agencySession.user.firstName} ${agencySession.user.lastName}`.trim() : '';
   const userEmail = agencySession?.user?.email || '';
 
+  const applyConnectedUsageRows = useCallback((rows: ConnectedSubaccountUsageRow[]) => {
+    connectedSubaccountsRef.current = rows;
+    const usageCounts = getConnectedUsageCounts(rows);
+    setSubState(prev => prev ? {
+      ...prev,
+      ...usageCounts,
+    } : prev);
+  }, []);
+
   const fetchSubscription = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await agencyFetch(`${API_BASE}/api/billing/subscription.php?agency_id=${encodeURIComponent(effectiveAgencyId)}`, {
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('API failed');
-      const data = await res.json();
+      const [subscriptionResult, subaccountsResult] = await Promise.allSettled([
+        agencyFetch(`${API_BASE}/api/billing/subscription.php?agency_id=${encodeURIComponent(effectiveAgencyId)}`, {
+          credentials: 'include',
+        }).then(async (res) => {
+          if (!res.ok) throw new Error('API failed');
+          return res.json();
+        }),
+        getSubaccounts(effectiveAgencyId),
+      ]);
       if (!mountedRef.current) return;
-      setSubState(normalizeSubscriptionState(data));
+
+      const connectedRows = subaccountsResult.status === 'fulfilled' && Array.isArray(subaccountsResult.value?.subaccounts)
+        ? subaccountsResult.value.subaccounts
+        : null;
+      const usageCounts = connectedRows ? getConnectedUsageCounts(connectedRows) : null;
+      const subscriptionPayload = subscriptionResult.status === 'fulfilled'
+        ? subscriptionResult.value
+        : DEFAULT_SUBSCRIPTION_STATE;
+
+      if (connectedRows) {
+        connectedSubaccountsRef.current = connectedRows;
+      }
+
+      setSubState({
+        ...normalizeSubscriptionState(subscriptionPayload, {
+          fallbackSubaccountsUsed: usageCounts?.subaccounts_used,
+        }),
+        ...(usageCounts ?? {}),
+      });
+
+      if (subscriptionResult.status === 'rejected') {
+        devLog.error('[Subscription] subscription load failed:', subscriptionResult.reason);
+      }
+      if (subaccountsResult.status === 'rejected') {
+        devLog.error('[Subscription] connected subaccounts load failed:', subaccountsResult.reason);
+      }
     } catch {
       if (!mountedRef.current) return;
       // Mock data if endpoint is not fully implemented yet
@@ -156,6 +215,58 @@ export const Subscription: React.FC = () => {
       if (popupPollRef.current) clearInterval(popupPollRef.current);
     };
   }, [fetchSubscription]);
+
+  useEffect(() => {
+    if (!effectiveAgencyId) return;
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+
+    const setupRealtimeUsage = async () => {
+      try {
+        await ensureFirestoreAuth();
+        if (cancelled) return;
+
+        const subaccountsQuery = query(
+          collection(db, 'ghl_tokens'),
+          where('companyId', '==', effectiveAgencyId)
+        );
+
+        unsubscribe = onSnapshot(
+          subaccountsQuery,
+          (snapshot) => {
+            const liveStates = new Map<string, { toggle_enabled: boolean }>();
+            snapshot.docs.forEach((doc) => {
+              const data = doc.data();
+              const id = String(data.location_id ?? data.locationId ?? doc.id);
+              liveStates.set(id, {
+                toggle_enabled: typeof data.toggle_enabled === 'boolean' ? data.toggle_enabled : true,
+              });
+            });
+
+            const currentRows = connectedSubaccountsRef.current;
+            if (currentRows.length === 0) return;
+
+            applyConnectedUsageRows(currentRows.map(row => {
+              const live = liveStates.get(getConnectedSubaccountId(row));
+              return live ? { ...row, ...live } : row;
+            }));
+          },
+          (error) => {
+            devLog.error('[Subscription] realtime subaccount usage failed:', error);
+          }
+        );
+      } catch (error) {
+        devLog.error('[Subscription] realtime setup failed:', error);
+      }
+    };
+
+    setupRealtimeUsage();
+    return () => {
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
+    };
+  }, [effectiveAgencyId, applyConnectedUsageRows]);
+
 
   const handleUpgrade = (planId: string) => {
     if (planId === 'starter') return; // Cannot explicitly buy starter
@@ -246,7 +357,7 @@ export const Subscription: React.FC = () => {
           {!loading && subState && (
             <div className="mt-5 w-full">
               <div className="flex items-center justify-between text-[13px] font-semibold text-[#111111] dark:text-white mb-2.5">
-                <span className="tracking-wide">Active Subaccounts</span>
+                <span className="tracking-wide">Activated / Subscription Limit</span>
                 <span className="text-[#6e6e73] dark:text-[#9aa0a9]"><strong className="text-[#111111] dark:text-white">{subState.subaccounts_used}</strong> / {getLimitText(subState.subaccount_limit)}</span>
               </div>
               <div className="h-2.5 w-full bg-[#f0f0f0] dark:bg-[#1f2125] rounded-full overflow-hidden shadow-inner">
@@ -262,7 +373,7 @@ export const Subscription: React.FC = () => {
               )}
               {isSubscriptionLimitReached(subState) && (
                 <div className="flex items-center gap-2 mt-2 text-[12px] text-red-500 font-semibold">
-                  <FiAlertTriangle className="w-3.5 h-3.5" /> Limit reached. Please upgrade to enable more subaccounts.
+                  <FiAlertTriangle className="w-3.5 h-3.5" /> Activation limit reached. Deactivate one subaccount or upgrade to enable more.
                 </div>
               )}
             </div>
