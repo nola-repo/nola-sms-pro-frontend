@@ -547,7 +547,7 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
         const date = ts ? new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
         const time = ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
         
-        const base = `group flex items-center gap-4 p-4 rounded-[16px] border transition-all duration-300 ${isModal ? 'border-transparent bg-transparent' : 'bg-white dark:bg-[#1a1b1e] border-[#e5e5e5] dark:border-white/10 hover:border-[#2b83fa]/40 dark:hover:border-[#2b83fa]/50 hover:shadow-lg dark:hover:shadow-[#2b83fa]/5 cursor-pointer hover:-translate-y-1'}`;
+        const base = `group grid grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-[auto_minmax(0,1fr)_112px] gap-3 sm:gap-4 p-4 rounded-xl border transition-all duration-200 ${isModal ? 'border-transparent bg-transparent' : 'bg-white dark:bg-[#17191d] border-[#e5e5e5] dark:border-white/10 hover:border-[#2b83fa]/45 dark:hover:border-[#2b83fa]/45 hover:bg-[#fbfdff] dark:hover:bg-[#1d2026] hover:shadow-lg dark:hover:shadow-black/20 cursor-pointer'}`;
 
         const handleClick = () => {
             if (isModal) return;
@@ -556,46 +556,51 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
 
         const locId = log.location_id || log.account_id;
         const account = accounts.find(a => a.id === locId || a.location_id === locId);
+        const publicReferenceId = log.message_reference_id || log.transaction_reference_id || log.request_reference_id || log.reference_id;
+        const metaChip = (content: React.ReactNode, extra = '') => (
+            <span className={`inline-flex h-6 max-w-full items-center gap-1 rounded-md border border-[#e5e5e5] bg-[#f7f7f7] px-2 text-[10px] font-bold text-[#6e6e73] dark:border-white/10 dark:bg-white/5 dark:text-[#9aa0a6] ${extra}`}>
+                {content}
+            </span>
+        );
+        const dateBlock = (
+            <div className="col-span-2 flex items-center justify-between border-t border-[#e5e5e5] pt-3 text-left sm:col-span-1 sm:col-start-3 sm:row-span-2 sm:block sm:border-t-0 sm:pt-0 sm:text-right">
+                <span className="text-[11px] font-black text-[#111111] dark:text-white">{date || 'No date'}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-[#9aa0a6] sm:mt-0.5 sm:block">{time || '--:--'}</span>
+            </div>
+        );
         
         const subAccountPill = locId ? (
-            <div className="flex items-center gap-1.5 bg-gray-100/50 dark:bg-white/5 border border-gray-200/50 dark:border-white/10 pl-1 pr-2 py-0.5 rounded-full" title={account?.location_name || 'Unknown Account'}>
-                <div className="w-4 h-4 rounded-full bg-[#e5e5e5] dark:bg-white/10 flex items-center justify-center text-[9px] font-bold text-gray-500">
+            <span className="inline-flex h-6 max-w-[190px] items-center gap-1.5 rounded-md border border-[#e5e5e5] bg-[#f7f7f7] pl-1 pr-2 text-[10px] font-bold text-[#6e6e73] dark:border-white/10 dark:bg-white/5 dark:text-[#9aa0a6]" title={account?.location_name || 'Unknown Account'}>
+                <span className="flex h-4 w-4 items-center justify-center rounded bg-white text-[9px] font-black text-[#6e6e73] shadow-sm dark:bg-white/10 dark:text-white">
                     {account?.location_name ? account.location_name.substring(0, 1).toUpperCase() : '?'}
-                </div>
-                <div className="flex items-baseline gap-1">
-                    <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate max-w-[80px]">{account?.location_name || 'System'}</span>
-                    <span className="text-[9px] font-mono text-gray-400">({locId.substring(0, 5)})</span>
-                </div>
-            </div>
+                </span>
+                <span className="truncate">{account?.location_name || 'System'}</span>
+                <span className="font-mono text-[9px] text-[#9aa0a6]">({locId.substring(0, 5)})</span>
+            </span>
         ) : null;
 
         if (type === 'message') {
             return (
                 <div key={log.id} className={base} onClick={handleClick}>
-                    <div className={`w-12 h-12 rounded-[16px] flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 bg-blue-50 dark:bg-blue-900/20 text-[#2b83fa] dark:text-[#569cfe]`}>
-                        <FiMessageSquare className="w-5 h-5" />
+                    <div className="row-start-1 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#2b83fa] shadow-sm ring-1 ring-inset ring-blue-100 transition-transform duration-200 group-hover:scale-[1.03] dark:bg-blue-900/20 dark:text-[#569cfe] dark:ring-blue-800/30">
+                        <FiMessageSquare className="h-5 w-5" />
                     </div>
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                        <div className="flex items-center justify-between mb-1 gap-2">
-                            <div className="flex items-center gap-2 overflow-hidden">
-                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
-                                    To <span className="font-mono text-[13px] ml-1">{log.number || log.to || 'Unknown'}</span>
-                                </p>
-                                <div className="flex-shrink-0 scale-90 origin-left">{statusBadge(log.status || 'unknown')}</div>
-                            </div>
-                            <div className="text-right flex-shrink-0"><span className="block text-[11px] font-bold text-[#111111] dark:text-white">{date}</span><span className="block text-[10px] uppercase text-[#9aa0a6]">{time}</span></div>
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <p className="min-w-0 truncate text-[14px] font-black text-[#111111] dark:text-white">
+                                To <span className="ml-1 font-mono text-[13px] text-[#2b83fa]">{log.number || log.to || 'Unknown'}</span>
+                            </p>
+                            {statusBadge(log.status || 'unknown')}
                         </div>
-                        <div className="flex items-center justify-between gap-3">
-                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">{log.message || 'No content'}</p>
-                            <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
-                                 <span className="text-[10px] font-medium text-gray-500 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-1.5 py-0.5 rounded-md shadow-sm">
-                                    {(log.message || '').length} <span className="opacity-70 text-[9px]">chars</span>
-                                </span>
-                                {(log.sender_name || log.sendername) && <span className="text-[10px] font-mono text-gray-500 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 px-1.5 py-0.5 rounded">Via: {log.sender_name || log.sendername}</span>}
-                                {subAccountPill}
-                            </div>
+                        <p className="mt-1 truncate text-[13px] leading-5 text-[#6e6e73] dark:text-[#b1b6c0]" title={log.message || 'No content'}>{log.message || 'No content'}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {metaChip(<>{(log.message || '').length} <span className="text-[9px] uppercase text-[#9aa0a6]">chars</span></>)}
+                            {(log.sender_name || log.sendername) && metaChip(<><span className="text-[#9aa0a6]">Via</span> <span className="font-mono text-[9px] text-[#6e6e73] dark:text-[#d1d5db]">{log.sender_name || log.sendername}</span></>)}
+                            {publicReferenceId && metaChip(<><span className="text-[#9aa0a6]">Ref</span> <span className="font-mono text-[9px] text-[#6e6e73] dark:text-[#d1d5db]">{String(publicReferenceId).slice(0, 10)}</span></>)}
+                            {subAccountPill}
                         </div>
                     </div>
+                    {dateBlock}
                 </div>
             );
         }
@@ -604,29 +609,26 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
             const requestStatus = log.status || 'pending';
             return (
                 <div key={log.id} className={base} onClick={handleClick}>
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400">
-                        <FiSend className="w-5 h-5" />
+                    <div className="row-start-1 flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-600 shadow-sm ring-1 ring-inset ring-amber-100 transition-transform duration-200 group-hover:scale-[1.03] dark:bg-amber-900/20 dark:text-amber-400 dark:ring-amber-800/30">
+                        <FiSend className="h-5 w-5" />
                     </div>
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                        <div className="flex items-center justify-between mb-1 gap-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                                <p className="text-[14px] font-bold text-[#111111] dark:text-white truncate">
-                                    Sender Request <span className="font-mono text-[#2b83fa]">{log.requested_id || log.sender_id || log.sendername || ''}</span>
-                                </p>
-                                <div className="flex-shrink-0 scale-90 origin-left">{providerBadge(log)}</div>
-                                <div className="flex-shrink-0 scale-90 origin-left">{statusBadge(requestStatus)}</div>
-                            </div>
-                            <div className="text-right flex-shrink-0"><span className="block text-[11px] font-bold text-[#111111] dark:text-white">{date}</span><span className="block text-[10px] uppercase text-[#9aa0a6]">{time}</span></div>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                            <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate flex-1">
-                                {log.location_name || log.account_name || 'Account'} requested sender approval{log.provider ? ` via ${log.provider}` : ''}.
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <p className="min-w-0 truncate text-[14px] font-black text-[#111111] dark:text-white">
+                                Sender Request <span className="font-mono text-[#2b83fa]">{log.requested_id || log.sender_id || log.sendername || ''}</span>
                             </p>
-                            <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
-                                {subAccountPill}
-                            </div>
+                            {providerBadge(log)}
+                            {statusBadge(requestStatus)}
+                        </div>
+                        <p className="mt-1 truncate text-[13px] leading-5 text-[#6e6e73] dark:text-[#b1b6c0]">
+                            {log.location_name || log.account_name || 'Account'} requested sender approval{log.provider ? ` via ${log.provider}` : ''}.
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {publicReferenceId && metaChip(<><span className="text-[#9aa0a6]">Ref</span> <span className="font-mono text-[9px] text-[#6e6e73] dark:text-[#d1d5db]">{String(publicReferenceId).slice(0, 10)}</span></>)}
+                            {subAccountPill}
                         </div>
                     </div>
+                    {dateBlock}
                 </div>
             );
         }
@@ -635,29 +637,29 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
 
         if (type === 'credit_purchase' || type === 'credit_usage') {
             const isUsage = type === 'credit_usage' || (typeof log.amount === 'number' && log.amount < 0) || isFreeTrial;
+            const amountLabel = isFreeTrial ? '1' : log.amount?.toLocaleString();
             return (
                 <div key={log.id} className={base} onClick={handleClick}>
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ring-1 ring-inset ring-black/5 dark:ring-white/10 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300 ${isUsage ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'}`}>
-                        {isUsage ? <FiActivity className="w-5 h-5" /> : <FiCreditCard className="w-5 h-5" />}
+                    <div className={`row-start-1 flex h-11 w-11 items-center justify-center rounded-xl shadow-sm ring-1 ring-inset transition-transform duration-200 group-hover:scale-[1.03] ${isUsage ? 'bg-purple-50 text-purple-600 ring-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:ring-purple-800/30' : 'bg-emerald-50 text-emerald-600 ring-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:ring-emerald-800/30'}`}>
+                        {isUsage ? <FiActivity className="h-5 w-5" /> : <FiCreditCard className="h-5 w-5" />}
                     </div>
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                        <div className="flex items-center justify-between mb-1 gap-2">
-                            <p className="text-[14px] font-bold text-[#111111] dark:text-white">{isFreeTrial ? 'Free Trial Used' : (isUsage ? 'Credits Used' : 'Credits Purchased')}</p>
-                            <div className="text-right flex-shrink-0"><span className="block text-[11px] font-bold text-[#111111] dark:text-white">{date}</span><span className="block text-[10px] uppercase text-[#9aa0a6]">{time}</span></div>
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <p className="min-w-0 truncate text-[14px] font-black text-[#111111] dark:text-white">
+                                {isFreeTrial ? 'Free Trial Used' : (isUsage ? 'Credits Used' : 'Credits Purchased')}
+                            </p>
+                            {log.status && metaChip(log.status === 'completed' ? 'Paid' : log.status, isUsage ? 'text-purple-600 dark:text-purple-300' : 'text-emerald-600 dark:text-emerald-300')}
                         </div>
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                                <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] truncate">{isFreeTrial ? 'Deducted' : (isUsage ? 'Deducted' : 'Added')} <span className={`font-bold ${isUsage ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{!isUsage && '+'}{isFreeTrial ? '1' : log.amount?.toLocaleString()}</span> {isFreeTrial ? 'free message' : 'credits'}</p>
-                                {log.balance_after !== undefined && (
-                                    <p className="text-[10px] text-[#9aa0a6] mt-0.5">Balance: {log.balance_after?.toLocaleString()} credits</p>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
-                                {log.status && <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30">{log.status === 'completed' ? 'Paid' : log.status}</span>}
-                                {subAccountPill}
-                            </div>
+                        <p className="mt-1 truncate text-[13px] leading-5 text-[#6e6e73] dark:text-[#b1b6c0]">
+                            {isFreeTrial ? 'Deducted' : (isUsage ? 'Deducted' : 'Added')} <span className={`font-black ${isUsage ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{!isUsage && '+'}{amountLabel}</span> {isFreeTrial ? 'free message' : 'credits'}
+                            {log.balance_after !== undefined && <span className="ml-2 text-[11px] text-[#9aa0a6]">Balance: {log.balance_after?.toLocaleString()}</span>}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {publicReferenceId && metaChip(<><span className="text-[#9aa0a6]">Ref</span> <span className="font-mono text-[9px] text-[#6e6e73] dark:text-[#d1d5db]">{String(publicReferenceId).slice(0, 10)}</span></>)}
+                            {subAccountPill}
                         </div>
                     </div>
+                    {dateBlock}
                 </div>
             );
         }
