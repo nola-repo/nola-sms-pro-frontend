@@ -830,6 +830,7 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                 const type = getType(log);
                 const ts = log.timestamp || log.date_created || log.created_at;
                 const providerMessageId = log.provider_message_id || log.provider_reference_id;
+                const publicReferenceId = log.message_reference_id || log.transaction_reference_id || log.request_reference_id || log.reference_id;
                 const dtStr = ts ? new Date(ts).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—';
                 return (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -852,6 +853,7 @@ export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => voi
                                             <div><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Sender Name</p><p className="text-[13px] font-mono text-[#111111] dark:text-white">{log.sender_name || log.sendername || 'System'}</p></div>
                                             <div><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Date</p><p className="text-[13px] text-[#111111] dark:text-white">{dtStr}</p></div>
                                         </div>
+                                        {publicReferenceId && <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5"><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Reference ID</p><p className="text-[12px] font-mono text-[#6e6e73] dark:text-[#9aa0a6] break-all">{publicReferenceId}</p></div>}
                                         {providerMessageId && <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5"><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Provider Message ID</p><p className="text-[12px] font-mono text-[#6e6e73] dark:text-[#9aa0a6] break-all">{providerMessageId}</p></div>}
                                         {log.location_id && <div className="pt-3 border-t border-[#e5e5e5] dark:border-white/5"><p className="text-[10px] font-bold text-[#9aa0a6] uppercase tracking-widest mb-1">Location ID</p><p className="text-[12px] font-mono text-[#6e6e73] dark:text-[#9aa0a6]">{log.location_id}</p></div>}
                                     </div>

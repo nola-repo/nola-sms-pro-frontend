@@ -2454,6 +2454,9 @@ const CreditsSection: React.FC = () => {
                                         <div className="flex-1 min-w-0">
                                             <p className="text-[13px] font-medium text-[#111111] dark:text-[#ececf1] truncate">{displayDescription}</p>
                                             <p className="text-[11px] text-[#9aa0a6]">{formatTxDate(tx.created_at)}</p>
+                                            {(tx.reference_id || tx.transaction_reference_id) && (
+                                                <p className="text-[10px] font-mono text-[#9aa0a6] truncate">Ref: {tx.reference_id || tx.transaction_reference_id}</p>
+                                            )}
                                         </div>
                                         <div className="flex flex-col items-end flex-shrink-0">
                                             <span className={`text-[13px] font-bold ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>

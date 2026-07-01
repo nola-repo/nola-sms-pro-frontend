@@ -25,6 +25,8 @@ export interface CreditTransaction {
     amount: number;
     balance_after: number;
     reference_id?: string;
+    transaction_reference_id?: string;
+    source_reference_id?: string;
     description: string;
     created_at: string;
 }

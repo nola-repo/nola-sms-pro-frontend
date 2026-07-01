@@ -42,11 +42,17 @@ interface Transaction {
   balance_after: number;
   description: string;
   timestamp: string;
+  reference_id?: string;
+  transaction_reference_id?: string;
+  request_reference_id?: string;
+  transfer_reference_id?: string;
   location_name?: string;
 }
 
 interface CreditRequest {
   request_id: string;
+  reference_id?: string;
+  request_reference_id?: string;
   location_id: string;
   location_name: string;
   amount: number;
@@ -1361,6 +1367,9 @@ export const Billing: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <div className="text-[13px] font-medium text-[#111111] dark:text-[#ececf1] truncate">{tx.description}</div>
                           <div className="text-[11px] text-[#9aa0a6]">{fmtDate(tx.timestamp)}</div>
+                          {(tx.reference_id || tx.transaction_reference_id) && (
+                            <div className="text-[10px] font-mono text-[#9aa0a6] truncate">Ref: {tx.reference_id || tx.transaction_reference_id}</div>
+                          )}
                         </div>
                         <div className="flex flex-col items-end flex-shrink-0">
                           <span className={`text-[13px] font-bold ${isPos ? 'text-emerald-500' : 'text-red-500'}`}>
@@ -1504,6 +1513,9 @@ export const Billing: React.FC = () => {
                           {req.note && <> · <span className="italic">"{req.note}"</span></>}
                         </div>
                         <div className="text-[11px] text-[#9aa0a6] mt-0.5">{fmtDate(req.created_at)}</div>
+                        {(req.reference_id || req.request_reference_id) && (
+                          <div className="text-[10px] font-mono text-[#9aa0a6] mt-0.5 truncate">Ref: {req.reference_id || req.request_reference_id}</div>
+                        )}
                       </div>
                       {isPending ? (
                         <div className="flex items-center gap-2 flex-shrink-0">
