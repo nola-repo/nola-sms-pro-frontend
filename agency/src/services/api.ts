@@ -71,14 +71,16 @@ export const toggleSubaccount = async (agencyId: string, payload: {
   // swallowed by the catch that only intends to handle JSON parse failures.
   if (res.status === 403) {
     let limitReached = false;
+    let limitMessage = 'Activation limit reached. Please upgrade in the Subscription tab.';
     try {
       const data = await res.clone().json();
       limitReached = data?.status === 'limit_reached';
+      limitMessage = data?.message || data?.error || limitMessage;
     } catch {
-      // JSON parse failed — fall through to generic handleResponse error
+      // JSON parse failed ? fall through to generic handleResponse error
     }
     if (limitReached) {
-      const err = new APIError('Activation limit reached. Please contact support to re-enable this subaccount.');
+      const err = new APIError(limitMessage);
       err.status = 403;
       throw err;
     }

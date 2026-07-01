@@ -22,7 +22,7 @@ const formatDate = (value?: string | null) => {
 const displayValue = (value?: string | number | null) =>
     value === undefined || value === null || value === '' ? '—' : String(value);
 
-export const AgencySubaccountProfile = ({ subaccount, onClose, onSaved, onToggleActive }) => {
+export const AgencySubaccountProfile = ({ subaccount, onClose, onSaved, onToggleActive, activationDisabled = false, activationDisabledMessage = 'Plan limit reached.' }) => {
     const [form, setForm] = useState({
         name: subaccount?.name || subaccount?.full_name || subaccount?.location_name || '',
         email: subaccount?.email || '',
@@ -117,6 +117,10 @@ export const AgencySubaccountProfile = ({ subaccount, onClose, onSaved, onToggle
 
     const handleToggleActive = async () => {
         const nextActive = !active;
+        if (nextActive && activationDisabled) {
+            setStatus({ type: 'error', message: activationDisabledMessage });
+            return;
+        }
         setActive(nextActive);
         setStatus(null);
         try {
@@ -222,13 +226,17 @@ export const AgencySubaccountProfile = ({ subaccount, onClose, onSaved, onToggle
                         <div>
                             <p className="text-[13px] font-bold text-[#111111] dark:text-white">SMS Active Toggle</p>
                             <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6]">Enable or disable SMS webhook access for this subaccount.</p>
+                            {!active && activationDisabled && (
+                                <p className="mt-1 text-[11px] font-bold text-red-500">Plan limit reached</p>
+                            )}
                         </div>
                         <button
                             type="button"
                             role="switch"
                             aria-checked={active}
                             onClick={handleToggleActive}
-                            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${active ? 'bg-[#2b83fa]' : 'bg-gray-300 dark:bg-[#3a3b3f]'}`}
+                            disabled={!active && activationDisabled}
+                            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${active ? 'bg-[#2b83fa]' : 'bg-gray-300 dark:bg-[#3a3b3f]'} ${!active && activationDisabled ? 'cursor-not-allowed opacity-50' : ''}`}
                         >
                             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${active ? 'translate-x-6' : 'translate-x-1'}`} />
                         </button>

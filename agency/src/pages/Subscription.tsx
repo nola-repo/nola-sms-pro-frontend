@@ -255,6 +255,11 @@ export const Subscription: React.FC = () => {
                   style={{ width: `${getUsagePercentage()}%` }}
                 />
               </div>
+              {subState.total_subaccounts !== undefined && (
+                <div className="mt-2 text-[12px] font-semibold text-[#6e6e73] dark:text-[#9aa0a9]">
+                  {subState.total_subaccounts} total connected subaccounts available to choose from.
+                </div>
+              )}
               {isSubscriptionLimitReached(subState) && (
                 <div className="flex items-center gap-2 mt-2 text-[12px] text-red-500 font-semibold">
                   <FiAlertTriangle className="w-3.5 h-3.5" /> Limit reached. Please upgrade to enable more subaccounts.

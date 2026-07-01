@@ -39,7 +39,7 @@ import {
 
 // ─── Toggle Switch ──────────────────────────────────────────────────────────────
 const ToggleSwitch = ({ id, checked, onChange, disabled }) => (
-  <label className={`relative inline-flex items-center cursor-pointer select-none ${disabled ? 'opacity-50 cursor-wait' : ''}`} htmlFor={`toggle-${id}`}>
+  <label className={`relative inline-flex items-center select-none ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`} htmlFor={`toggle-${id}`}>
     <input
       id={`toggle-${id}`}
       type="checkbox"
@@ -408,7 +408,7 @@ export const Subaccounts = () => {
         setSubaccounts(loadedSubaccounts);
         setError(null);
         setSubState(normalizeSubscriptionState(subStateData, {
-          fallbackSubaccountsUsed: loadedSubaccounts.length,
+          fallbackSubaccountsUsed: loadedSubaccounts.filter((sub: any) => sub.toggle_enabled).length,
         }));
       })
       .catch(e => {
@@ -491,10 +491,13 @@ export const Subaccounts = () => {
     const targetSubaccount = subaccounts.find(s => s.location_id === locationId);
     const wasEnabled = !!targetSubaccount?.toggle_enabled;
     if (enabled && !wasEnabled) {
-      const currentSubscription = normalizeSubscriptionState(subState, {
-        fallbackSubaccountsUsed: subaccounts.length,
-      });
       const activeCount = subaccounts.filter(s => s.toggle_enabled).length;
+      const currentSubscription = {
+        ...normalizeSubscriptionState(subState, {
+          fallbackSubaccountsUsed: activeCount,
+        }),
+        subaccounts_used: activeCount,
+      };
       const limit = currentSubscription.subaccount_limit;
 
       if (!isSubscriptionActive(currentSubscription.status)) {
@@ -550,6 +553,7 @@ export const Subaccounts = () => {
         })
       );
       if (e.status === 403) {
+        showToast(e.message || 'Activation limit reached. Please upgrade in the Subscription tab.', 'error');
         setUpgradeModalOpen(true);
       } else {
         showToast(`Toggle failed: ${e.message}`, 'error');
@@ -653,13 +657,14 @@ export const Subaccounts = () => {
   const active = subaccounts.filter(s => s.toggle_enabled).length;
   const atLimit = subaccounts.filter(s => s.attempt_count >= s.rate_limit).length;
   const normalizedSubscription = normalizeSubscriptionState(subState, {
-    fallbackSubaccountsUsed: subaccounts.length,
+    fallbackSubaccountsUsed: active,
   });
-  const subscriptionAllowsSubaccounts = isSubscriptionActive(normalizedSubscription.status);
-  const atSubscriptionLimit = !subscriptionAllowsSubaccounts || isSubscriptionLimitReached(normalizedSubscription);
+  const effectiveSubscription = { ...normalizedSubscription, subaccounts_used: active };
+  const subscriptionAllowsSubaccounts = isSubscriptionActive(effectiveSubscription.status);
+  const atSubscriptionLimit = !subscriptionAllowsSubaccounts || isSubscriptionLimitReached(effectiveSubscription);
   const subscriptionBlockedMessage = !subscriptionAllowsSubaccounts
-    ? `Your subscription is ${normalizedSubscription.status.replace(/_/g, ' ')}. Please renew before adding subaccounts.`
-    : `You have reached the limit of your ${normalizedSubscription.plan} plan (${getSubscriptionLimitText(normalizedSubscription.subaccount_limit)} subaccounts). Please upgrade in the Subscription tab.`;
+    ? `Your subscription is ${effectiveSubscription.status.replace(/_/g, ' ')}. Please renew before adding subaccounts.`
+    : `You have reached the limit of your ${effectiveSubscription.plan} plan (${getSubscriptionLimitText(effectiveSubscription.subaccount_limit)} active subaccounts). Please upgrade in the Subscription tab.`;
 
   const filtered = subaccounts.filter(s => {
     const statusMeta = getSubaccountStatusMeta(s, installedLocations);
@@ -1049,6 +1054,7 @@ export const Subaccounts = () => {
                     const isAtLimit = sub.attempt_count >= sub.rate_limit;
                     const isNearLimit = !isAtLimit && sub.attempt_count >= sub.rate_limit * 0.8;
                     const isBusy = !!toggleLoading[sub.location_id];
+                    const activationBlocked = !sub.toggle_enabled && atSubscriptionLimit;
                     const statusMeta = getSubaccountStatusMeta(sub, installedLocations);
 
                     return (
@@ -1140,12 +1146,16 @@ export const Subaccounts = () => {
                                     id={sub.location_id}
                                     checked={!!sub.toggle_enabled}
                                     onChange={enabled => handleToggle(sub.location_id, enabled)}
-                                    disabled={isBusy}
+                                    disabled={isBusy || activationBlocked}
                                   />
                                 </div>
-                                <div className="text-[10.5px] font-medium text-[#9ca3af]">
-                                  {sub.toggle_activation_count ?? 0}/3 activations
-                                </div>
+                                {activationBlocked ? (
+                                  <div className="text-[10.5px] font-bold text-red-500">Plan limit reached</div>
+                                ) : (
+                                  <div className="text-[10.5px] font-medium text-[#9ca3af]">
+                                    {sub.toggle_activation_count ?? 0}/3 activations
+                                  </div>
+                                )}
                               </>
                             ) : (
                               <div className="flex flex-col items-start gap-1.5">
@@ -1264,6 +1274,8 @@ export const Subaccounts = () => {
           onToggleActive={async (locationId, enabled) => {
             await handleToggle(locationId, enabled);
           }}
+          activationDisabled={!profileSubaccount.toggle_enabled && atSubscriptionLimit}
+          activationDisabledMessage={subscriptionBlockedMessage}
         />
       )}
     </AgencyLayout>

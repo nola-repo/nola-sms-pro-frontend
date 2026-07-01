@@ -72,6 +72,22 @@ const formatRequestDate = (value?: string) => {
     return parsed.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
+const getRequestReferenceId = (req: any) =>
+    String(req?.reference_id || req?.request_reference_id || req?.request_ref || req?.id || 'Unknown');
+
+const getDecisionDate = (req: any) => {
+    const status = String(req?.status || '').toLowerCase();
+    if (status === 'approved') return req.approved_at || req.approvedAt || req.decision_at || req.decisionAt || req.updated_at || req.updatedAt;
+    if (status === 'rejected') return req.rejected_at || req.rejectedAt || req.decision_at || req.decisionAt || req.updated_at || req.updatedAt;
+    return null;
+};
+
+const getDecisionLabel = (req: any) => {
+    const status = String(req?.status || '').toLowerCase();
+    if (status === 'approved') return 'Approval Date';
+    if (status === 'rejected') return 'Rejection Date';
+    return 'Decision Date';
+};
 const ProviderBadge: React.FC<{ provider: string }> = ({ provider }) => {
     const normalized = provider === 'unisms' ? 'unisms' : provider === 'system' ? 'system' : 'semaphore';
     const styles: Record<string, string> = {
@@ -624,6 +640,7 @@ export const AdminSenderRequests: React.FC = () => {
                             const isActing = actionLoading?.startsWith(req.id);
                             const associatedAccount = accounts.find(a => a.location_id === req.location_id);
                             const isFormatValid = /^[a-zA-Z0-9]{3,11}$/.test(req.requested_id || '');
+                            const decisionDate = getDecisionDate(req);
                             
                             return (
                                 <>
@@ -661,6 +678,11 @@ export const AdminSenderRequests: React.FC = () => {
 
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] p-4 min-w-0">
+                                                    <p className="text-[10px] font-black text-[#9aa0a6] uppercase tracking-widest mb-2">Reference ID</p>
+                                                    <p className="text-[13px] font-black text-[#111111] dark:text-white break-all font-mono">{getRequestReferenceId(req)}</p>
+                                                    <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">Use this for tracking and support</p>
+                                                </div>
+                                                <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] p-4 min-w-0">
                                                     <p className="text-[10px] font-black text-[#9aa0a6] uppercase tracking-widest mb-2">Account</p>
                                                     <p className="text-[14px] font-black text-[#111111] dark:text-white truncate">{associatedAccount?.location_name || req.location_name || 'Unknown Account'}</p>
                                                     <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] truncate mt-1" title={req.location_id}>{req.location_id}</p>
@@ -673,6 +695,13 @@ export const AdminSenderRequests: React.FC = () => {
                                                     <p className="text-[14px] font-black text-[#111111] dark:text-white">{formatRequestDate(req.created_at || req.createdAt || req.updated_at)}</p>
                                                     <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">Request timestamp</p>
                                                 </div>
+                                                {decisionDate && (
+                                                    <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] p-4">
+                                                        <p className="text-[10px] font-black text-[#9aa0a6] uppercase tracking-widest mb-2">{getDecisionLabel(req)}</p>
+                                                        <p className="text-[14px] font-black text-[#111111] dark:text-white">{formatRequestDate(decisionDate)}</p>
+                                                        <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">Latest request decision</p>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div className="rounded-xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#111214] p-4">
