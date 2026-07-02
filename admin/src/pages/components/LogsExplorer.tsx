@@ -253,6 +253,29 @@ export const LogsExplorer: React.FC = () => {
             return `${type} ${status} | ${loc}${requestId}`;
         };
 
+        const failureReasonOf = (log: any): string => {
+            if (severityOf(log) !== 'ERROR') return '';
+
+            const providerResponse = log.provider_response || log.response || log.raw_response;
+            const candidates = [
+                log.failure_reason,
+                log.failed_reason,
+                log.error_message,
+                log.error,
+                log.reason,
+                log.status_message,
+                log.provider_error,
+                log.response_message,
+                providerResponse?.error,
+                providerResponse?.message,
+                providerResponse?.description,
+            ];
+            const value = candidates.find(item => typeof item === 'string' && item.trim());
+            if (value) return String(value).trim();
+            if (providerResponse && typeof providerResponse === 'object') return JSON.stringify(providerResponse);
+            return '';
+        };
+
         const allLogs = [...apiDebugLogs, ...diagnosticLogs, ...logs];
         const seen = new Set<string>();
 
@@ -283,6 +306,7 @@ export const LogsExplorer: React.FC = () => {
                         : 'Just now',
                     type: typeOf(log),
                     summary: summaryOf(log),
+                    failureReason: failureReasonOf(log),
                 };
             });
     }, [apiDebugLogs, diagnosticLogs, logs]);
@@ -296,6 +320,7 @@ export const LogsExplorer: React.FC = () => {
             row.time,
             row.type,
             row.summary,
+            row.failureReason,
         ].join(' ').toLowerCase().includes(normalizedLogSearch));
     }, [logRows, normalizedLogSearch]);
 
@@ -448,6 +473,11 @@ export const LogsExplorer: React.FC = () => {
                                     <td className="px-5 py-3 align-middle text-[11px] font-black uppercase tracking-wider text-[#111111] dark:text-white">{row.type}</td>
                                     <td className="px-5 py-3 align-middle text-[12px] font-medium text-[#6e6e73] dark:text-[#9aa0a6]">
                                         <div className="truncate" title={row.summary}>{row.summary}</div>
+                                        {row.failureReason && (
+                                            <div className="mt-0.5 truncate text-[11px] font-semibold text-red-600 dark:text-red-400" title={row.failureReason}>
+                                                Reason: {row.failureReason}
+                                            </div>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
