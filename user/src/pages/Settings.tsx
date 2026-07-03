@@ -15,8 +15,6 @@ import { generateMonthlyReport } from "../utils/pdfGenerator";
 import {
     getAccountSettings, saveAccountSettings,
     getNotificationSettings, saveNotificationSettings as saveNotificationSettingsLocal,
-    getStoredSenderIds, saveStoredSenderIds,
-    getPreferredSender, savePreferredSender,
     type AccountSettings, type NotificationSettings, type StoredSenderId
 } from "../utils/settingsStorage";
 import {
@@ -43,6 +41,7 @@ import { apiFetch } from "../utils/apiFetch";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export type SettingsTab = "account" | "senderIds" | "notifications" | "credits";
+type SenderDisplayStatus = "fallback" | "active" | "approved" | "pending" | "rejected" | "revoked" | "configuration_mismatch";
 
 interface SettingsProps {
     darkMode: boolean;
@@ -70,11 +69,14 @@ const SETTINGS_TAB_ROUTES: Record<SettingsTab, string> = {
 
 const SENDER_ICONS = [<FiGlobe />, <FiMapPin />, <FiBriefcase />, <FiCheckCircle />];
 
-const STATUS_CONFIG = {
-    approved: { label: "Approved", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20", icon: <FiCheck className="w-3 h-3" /> },
+const STATUS_CONFIG: Record<SenderDisplayStatus, { label: string; color: string; bg: string; icon: React.ReactElement }> = {
+    fallback: { label: "System Default / Fallback Sender", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20", icon: <FiGlobe className="w-3 h-3" /> },
+    active: { label: "Approved \u00b7 Active Sender", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20", icon: <FiCheck className="w-3 h-3" /> },
+    approved: { label: "Approved", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20", icon: <FiCheckCircle className="w-3 h-3" /> },
     pending: { label: "Pending", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20", icon: <FiClock className="w-3 h-3" /> },
     rejected: { label: "Rejected", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/20", icon: <FiAlertCircle className="w-3 h-3" /> },
     revoked: { label: "Revoked", color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-white/10", icon: <FiShieldOff className="w-3 h-3" /> },
+    configuration_mismatch: { label: "Configuration mismatch", color: "text-orange-700 dark:text-orange-300", bg: "bg-orange-50 dark:bg-orange-900/20", icon: <FiAlertCircle className="w-3 h-3" /> },
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -940,14 +942,16 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
     const [config, setConfig] = useState<AccountSenderConfig | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(() => Boolean(autoOpenAddModal));
-    const [preferredSender, setPreferredSender] = useState<string | null>(getPreferredSender());
     const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-    // Fetch data from API simultaneously to avoid cascading load flashes
-    useEffect(() => {
-        let cancelled = false;
+    const applySenderData = useCallback((requests: SenderRequest[], cfg: AccountSenderConfig | null) => {
+        setSenderRequests(requests);
+        if (cfg) setConfig(cfg);
+    }, []);
 
-        Promise.all([
+    const loadSenderData = useCallback(async (showLoading = false) => {
+        if (showLoading) setIsLoading(true);
+        const [requests, cfg] = await Promise.all([
             fetchSenderRequests(locationId).catch(err => {
                 devLog.error("Failed to fetch sender requests:", err);
                 return [];
@@ -956,96 +960,104 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                 devLog.error("Failed to fetch account sender config:", err);
                 return null;
             })
-        ]).then(([requests, cfg]) => {
-            if (cancelled) return;
-            setSenderRequests(requests);
-            if (cfg) setConfig(cfg);
-            setIsLoading(false);
+        ]);
+        applySenderData(requests, cfg);
+        setIsLoading(false);
+        return { requests, config: cfg };
+    }, [applySenderData, locationId]);
 
-            // Sync localStorage with API truth — remove stale entries
-            // that no longer exist in the backend (e.g., after a DB clear)
-            const apiIds = new Set<string>();
-            if (cfg?.approved_sender_id) apiIds.add(cfg.approved_sender_id);
-            for (const req of requests) apiIds.add(req.requested_id);
-
-            const stored = getStoredSenderIds();
-            if (stored.length > 0) {
-                const synced = stored.filter(s => apiIds.has(s.id));
-                if (synced.length !== stored.length) {
-                    saveStoredSenderIds(synced);
-                }
-            }
-
-            const systemSender = cfg?.system_default_sender || "NOLASMSPro";
-            const validPreferredSenders = new Set<string>([systemSender]);
-            if (cfg?.approved_sender_id) validPreferredSenders.add(cfg.approved_sender_id);
-            const currentPreferred = getPreferredSender();
-            if (currentPreferred && !validPreferredSenders.has(currentPreferred)) {
-                savePreferredSender(systemSender);
-                setPreferredSender(systemSender);
-            }
-        });
-
-        return () => { cancelled = true; };
-    }, [locationId]);
+    // Fetch requests and account config together so display state reflects the real backend pairing.
+    useEffect(() => {
+        void loadSenderData(true);
+    }, [loadSenderData]);
 
     const systemDefault = config?.system_default_sender || "NOLASMSPro";
     const freeUsageCount = config?.free_usage_count || 0;
     const freeLimit = config?.free_credits_total || 10;
     const providerLabel = (value?: string | null) => {
-        if (value?.startsWith("unisms")) return "UniSMS";
-        if (value?.startsWith("semaphore")) return "Semaphore";
-        return "System";
+        const normalized = value?.toLowerCase().trim() || "";
+        if (normalized.startsWith("unisms")) return "UniSMS";
+        if (normalized.startsWith("semaphore")) return "Semaphore";
+        return undefined;
     };
-    const configuredKeyLabel = config?.provider_preference?.startsWith("unisms")
-        ? config?.unisms_api_key_configured
-            ? `Key configured${config.unisms_api_key_masked ? ` (${config.unisms_api_key_masked})` : ""}`
-            : "System UniSMS account"
-        : config?.provider_preference?.startsWith("semaphore")
-            ? config?.semaphore_api_key_configured || config?.nola_pro_api_key_configured
-                ? `Key configured${config.semaphore_api_key_masked || config.nola_pro_api_key_masked ? ` (${config.semaphore_api_key_masked || config.nola_pro_api_key_masked})` : ""}`
-                : "System Semaphore account"
-            : "System sender";
 
-    // Build display list: system default + API-fetched requests
-    const displayItems: { id: string; name: string; description: string; status: "approved" | "pending" | "rejected" | "revoked"; color: string; isSystem: boolean; submittedAt?: string; adminNotes?: string; sampleMessage?: string; provider?: string }[] = [
-        { id: "system-default", name: systemDefault, description: "System Default (Free Tier)", status: "approved", color: "bg-blue-500", isSystem: true },
+    const configuredSenderId = config?.approved_sender_id?.trim() || "";
+    const configuredSenderKey = configuredSenderId.toLowerCase();
+    const activeRequest = configuredSenderKey
+        ? senderRequests.find(req => req.status === "approved" && req.requested_id.trim().toLowerCase() === configuredSenderKey)
+        : undefined;
+    const activeProvider = providerLabel(activeRequest?.provider || activeRequest?.approved_provider || config?.approved_provider || activeRequest?.provider_preference || config?.provider_preference);
+
+    const colorForStatus = (status: SenderDisplayStatus) => {
+        switch (status) {
+            case "fallback": return "bg-blue-500";
+            case "active": return "bg-emerald-500";
+            case "approved": return "bg-blue-500";
+            case "pending": return "bg-amber-500";
+            case "rejected": return "bg-red-500";
+            case "configuration_mismatch": return "bg-orange-500";
+            case "revoked": return "bg-slate-500";
+        }
+    };
+
+    const descriptionForRequest = (req: SenderRequest, status: SenderDisplayStatus) => {
+        if (status === "configuration_mismatch") {
+            return "Configuration Issue - Contact Support.";
+        }
+        if (status === "approved") {
+            return "Approved, but not currently active.";
+        }
+        if (status === "revoked") {
+            return "Explicitly revoked by an administrator.";
+        }
+        return req.purpose || "Sender ID Request";
+    };
+
+    // Build display list: active system/default sender + API-fetched request history.
+    const displayItems: { id: string; name: string; description: string; status: SenderDisplayStatus; color: string; isSystem: boolean; submittedAt?: string; adminNotes?: string; sampleMessage?: string; provider?: string }[] = [
+        { id: "system-default", name: systemDefault, description: "Fallback sender used only when no approved sender is active.", status: "fallback", color: "bg-blue-500", isSystem: true },
     ];
 
-    // Add approved sender from config (if different from system default)
-    if (config?.approved_sender_id && config.approved_sender_id !== systemDefault) {
+    // Add active custom sender from config (if different from system default).
+    if (configuredSenderId && configuredSenderId !== systemDefault) {
         displayItems.push({
             id: "approved-custom",
-            name: config.approved_sender_id,
-            description: `${providerLabel(config.provider_preference)} - ${configuredKeyLabel}`,
-            status: "approved",
+            name: configuredSenderId,
+            description: "Active sender configured for this account.",
+            status: "active",
             color: "bg-emerald-500",
             isSystem: false,
-            provider: providerLabel(config.provider_preference),
+            provider: activeProvider,
         });
     }
 
-    // Add pending/rejected requests
     for (const req of senderRequests) {
-        if (req.status === "approved" && config?.approved_sender_id === req.requested_id) continue;
-        const displayStatus = req.status === "approved" && config?.approved_sender_id !== req.requested_id ? "revoked" : req.status;
+        const requestSenderKey = req.requested_id.trim().toLowerCase();
+        if (req.status === "approved" && configuredSenderKey && configuredSenderKey === requestSenderKey) continue;
+
+        const displayStatus: SenderDisplayStatus = req.status === "approved"
+            ? "configuration_mismatch"
+            : req.status;
+
         displayItems.push({
             id: req.id,
             name: req.requested_id,
-            description: displayStatus === "revoked" ? "Previously approved, not currently active." : req.purpose || "Sender ID Request",
+            description: descriptionForRequest(req, displayStatus),
             status: displayStatus,
-            color: displayStatus === "pending" ? "bg-amber-500" : displayStatus === "rejected" ? "bg-red-500" : displayStatus === "revoked" ? "bg-slate-500" : "bg-emerald-500",
+            color: colorForStatus(displayStatus),
             isSystem: false,
             submittedAt: req.created_at,
             adminNotes: req.admin_notes,
             sampleMessage: req.sample_message,
-            provider: displayStatus === "pending" ? undefined : providerLabel(req.provider_preference || req.provider),
+            provider: displayStatus === "pending" ? undefined : providerLabel(req.provider || req.approved_provider || req.provider_preference),
         });
     }
 
+    const activeCount = displayItems.filter(item => item.status === "active").length;
     const pendingCount = senderRequests.filter(req => req.status === "pending").length;
     const rejectedCount = senderRequests.filter(req => req.status === "rejected").length;
     const revokedCount = senderRequests.filter(req => req.status === "revoked").length;
+    const mismatchCount = displayItems.filter(item => item.status === "configuration_mismatch").length;
 
     const handleSuccess = (newSender?: StoredSenderId) => {
         if (newSender) {
@@ -1062,9 +1074,9 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
             ]);
         }
 
-        // Fetch from server after index delay catch-up
+        // Refetch requests and account config after index delay catch-up.
         setTimeout(() => {
-            fetchSenderRequests(locationId).then(setSenderRequests);
+            void loadSenderData();
         }, 1500);
     };
 
@@ -1073,7 +1085,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
         setCancellingId(requestId);
         try {
             await cancelSenderRequest(requestId, locationId);
-            setSenderRequests(prev => prev.filter(req => req.id !== requestId));
+            await loadSenderData();
         } catch (error) {
             devLog.error("Failed to cancel sender request:", error);
             alert(error instanceof Error ? error.message : "Failed to cancel sender request.");
@@ -1086,10 +1098,10 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
         <div className="space-y-5">
             <SectionHeader title="Sender IDs" subtitle="Manage and request sender IDs for your account. Only approved IDs can be used for sending." />
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                 <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Active</p>
-                    <p className="text-[20px] font-black text-[#111111] dark:text-white mt-1">{displayItems.filter(item => item.status === "approved").length}</p>
+                    <p className="text-[20px] font-black text-[#111111] dark:text-white mt-1">{activeCount}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/30">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Pending Review</p>
@@ -1102,6 +1114,10 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                 <div className="p-4 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-400">Revoked</p>
                     <p className="text-[20px] font-black text-[#111111] dark:text-white mt-1">{revokedCount}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800/30">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400">Config Issue</p>
+                    <p className="text-[20px] font-black text-[#111111] dark:text-white mt-1">{mismatchCount}</p>
                 </div>
             </div>
 
@@ -1135,9 +1151,6 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                             const statusCfg = STATUS_CONFIG[sid.status];
                             const icon = SENDER_ICONS[i % SENDER_ICONS.length];
                             
-                            const currentDefaultName = preferredSender || config?.approved_sender_id || systemDefault;
-                            const isDefault = sid.name === currentDefaultName && sid.status === "approved";
-
                             return (
                                 <div key={sid.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] group">
                                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0 text-[14px] ${sid.color}`}>
@@ -1149,11 +1162,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusCfg.bg} ${statusCfg.color}`}>
                                                 {statusCfg.icon} {statusCfg.label}
                                             </span>
-                                            {isDefault && (
-                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20 text-blue-500`}>
-                                                    Default Sender
-                                                </span>
-                                            )}
+
                                             {sid.isSystem && (
                                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                                     freeUsageCount >= freeLimit 
@@ -1177,8 +1186,11 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                                             {sid.status === "rejected" && sid.adminNotes && (
                                                 <p className="text-[11px] text-red-600 dark:text-red-400 font-medium leading-snug">Admin note: {sid.adminNotes}</p>
                                             )}
+                                            {sid.status === "configuration_mismatch" && (
+                                                <p className="text-[11px] text-orange-700 dark:text-orange-300 font-semibold leading-snug">Approved request exists, but this account has no active sender mapping. Contact support before sending.</p>
+                                            )}
                                             {sid.status === "revoked" && (
-                                                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium leading-snug">This sender was removed and messages now use your default sender.</p>
+                                                <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium leading-snug">This sender was explicitly revoked and messages now use the system fallback.</p>
                                             )}
                                         </div>
                                     </div>
@@ -1193,17 +1205,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                                             {cancellingId === sid.id ? "Cancelling..." : "Cancel Request"}
                                         </button>
                                     )}
-                                    {sid.status === "approved" && !isDefault && (
-                                        <button 
-                                            onClick={() => {
-                                                savePreferredSender(sid.name);
-                                                setPreferredSender(sid.name);
-                                            }}
-                                            className="opacity-0 group-hover:opacity-100 transition-opacity px-3 py-1.5 text-[11px] font-bold text-[#2b83fa] bg-[#2b83fa]/10 hover:bg-[#2b83fa]/20 rounded-lg whitespace-nowrap"
-                                        >
-                                            Set as Default
-                                        </button>
-                                    )}
+
                                 </div>
                             );
                         })}

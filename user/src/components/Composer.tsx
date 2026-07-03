@@ -217,7 +217,7 @@ export const Composer: React.FC<ComposerProps> = ({
     savePreferredSender(val);
   };
 
-  // Dynamic sender default: prioritize user's preferred sender, else approved sender, else system default
+  // Dynamic sender default: active approved sender first, system sender only as fallback.
   useEffect(() => {
     let cancelled = false;
     fetchAccountSenderConfig(locationId || undefined).then(cfg => {
@@ -232,15 +232,12 @@ export const Composer: React.FC<ComposerProps> = ({
       }
       
       const systemSender = cfg.system_default_sender || "NOLASMSPro";
-      const preferredIsValid = preferred === systemSender || preferred === cfg.approved_sender_id;
 
-      if (preferred && preferredIsValid) {
-        setSenderName(preferred);
-      } else if (cfg.approved_sender_id) {
+      if (cfg.approved_sender_id) {
         setSenderName(cfg.approved_sender_id);
       } else {
         setSenderName(systemSender);
-        if (preferred && !preferredIsValid) {
+        if (preferred && preferred !== systemSender) {
           savePreferredSender(systemSender);
         }
       }

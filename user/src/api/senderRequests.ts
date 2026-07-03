@@ -13,6 +13,7 @@ export interface SenderRequest {
     sample_message?: string;
     admin_notes?: string;
     provider?: SenderProvider;
+    approved_provider?: string | null;
     provider_preference?: ProviderPreference;
     unisms_sender_id?: string;
     created_at: string;
@@ -36,6 +37,7 @@ export interface AccountSenderConfig {
     unisms_api_key_configured?: boolean;
     unisms_sender_id?: string | null;
     provider_preference?: ProviderPreference;
+    approved_provider?: string | null;
     free_usage_count: number;
     free_credits_total?: number;
     system_default_sender: string;
