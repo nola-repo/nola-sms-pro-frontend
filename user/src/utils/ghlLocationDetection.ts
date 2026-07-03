@@ -20,12 +20,6 @@ const EXPLICIT_LOCATION_ID_KEYS = [
   'ghlLocationId',
   'active_location_id',
   'activeLocationId',
-  'selected_location_id',
-  'selectedLocationId',
-  'app_location_id',
-  'appLocationId',
-  'location.id',
-  'location[id]',
 ] as const;
 
 const EXPLICIT_LOCATION_OBJECT_KEYS = [
@@ -33,11 +27,6 @@ const EXPLICIT_LOCATION_OBJECT_KEYS = [
   'activeLocation',
   'selectedLocation',
   'selected_location',
-  'appLocation',
-  'app_location',
-  'subaccount',
-  'subAccount',
-  'account',
 ] as const;
 
 const SAFE_POST_MESSAGE_CONTAINERS = [
@@ -57,6 +46,12 @@ const ENCODED_LOCATION_PARAM_KEYS = [
   'context',
   'data',
 ] as const;
+
+const GHL_LOCATION_ID_PATTERN = /^[A-Za-z0-9_-]{12,80}$/;
+
+const isTemplatePlaceholder = (value: string): boolean =>
+  /\{\{[^}]+\}\}/.test(value) || value.includes('${');
+
 const detectLocationFromPathname = (pathname: string): LocationDetectionResult | null => {
   const segments = pathname.split('/').filter(Boolean).map((segment) => {
     try {
@@ -87,6 +82,8 @@ export function normalizeLocationCandidate(value: unknown): string | null {
   const candidate = String(value).trim();
   if (!candidate || candidate.length <= 4) return null;
   if (candidate === 'null' || candidate === 'undefined') return null;
+  if (isTemplatePlaceholder(candidate)) return null;
+  if (!GHL_LOCATION_ID_PATTERN.test(candidate)) return null;
   return candidate;
 }
 
@@ -115,8 +112,6 @@ export function detectLocationFromRecord(
       }
     }
 
-    const idCandidate = normalizeLocationCandidate(nestedRecord.id);
-    if (idCandidate) return { locationId: idCandidate, source: sourceName, path: `${path}.${key}.id` };
   }
 
   return null;
@@ -264,6 +259,13 @@ export function isAllowedGhlPostMessageOrigin(event: MessageEvent): boolean {
 
 export function detectLocationFromPostMessage(event: MessageEvent): LocationDetectionResult | null {
   if (!isAllowedGhlPostMessageOrigin(event)) return null;
+  try {
+    if (window.parent && window.parent !== window && event.source !== window.parent) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
 
   let data: unknown = event.data;
 
@@ -297,17 +299,6 @@ export function detectLocationFromPostMessage(event: MessageEvent): LocationDete
       if (nested && typeof nested === 'object') queue.push({ value: nested, path: `${item.path}.${key}` });
     }
 
-    for (const key of ['locationIds', 'locations'] as const) {
-      const values = record[key];
-      if (!Array.isArray(values)) continue;
-
-      for (let valueIndex = 0; valueIndex < values.length; valueIndex += 1) {
-        const value = values[valueIndex];
-        if (value && typeof value === 'object') {
-          queue.push({ value, path: `${item.path}.${key}[${valueIndex}]` });
-        }
-      }
-    }
   }
 
   return null;

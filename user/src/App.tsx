@@ -1,4 +1,3 @@
-import { devLog } from './utils/devLog';
 import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Dashboard } from "./pages/Dashboard";
@@ -11,20 +10,13 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { safeStorage } from "./utils/safeStorage";
 import { useUserProfile } from "./hooks/useUserProfile";
 import { UserProfileContext } from "./context/UserProfileContext";
-import { isAuthenticated, saveSession } from "./services/authService";
-import { useLocationId } from "./context/LocationContext";
-import { getAccountSettings, saveAccountSettings } from "./utils/settingsStorage";
-import { apiFetch } from "./utils/apiFetch";
-import { detectLocationFromCurrentUrl, hasGhlLaunchSignalInCurrentUrl } from "./utils/ghlLocationDetection";
-import { buildGhlAutologinPayload } from "./utils/ghlIframeContext";
+import { isAuthenticated } from "./services/authService";
+import { hasGhlLaunchSignalInCurrentUrl } from "./utils/ghlLocationDetection";
 import { FiBookOpen, FiMessageSquare, FiMoon, FiMoreHorizontal, FiSun, FiX } from "react-icons/fi";
 import { UserNotificationBell } from "./components/ui/UserNotificationBell";
 import type { ViewTab } from "./components/Sidebar";
 import { TicketsTab } from "./components/TicketsTab";
 
-const getCurrentUrlLocationId = (): string => {
-  return detectLocationFromCurrentUrl()?.locationId || "";
-};
 const isGhlEmbeddedRequest = (): boolean => {
   const hasGhlParam = hasGhlLaunchSignalInCurrentUrl();
 
@@ -55,16 +47,8 @@ const isGhlEmbeddedRequest = (): boolean => {
 
 const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
   const alreadySignedIn = isAuthenticated();
-  const { locationId } = useLocationId();
   const navigate = useNavigate();
-  const [autoLoginFailed, setAutoLoginFailed] = useState(false);
   const isGhlRequest = isGhlEmbeddedRequest();
-  const resolvedLocationId = getCurrentUrlLocationId() || locationId || (!isGhlRequest ? getAccountSettings().ghlLocationId : "");
-
-  useEffect(() => {
-    if (alreadySignedIn || isGhlRequest) return;
-    window.location.replace(`https://smspro-api.nolacrm.io${path}${window.location.search}`);
-  }, [path, alreadySignedIn, isGhlRequest]);
 
   useEffect(() => {
     if (alreadySignedIn) {
@@ -72,65 +56,13 @@ const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
       return;
     }
 
-    if (!isGhlRequest || !resolvedLocationId || autoLoginFailed) return;
-
-    const settings = getAccountSettings();
-    if (settings.ghlLocationId !== resolvedLocationId) {
-      saveAccountSettings({ ...settings, ghlLocationId: resolvedLocationId });
-    }
-    safeStorage.setItem("nola_location_id", resolvedLocationId);
-
-    let cancelled = false;
-    const params = new URLSearchParams({ location_id: resolvedLocationId });
-
-    apiFetch(`/api/auth/ghl_autologin?${params.toString()}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-GHL-Location-ID": resolvedLocationId,
-      },
-      body: JSON.stringify(buildGhlAutologinPayload(resolvedLocationId)),
-    })
-      .then(async (res) => {
-        const data = await res.json().catch(() => null);
-        if (cancelled) return;
-
-        if (res.ok && data?.token) {
-          saveSession(data);
-          navigate({ pathname: "/", search: window.location.search }, { replace: true });
-          window.location.reload();
-          return;
-        }
-
-        devLog.warn("[NOLA SMS] GHL auto-login from /login failed", res.status, data?.message || data?.error || res.statusText);
-        setAutoLoginFailed(true);
-        navigate({ pathname: "/", search: window.location.search }, { replace: true });
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        devLog.error("[NOLA SMS] GHL auto-login from /login errored", err);
-        setAutoLoginFailed(true);
-        navigate({ pathname: "/", search: window.location.search }, { replace: true });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [alreadySignedIn, autoLoginFailed, isGhlRequest, navigate, resolvedLocationId]);
-
-  useEffect(() => {
-    if (alreadySignedIn || !isGhlRequest || resolvedLocationId) return;
-
-    const timer = window.setTimeout(() => {
+    if (isGhlRequest) {
       navigate({ pathname: "/", search: window.location.search }, { replace: true });
-    }, 1500);
+      return;
+    }
 
-    return () => window.clearTimeout(timer);
-  }, [alreadySignedIn, isGhlRequest, navigate, resolvedLocationId]);
-
-  if (alreadySignedIn) {
-    return <Navigate to="/" replace />;
-  }
+    window.location.replace(`https://smspro-api.nolacrm.io${path}${window.location.search}`);
+  }, [path, alreadySignedIn, isGhlRequest, navigate]);
 
   return (
     <div className="h-screen w-full flex items-center justify-center bg-[#f7f8fc] dark:bg-[#0a0a0b]">

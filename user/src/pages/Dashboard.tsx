@@ -16,7 +16,7 @@ import { TicketsTab } from "../components/TicketsTab";
 import { useOnboarding } from "../components/onboarding/useOnboarding";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
 import { useLocationId } from "../context/LocationContext";
-import { GHL_BACKEND_ONBOARDING_URL, GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
+import { GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
 import faviconLogo from "../assets/FAV ICON - NOLA SMS PRO.png";
 import { isAuthenticated } from "../services/authService";
 import { useLocationBootstrap } from "../hooks/useLocationBootstrap";
@@ -32,10 +32,6 @@ interface DashboardProps {
   topControls?: React.ReactNode;
 }
 
-const buildBackendOnboardingUrl = (locationId: string): string => {
-  const state = encodeURIComponent(JSON.stringify({ selected_location_id: locationId }));
-  return `${GHL_BACKEND_ONBOARDING_URL}&state=${state}`;
-};
 
 const getBootstrapDiagnostic = (response?: LocationBootstrapResponse): string => {
   if (!response) return 'Workspace verification did not return diagnostics.';
@@ -106,6 +102,9 @@ const WorkspaceActionState: React.FC<{
         <div className="text-[11px] font-bold uppercase text-[#8a8f98] dark:text-[#8f949e] mb-1">GHL Location ID</div>
         <div className="font-mono text-[13px] text-[#111111] dark:text-white break-all">{locationId}</div>
         <div className="mt-2 font-mono text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] break-all">{getBootstrapDiagnostic(response)}</div>
+        {response?.request_id && (
+          <div className="mt-2 font-mono text-[11px] text-[#8a8f98] dark:text-[#9aa0a6] break-all">Request ID: {response.request_id}</div>
+        )}
       </div>
       <div className="flex flex-col sm:flex-row gap-3">
         {primaryLabel && onPrimary && (
@@ -137,6 +136,14 @@ const RegistrationRequiredState: React.FC<{
   const locationName = response.location_name && response.location_name !== 'Unknown'
     ? response.location_name
     : 'this subaccount';
+  const issuedOnboardingUrl = response.onboarding_url || response.registration_url || '';
+  const loginUrl = response.login_url || '';
+  const primaryUrl = response.code === 'LOCATION_ALREADY_REGISTERED'
+    ? loginUrl
+    : issuedOnboardingUrl;
+  const primaryLabel = response.code === 'LOCATION_ALREADY_REGISTERED'
+    ? 'Go to login'
+    : 'Continue onboarding';
 
   return (
     <div className="min-h-screen bg-[#f7f7f7] dark:bg-[#18191d] flex items-center justify-center px-4 py-8">
@@ -160,16 +167,21 @@ const RegistrationRequiredState: React.FC<{
             {response.registration_status === 'not_installed' ? 'Not installed' : 'Not registered'}
           </div>
           <div className="mt-2 font-mono text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] break-all">{getBootstrapDiagnostic(response)}</div>
+        {response?.request_id && (
+          <div className="mt-2 font-mono text-[11px] text-[#8a8f98] dark:text-[#9aa0a6] break-all">Request ID: {response.request_id}</div>
+        )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={() => { window.location.href = buildBackendOnboardingUrl(locationId); }}
-            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white text-[13px] font-bold shadow-md shadow-blue-500/20 hover:shadow-lg transition-all"
-          >
-            Continue onboarding
-            <FiArrowRight className="w-4 h-4" />
-          </button>
+          {primaryUrl && (
+            <button
+              onClick={() => { window.location.href = primaryUrl; }}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#1d6bd4] to-[#2b83fa] text-white text-[13px] font-bold shadow-md shadow-blue-500/20 hover:shadow-lg transition-all"
+            >
+              {primaryLabel}
+              <FiArrowRight className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={onRetry}
             className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#f1f3f4] dark:bg-[#2a2b32] text-[#37352f] dark:text-[#ececf1] text-[13px] font-bold hover:bg-[#e8eaed] dark:hover:bg-[#34363d] transition-all"

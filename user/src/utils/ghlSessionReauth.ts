@@ -48,6 +48,7 @@ interface SessionRefreshResponse {
 
 const reauthInFlight = new Map<string, Promise<boolean>>();
 const reauthFailureByLocation = new Map<string, SessionRefreshFailure>();
+const autologinAttemptedThisLoad = new Set<string>();
 
 const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
   try {
@@ -227,17 +228,47 @@ const saveRefreshedSession = (data: SessionRefreshResponse, requestedLocationId:
   }
 };
 
-const runGhlAutologin = async (locationId: string): Promise<boolean> => {
-  const params = new URLSearchParams({ location_id: locationId });
-  const response = await fetch(`/api/auth/ghl_autologin?${params.toString()}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-GHL-Location-ID': locationId,
-      'X-Request-ID': createRequestId(),
-    },
-    body: JSON.stringify(buildGhlAutologinPayload(locationId, { includeIdentity: false })),
+const fetchGhlAutologin = async (locationId: string): Promise<Response> => {
+  const payload = buildGhlAutologinPayload(locationId);
+  const params = new URLSearchParams(payload);
+  const requestHeaders = {
+    'Content-Type': 'application/json',
+    'X-GHL-Location-ID': locationId,
+    'X-Request-ID': createRequestId(),
+  };
+
+  const v2Response = await fetch(`/api/v2/auth/ghl_autologin?${params.toString()}`, {
+    method: 'GET',
+    headers: requestHeaders,
   });
+
+  if (v2Response.status !== 404 && v2Response.status !== 405) {
+    return v2Response;
+  }
+
+  const legacyParams = new URLSearchParams({ location_id: locationId });
+  return fetch(`/api/auth/ghl_autologin?${legacyParams.toString()}`, {
+    method: 'POST',
+    headers: requestHeaders,
+    body: JSON.stringify(payload),
+  });
+};
+
+const runGhlAutologin = async (locationId: string): Promise<boolean> => {
+  if (autologinAttemptedThisLoad.has(locationId)) {
+    const failure: SessionRefreshFailure = {
+      locationId,
+      status: 429,
+      code: 'GHL_AUTOLOGIN_ATTEMPTED',
+      message: 'Automatic GHL login has already been attempted for this location on this page load.',
+      requires_reauth: true,
+    };
+    reauthFailureByLocation.set(locationId, failure);
+    return false;
+  }
+
+  autologinAttemptedThisLoad.add(locationId);
+  const response = await fetchGhlAutologin(locationId);
 
   const data = await response.json().catch(() => null) as SessionRefreshResponse | null;
   if (response.ok && data?.token) {

@@ -4,7 +4,6 @@ import {
   getLastGhlSessionRefreshFailure,
   getStoredAuthToken,
   refreshGhlSessionForLocation,
-  storedSessionMatchesLocation,
 } from './ghlSessionReauth';
 
 export type LocationBootstrapNextAction =
@@ -30,6 +29,10 @@ export interface LocationBootstrapResponse {
   code?: string;
   message?: string;
   error?: string;
+  request_id?: string;
+  login_url?: string;
+  onboarding_url?: string;
+  registration_url?: string;
 }
 
 export type LocationBootstrapState =
@@ -42,13 +45,32 @@ export type LocationBootstrapState =
 const BOOTSTRAP_EVENT = 'nola-location-bootstrap-updated';
 const bootstrapStateByLocation = new Map<string, LocationBootstrapState>();
 const bootstrapInFlight = new Map<string, Promise<LocationBootstrapState>>();
+const BOOTSTRAP_RETRY_DELAYS_MS = [500, 1000, 2000] as const;
+const RETRYABLE_CODES = new Set([
+  'LOCATION_INSTALL_PENDING',
+  'LOCATION_BOOTSTRAP_FAILED',
+  'GHL_TOKEN_TEMPORARILY_UNAVAILABLE',
+]);
+const STOP_RETRY_CODES = new Set([
+  'LOCATION_REGISTRATION_REQUIRED',
+  'LOCATION_NOT_INSTALLED',
+  'LOCATION_COMPANY_MISMATCH',
+  'LOCATION_SESSION_MISMATCH',
+  'GHL_AUTOLOGIN_REQUIRED',
+  'GHL_RECONNECT_REQUIRED',
+  'INSTALL_TOKEN_EXPIRED',
+  'INSTALL_TOKEN_INVALID',
+  'LOCATION_ALREADY_REGISTERED',
+]);
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 const createRequestId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
 
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 };
 
 export const isValidGhlLocationId = (value: unknown): value is string => {
@@ -69,6 +91,18 @@ const publishBootstrapState = (state: LocationBootstrapState): LocationBootstrap
   return state;
 };
 
+export const clearLocationBootstrapState = (locationId?: string): void => {
+  const normalized = normalizeLocationCandidate(locationId);
+  if (normalized) {
+    bootstrapStateByLocation.delete(normalized);
+    bootstrapInFlight.delete(normalized);
+    return;
+  }
+
+  bootstrapStateByLocation.clear();
+  bootstrapInFlight.clear();
+};
+
 export const getCachedLocationBootstrapState = (locationId?: string): LocationBootstrapState => {
   const normalized = normalizeLocationCandidate(locationId);
   if (!normalized) return { status: 'idle' };
@@ -87,7 +121,7 @@ export const addLocationBootstrapListener = (listener: (state: LocationBootstrap
 };
 
 const bootstrapAllowsProtectedData = (response: LocationBootstrapResponse): boolean =>
-  response.contacts_can_load === true && response.next_action === 'load_app';
+  response.code === 'LOCATION_READY' && response.next_action === 'load_app';
 
 const bootstrapMessage = (response?: LocationBootstrapResponse): string => {
   if (!response) return 'Unable to verify this workspace right now.';
@@ -100,7 +134,26 @@ const autologinFailureNextAction = (code?: string): LocationBootstrapNextAction 
   return 'show_retry';
 };
 
-const fetchLocationBootstrap = async (locationId: string): Promise<LocationBootstrapResponse> => {
+const shouldRetryBootstrap = (response: LocationBootstrapResponse): boolean => {
+  const code = response.code || '';
+  if (STOP_RETRY_CODES.has(code)) return false;
+  return response.next_action === 'show_retry' || RETRYABLE_CODES.has(code);
+};
+
+const normalizeBootstrapFailure = (
+  response: Response,
+  data: LocationBootstrapResponse | null,
+  locationId: string,
+): LocationBootstrapResponse => ({
+  ...(data || {}),
+  location_id: data?.location_id || locationId,
+  contacts_can_load: false,
+  next_action: data?.next_action || 'show_retry',
+  code: data?.code || 'LOCATION_BOOTSTRAP_FAILED',
+  message: data?.message || data?.error || response.statusText || 'Unable to verify this workspace right now.',
+});
+
+const requestBootstrap = async (path: string, locationId: string): Promise<{ response: Response; data: LocationBootstrapResponse | null }> => {
   const params = new URLSearchParams({ location_id: locationId });
   const headers = new Headers({
     'Content-Type': 'application/json',
@@ -110,26 +163,40 @@ const fetchLocationBootstrap = async (locationId: string): Promise<LocationBoots
   const token = getStoredAuthToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const response = await fetch(`/api/location/bootstrap?${params.toString()}`, {
+  const response = await fetch(`${path}?${params.toString()}`, {
     method: 'GET',
     headers,
   });
   const data = await response.json().catch(() => null) as LocationBootstrapResponse | null;
+  return { response, data };
+};
 
-  if (!response.ok) {
-    return {
-      ...(data || {}),
-      location_id: data?.location_id || locationId,
-      contacts_can_load: false,
-      next_action: data?.next_action || 'show_retry',
-      message: data?.message || data?.error || response.statusText || 'Unable to verify this workspace right now.',
-    };
+const fetchLocationBootstrapOnce = async (locationId: string): Promise<LocationBootstrapResponse> => {
+  let result = await requestBootstrap('/api/v2/location/bootstrap', locationId);
+  if (result.response.status === 404 || result.response.status === 405) {
+    result = await requestBootstrap('/api/location/bootstrap', locationId);
+  }
+
+  if (!result.response.ok) {
+    return normalizeBootstrapFailure(result.response, result.data, locationId);
   }
 
   return {
-    ...(data || {}),
-    location_id: data?.location_id || locationId,
+    ...(result.data || {}),
+    location_id: result.data?.location_id || locationId,
   };
+};
+
+const fetchLocationBootstrap = async (locationId: string): Promise<LocationBootstrapResponse> => {
+  let response = await fetchLocationBootstrapOnce(locationId);
+
+  for (const delay of BOOTSTRAP_RETRY_DELAYS_MS) {
+    if (!shouldRetryBootstrap(response)) break;
+    await sleep(delay);
+    response = await fetchLocationBootstrapOnce(locationId);
+  }
+
+  return response;
 };
 
 const runBootstrapFlow = async (
@@ -139,33 +206,11 @@ const runBootstrapFlow = async (
   publishBootstrapState({ status: 'checking', locationId });
 
   try {
-    let response: LocationBootstrapResponse | null = null;
+    let response = await fetchLocationBootstrap(locationId);
 
     if (
       options.allowAutologin !== false &&
-      getStoredAuthToken() &&
-      !storedSessionMatchesLocation(locationId)
-    ) {
-      const refreshed = await refreshGhlSessionForLocation(locationId);
-      const failure = getLastGhlSessionRefreshFailure(locationId);
-      if (!refreshed && failure?.code) {
-        response = {
-          location_id: locationId,
-          contacts_can_load: false,
-          requires_autologin: false,
-          next_action: autologinFailureNextAction(failure.code),
-          code: failure.code,
-          message: failure.message || failure.error || 'Unable to refresh this workspace session.',
-          error: failure.error || failure.message,
-        };
-      }
-    }
-
-    response = response || await fetchLocationBootstrap(locationId);
-
-    if (
-      options.allowAutologin !== false &&
-      (response.next_action === 'run_autologin' || response.requires_autologin === true)
+      (response.next_action === 'run_autologin' || response.code === 'GHL_AUTOLOGIN_REQUIRED' || response.code === 'LOCATION_SESSION_MISMATCH')
     ) {
       const refreshed = await refreshGhlSessionForLocation(locationId);
       if (refreshed) {
@@ -197,6 +242,12 @@ const runBootstrapFlow = async (
       status: 'error',
       locationId,
       message: error instanceof Error ? error.message : 'Unable to verify this workspace right now.',
+      response: {
+        location_id: locationId,
+        contacts_can_load: false,
+        next_action: 'show_retry',
+        code: 'LOCATION_BOOTSTRAP_FAILED',
+      },
     });
   }
 };
@@ -239,7 +290,7 @@ export const ensureLocationBootstrapAllowsProtectedData = async (
   options: { force?: boolean; allowAutologin?: boolean } = {},
 ): Promise<boolean> => {
   const normalized = normalizeLocationCandidate(locationId);
-  if (!normalized) return true;
+  if (!normalized) return false;
 
   const state = await resolveLocationBootstrap(normalized, options);
   return state.status === 'ready';
@@ -255,6 +306,8 @@ export const createBootstrapBlockedResponse = (state: LocationBootstrapState): R
       requires_reconnect: response?.requires_reconnect === true,
       requires_reauth: response?.requires_autologin === true,
       contacts_can_load: false,
+      request_id: response?.request_id || null,
+      location_id: response?.location_id || state.locationId || null,
     }),
     { status: response?.requires_reconnect ? 409 : 423, headers: { 'Content-Type': 'application/json' } }
   );

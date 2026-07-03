@@ -1,7 +1,6 @@
 import { safeStorage } from './safeStorage';
 import { sessionSafeStorage } from './sessionSafeStorage';
 import {
-  ensureGhlSessionForLocation,
   getRequestedGhlLocationId,
   isLocationSessionMismatchPayload,
   refreshGhlSessionForLocation,
@@ -32,10 +31,22 @@ const PUBLIC_AUTH_PATHS = [
 
 const BOOTSTRAP_GATED_PATHS = [
   '/api/account',
-  '/api/ghl-contacts',
+  '/api/account-sender',
+  '/api/billing',
+  '/api/bulk-campaigns',
+  '/api/check_message_status.php',
+  '/api/contacts',
   '/api/conversations',
+  '/api/credits',
+  '/api/ghl-contacts',
+  '/api/ghl-conversations',
+  '/api/messages',
+  '/api/notification-settings',
   '/api/notifications',
+  '/api/sender-requests',
+  '/api/sms',
   '/api/templates',
+  '/api/tickets',
 ];
 
 export function createRequestId(): string {
@@ -128,19 +139,11 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
   const isPublicAuthPath = isPublicAuthRequest(input);
 
   const execute = async (hasRetriedMismatch = false): Promise<Response> => {
+    const locationIdAtRequestStart = getStoredLocationId();
     if (!isPublicAuthPath && isBootstrapGatedRequest(input)) {
-      const locationId = getStoredLocationId();
-      const ready = await ensureLocationBootstrapAllowsProtectedData(locationId);
+      const ready = await ensureLocationBootstrapAllowsProtectedData(locationIdAtRequestStart);
       if (!ready) {
-        return createBootstrapBlockedResponse(getCachedLocationBootstrapState(locationId));
-      }
-    } else if (!isPublicAuthPath) {
-      const sessionReady = await ensureGhlSessionForLocation();
-      if (!sessionReady) {
-        return new Response(
-          JSON.stringify({ error: 'Authentication refresh required.', code: 'GHL_REAUTH_REQUIRED', requires_reauth: true }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
-        );
+        return createBootstrapBlockedResponse(getCachedLocationBootstrapState(locationIdAtRequestStart));
       }
     }
 
@@ -149,6 +152,17 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
       ...init,
       headers: withApiHeaders(init.headers),
     });
+
+    if (!isPublicAuthPath && locationIdAtRequestStart && getStoredLocationId() !== locationIdAtRequestStart) {
+      return new Response(
+        JSON.stringify({
+          error: 'Ignoring stale response for a previous GHL location.',
+          code: 'STALE_LOCATION_RESPONSE',
+          contacts_can_load: false,
+        }),
+        { status: 409, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!isPublicAuthPath && !hasRetriedMismatch && response.status === 403) {
       const mismatchPayload = await response.clone().json().catch(() => null);

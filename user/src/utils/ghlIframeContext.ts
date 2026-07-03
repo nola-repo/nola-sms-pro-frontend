@@ -258,6 +258,13 @@ export const clearStoredGhlIframeContext = (): void => {
 
 export const detectGhlContextFromPostMessage = (event: MessageEvent): GhlIframeContext | null => {
   if (!isAllowedGhlPostMessageOrigin(event)) return null;
+  try {
+    if (window.parent && window.parent !== window && event.source !== window.parent) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
 
   let data: unknown = event.data;
   if (typeof data === 'string') {

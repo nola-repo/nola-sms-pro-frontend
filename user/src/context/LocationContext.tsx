@@ -26,6 +26,7 @@ import {
 } from '../utils/ghlLocationDetection';
 import { detectGhlContextFromPostMessage, persistGhlIframeContext } from '../utils/ghlIframeContext';
 import { persistActiveGhlLocation } from '../utils/ghlLocationStorage';
+import { clearLocationBootstrapState } from '../utils/locationBootstrap';
 
 interface LocationContextValue {
   locationId: string;
@@ -120,6 +121,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!normalizedId) return;
 
     persistActiveGhlLocation(normalizedId);
+    safeStorage.setItem('nola_location_id', normalizedId);
 
     // Persist the active workspace fallback without mutating the auth session location.
     const settings = getAccountSettings();
@@ -132,6 +134,9 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
 
+    clearLocationBootstrapState(locationId);
+    safeStorage.removeItem('nola_active_contact');
+    safeStorage.removeItem('nola_active_bulk_message');
     setLocationIdState(normalizedId);
     setIsLocationResolving(false);
     devLog.log(`[LocationContext] Updated GHL location from ${sourcePath}: ${normalizedId}`);
