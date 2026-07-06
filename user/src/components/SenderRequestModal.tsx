@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { FiPlus, FiX, FiCheck, FiLoader, FiAlertCircle } from "react-icons/fi";
 import { submitSenderRequest } from "../api/senderRequests";
-import type { SenderProvider } from "../api/senderRequests";
 import type { StoredSenderId } from "../utils/settingsStorage";
 
 interface SenderRequestModalProps {
@@ -17,22 +16,10 @@ const SENDER_COLORS = [
     "bg-emerald-500", "bg-rose-500", "bg-amber-500", "bg-indigo-500", "bg-cyan-500",
 ];
 
-const PROVIDER_OPTIONS: Array<{ id: Exclude<SenderProvider, "system">; label: string; description: string }> = [
-    {
-        id: "unisms",
-        label: "UniSMS",
-        description: "Best for UniSMS-approved sender names and accounts using UniSMS delivery.",
-    },
-    {
-        id: "semaphore",
-        label: "Semaphore",
-        description: "Use when this sender name should be reviewed and sent through Semaphore.",
-    },
-];
+const DEFAULT_REQUEST_PROVIDER = "unisms";
 
 export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, onClose, onSuccess }) => {
     const [newId, setNewId] = useState("");
-    const [provider, setProvider] = useState<Exclude<SenderProvider, "system">>("unisms");
     const [newPurpose, setNewPurpose] = useState("");
     const [newSample, setNewSample] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -86,7 +73,7 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
         setError(null);
 
         try {
-            await submitSenderRequest(trimmedId, newPurpose.trim(), newSample.trim(), provider);
+            await submitSenderRequest(trimmedId, newPurpose.trim(), newSample.trim(), DEFAULT_REQUEST_PROVIDER);
 
             const created: StoredSenderId = {
                 id: trimmedId,
@@ -94,7 +81,7 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                 description: newPurpose.trim(),
                 color: SENDER_COLORS[Math.floor(Math.random() * SENDER_COLORS.length)],
                 status: "pending",
-                provider,
+                provider: DEFAULT_REQUEST_PROVIDER,
             };
 
             if (onSuccess) onSuccess(created);
@@ -102,7 +89,6 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
 
             setTimeout(() => {
                 setNewId("");
-                setProvider("unisms");
                 setNewPurpose("");
                 setNewSample("");
                 setIsSubmitted(false);
@@ -178,38 +164,6 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                                 disabled={isSubmitting}
                                 className="w-full px-4 py-3 rounded-xl text-[14px] font-bold border bg-[#f7f7f7] dark:bg-[#0d0e10] border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-[#ececf1] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/25 disabled:opacity-50"
                             />
-                        </div>
-
-                        <div>
-                            <label className="block text-[11px] font-black text-[#6e6e73] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">
-                                Provider <span className="text-red-500">*</span>
-                            </label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {PROVIDER_OPTIONS.map(option => {
-                                    const selected = provider === option.id;
-                                    return (
-                                        <button
-                                            key={option.id}
-                                            type="button"
-                                            onClick={() => {
-                                                setError(null);
-                                                setProvider(option.id);
-                                            }}
-                                            disabled={isSubmitting}
-                                            className={`rounded-xl border px-3 py-3 text-left transition-all disabled:opacity-50 ${
-                                                selected
-                                                    ? "border-[#2b83fa] bg-[#2b83fa]/10 text-[#111111] dark:text-white shadow-sm"
-                                                    : "border-[#e0e0e0] bg-[#f7f7f7] text-[#6e6e73] hover:border-[#2b83fa]/40 dark:border-[#ffffff0a] dark:bg-[#0d0e10] dark:text-[#9aa0a6]"
-                                            }`}
-                                        >
-                                            <span className="block text-[13px] font-black">{option.label}</span>
-                                            <span className="mt-1 block text-[11px] font-medium leading-snug text-[#6e6e73] dark:text-[#9aa0a6]">
-                                                {option.description}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
                         </div>
 
                         <div>
