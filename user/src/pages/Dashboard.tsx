@@ -16,7 +16,7 @@ import { TicketsTab } from "../components/TicketsTab";
 import { useOnboarding } from "../components/onboarding/useOnboarding";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
 import { useLocationId } from "../context/LocationContext";
-import { GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
+import { GHL_BACKEND_ONBOARDING_URL, GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
 import faviconLogo from "../assets/FAV ICON - NOLA SMS PRO.png";
 import { isAuthenticated } from "../services/authService";
 import { useLocationBootstrap } from "../hooks/useLocationBootstrap";
@@ -40,6 +40,48 @@ const getBootstrapDiagnostic = (response?: LocationBootstrapResponse): string =>
 
 const getWorkspaceBlockedCopy = (response: LocationBootstrapResponse): { title: string; message: string; retryLabel?: string } => {
   switch (response.code) {
+    case 'LOCATION_CLEANUP_IN_PROGRESS':
+    case 'cleanup_in_progress':
+      return {
+        title: 'Cleanup in progress',
+        message: 'This test workspace is temporarily unavailable while cleanup is in progress. Sending and background sync are paused until verification succeeds again.',
+        retryLabel: 'Recheck',
+      };
+    case 'LOCATION_INSTALL_PENDING':
+    case 'install_pending':
+      return {
+        title: 'Installation still processing',
+        message: 'HighLevel is showing the app, but NOLA provisioning is still completing. Product data will stay closed until setup finishes.',
+        retryLabel: 'Try again',
+      };
+    case 'LOCATION_ONBOARDING_EXPIRED':
+    case 'onboarding_expired':
+      return {
+        title: 'Installation setup expired',
+        message: 'The previous Marketplace setup session expired before this location became ready. Restart installation to continue.',
+        retryLabel: 'Recheck',
+      };
+    case 'LOCATION_NOT_INSTALLED':
+    case 'LOCATION_UNINSTALLED':
+    case 'app_uninstalled':
+    case 'not_installed':
+      return {
+        title: 'NOLA SMS Pro is not installed',
+        message: 'Install or reinstall NOLA SMS Pro from HighLevel Marketplace before using messages, contacts, templates, or billing tools.',
+        retryLabel: 'Recheck',
+      };
+    case 'LOCATION_COMPANY_MISMATCH':
+      return {
+        title: 'Wrong company or location',
+        message: 'The current NOLA session does not match this HighLevel company/location. Automatic loading has stopped so the wrong workspace is not exposed.',
+        retryLabel: 'Recheck',
+      };
+    case 'LOCATION_INACTIVE':
+      return {
+        title: 'Workspace inactive',
+        message: 'This NOLA workspace is inactive. Contact your admin or support before loading product data.',
+        retryLabel: 'Recheck',
+      };
     case 'DUPLICATE_LOCATION_USERS':
       return {
         title: 'Default account needs setup',
@@ -467,10 +509,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
             className="w-24 h-24 mb-3 drop-shadow-xl object-contain"
           />
           <h2 className="text-[17px] font-black tracking-tight text-[#111111] dark:text-white mb-1">
-            Setting up your workspace
+            Verifying your workspace
           </h2>
           <p className="text-[12.5px] font-medium text-gray-500 dark:text-[#b6bac2] mb-6">
-            Getting your workspace ready...
+            Verifying your NOLA SMS Pro workspace...
           </p>
           <div className="w-full bg-[#f1f3f4] dark:bg-white/[0.06] h-1.5 rounded-full overflow-hidden relative">
             <div className="workspace-progress-bar absolute top-0 bottom-0 left-0 w-[42%] rounded-full bg-gradient-to-r from-[#2b83fa] via-[#1e40af] to-[#2b83fa]" />
@@ -484,11 +526,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     const response = bootstrapState.response;
     const nextAction = response.next_action;
 
-    if (nextAction === 'complete_registration' || nextAction === 'show_not_installed') {
+    if (nextAction === 'complete_registration') {
       return (
         <RegistrationRequiredState
           locationId={locationId}
           response={response}
+          onRetry={retryBootstrap}
+        />
+      );
+    }
+
+    if (nextAction === 'show_not_installed') {
+      const copy = getWorkspaceBlockedCopy(response);
+      return (
+        <WorkspaceActionState
+          title={copy.title}
+          message={copy.message}
+          locationId={locationId}
+          response={response}
+          primaryLabel="Restart Installation"
+          onPrimary={() => { window.location.href = GHL_BACKEND_ONBOARDING_URL || GHL_MARKETPLACE_CONNECT_URL; }}
+          retryLabel={copy.retryLabel}
           onRetry={retryBootstrap}
         />
       );

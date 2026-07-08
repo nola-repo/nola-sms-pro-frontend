@@ -12,7 +12,8 @@ export type LocationBootstrapNextAction =
   | 'complete_registration'
   | 'show_reconnect'
   | 'show_retry'
-  | 'show_not_installed';
+  | 'show_not_installed'
+  | 'show_blocked';
 
 export interface LocationBootstrapResponse {
   location_id?: string;
@@ -52,16 +53,40 @@ const RETRYABLE_CODES = new Set([
   'GHL_TOKEN_TEMPORARILY_UNAVAILABLE',
 ]);
 const STOP_RETRY_CODES = new Set([
+  'LOCATION_CLEANUP_IN_PROGRESS',
   'LOCATION_REGISTRATION_REQUIRED',
+  'LOCATION_ONBOARDING_EXPIRED',
   'LOCATION_NOT_INSTALLED',
+  'LOCATION_UNINSTALLED',
   'LOCATION_COMPANY_MISMATCH',
   'LOCATION_SESSION_MISMATCH',
+  'LOCATION_INACTIVE',
   'GHL_AUTOLOGIN_REQUIRED',
   'GHL_RECONNECT_REQUIRED',
   'INSTALL_TOKEN_EXPIRED',
   'INSTALL_TOKEN_INVALID',
   'LOCATION_ALREADY_REGISTERED',
 ]);
+const LIFECYCLE_BLOCKING_CODE_MAP: Record<string, LocationBootstrapNextAction> = {
+  LOCATION_CLEANUP_IN_PROGRESS: 'show_blocked',
+  LOCATION_ONBOARDING_EXPIRED: 'complete_registration',
+  LOCATION_REGISTRATION_REQUIRED: 'complete_registration',
+  TOKEN_ONLY: 'complete_registration',
+  LOCATION_INSTALL_PENDING: 'show_retry',
+  LOCATION_NOT_INSTALLED: 'show_not_installed',
+  LOCATION_UNINSTALLED: 'show_not_installed',
+  LOCATION_COMPANY_MISMATCH: 'show_blocked',
+  LOCATION_INACTIVE: 'show_blocked',
+  GHL_RECONNECT_REQUIRED: 'show_reconnect',
+  INSTALL_TOKEN_EXPIRED: 'complete_registration',
+  INSTALL_TOKEN_INVALID: 'complete_registration',
+  LOCATION_ALREADY_REGISTERED: 'complete_registration',
+  cleanup_in_progress: 'show_blocked',
+  onboarding_expired: 'complete_registration',
+  install_pending: 'show_retry',
+  app_uninstalled: 'show_not_installed',
+  not_installed: 'show_not_installed',
+};
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -121,7 +146,9 @@ export const addLocationBootstrapListener = (listener: (state: LocationBootstrap
 };
 
 const bootstrapAllowsProtectedData = (response: LocationBootstrapResponse): boolean =>
-  response.code === 'LOCATION_READY' && response.next_action === 'load_app';
+  response.code === 'LOCATION_READY' &&
+  response.next_action === 'load_app' &&
+  response.contacts_can_load === true;
 
 const bootstrapMessage = (response?: LocationBootstrapResponse): string => {
   if (!response) return 'Unable to verify this workspace right now.';
@@ -140,6 +167,47 @@ const shouldRetryBootstrap = (response: LocationBootstrapResponse): boolean => {
   return response.next_action === 'show_retry' || RETRYABLE_CODES.has(code);
 };
 
+const normalizeLifecycleCode = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+};
+
+const lifecycleNextActionForCode = (code?: string): LocationBootstrapNextAction | undefined =>
+  code ? LIFECYCLE_BLOCKING_CODE_MAP[code] : undefined;
+
+export const isLifecycleBlockingCode = (value: unknown): boolean =>
+  Boolean(lifecycleNextActionForCode(normalizeLifecycleCode(value)));
+
+export const publishLifecycleBlockFromPayload = (
+  locationId: string,
+  payload: unknown,
+  fallbackStatus = 423,
+): LocationBootstrapState | null => {
+  if (!payload || typeof payload !== 'object') return null;
+  const record = payload as Record<string, unknown>;
+  const code = normalizeLifecycleCode(record.code) || normalizeLifecycleCode(record.error);
+  const nextAction = lifecycleNextActionForCode(code);
+  if (!nextAction) return null;
+
+  const response: LocationBootstrapResponse = {
+    ...(record as LocationBootstrapResponse),
+    location_id: normalizeLocationCandidate(record.location_id) || locationId,
+    contacts_can_load: false,
+    next_action: typeof record.next_action === 'string' ? record.next_action : nextAction,
+    code,
+    message: typeof record.message === 'string'
+      ? record.message
+      : typeof record.error === 'string'
+        ? record.error
+        : fallbackStatus === 423
+          ? 'This workspace is temporarily unavailable.'
+          : 'This workspace is not ready.',
+  };
+
+  return publishBootstrapState({ status: 'action_required', locationId, response });
+};
+
 const normalizeBootstrapFailure = (
   response: Response,
   data: LocationBootstrapResponse | null,
@@ -148,7 +216,7 @@ const normalizeBootstrapFailure = (
   ...(data || {}),
   location_id: data?.location_id || locationId,
   contacts_can_load: false,
-  next_action: data?.next_action || 'show_retry',
+  next_action: data?.next_action || lifecycleNextActionForCode(data?.code) || 'show_retry',
   code: data?.code || 'LOCATION_BOOTSTRAP_FAILED',
   message: data?.message || data?.error || response.statusText || 'Unable to verify this workspace right now.',
 });

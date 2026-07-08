@@ -421,7 +421,7 @@ const AgencyLogin: React.FC = () => {
             <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/5 text-center space-y-3">
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Don't have an account?{' '}
-                <a href="https://app.nolasmspro.com/register?from=agency" className="font-semibold hover:underline text-[#2b83fa]">Register now →</a>
+                <a href="https://app.nolacrm.io/register?from=agency" className="font-semibold hover:underline text-[#2b83fa]">Register now →</a>
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500">By signing in, you agree to our Terms of Service and Privacy Policy.</p>
             </div>
@@ -725,7 +725,7 @@ const AgencyLogin: React.FC = () => {
             )}
 
               <a
-                href={`https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=${encodeURIComponent(import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolasmspro.com/oauth/callback')}&client_id=${import.meta.env.VITE_GHL_CLIENT_ID ?? ''}&version_id=${(import.meta.env.VITE_GHL_CLIENT_ID ?? '').split('-')[0]}&scope=companies.readonly`}
+                href={`https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=${encodeURIComponent(import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolacrm.io/oauth/callback')}&client_id=${import.meta.env.VITE_GHL_CLIENT_ID ?? ''}&version_id=${(import.meta.env.VITE_GHL_CLIENT_ID ?? '').split('-')[0]}&scope=companies.readonly`}
                 className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-2xl font-bold text-white text-[15px] shadow-lg hover:shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99] relative overflow-hidden group"
                 style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #6366f1 100%)', backgroundSize: '200% 200%' }}
               >

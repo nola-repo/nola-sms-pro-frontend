@@ -29,6 +29,7 @@ interface SendSmsResponse {
   details?: unknown;
   providerResponse?: unknown;
   status?: string;
+  code?: string;
   number?: string;
   /** Message IDs returned by the backend for status polling */
   messageIds?: string[];
@@ -51,6 +52,17 @@ const SMS_ERROR_MESSAGES: Record<string, string> = {
   rate_limit_reached: "This subaccount has reached its sending limit.",
   sms_disabled: "SMS sending is currently disabled for this subaccount.",
   install_blocked: "The GoHighLevel app installation must be completed before sending.",
+  LOCATION_CLEANUP_IN_PROGRESS: "This test workspace is temporarily unavailable while cleanup is in progress.",
+  cleanup_in_progress: "This test workspace is temporarily unavailable while cleanup is in progress.",
+  LOCATION_INSTALL_PENDING: "NOLA provisioning is still completing. Try again after setup finishes.",
+  install_pending: "NOLA provisioning is still completing. Try again after setup finishes.",
+  LOCATION_ONBOARDING_EXPIRED: "Marketplace onboarding expired. Restart the installation before sending.",
+  onboarding_expired: "Marketplace onboarding expired. Restart the installation before sending.",
+  LOCATION_NOT_INSTALLED: "NOLA SMS Pro is not installed for this location. Reinstall before sending.",
+  LOCATION_UNINSTALLED: "NOLA SMS Pro was uninstalled for this location. Reinstall before sending.",
+  app_uninstalled: "NOLA SMS Pro was uninstalled for this location. Reinstall before sending.",
+  not_installed: "NOLA SMS Pro is not installed for this location. Reinstall before sending.",
+  GHL_RECONNECT_REQUIRED: "Reconnect GoHighLevel before sending SMS.",
   duplicate_request: "This SMS request is already being processed.",
   idempotency_key_conflict: "This send request conflicts with a previous request. Please try again.",
   credit_deduction_failed: "Credits could not be deducted. Please try again.",
@@ -247,6 +259,7 @@ export const sendSms = async (
       return {
         success: false,
         error: parsed?.error,
+        code: parsed?.code || parsed?.error,
         details: parsed?.details || parsed?.provider_response || parsed,
         providerResponse: parsed?.provider_response || parsed?.response || parsed?.output,
         message: parsed ? resolveSmsErrorMessage(parsed, `SMS request failed (${res.status})`) : (errorText || `SMS request failed (${res.status})`),
@@ -259,6 +272,7 @@ export const sendSms = async (
       return {
         success: false,
         error: data.error,
+        code: data.code || data.error,
         details: data.details || data.provider_response || data.response || data.output,
         providerResponse: data.provider_response || data.response || data.output,
         message: resolveSmsErrorMessage(data),

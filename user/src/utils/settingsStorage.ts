@@ -107,7 +107,7 @@ export const getAccountSettings = (): AccountSettings => {
         const hash = window.location.hash;
 
         const getParam = (query: string, key: string) => new URLSearchParams(query).get(key);
-        const keys = ["location_id", "locationId", "location", "id"];
+        const keys = ["location_id", "locationId", "ghl_location_id", "ghlLocationId", "active_location_id", "activeLocationId"];
 
         // Prefer location from URL if present (query or hash), regardless of stored value
         for (const k of keys) {
@@ -121,7 +121,7 @@ export const getAccountSettings = (): AccountSettings => {
             const hashQuery = hash.split("?")[1];
             for (const k of keys) {
                 const val = getParam("?" + hashQuery, k);
-                if (val) { settings.ghlLocationId = val; break; }
+                if (val && /^[A-Za-z0-9_-]{12,80}$/.test(val)) { settings.ghlLocationId = val; break; }
             }
         }
     }

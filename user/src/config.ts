@@ -6,7 +6,7 @@
  * This eliminates CORS entirely — the browser never makes a cross-origin request.
  */
 
-// Use relative paths — nginx proxy at app.nolasmspro.com injects X-Webhook-Secret header.
+// Use relative paths — nginx proxy at app.nolacrm.io injects X-Webhook-Secret header.
 // Direct absolute URLs bypass nginx and will cause 401 Unauthorized on all endpoints.
 const API_BASE = "";
 

@@ -122,7 +122,7 @@ export const linkCompany = async (companyId: string): Promise<void> => {
 };
 
 export const exchangeOAuthCode = async (code: string): Promise<string> => {
-  const redirectUri = import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolasmspro.com/oauth/callback';
+  const redirectUri = import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolacrm.io/oauth/callback';
   const res = await apiFetch('/api/ghl/oauth_exchange.php', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

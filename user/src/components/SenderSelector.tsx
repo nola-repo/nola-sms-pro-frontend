@@ -70,22 +70,19 @@ export const SenderSelector: React.FC<SenderSelectorProps> = ({
     const allOptions = useMemo<SenderOption[]>(() => {
         const options: SenderOption[] = [];
 
-        // System default — hidden when a custom approved sender is available (white-label)
-        const hasApproved = !!(approvedSenderId || config?.approved_sender_id);
-        if (!hasApproved) {
-            const systemName = config?.system_default_sender || "NOLASMSPro";
-            options.push({
-                id: systemName,
-                name: systemName,
-                description: "System Default (Free Tier)",
-                icon: <FiGlobe />,
-                color: "bg-blue-500",
-            });
-        }
+        // NOLASMSPro is always the platform default. Approved custom senders are explicit per-send choices.
+        const systemName = config?.system_default_sender || "NOLASMSPro";
+        options.push({
+            id: systemName,
+            name: systemName,
+            description: "Platform Default",
+            icon: <FiGlobe />,
+            color: "bg-blue-500",
+        });
 
         // Approved sender (if any)
         const approvedId = approvedSenderId || config?.approved_sender_id;
-        if (approvedId) {
+        if (approvedId && approvedId !== systemName) {
             const providerLabel = config?.provider_preference?.startsWith("unisms")
                 ? "UniSMS"
                 : config?.provider_preference?.startsWith("semaphore")

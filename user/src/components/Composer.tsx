@@ -17,7 +17,7 @@ import { useLocationId } from "../context/LocationContext";
 import { SenderSelector } from "./SenderSelector";
 import { CreditBadge } from "./CreditBadge";
 import { FiCheck, FiAlertCircle, FiLoader, FiFileText } from "react-icons/fi";
-import { getAccountSettings, getPreferredSender, savePreferredSender } from "../utils/settingsStorage";
+import { getAccountSettings } from "../utils/settingsStorage";
 import { fetchAccountSenderConfig } from "../api/senderRequests";
 import { buildDirectConversationId, buildGroupConversationId } from "../utils/conversationId";
 import { estimateSmsSegments } from "../utils/smsSegments";
@@ -214,17 +214,13 @@ export const Composer: React.FC<ComposerProps> = ({
 
   const handleSenderChange = (val: SenderId) => {
     setSenderName(val);
-    savePreferredSender(val);
   };
 
-  // Dynamic sender default: active approved sender first, system sender only as fallback.
+  // NOLASMSPro stays the default; custom approved senders are selected per send.
   useEffect(() => {
     let cancelled = false;
     fetchAccountSenderConfig(locationId || undefined).then(cfg => {
       if (cancelled) return;
-      
-      const preferred = getPreferredSender();
-      
       setApprovedSenderId(cfg.approved_sender_id || undefined);
       
       if (cfg.toggle_enabled !== undefined) {
@@ -232,15 +228,7 @@ export const Composer: React.FC<ComposerProps> = ({
       }
       
       const systemSender = cfg.system_default_sender || "NOLASMSPro";
-
-      if (cfg.approved_sender_id) {
-        setSenderName(cfg.approved_sender_id);
-      } else {
-        setSenderName(systemSender);
-        if (preferred && preferred !== systemSender) {
-          savePreferredSender(systemSender);
-        }
-      }
+      setSenderName((current) => current && current !== cfg.approved_sender_id ? current : systemSender);
     });
     return () => { cancelled = true; };
   }, [locationId]);
@@ -1676,7 +1664,7 @@ export const Composer: React.FC<ComposerProps> = ({
                 <span className="text-[12px] font-black text-[#667085] dark:text-white/70 whitespace-nowrap uppercase">From</span>
                 <SenderSelector
                   value={senderName}
-                  onChange={setSenderName}
+                  onChange={handleSenderChange}
                   label=""
                   size="sm"
                   tone={darkMode ? "onBlue" : "default"}

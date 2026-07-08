@@ -9,6 +9,7 @@ import {
   createBootstrapBlockedResponse,
   ensureLocationBootstrapAllowsProtectedData,
   getCachedLocationBootstrapState,
+  publishLifecycleBlockFromPayload,
   resolveLocationBootstrap,
 } from './locationBootstrap';
 
@@ -92,6 +93,16 @@ const getStoredToken = (): string =>
 
 const getStoredLocationId = (): string => getRequestedGhlLocationId();
 
+const clearLocationProductState = (locationId: string): void => {
+  safeStorage.removeItem('nola_active_contact');
+  safeStorage.removeItem('nola_active_bulk_message');
+  safeStorage.removeItem('nola_settings_preferred_sender');
+  safeStorage.removeItem('nola_settings_notifications');
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('nola-location-product-state-reset', { detail: { locationId } }));
+  }
+};
+
 const clearStoredAuthSession = (): void => {
   Object.values(SESSION_KEYS).forEach((key) => {
     safeStorage.removeItem(key);
@@ -162,6 +173,14 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
         }),
         { status: 409, headers: { 'Content-Type': 'application/json' } }
       );
+    }
+
+    if (!isPublicAuthPath && isBootstrapGatedRequest(input) && !response.ok) {
+      const lifecyclePayload = await response.clone().json().catch(() => null);
+      const activeLocationId = getStoredLocationId();
+      if (activeLocationId && publishLifecycleBlockFromPayload(activeLocationId, lifecyclePayload, response.status)) {
+        clearLocationProductState(activeLocationId);
+      }
     }
 
     if (!isPublicAuthPath && !hasRetriedMismatch && response.status === 403) {

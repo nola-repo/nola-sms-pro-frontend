@@ -32,7 +32,7 @@ import { safeStorage } from '../utils/safeStorage';
 import { ToastContainer } from '../components/ui/ToastContainer.tsx';
 
 const buildAgencyConnectUrl = () => {
-  const redirectUri = encodeURIComponent(import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolasmspro.com/oauth/callback');
+  const redirectUri = encodeURIComponent(import.meta.env.VITE_GHL_REDIRECT_URI ?? 'https://agency.nolacrm.io/oauth/callback');
   const clientId = import.meta.env.VITE_GHL_CLIENT_ID ?? '';
   const versionId = clientId.split('-')[0] || '';
   return `https://marketplace.leadconnectorhq.com/oauth/chooselocation?response_type=code&redirect_uri=${redirectUri}&client_id=${clientId}&version_id=${versionId}&scope=companies.readonly`;
