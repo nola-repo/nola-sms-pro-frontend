@@ -1,133 +1,85 @@
-import { devLog } from '../utils/devLog';
-import React, { useEffect, useMemo, useState } from "react";
-import { FiMessageSquare } from "react-icons/fi";
-import { fetchAccountProfile, getCachedAccountProfile, type AccountProfile } from "../api/account";
+import React, { useState } from "react";
+import { FiAlertTriangle, FiCheckCircle, FiMessageSquare, FiSend } from "react-icons/fi";
+import { API_CONFIG } from "../config";
 import { useLocationId } from "../context/LocationContext";
-import { useUserProfileContext } from "../context/UserProfileContext";
-import { safeStorage } from "../utils/safeStorage";
-import { getAccountSettings } from "../utils/settingsStorage";
+import { apiFetch } from "../utils/apiFetch";
 
-const formatPhoneForForm = (value?: string | null) => {
-    const digits = (value || '').replace(/\D/g, '');
-    if (/^09\d{9}$/.test(digits)) return `+63${digits.slice(1)}`;
-    if (/^9\d{9}$/.test(digits)) return `+63${digits}`;
-    if (/^639\d{9}$/.test(digits)) return `+${digits}`;
-    return value || '';
-};
+const PRIORITIES = [
+    { value: "normal", label: "Normal" },
+    { value: "high", label: "High" },
+    { value: "urgent", label: "Urgent" },
+] as const;
 
-const asString = (value: unknown): string => {
-    if (typeof value === "string") return value.trim();
-    if (value === null || value === undefined) return "";
-    return String(value).trim();
-};
-
-const readStoredProfile = (): Record<string, unknown> => {
-    const keys = ["nola_auth_user", "nola_user"];
-    for (const key of keys) {
-        try {
-            const parsed = JSON.parse(safeStorage.getItem(key) || "null");
-            if (parsed && typeof parsed === "object") return parsed as Record<string, unknown>;
-        } catch {
-            // Ignore invalid cache entries.
-        }
+const asErrorMessage = (payload: unknown, fallback: string): string => {
+    if (payload && typeof payload === "object") {
+        const record = payload as Record<string, unknown>;
+        if (typeof record.message === "string" && record.message.trim()) return record.message;
+        if (typeof record.error === "string" && record.error.trim()) return record.error;
     }
-    return {};
+    return fallback;
 };
 
 export const TicketsTab: React.FC = () => {
     const { locationId } = useLocationId();
-    const liveProfile = useUserProfileContext();
-    const resolvedLocationId = locationId || getAccountSettings().ghlLocationId || safeStorage.getItem('nola_location_id') || '';
-    const [accountProfile, setAccountProfile] = useState<AccountProfile | null>(() =>
-        getCachedAccountProfile(resolvedLocationId, { includeAuth: false, allowExpired: true }) ||
-        getCachedAccountProfile(resolvedLocationId, { includeAuth: true, allowExpired: true })
-    );
+    const [subject, setSubject] = useState("");
+    const [message, setMessage] = useState("");
+    const [priority, setPriority] = useState<typeof PRIORITIES[number]["value"]>("normal");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [successMessage, setSuccessMessage] = useState("");
+    const [errorMessage, setErrorMessage] = useState("");
 
-    useEffect(() => {
-        if (!resolvedLocationId) return;
+    const submitTicket = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const trimmedSubject = subject.trim();
+        const trimmedMessage = message.trim();
 
-        let cancelled = false;
-        const cached =
-            getCachedAccountProfile(resolvedLocationId, { includeAuth: false, allowExpired: true }) ||
-            getCachedAccountProfile(resolvedLocationId, { includeAuth: true, allowExpired: true });
-        if (cached) {
-            Promise.resolve().then(() => {
-                if (!cancelled) setAccountProfile(cached);
-            });
+        setSuccessMessage("");
+        setErrorMessage("");
+
+        if (!locationId) {
+            setErrorMessage("GHL location is not available yet. Please wait for the app to finish loading.");
+            return;
         }
-        fetchAccountProfile(resolvedLocationId, {
-            includeAuth: false,
-            forceRefresh: true,
-            allowStaleOnError: true,
-        }).then((profile) => {
-            if (!cancelled && profile) setAccountProfile(profile);
-        });
 
-        return () => {
-            cancelled = true;
-        };
-    }, [resolvedLocationId]);
+        if (!trimmedSubject || !trimmedMessage) {
+            setErrorMessage("Subject and message are required.");
+            return;
+        }
 
-    // Update with your GHL Form URL if needed
-    const BASE_URL = "https://api.nolacrm.io/widget/form/Nt1MWKmO93qOlvJWzZzk"; 
-
-    // Generate the dynamic URL with pre-fill parameters
-    const SUPPORT_FUNNEL_URL = useMemo(() => {
+        setIsSubmitting(true);
         try {
-            const params = new URLSearchParams();
-            const storedProfile = readStoredProfile();
-            const userProfile: Record<string, unknown> = {
-                ...storedProfile,
-                ...(liveProfile || {}),
-                ...(accountProfile || {}),
-            };
+            const res = await apiFetch(API_CONFIG.tickets, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-GHL-Location-ID": locationId,
+                },
+                body: JSON.stringify({
+                    subject: trimmedSubject,
+                    message: trimmedMessage,
+                    priority,
+                }),
+            });
 
-            const fullName =
-                asString(userProfile.full_name) ||
-                asString(userProfile.name) ||
-                [asString(userProfile.firstName), asString(userProfile.lastName)].filter(Boolean).join(' ').trim();
-            const firstName = asString(userProfile.firstName) || fullName.split(' ')[0] || '';
-            const lastName = asString(userProfile.lastName) || fullName.split(' ').slice(1).join(' ');
-            const email = asString(userProfile.email) || asString(userProfile.email_address);
-            const resolvedPhone = formatPhoneForForm(asString(userProfile.phone) || asString(userProfile.phone_number));
-            const formLocationId =
-                resolvedLocationId ||
-                asString(userProfile.location_id) ||
-                asString(userProfile.active_location_id);
-            
-            if (fullName) {
-                params.set('name', fullName);
-                params.set('full_name', fullName);
-                params.set('contact_name', fullName);
-            }
-            if (firstName) params.set('first_name', firstName);
-            if (lastName) params.set('last_name', lastName);
-            if (email) {
-                params.set('email', email);
-                params.set('contact_email', email);
-            }
-            if (resolvedPhone) {
-                params.set('phone', resolvedPhone);
-                params.set('contact_phone', resolvedPhone);
-            }
-            if (formLocationId) {
-                params.set('location_id', formLocationId);
-                params.set('locationId', formLocationId);
-                params.set('ghl_location_id', formLocationId);
-                params.set('app_location_id', formLocationId);
+            const payload = await res.json().catch(() => null);
+            if (!res.ok || (payload?.status && payload.status !== "success")) {
+                throw new Error(asErrorMessage(payload, "Failed to submit support ticket."));
             }
 
-            const queryString = params.toString();
-            return queryString ? `${BASE_URL}?${queryString}` : BASE_URL;
-        } catch (err) {
-            devLog.error("Failed to generate support funnel URL:", err);
-            return BASE_URL;
+            setSubject("");
+            setMessage("");
+            setPriority("normal");
+            setSuccessMessage("Support ticket submitted.");
+            window.dispatchEvent(new Event("nola-notifications-refresh"));
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "Failed to submit support ticket.");
+        } finally {
+            setIsSubmitting(false);
         }
-    }, [accountProfile, liveProfile, resolvedLocationId]);
+    };
 
     return (
         <div className="h-full flex flex-col overflow-hidden bg-[#f3f4f6] dark:bg-[#09090b]">
-            {/* Page Header */}
             <div className="flex-shrink-0 border-b border-[#e5e5e5] bg-white/85 dark:border-white/10 dark:bg-[#151618]/85">
                 <div className="max-w-5xl mx-auto px-4 py-5 md:px-6">
                     <div className="flex items-center gap-3 pr-12">
@@ -136,36 +88,78 @@ export const TicketsTab: React.FC = () => {
                         </div>
                         <div className="min-w-0">
                             <h1 className="text-[22px] font-extrabold text-[#111111] dark:text-white tracking-tight">Support Tickets</h1>
-                            <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">Submit your support requests here</p>
+                            <p className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1">Send a request to the NOLA support team</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Content Area */}
             <main className="flex-1 overflow-y-auto px-4 pb-4 pt-5 md:px-6 md:pb-6 md:pt-6 lg:px-8 lg:pb-8 lg:pt-6">
-                <div className="max-w-5xl mx-auto min-h-[1500px] flex flex-col">
-                    <div className="overflow-hidden rounded-2xl border border-[#e5e5e5] dark:border-white/5 bg-white dark:bg-[#1a1b1e] shadow-sm relative group">
-                        <iframe
-                            src={SUPPORT_FUNNEL_URL}
-                            style={{ width: '100%', height: '1500px', border: 'none', borderRadius: '8px' }}
-                            id="inline-Nt1MWKmO93qOlvJWzZzk" 
-                            data-layout="{'id':'INLINE'}"
-                            data-trigger-type="alwaysShow"
-                            data-trigger-value=""
-                            data-activation-type="alwaysActivated"
-                            data-activation-value=""
-                            data-deactivation-type="neverDeactivate"
-                            data-deactivation-value=""
-                            data-form-name="Ticket Form"
-                            data-height="1500"
-                            data-layout-iframe-id="inline-Nt1MWKmO93qOlvJWzZzk"
-                            data-form-id="Nt1MWKmO93qOlvJWzZzk"
-                            className="w-full h-[1500px]"
-                            title="Ticket Form"
-                            allow="camera; microphone; clipboard-read; clipboard-write; display-capture"
-                        />
-                    </div>
+                <div className="max-w-3xl mx-auto">
+                    <form onSubmit={submitTicket} className="rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1a1b1e] md:p-6">
+                        <div className="grid gap-5">
+                            <label className="grid gap-2">
+                                <span className="text-[12px] font-bold uppercase tracking-wide text-[#6e6e73] dark:text-[#9aa0a6]">Subject</span>
+                                <input
+                                    value={subject}
+                                    onChange={(event) => setSubject(event.target.value)}
+                                    className="h-11 rounded-xl border border-[#d8d8dc] bg-white px-3 text-[14px] font-medium text-[#111111] outline-none transition focus:border-[#2b83fa] focus:ring-4 focus:ring-[#2b83fa]/10 dark:border-white/10 dark:bg-[#111214] dark:text-white"
+                                    placeholder="Cannot send SMS"
+                                    maxLength={140}
+                                    disabled={isSubmitting}
+                                />
+                            </label>
+
+                            <label className="grid gap-2">
+                                <span className="text-[12px] font-bold uppercase tracking-wide text-[#6e6e73] dark:text-[#9aa0a6]">Priority</span>
+                                <select
+                                    value={priority}
+                                    onChange={(event) => setPriority(event.target.value as typeof PRIORITIES[number]["value"])}
+                                    className="h-11 rounded-xl border border-[#d8d8dc] bg-white px-3 text-[14px] font-medium text-[#111111] outline-none transition focus:border-[#2b83fa] focus:ring-4 focus:ring-[#2b83fa]/10 dark:border-white/10 dark:bg-[#111214] dark:text-white"
+                                    disabled={isSubmitting}
+                                >
+                                    {PRIORITIES.map((item) => (
+                                        <option key={item.value} value={item.value}>{item.label}</option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label className="grid gap-2">
+                                <span className="text-[12px] font-bold uppercase tracking-wide text-[#6e6e73] dark:text-[#9aa0a6]">Message</span>
+                                <textarea
+                                    value={message}
+                                    onChange={(event) => setMessage(event.target.value)}
+                                    className="min-h-[180px] resize-y rounded-xl border border-[#d8d8dc] bg-white px-3 py-3 text-[14px] font-medium leading-relaxed text-[#111111] outline-none transition focus:border-[#2b83fa] focus:ring-4 focus:ring-[#2b83fa]/10 dark:border-white/10 dark:bg-[#111214] dark:text-white"
+                                    placeholder="Tell us what happened"
+                                    maxLength={3000}
+                                    disabled={isSubmitting}
+                                />
+                            </label>
+
+                            {errorMessage && (
+                                <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+                                    <FiAlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                                    <span>{errorMessage}</span>
+                                </div>
+                            )}
+
+                            {successMessage && (
+                                <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12.5px] font-semibold text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
+                                    <FiCheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                                    <span>{successMessage}</span>
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#2b83fa] px-4 text-[13px] font-bold text-white shadow-sm transition hover:bg-[#1d6bd4] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <FiSend className="h-4 w-4" />
+                                {isSubmitting ? "Submitting..." : "Submit ticket"}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </main>
         </div>

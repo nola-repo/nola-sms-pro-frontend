@@ -111,7 +111,11 @@ export const submitSenderRequest = async (
         throw new Error(message);
     }
 
-    return res.json();
+    const data = await res.json();
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("nola-notifications-refresh"));
+    }
+    return data;
 };
 
 /**

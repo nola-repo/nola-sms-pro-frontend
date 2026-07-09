@@ -18,6 +18,11 @@ export type UserNotificationType =
   | "zero_balance"
   | "low_balance"
   | "top_up_success"
+  | "location_registration"
+  | "support_ticket"
+  | "sender_request"
+  | "sender_id_approved"
+  | "sender_id_rejected"
   | "sender_approved"
   | "sender_rejected"
   | "sender_revoked"
@@ -31,6 +36,7 @@ export interface UserNotification {
   description?: string;
   created_at: string;
   read: boolean;
+  email?: string;
   amount?: number;
   balance?: number;
   threshold?: number;
@@ -55,7 +61,7 @@ const asString = (value: unknown): string | undefined =>
   typeof value === "string" && value ? value : undefined;
 
 const asNumber = (value: unknown): number | undefined =>
-  typeof value === "number" ? value : undefined;
+  typeof value === "number" ? value : typeof value === "string" && value.trim() && !Number.isNaN(Number(value)) ? Number(value) : undefined;
 
 const asViewTab = (value: unknown): ViewTab | undefined =>
   VIEW_TABS.includes(value as ViewTab) ? value as ViewTab : undefined;
@@ -129,6 +135,7 @@ const normalizeRemoteNotification = (raw: unknown, readIds: Set<string>): UserNo
   if (!isRecord(raw)) return null;
   const id = String(raw.id || raw.notification_id || raw.event_id || "");
   if (!id) return null;
+  const metadata = isRecord(raw.metadata) ? raw.metadata : {};
 
   return {
     id,
@@ -137,13 +144,14 @@ const normalizeRemoteNotification = (raw: unknown, readIds: Set<string>): UserNo
     description: asString(raw.description) || asString(raw.message),
     created_at: toIso(raw.created_at || raw.createdAt || raw.timestamp),
     read: Boolean(raw.read) || readIds.has(id),
-    amount: asNumber(raw.amount),
+    email: asString(raw.email) || asString(metadata.registered_email),
+    amount: asNumber(raw.amount) || asNumber(metadata.amount),
     balance: asNumber(raw.balance),
     threshold: asNumber(raw.threshold),
-    sender_id: asString(raw.sender_id) || asString(raw.senderId) || asString(raw.requested_id),
+    sender_id: asString(raw.sender_id) || asString(raw.senderId) || asString(raw.requested_id) || asString(metadata.sender_id),
     route: asViewTab(raw.route),
     settingsTab: asSettingsTab(raw.settingsTab) || asSettingsTab(raw.settings_tab),
-    metadata: isRecord(raw.metadata) ? raw.metadata : {},
+    metadata,
   };
 };
 
@@ -330,8 +338,15 @@ export function useUserNotifications() {
   useEffect(() => {
     fetchNotifications(true);
     timerRef.current = setInterval(() => fetchNotifications(false), POLL_INTERVAL);
+
+    const handleExternalRefresh = () => {
+      void fetchNotifications(false);
+    };
+
+    window.addEventListener("nola-notifications-refresh", handleExternalRefresh);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      window.removeEventListener("nola-notifications-refresh", handleExternalRefresh);
     };
   }, [fetchNotifications]);
 

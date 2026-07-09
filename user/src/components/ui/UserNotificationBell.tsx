@@ -32,6 +32,20 @@ const timeAgo = (iso: string): string => {
 const formatCredits = (value?: number) =>
   Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
+const metadataString = (notification: UserNotification, key: string): string => {
+  const value = notification.metadata?.[key];
+  return typeof value === "string" && value.trim() ? value : "";
+};
+
+const notificationEmail = (notification: UserNotification): string =>
+  notification.email || metadataString(notification, "registered_email") || "Account notification";
+
+const notificationSender = (notification: UserNotification): string =>
+  notification.sender_id || metadataString(notification, "sender_id") || "Sender ID";
+
+const notificationAmount = (notification: UserNotification): string =>
+  formatCredits(notification.amount || Number(metadataString(notification, "amount") || 0));
+
 const openSettingsTab = (tab: "senderIds" | "credits" | "notifications" | "account") => {
   window.dispatchEvent(new CustomEvent("navigate-to-settings", { detail: { tab } }));
 };
@@ -54,8 +68,8 @@ const CONFIGS: Record<string, {
     iconText: "text-red-500",
     unreadBg: "bg-red-50/70 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/15",
     dotBg: "bg-red-500",
-    getTitle: () => "Credit balance is zero",
-    getDescription: () => "Sending is paused until credits are added.",
+    getTitle: () => "Zero balance alert",
+    getDescription: (notification) => `${notificationEmail(notification)} has 0 credits remaining.`,
     route: "settings",
     settingsTab: "credits",
     severity: 0,
@@ -66,11 +80,69 @@ const CONFIGS: Record<string, {
     iconText: "text-amber-500",
     unreadBg: "bg-amber-50/70 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/15",
     dotBg: "bg-amber-500",
-    getTitle: () => "Credit balance is low",
-    getDescription: (notification) =>
-      `${formatCredits(notification.balance)} credits remaining. Alert threshold: ${formatCredits(notification.threshold)}.`,
+    getTitle: () => "Low balance alert",
+    getDescription: (notification) => `${notificationEmail(notification)} is below the credit threshold.`,
     route: "settings",
     settingsTab: "credits",
+    severity: 1,
+  },
+  location_registration: {
+    icon: FiCheckCircle,
+    iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
+    iconText: "text-emerald-500",
+    unreadBg: "bg-emerald-50/70 dark:bg-emerald-950/10 hover:bg-emerald-50 dark:hover:bg-emerald-950/15",
+    dotBg: "bg-emerald-500",
+    getTitle: () => "Registration email sent",
+    getDescription: (notification) => `${notificationEmail(notification)} completed registration.`,
+    route: "settings",
+    settingsTab: "account",
+    severity: 3,
+  },
+  support_ticket: {
+    icon: FiBell,
+    iconBg: "bg-blue-100 dark:bg-blue-900/30",
+    iconText: "text-blue-500",
+    unreadBg: "bg-blue-50/70 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/15",
+    dotBg: "bg-blue-500",
+    getTitle: () => "Support ticket submitted",
+    getDescription: (notification) => `${notificationEmail(notification)} submitted "${metadataString(notification, "subject") || "Support ticket"}".`,
+    route: "tickets",
+    severity: 3,
+  },
+  sender_request: {
+    icon: FiSend,
+    iconBg: "bg-blue-100 dark:bg-blue-900/30",
+    iconText: "text-blue-500",
+    unreadBg: "bg-blue-50/70 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/15",
+    dotBg: "bg-blue-500",
+    getTitle: () => "Sender ID request submitted",
+    getDescription: (notification) => `${notificationEmail(notification)} requested ${notificationSender(notification)}.`,
+    route: "settings",
+    settingsTab: "senderIds",
+    severity: 4,
+  },
+  sender_id_approved: {
+    icon: FiSend,
+    iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
+    iconText: "text-emerald-500",
+    unreadBg: "bg-emerald-50/70 dark:bg-emerald-950/10 hover:bg-emerald-50 dark:hover:bg-emerald-950/15",
+    dotBg: "bg-emerald-500",
+    getTitle: () => "Sender ID approved",
+    getDescription: (notification) => `${notificationSender(notification)} was approved for ${notificationEmail(notification)}.`,
+    route: "settings",
+    settingsTab: "senderIds",
+    severity: 2,
+  },
+  sender_id_rejected: {
+    icon: FiAlertTriangle,
+    iconBg: "bg-red-100 dark:bg-red-900/30",
+    iconText: "text-red-500",
+    unreadBg: "bg-red-50/70 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/15",
+    dotBg: "bg-red-500",
+    getTitle: () => "Sender ID rejected",
+    getDescription: (notification) => `${notificationSender(notification)} was rejected for ${notificationEmail(notification)}.`,
+    route: "settings",
+    settingsTab: "senderIds",
     severity: 1,
   },
   sender_approved: {
@@ -129,8 +201,7 @@ const CONFIGS: Record<string, {
     unreadBg: "bg-emerald-50/70 dark:bg-emerald-950/10 hover:bg-emerald-50 dark:hover:bg-emerald-950/15",
     dotBg: "bg-emerald-500",
     getTitle: () => "Credits added",
-    getDescription: (notification) =>
-      `Top-up successful: +${formatCredits(notification.amount)} credits.${notification.balance ? ` Balance: ${formatCredits(notification.balance)}.` : ""}`,
+    getDescription: (notification) => `${notificationAmount(notification)} credits added for ${notificationEmail(notification)}.`,
     route: "settings",
     settingsTab: "credits",
     severity: 3,
@@ -213,25 +284,29 @@ export const UserNotificationBell: React.FC<UserNotificationBellProps> = ({
   onTabChange,
   shape = "rounded",
 }) => {
-  const { notifications, loading, unreadCount, markRead, markAllRead } = useUserNotifications();
+  const { notifications, loading, unreadCount, markRead, markAllRead, refetch } = useUserNotifications();
   const [open, setOpen] = useState(false);
   const [panelPosition, setPanelPosition] = useState({ top: 0, right: 12 });
   const panelRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
   const sortedNotifications = useMemo(() => {
-    return [...notifications].sort((a, b) => {
-      if (a.read !== b.read) return a.read ? 1 : -1;
-      const severityA = (CONFIGS[a.type] || DEFAULT_CONFIG).severity;
-      const severityB = (CONFIGS[b.type] || DEFAULT_CONFIG).severity;
-      if (severityA !== severityB) return severityA - severityB;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+    return [...notifications].sort((a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   }, [notifications]);
 
   const hasCritical = notifications.some((notification) =>
-    !notification.read && ["zero_balance", "sender_rejected", "sender_revoked"].includes(notification.type)
+    !notification.read && ["zero_balance", "sender_rejected", "sender_id_rejected", "sender_revoked"].includes(notification.type)
   );
+
+  const handleBellClick = () => {
+    setOpen((value) => {
+      const nextOpen = !value;
+      if (nextOpen) void refetch(false);
+      return nextOpen;
+    });
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -361,7 +436,7 @@ export const UserNotificationBell: React.FC<UserNotificationBellProps> = ({
       <button
         ref={btnRef}
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={handleBellClick}
         className={`
           relative inline-flex items-center justify-center border p-2 leading-none shadow-sm transition-all
           ${shape === "circle" ? "h-10 w-10 rounded-full" : "rounded-xl"}

@@ -1728,6 +1728,7 @@ const CreditsSection: React.FC = () => {
             setCheckoutError(null);
             resetCheckoutState(true);
             refreshCreditsView();
+            window.dispatchEvent(new Event("nola-notifications-refresh"));
         };
         window.addEventListener('message', handlePaymentMessage);
 
