@@ -349,7 +349,7 @@ export const UserNotificationBell: React.FC<UserNotificationBellProps> = ({
         w-[360px] max-w-[calc(100vw-24px)]
         overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white shadow-2xl
         dark:border-white/10 dark:bg-[#1a1b1e]
-        animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-200
+        animate-in fade-in-0 zoom-in-[0.97] slide-in-from-top-1 duration-150
       "
       style={{ top: panelPosition.top, right: panelPosition.right }}
     >

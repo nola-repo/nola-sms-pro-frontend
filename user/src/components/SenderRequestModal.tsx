@@ -27,7 +27,7 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
     const [countdown, setCountdown] = useState(3);
     const [error, setError] = useState<string | null>(null);
 
-    const normalizedSenderName = newId.trim().toUpperCase();
+    const normalizedSenderName = newId.trim();
 
     useEffect(() => {
         let timer: ReturnType<typeof setInterval>;
@@ -155,7 +155,7 @@ export const SenderRequestModal: React.FC<SenderRequestModalProps> = ({ isOpen, 
                                 value={newId}
                                 onChange={e => {
                                     setError(null);
-                                    setNewId(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase());
+                                    setNewId(e.target.value.replace(/[^a-zA-Z0-9]/g, ''));
                                 }}
                                 placeholder="ex. NOLASMS"
                                 maxLength={11}

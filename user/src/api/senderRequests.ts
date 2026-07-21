@@ -82,7 +82,7 @@ export const submitSenderRequest = async (
     provider?: SenderProvider
 ): Promise<SenderRequest> => {
     const { headers, locationId } = getLocationHeaders();
-    const normalizedId = requestedId.trim().toUpperCase();
+    const normalizedId = requestedId.trim();
     if (!locationId) {
         throw new Error(missingLocationMessage);
     }

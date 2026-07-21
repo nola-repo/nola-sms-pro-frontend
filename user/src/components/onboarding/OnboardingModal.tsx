@@ -232,7 +232,7 @@ const Step4 = () => {
           <label className="block text-[11px] font-black text-[#9aa0a6] uppercase tracking-widest mb-1.5 ml-1 transition-colors group-focus-within:text-[#2b83fa]">Sender Name</label>
           <input
             value={newId}
-            onChange={e => setNewId(e.target.value.replace(/\s/g, ''))}
+            onChange={e => setNewId(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
             placeholder="ex. NOLASMSPro"
             maxLength={11}
             required

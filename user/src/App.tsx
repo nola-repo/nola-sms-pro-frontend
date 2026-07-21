@@ -176,7 +176,7 @@ const TopMoreOptions: React.FC<{
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[calc(100%+10px)] z-[80] w-72 overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white/95 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-200 dark:border-white/10 dark:bg-[#1a1b1e]/95">
+        <div className="absolute right-0 top-[calc(100%+10px)] z-[80] w-72 overflow-hidden rounded-2xl border border-[#e5e5e5] bg-white/95 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-[0.97] slide-in-from-top-1 duration-150 dark:border-white/10 dark:bg-[#1a1b1e]/95">
           <button
             type="button"
             onClick={handleGettingStarted}

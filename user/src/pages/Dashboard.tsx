@@ -15,6 +15,8 @@ import { Home } from "../components/Home";
 import { TicketsTab } from "../components/TicketsTab";
 import { useOnboarding } from "../components/onboarding/useOnboarding";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
+import { SenderRequestModal } from "../components/SenderRequestModal";
+import { fetchSenderRequests } from "../api/senderRequests";
 import { useLocationId } from "../context/LocationContext";
 import { GHL_BACKEND_ONBOARDING_URL, GHL_MARKETPLACE_CONNECT_URL, GHL_RECONNECT_REQUIRED_STORAGE_KEY } from "../config";
 import faviconLogo from "../assets/FAV ICON - NOLA SMS PRO.png";
@@ -285,6 +287,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
       return contact ? [contact] : [];
     } catch { return []; }
   });
+  const [senderModalOpen, setSenderModalOpen] = useState(false);
   // initialView from the router takes priority; fall back to persisted storage
   const [currentView, setCurrentView] = useState<ViewTab>(
     () => initialView || (safeStorage.getItem('nola_active_tab') as ViewTab) || 'home'
@@ -478,6 +481,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     return () => window.removeEventListener('nola-contact-updated', handleContactUpdated);
   }, []);
 
+  useEffect(() => {
+    if (!locationId || bootstrapState.status !== 'ready') return;
+    
+    const checkSenderRequests = async () => {
+      const onboardingDone = localStorage.getItem('nola_onboarding_done') === 'true';
+      const alreadyPrompted = sessionStorage.getItem('nola_sender_id_prompted') === 'true';
+      
+      if (onboardingDone && !alreadyPrompted) {
+        try {
+          const requests = await fetchSenderRequests(locationId);
+          if (requests.length === 0) {
+            setSenderModalOpen(true);
+            sessionStorage.setItem('nola_sender_id_prompted', 'true');
+          }
+        } catch (e) {
+          console.error("Error checking sender requests:", e);
+        }
+      }
+    };
+    
+    checkSenderRequests();
+  }, [locationId, bootstrapState.status]);
+
+  useEffect(() => {
+    const handleOnboardingUpdated = () => {
+      const onboardingDone = localStorage.getItem('nola_onboarding_done') === 'true';
+      if (onboardingDone && locationId) {
+        fetchSenderRequests(locationId).then(requests => {
+          if (requests.length === 0) {
+            setSenderModalOpen(true);
+            sessionStorage.setItem('nola_sender_id_prompted', 'true');
+          }
+        }).catch(err => console.error(err));
+      }
+    };
+    window.addEventListener('nola-onboarding-updated', handleOnboardingUpdated);
+    return () => window.removeEventListener('nola-onboarding-updated', handleOnboardingUpdated);
+  }, [locationId]);
+
   const bootstrapIsCurrent = !locationId || bootstrapState.locationId === locationId;
   const shouldWaitForWorkspaceBootstrap =
     isAuthenticated() || isRunningInGhlFrame();
@@ -496,12 +538,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
 
   if (isCheckingActiveLocation) {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] dark:bg-[#09090b] flex items-center justify-center px-4 relative overflow-hidden">
+      <div className="min-h-screen bg-[#f7f7f7] dark:bg-[#18191d] flex items-center justify-center px-4 relative overflow-hidden">
         {/* Soft atmospheric glow circles */}
         <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-[#2b83fa]/10 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-        <div className="relative z-10 w-full max-w-sm flex flex-col items-center p-8 rounded-[2rem] bg-white/80 dark:bg-[#151618]/80 backdrop-blur-xl border border-white/50 dark:border-white/5 shadow-2xl text-center">
+        <div className="relative z-10 w-full max-w-sm flex flex-col items-center p-8 rounded-[2rem] bg-white/90 dark:bg-[#121415]/90 backdrop-blur-xl border border-black/[0.06] dark:border-white/[0.05] shadow-2xl text-center">
           {/* Logo */}
           <img
             src={nolaLogo}
@@ -594,8 +636,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     <div className="flex h-[100dvh] min-h-0 bg-[#ffffff] dark:bg-[#202123] overflow-hidden">
       {/* Sidebar - Left */}
       <div className={`
-        fixed inset-y-0 left-0 z-[100] md:relative md:z-50 h-full transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
-        ${isMobileMenuOpen ? 'w-80 translate-x-0 shadow-2xl opacity-100 visible' : 'w-0 -translate-x-full md:w-auto md:translate-x-0 opacity-0 md:opacity-100 invisible md:visible pointer-events-none md:pointer-events-auto'}
+        fixed inset-y-0 left-0 z-[100] md:relative md:z-50 h-full w-80 md:w-auto transition-transform duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)]
+        ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl pointer-events-auto' : '-translate-x-full md:translate-x-0 pointer-events-none md:pointer-events-auto'}
         overflow-visible md:shadow-none
       `}>
         <div className={`h-full transition-all duration-300 z-[60] ${isSidebarCollapsed ? 'md:w-20' : 'md:w-80 w-80'}`}>
@@ -743,6 +785,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
 
       {/* Onboarding Modal */}
       <OnboardingModal onboarding={onboarding} />
+
+      {/* Sender ID Request Modal */}
+      <SenderRequestModal
+        isOpen={senderModalOpen}
+        onClose={() => setSenderModalOpen(false)}
+      />
     </div>
   );
 };
