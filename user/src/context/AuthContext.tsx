@@ -90,11 +90,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Store token in every available browser scope so new tabs can restore the session.
         persistTokenForNewTabs(urlToken);
 
-        // Clean up only the token so GHL/location prefill params can still flow through the app.
+        // Clean up token + post_auth_redirect from URL so they don't leak.
+        const postAuthRedirect = params.get('post_auth_redirect') || '';
         params.delete('token');
+        params.delete('post_auth_redirect');
         const nextQuery = params.toString();
         const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
         window.history.replaceState({}, document.title, nextUrl);
+
+        // If there's a post-auth redirect destination (e.g. GHL embedded page or standalone dashboard),
+        // navigate there now. This fires after localStorage is written so the embedded app has a token.
+        if (postAuthRedirect) {
+          try {
+            // Allow relative paths (/v2/...) or same-origin absolute URLs only to prevent open-redirect.
+            const resolved = postAuthRedirect.startsWith('/')
+              ? `${window.location.origin}${postAuthRedirect}`
+              : postAuthRedirect;
+            const resolvedUrl = new URL(resolved);
+            const allowedHosts = ['app.nolacrm.io', 'app.nolasmspro.com', window.location.hostname];
+            if (allowedHosts.includes(resolvedUrl.hostname)) {
+              window.location.replace(resolved);
+            }
+          } catch {
+            // Invalid URL — skip redirect
+          }
+        }
       }
     } catch (e) {
       devLog.error("[AuthContext] Error parsing URL token:", e);
