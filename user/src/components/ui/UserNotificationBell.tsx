@@ -8,6 +8,7 @@ import {
   FiCreditCard,
   FiSend,
   FiX,
+  FiArrowRight,
 } from "react-icons/fi";
 import { useUserNotifications, type UserNotification } from "../../hooks/useUserNotifications";
 
@@ -194,6 +195,18 @@ const CONFIGS: Record<string, {
     settingsTab: "senderIds",
     severity: 4,
   },
+  sender_id_reminder: {
+    icon: FiArrowRight,
+    iconBg: "bg-indigo-100 dark:bg-indigo-900/30",
+    iconText: "text-indigo-500",
+    unreadBg: "bg-indigo-50/70 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/15",
+    dotBg: "bg-indigo-400",
+    getTitle: () => "Set up your Sender ID",
+    getDescription: () => "You haven't requested a custom Sender ID yet. Tap to set one up now.",
+    route: "settings",
+    settingsTab: "senderIds",
+    severity: 5,
+  },
   top_up_success: {
     icon: FiCreditCard,
     iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
@@ -231,6 +244,13 @@ const NotificationRow: React.FC<{
 
   const handleClick = () => {
     if (!notification.read) onRead(notification.id);
+
+    // Sender ID reminder: open the request modal directly instead of navigating
+    if (notification.type === "sender_id_reminder") {
+      window.dispatchEvent(new CustomEvent("open-sender-id-modal"));
+      onClose();
+      return;
+    }
 
     const route = notification.route || config.route;
     const settingsTab = notification.settingsTab || config.settingsTab;

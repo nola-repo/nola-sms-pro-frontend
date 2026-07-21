@@ -520,6 +520,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
     return () => window.removeEventListener('nola-onboarding-updated', handleOnboardingUpdated);
   }, [locationId]);
 
+  // Open sender ID request modal when triggered from the notification bell reminder
+  useEffect(() => {
+    const handleOpenSenderIdModal = () => {
+      setSenderModalOpen(true);
+    };
+    window.addEventListener('open-sender-id-modal', handleOpenSenderIdModal);
+    return () => window.removeEventListener('open-sender-id-modal', handleOpenSenderIdModal);
+  }, []);
+
   const bootstrapIsCurrent = !locationId || bootstrapState.locationId === locationId;
   const shouldWaitForWorkspaceBootstrap =
     isAuthenticated() || isRunningInGhlFrame();

@@ -27,6 +27,7 @@ export type UserNotificationType =
   | "sender_rejected"
   | "sender_revoked"
   | "sender_pending"
+  | "sender_id_reminder"
   | "account";
 
 export interface UserNotification {
@@ -304,6 +305,22 @@ async function buildLocalNotifications(locationId: string, readIds: Set<string>)
         metadata: { reference_id: tx.reference_id, transaction_id: tx.transaction_id },
       });
     });
+
+  // Sender ID reminder: only shown when onboarding is done but no requests exist at all
+  const onboardingDone =
+    (typeof localStorage !== "undefined" && localStorage.getItem("nola_onboarding_done") === "true") ||
+    (typeof sessionStorage !== "undefined" && sessionStorage.getItem("nola_onboarding_done") === "true");
+  if (onboardingDone && senderRequests.length === 0) {
+    const id = `sender-reminder-${locationId}`;
+    notifications.push({
+      id,
+      type: "sender_id_reminder",
+      created_at: now,
+      read: readIds.has(id),
+      route: "settings",
+      settingsTab: "senderIds",
+    });
+  }
 
   return notifications;
 }
