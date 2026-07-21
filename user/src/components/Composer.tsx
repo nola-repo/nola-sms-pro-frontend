@@ -671,14 +671,22 @@ export const Composer: React.FC<ComposerProps> = ({
 
   const handleTemplateSelect = (template: Template) => {
     const validation = validateTemplateContent(template.content);
+
+    // Hard block: the template contains unsupported {{...}} variables that won't resolve
     if (!validation.isValid) {
-      showToast("error", `Template needs variables before use. ${formatTemplateValidationMessage(validation)}`);
+      showToast("error", `Template contains unsupported placeholders. ${formatTemplateValidationMessage(validation)}`);
       return;
     }
 
     insertAtCursor(template.content);
     setIsTemplatesOpen(false);
-    showToast("success", `Inserted ${template.name}.`);
+
+    // Soft warning: template is missing recommended contact placeholders (still inserted)
+    if (validation.missingGroups.length > 0) {
+      showToast("success", `Inserted ${template.name}. Tip: add a contact placeholder like ${validation.missingGroups[0].examples[0]} to personalise it.`);
+    } else {
+      showToast("success", `Inserted ${template.name}.`);
+    }
   };
 
   const allTags = useMemo(() => {

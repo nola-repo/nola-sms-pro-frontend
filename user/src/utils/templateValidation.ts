@@ -8,16 +8,12 @@ const CONTACT_PLACEHOLDERS = [
   "contact.email",
 ];
 
-const REQUIRED_PLACEHOLDER_GROUPS = [
+// Placeholder groups that are recommended but NOT strictly required
+const RECOMMENDED_PLACEHOLDER_GROUPS = [
   {
     label: "contact",
     examples: ["{{contact.first_name}}", "{{contact.name}}"],
     values: CONTACT_PLACEHOLDERS,
-  },
-  {
-    label: "company",
-    examples: ["{{company.name}}"],
-    values: ["company.name"],
   },
 ];
 
@@ -27,8 +23,11 @@ const ALLOWED_PLACEHOLDERS = new Set([
 ]);
 
 export type TemplateValidationResult = {
+  /** True only when there are no unknown/unsupported placeholders */
   isValid: boolean;
+  /** Recommended placeholder groups that are missing (warning only, not blocking) */
   missingGroups: Array<{ label: string; examples: string[] }>;
+  /** Truly unsupported placeholders that will not be replaced at send-time */
   unknownPlaceholders: string[];
 };
 
@@ -44,33 +43,25 @@ export const validateTemplateContent = (content: string): TemplateValidationResu
   const placeholders = extractTemplatePlaceholders(content);
   const placeholderSet = new Set(placeholders);
 
-  const missingGroups = REQUIRED_PLACEHOLDER_GROUPS
+  // Recommended groups that are missing (informational/warning only)
+  const missingGroups = RECOMMENDED_PLACEHOLDER_GROUPS
     .filter((group) => !group.values.some((value) => placeholderSet.has(value)))
     .map(({ label, examples }) => ({ label, examples }));
 
+  // Only truly unknown placeholders are errors (they will send literally as {{...}})
   const unknownPlaceholders = placeholders.filter((placeholder) => !ALLOWED_PLACEHOLDERS.has(placeholder));
 
   return {
-    isValid: missingGroups.length === 0 && unknownPlaceholders.length === 0,
+    // Only block if there are unknown placeholders — missing recommended groups are not blocking
+    isValid: unknownPlaceholders.length === 0,
     missingGroups,
     unknownPlaceholders,
   };
 };
 
 export const formatTemplateValidationMessage = (result: TemplateValidationResult): string => {
-  const messages: string[] = [];
+  // Only format error-level issues (unknown placeholders that won't resolve)
+  if (result.unknownPlaceholders.length === 0) return "";
 
-  if (result.missingGroups.length > 0) {
-    messages.push(
-      `Add ${result.missingGroups
-        .map((group) => `${group.label} placeholder (${group.examples.join(" or ")})`)
-        .join(" and ")}.`
-    );
-  }
-
-  if (result.unknownPlaceholders.length > 0) {
-    messages.push(`Remove or replace unsupported placeholder${result.unknownPlaceholders.length === 1 ? "" : "s"}: ${result.unknownPlaceholders.map((value) => `{{${value}}}`).join(", ")}.`);
-  }
-
-  return messages.join(" ");
+  return `Remove or replace unsupported placeholder${result.unknownPlaceholders.length === 1 ? "" : "s"}: ${result.unknownPlaceholders.map((value) => `{{${value}}}`).join(", ")}.`;
 };

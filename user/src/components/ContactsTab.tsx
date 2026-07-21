@@ -521,7 +521,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
 
 
   return (
-    <div className="flex flex-col h-full bg-[#f3f4f6] dark:bg-[#09090b]">
+    <div className="flex flex-col h-full bg-[#f3f4f6] dark:bg-[#09090b] relative">
       {/* Header */}
       <div className="flex-shrink-0 bg-gradient-to-br from-[#2b83fa] to-[#1d6bd4] rounded-b-[40px] shadow-[0_18px_45px_rgba(29,107,212,0.24)]">
         <div className="max-w-5xl mx-auto px-3 md:px-6 pt-5 pb-7">
@@ -949,7 +949,7 @@ export const ContactsTab: React.FC<ContactsTabProps> = ({
       </div>
       {/* Floating Action Bar */}
       {selectedContacts.length > 0 && (
-        <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300 px-3 sm:px-0">
+        <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300 px-3 sm:px-0">
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 bg-white dark:bg-[#1a1b1e] rounded-2xl shadow-2xl shadow-black/20 dark:shadow-black/30 border border-gray-100 dark:border-white/10">
             <span className="text-[13px] sm:text-[14px] font-bold text-gray-700 dark:text-white">
               {selectedContacts.length} contact{selectedContacts.length !== 1 ? "s" : ""} selected
