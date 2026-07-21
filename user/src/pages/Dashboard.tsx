@@ -545,33 +545,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         bootstrapState.status === 'checking' ||
         bootstrapState.status === 'idle'));
 
-  if (isCheckingActiveLocation) {
-    return (
-      <div className="min-h-screen bg-[#f7f7f7] dark:bg-[#18191d] flex items-center justify-center px-4 relative overflow-hidden">
-        {/* Soft atmospheric glow circles */}
-        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-[#2b83fa]/10 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-        <div className="relative z-10 w-full max-w-sm flex flex-col items-center p-8 rounded-[2rem] bg-white/90 dark:bg-[#121415]/90 backdrop-blur-xl border border-black/[0.06] dark:border-white/[0.05] shadow-2xl text-center">
-          {/* Logo */}
-          <img
-            src={nolaLogo}
-            alt="NOLA SMS PRO"
-            className="w-24 h-24 mb-3 drop-shadow-xl object-contain"
-          />
-          <h2 className="text-[17px] font-black tracking-tight text-[#111111] dark:text-white mb-1">
-            Verifying your workspace
-          </h2>
-          <p className="text-[12.5px] font-medium text-gray-500 dark:text-[#b6bac2] mb-6">
-            Verifying your NOLA SMS Pro workspace...
-          </p>
-          <div className="w-full bg-[#f1f3f4] dark:bg-white/[0.06] h-1.5 rounded-full overflow-hidden relative">
-            <div className="workspace-progress-bar absolute top-0 bottom-0 left-0 w-[42%] rounded-full bg-gradient-to-r from-[#2b83fa] via-[#1e40af] to-[#2b83fa]" />
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (locationId && bootstrapIsCurrent && bootstrapState.status === 'action_required') {
     const response = bootstrapState.response;
@@ -800,6 +774,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ isMobileMenuOpen: external
         isOpen={senderModalOpen}
         onClose={() => setSenderModalOpen(false)}
       />
+
+      {/* Verifying Workspace Full Screen Frosted Overlay */}
+      {isCheckingActiveLocation && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center px-4 bg-white/20 dark:bg-black/40 backdrop-blur-md">
+          <div className="relative z-10 w-full max-w-sm flex flex-col items-center p-8 rounded-[2rem] bg-white/95 dark:bg-[#121415]/95 backdrop-blur-xl border border-black/[0.06] dark:border-white/[0.05] shadow-2xl text-center">
+            {/* Logo */}
+            <img
+              src={nolaLogo}
+              alt="NOLA SMS PRO"
+              className="w-24 h-24 mb-3 drop-shadow-xl object-contain"
+            />
+            <h2 className="text-[17px] font-black tracking-tight text-[#111111] dark:text-white mb-1">
+              Verifying your workspace
+            </h2>
+            <p className="text-[12.5px] font-medium text-gray-500 dark:text-[#b6bac2] mb-6">
+              Verifying your NOLA SMS Pro workspace...
+            </p>
+            <div className="w-full bg-[#f1f3f4] dark:bg-white/[0.06] h-1.5 rounded-full overflow-hidden relative">
+              <div className="workspace-progress-bar absolute top-0 bottom-0 left-0 w-[42%] rounded-full bg-gradient-to-r from-[#2b83fa] via-[#1e40af] to-[#2b83fa]" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
