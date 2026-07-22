@@ -22,7 +22,7 @@ const getHeaders = (explicitLocationId?: string) => {
   return headers;
 };
 
-const normalizeTemplate = (raw: any): Template => ({
+const normalizeTemplate = (raw: Record<string, unknown> | null | undefined): Template => ({
   id: String(raw?.id ?? raw?.template_id ?? `tpl-${Date.now()}`),
   location_id: String(raw?.location_id ?? raw?.locationId ?? getAccountSettings().ghlLocationId ?? ""),
   name: String(raw?.name ?? ""),
@@ -32,27 +32,40 @@ const normalizeTemplate = (raw: any): Template => ({
   updated_at: String(raw?.updated_at ?? raw?.updatedAt ?? new Date().toISOString()),
 });
 
-const unwrapTemplateList = (payload: any): Template[] => {
-  const rawList = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.data)
-      ? payload.data
-      : Array.isArray(payload?.templates)
-        ? payload.templates
-        : Array.isArray(payload?.data?.templates)
-          ? payload.data.templates
-          : [];
+const unwrapTemplateList = (payload: unknown): Template[] => {
+  if (!payload) return [];
+  
+  let rawList: unknown[] = [];
+  if (Array.isArray(payload)) {
+    rawList = payload;
+  } else if (payload && typeof payload === 'object') {
+    const obj = payload as Record<string, unknown>;
+    if (Array.isArray(obj.data)) {
+      rawList = obj.data;
+    } else if (Array.isArray(obj.templates)) {
+      rawList = obj.templates;
+    } else if (obj.data && typeof obj.data === 'object') {
+      const dataObj = obj.data as Record<string, unknown>;
+      if (Array.isArray(dataObj.templates)) {
+        rawList = dataObj.templates;
+      }
+    }
+  }
 
-  return rawList.map(normalizeTemplate);
+  return rawList.map(item => normalizeTemplate(item as Record<string, unknown>));
 };
 
-const unwrapTemplate = (payload: any): Template => {
-  const raw = payload?.data && !Array.isArray(payload.data)
-    ? payload.data
-    : payload?.template
-      ? payload.template
-      : payload;
-  return normalizeTemplate(raw);
+const unwrapTemplate = (payload: unknown): Template => {
+  if (!payload || typeof payload !== 'object') {
+    return normalizeTemplate(undefined);
+  }
+  const obj = payload as Record<string, unknown>;
+  const raw = obj.data && !Array.isArray(obj.data)
+    ? obj.data
+    : obj.template
+      ? obj.template
+      : obj;
+  return normalizeTemplate(raw as Record<string, unknown>);
 };
 
 export const fetchTemplates = async (explicitLocationId?: string, forceRefresh = false): Promise<Template[]> => {
@@ -132,10 +145,11 @@ export const createTemplate = async (name: string, content: string, category: st
       throw new Error(error.message || 'Failed to create template');
     }
     return unwrapTemplate(await res.json());
-  } catch (error: any) {
+  } catch (error: unknown) {
     invalidateTemplateCache(activeLocationId);
+    const errorMessage = error instanceof Error ? error.message : "";
     // Mock logic fallback
-    if (error.message === 'Failed to fetch') {
+    if (errorMessage === 'Failed to fetch') {
       const mockStr = localStorage.getItem('nola_mock_templates');
       const templates: Template[] = mockStr ? JSON.parse(mockStr) : [];
       const newTemp: Template = {
@@ -187,10 +201,11 @@ export const updateTemplate = async (id: string, name: string, content: string, 
       throw new Error(error.message || 'Failed to update template');
     }
     return unwrapTemplate(await res.json());
-  } catch (error: any) {
+  } catch (error: unknown) {
     invalidateTemplateCache(activeLocationId);
+    const errorMessage = error instanceof Error ? error.message : "";
     // Mock logic fallback
-    if (error.message === 'Failed to fetch') {
+    if (errorMessage === 'Failed to fetch') {
       const mockStr = localStorage.getItem('nola_mock_templates');
       let templates: Template[] = mockStr ? JSON.parse(mockStr) : [];
       let updated: Template | null = null;
@@ -231,10 +246,11 @@ export const deleteTemplate = async (id: string): Promise<void> => {
       const error = await res.json().catch(() => ({}));
       throw new Error(error.message || 'Failed to delete template');
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     invalidateTemplateCache(activeLocationId);
+    const errorMessage = error instanceof Error ? error.message : "";
     // Mock logic fallback
-    if (error.message === 'Failed to fetch') {
+    if (errorMessage === 'Failed to fetch') {
       const mockStr = localStorage.getItem('nola_mock_templates');
       let templates: Template[] = mockStr ? JSON.parse(mockStr) : [];
       templates = templates.filter(t => t.id !== id);
