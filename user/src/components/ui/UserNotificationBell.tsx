@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { getAccountSettings } from "../../utils/settingsStorage";
+import { safeStorage } from "../../utils/safeStorage";
 import { createPortal } from "react-dom";
 import {
   FiAlertOctagon,
@@ -41,6 +43,22 @@ const metadataString = (notification: UserNotification, key: string): string => 
 const notificationEmail = (notification: UserNotification): string =>
   notification.email || metadataString(notification, "registered_email") || "Account notification";
 
+const getStoredLocationName = (): string => {
+  try {
+    const settings = getAccountSettings();
+    if (settings.displayName && settings.displayName !== "NOLA SMS Pro") return settings.displayName;
+    const authUser = JSON.parse(safeStorage.getItem("nola_auth_user") || "null");
+    const name = authUser?.location_name || authUser?.company_name;
+    if (typeof name === "string" && name.trim()) return name.trim();
+  } catch {
+    // ignore
+  }
+  return "";
+};
+
+const notificationLocationName = (notification: UserNotification): string =>
+  getStoredLocationName() || notificationEmail(notification);
+
 const notificationSender = (notification: UserNotification): string =>
   notification.sender_id || metadataString(notification, "sender_id") || "Sender ID";
 
@@ -70,7 +88,7 @@ const CONFIGS: Record<string, {
     unreadBg: "bg-red-50/70 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/15",
     dotBg: "bg-red-500",
     getTitle: () => "Zero balance alert",
-    getDescription: (notification) => `${notificationEmail(notification)} has 0 credits remaining.`,
+    getDescription: (notification) => `${notificationLocationName(notification)} has 0 credits remaining.`,
     route: "settings",
     settingsTab: "credits",
     severity: 0,
@@ -82,7 +100,7 @@ const CONFIGS: Record<string, {
     unreadBg: "bg-amber-50/70 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/15",
     dotBg: "bg-amber-500",
     getTitle: () => "Low balance alert",
-    getDescription: (notification) => `${notificationEmail(notification)} is below the credit threshold.`,
+    getDescription: (notification) => `${notificationLocationName(notification)} is below the credit threshold.`,
     route: "settings",
     settingsTab: "credits",
     severity: 1,
@@ -94,7 +112,7 @@ const CONFIGS: Record<string, {
     unreadBg: "bg-emerald-50/70 dark:bg-emerald-950/10 hover:bg-emerald-50 dark:hover:bg-emerald-950/15",
     dotBg: "bg-emerald-500",
     getTitle: () => "Registration email sent",
-    getDescription: (notification) => `${notificationEmail(notification)} completed registration.`,
+    getDescription: (notification) => `${notificationLocationName(notification)} completed registration.`,
     route: "settings",
     settingsTab: "account",
     severity: 3,
@@ -106,7 +124,7 @@ const CONFIGS: Record<string, {
     unreadBg: "bg-blue-50/70 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/15",
     dotBg: "bg-blue-500",
     getTitle: () => "Support ticket submitted",
-    getDescription: (notification) => `${notificationEmail(notification)} submitted "${metadataString(notification, "subject") || "Support ticket"}".`,
+    getDescription: (notification) => `${notificationLocationName(notification)} submitted "${metadataString(notification, "subject") || "Support ticket"}".`,
     route: "tickets",
     severity: 3,
   },
@@ -117,7 +135,7 @@ const CONFIGS: Record<string, {
     unreadBg: "bg-blue-50/70 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/15",
     dotBg: "bg-blue-500",
     getTitle: () => "Sender ID request submitted",
-    getDescription: (notification) => `${notificationEmail(notification)} requested ${notificationSender(notification)}.`,
+    getDescription: (notification) => `${notificationLocationName(notification)} requested ${notificationSender(notification)}.`,
     route: "settings",
     settingsTab: "senderIds",
     severity: 4,
@@ -129,7 +147,7 @@ const CONFIGS: Record<string, {
     unreadBg: "bg-emerald-50/70 dark:bg-emerald-950/10 hover:bg-emerald-50 dark:hover:bg-emerald-950/15",
     dotBg: "bg-emerald-500",
     getTitle: () => "Sender ID approved",
-    getDescription: (notification) => `${notificationSender(notification)} was approved for ${notificationEmail(notification)}.`,
+    getDescription: (notification) => `${notificationSender(notification)} was approved for ${notificationLocationName(notification)}.`,
     route: "settings",
     settingsTab: "senderIds",
     severity: 2,
@@ -141,7 +159,7 @@ const CONFIGS: Record<string, {
     unreadBg: "bg-red-50/70 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/15",
     dotBg: "bg-red-500",
     getTitle: () => "Sender ID rejected",
-    getDescription: (notification) => `${notificationSender(notification)} was rejected for ${notificationEmail(notification)}.`,
+    getDescription: (notification) => `${notificationSender(notification)} was rejected for ${notificationLocationName(notification)}.`,
     route: "settings",
     settingsTab: "senderIds",
     severity: 1,
@@ -214,7 +232,7 @@ const CONFIGS: Record<string, {
     unreadBg: "bg-emerald-50/70 dark:bg-emerald-950/10 hover:bg-emerald-50 dark:hover:bg-emerald-950/15",
     dotBg: "bg-emerald-500",
     getTitle: () => "Credits added",
-    getDescription: (notification) => `${notificationAmount(notification)} credits added for ${notificationEmail(notification)}.`,
+    getDescription: (notification) => `${notificationAmount(notification)} credits added for ${notificationLocationName(notification)}.`,
     route: "settings",
     settingsTab: "credits",
     severity: 3,
