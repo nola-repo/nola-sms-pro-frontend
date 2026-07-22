@@ -289,7 +289,7 @@ const Step5 = () => {
         <span className="text-[#9aa0a6] text-lg font-black opacity-40 mx-2">=</span>
         <div className="flex flex-col items-center">
              <span className="text-[15px] font-black text-[#111] dark:text-white whitespace-nowrap">160 chars</span>
-             <span className="text-[9px] font-bold text-[#9aa0a6] uppercase tracking-widest mt:-0.5">max</span>
+             <span className="text-[9px] font-bold text-[#9aa0a6] uppercase tracking-widest -mt-0.5">max</span>
         </div>
       </div>
 
@@ -373,7 +373,12 @@ const Step6 = () => {
       try {
           const stored = localStorage.getItem('nola_user');
           if (stored) {
-              const profile = JSON.parse(stored) as any;
+              const profile = JSON.parse(stored) as {
+                firstName?: string;
+                lastName?: string;
+                email?: string;
+                phone?: string;
+              };
               const p = new URLSearchParams();
               const fullName = [profile.firstName, profile.lastName].filter(Boolean).join(' ');
               if (fullName) {
@@ -388,7 +393,7 @@ const Step6 = () => {
               const qs = p.toString();
               if (qs) checkoutUrl += (checkoutUrl.includes('?') ? '&' : '?') + qs;
           }
-      } catch (err) {}
+      } catch { /* ignore parsing errors */ }
 
       const width = 600;
       const height = 850;
@@ -417,7 +422,7 @@ const Step6 = () => {
                   popupPollRef.current = null;
                   setSubmitted(false);
               }
-          } catch (err) {
+          } catch {
               // Ignore cross-origin errors
           }
       }, 500);
@@ -560,7 +565,7 @@ function buildSteps(): Step[] {
 }
 
 // ── Tag component ────────────────────────────────────────────────────────────
-const StepTag: React.FC<{ label: string; variant: "default"| "required" | "complete" }> = ({ label, variant }) => {
+const StepTag: React.FC<{ label: string; variant: "default" | "required" | "complete" }> = ({ label, variant }) => {
   const styles = {
     default:   "bg-gradient-to-r from-gray-100 to-gray-50 dark:from-white/10 dark:to-white/5 text-[#6b7280] dark:text-[#a1a1aa] border border-black/5 dark:border-white/5",
     required:  "bg-gradient-to-r from-amber-500 to-orange-500 text-white border border-amber-600/50 shadow-[0_2px_10px_rgba(245,158,11,0.2)]",
@@ -586,6 +591,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
 
   const handleFinish = () => {
     setIsCelebrating(true);
+  };
+
+  const handleComplete = () => {
+    setIsCelebrating(false);
+    complete();
   };
 
   useEffect(() => {
@@ -628,7 +638,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
   };
 
   if (!isOpen) {
-    if (isCelebrating) setIsCelebrating(false);
     return null;
   }
 
@@ -638,7 +647,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
   if (isCelebrating) {
     return (
       <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity" onClick={complete} />
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity" onClick={handleComplete} />
         <div className="relative w-full max-w-[360px] bg-white/90 dark:bg-[#0a0a0b]/90 border border-white/20 dark:border-white/10 rounded-[32px] shadow-[0_30px_100px_rgba(0,0,0,0.4)] p-10 flex flex-col items-center text-center animate-in zoom-in-95 fade-in duration-500 overflow-hidden">
           
           <div className="relative mb-6">
@@ -653,7 +662,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
             NOLA SMS Pro is configured and ready to supercharge your daily workflow.
           </p>
           <button
-            onClick={complete}
+            onClick={handleComplete}
             className="w-full flex items-center justify-center py-4 text-white rounded-2xl font-black text-[15px] z-10 btn-new-message text-center cursor-pointer"
           >
             <span className="relative z-10 tracking-wide block w-full">Go to Dashboard</span>
@@ -775,7 +784,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
           <div className="flex-1 flex items-center justify-end gap-2">
             {!isLast && (
               <button
-                onClick={step.cta ? next : handleFinish}
+                onClick={() => next()}
                 className="text-[12.5px] font-bold text-[#9aa0a6] hover:text-[#4b5563] dark:hover:text-white transition-colors px-3 py-2 cursor-pointer"
               >
                 {step.cta ? "Skip for now" : "Skip"}
@@ -800,8 +809,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onboarding }) 
           </div>
         </div>
       </div>
-      
-
     </div>
   );
 };

@@ -77,6 +77,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<AuthSession | null>(() => {
     // Check URL for token first to bypass iframe localStorage restrictions
     try {
+      const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+
+      // Sanitize URL on Top-Level Load (window.self === window.top)
+      if (!isInIframe && typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        let pathName = window.location.pathname;
+        let urlModified = false;
+
+        if (urlParams.has('post_auth_redirect')) {
+          urlParams.delete('post_auth_redirect');
+          urlModified = true;
+        }
+
+        if (pathName.includes('/v2/location/') || pathName.startsWith('/v2/')) {
+          pathName = '/';
+          urlModified = true;
+        }
+
+        if (urlModified) {
+          const newSearch = urlParams.toString();
+          const cleanUrl = `${pathName}${newSearch ? `?${newSearch}` : ''}${window.location.hash}`;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+      }
+
       const params = new URLSearchParams(window.location.search);
       const urlToken = params.get('token');
 
@@ -99,20 +124,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.history.replaceState({}, document.title, nextUrl);
 
         // If there's a post-auth redirect destination (e.g. GHL embedded page or standalone dashboard),
-        // navigate there now. This fires after localStorage is written so the embedded app has a token.
+        // check iframe status before redirecting to GHL.
         if (postAuthRedirect) {
-          try {
-            // Allow relative paths (/v2/...) or same-origin absolute URLs only to prevent open-redirect.
-            const resolved = postAuthRedirect.startsWith('/')
-              ? `${window.location.origin}${postAuthRedirect}`
-              : postAuthRedirect;
-            const resolvedUrl = new URL(resolved);
-            const allowedHosts = ['app.nolacrm.io', 'app.nolasmspro.com', window.location.hostname];
-            if (allowedHosts.includes(resolvedUrl.hostname)) {
-              window.location.replace(resolved);
+          if (isInIframe) {
+            // Embedded in GHL -> Deep-link inside GHL
+            try {
+              if (window.top) {
+                window.top.location.href = postAuthRedirect;
+              } else {
+                window.location.href = postAuthRedirect;
+              }
+            } catch {
+              window.location.href = postAuthRedirect;
             }
-          } catch {
-            // Invalid URL — skip redirect
+          } else {
+            // Standalone browser tab -> Stay in standalone dashboard
           }
         }
       }
