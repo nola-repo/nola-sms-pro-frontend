@@ -2546,15 +2546,9 @@ const CreditsSection: React.FC = () => {
 export const Settings: React.FC<SettingsProps> = ({ initialTab, autoOpenAddModal }) => {
     const navigate = useNavigate();
     const location = useLocation();
-    const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || "account");
-
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        if (initialTab) setActiveTab(initialTab);
-    }, [initialTab]);
+    const activeTab: SettingsTab = initialTab || "account";
 
     const handleTabSelect = (tab: SettingsTab) => {
-        setActiveTab(tab);
         navigate({ pathname: SETTINGS_TAB_ROUTES[tab], search: location.search }, { replace: false });
     };
 
