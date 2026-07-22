@@ -1172,11 +1172,6 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                                                     System • {freeUsageCount}/{freeLimit} Free
                                                 </span>
                                             )}
-                                            {sid.provider && !sid.isSystem && (
-                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500">
-                                                    {sid.provider}
-                                                </span>
-                                            )}
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[11px] text-[#9aa0a6] leading-snug">{sid.description}</p>
