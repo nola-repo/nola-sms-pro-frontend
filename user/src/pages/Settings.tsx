@@ -52,10 +52,10 @@ interface SettingsProps {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const TABS: { id: SettingsTab; label: string; icon: React.ReactNode; description: string }[] = [
-    { id: "account",       label: "Account",       icon: <FiUser />,         description: "Profile & organization info" },
-    { id: "senderIds",    label: "Sender IDs",    icon: <FiSend />,         description: "Manage approved sender IDs" },
-    { id: "notifications",label: "Notifications", icon: <FiBell />,         description: "Alert & report preferences" },
-    { id: "credits",      label: "Credits",       icon: <FiCreditCard />,   description: "Balance & billing" },
+    { id: "account", label: "Account", icon: <FiUser />, description: "Profile & organization info" },
+    { id: "senderIds", label: "Sender IDs", icon: <FiSend />, description: "Manage approved sender IDs" },
+    { id: "notifications", label: "Notifications", icon: <FiBell />, description: "Alert & report preferences" },
+    { id: "credits", label: "Credits", icon: <FiCreditCard />, description: "Balance & billing" },
 ];
 
 const SETTINGS_TAB_ROUTES: Record<SettingsTab, string> = {
@@ -101,7 +101,7 @@ const SaveButton: React.FC<{ onClick: () => void; saved: boolean; disabled?: boo
             ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
             : disabled || saving
                 ? "bg-gray-200 dark:bg-white/10 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-            : "bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white shadow-md shadow-blue-500/20"
+                : "bg-gradient-to-r from-[#2b83fa] to-[#1d6bd4] hover:shadow-[0_8px_25px_rgba(43,131,250,0.4)] text-white shadow-md shadow-blue-500/20"
             }`}
     >
         {saved ? <FiCheck className="w-4 h-4" /> : saving ? <FiRefreshCw className="w-4 h-4 animate-spin" /> : <FiSave className="w-4 h-4" />}
@@ -288,41 +288,41 @@ const AccountSection: React.FC = () => {
     }, [liveProfile]);
 
     const fetchAndSetLocation = async (locId: string, options: { forceRefresh?: boolean } = {}) => {
-         const normalizedLocationId = locId.trim();
-         if (!normalizedLocationId) return;
+        const normalizedLocationId = locId.trim();
+        if (!normalizedLocationId) return;
 
-         const cachedProfile = getCachedAccountProfile(normalizedLocationId);
-         if (cachedProfile && !options.forceRefresh) {
-             applyAccountProfile(cachedProfile);
-             lastLoadedLocationRef.current = normalizedLocationId;
-             return;
-         }
+        const cachedProfile = getCachedAccountProfile(normalizedLocationId);
+        if (cachedProfile && !options.forceRefresh) {
+            applyAccountProfile(cachedProfile);
+            lastLoadedLocationRef.current = normalizedLocationId;
+            return;
+        }
 
-         const requestId = activeFetchRef.current + 1;
-         activeFetchRef.current = requestId;
-         setIsFetchingLocation(true);
-         const currentSettings = getAccountSettings();
-         if (currentSettings.ghlLocationId !== normalizedLocationId) {
-             saveAccountSettings({ ...currentSettings, ghlLocationId: normalizedLocationId });
-             // Notify LocationContext so all subscribers get the new location reactively
-             window.dispatchEvent(
-                 new CustomEvent('ghl-location-set', { detail: { locationId: normalizedLocationId } })
-             );
-         }
+        const requestId = activeFetchRef.current + 1;
+        activeFetchRef.current = requestId;
+        setIsFetchingLocation(true);
+        const currentSettings = getAccountSettings();
+        if (currentSettings.ghlLocationId !== normalizedLocationId) {
+            saveAccountSettings({ ...currentSettings, ghlLocationId: normalizedLocationId });
+            // Notify LocationContext so all subscribers get the new location reactively
+            window.dispatchEvent(
+                new CustomEvent('ghl-location-set', { detail: { locationId: normalizedLocationId } })
+            );
+        }
 
-         const profile = await fetchAccountProfile(normalizedLocationId, {
-             forceRefresh: options.forceRefresh,
-             allowStaleOnError: true,
-         });
-         if (activeFetchRef.current !== requestId) return;
-         setIsFetchingLocation(false);
+        const profile = await fetchAccountProfile(normalizedLocationId, {
+            forceRefresh: options.forceRefresh,
+            allowStaleOnError: true,
+        });
+        if (activeFetchRef.current !== requestId) return;
+        setIsFetchingLocation(false);
 
-         if (profile) {
-             applyAccountProfile(profile);
-             lastLoadedLocationRef.current = normalizedLocationId;
-         }
-         // Note: do NOT set fetchedName to "Location Not Found" on failure —
-         // we already have the correct value from nola_user cache (set at login/register)
+        if (profile) {
+            applyAccountProfile(profile);
+            lastLoadedLocationRef.current = normalizedLocationId;
+        }
+        // Note: do NOT set fetchedName to "Location Not Found" on failure —
+        // we already have the correct value from nola_user cache (set at login/register)
     };
 
     // Initial fetch on mount
@@ -641,11 +641,10 @@ const AccountSection: React.FC = () => {
                     ))}
 
                     {profileSaveStatus && (
-                        <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold ${
-                            profileSaveStatus.type === "success"
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20"
-                                : "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20"
-                        }`}>
+                        <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold ${profileSaveStatus.type === "success"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20"
+                            : "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20"
+                            }`}>
                             {profileSaveStatus.type === "success" ? <FiCheck className="w-4 h-4" /> : <FiAlertCircle className="w-4 h-4" />}
                             {profileSaveStatus.message}
                         </div>
@@ -732,11 +731,10 @@ const AccountSection: React.FC = () => {
                                     value={inputLocationId}
                                     onChange={(e) => setInputLocationId(e.target.value)}
                                     placeholder="Enter GHL Location ID"
-                                    className={`flex-1 px-4 py-2.5 rounded-xl border text-[13px] font-mono placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all ${
-                                        isFetchingLocation
-                                            ? 'border-transparent bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6]'
-                                            : 'border-[#e0e0e0] dark:border-[#ffffff0a] bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#111111] dark:text-[#ececf1] shadow-inner hover:border-[#2b83fa]/50'
-                                    }`}
+                                    className={`flex-1 px-4 py-2.5 rounded-xl border text-[13px] font-mono placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-[#2b83fa]/50 transition-all ${isFetchingLocation
+                                        ? 'border-transparent bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#6e6e73] dark:text-[#9aa0a6]'
+                                        : 'border-[#e0e0e0] dark:border-[#ffffff0a] bg-[#f7f7f7] dark:bg-[#0d0e10] text-[#111111] dark:text-[#ececf1] shadow-inner hover:border-[#2b83fa]/50'
+                                        }`}
                                     disabled={isFetchingLocation}
                                 />
                                 {inputLocationId !== ghlLocationIdFromHook && (
@@ -906,13 +904,12 @@ const AccountSection: React.FC = () => {
                             )}
 
                             {passwordStatus && (
-                                <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold ${
-                                    passwordStatus.type === "success"
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20"
-                                        : passwordStatus.type === "info"
-                                            ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20"
-                                            : "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20"
-                                }`}>
+                                <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold ${passwordStatus.type === "success"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20"
+                                    : passwordStatus.type === "info"
+                                        ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20"
+                                        : "bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/20"
+                                    }`}>
                                     {passwordStatus.type === "success" ? <FiCheck className="w-4 h-4" /> : <FiAlertCircle className="w-4 h-4" />}
                                     {passwordStatus.message}
                                 </div>
@@ -1150,7 +1147,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                         {displayItems.map((sid, i) => {
                             const statusCfg = STATUS_CONFIG[sid.status];
                             const icon = SENDER_ICONS[i % SENDER_ICONS.length];
-                            
+
                             return (
                                 <div key={sid.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] group">
                                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0 text-[14px] ${sid.color}`}>
@@ -1164,11 +1161,10 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                                             </span>
 
                                             {sid.isSystem && (
-                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                                    freeUsageCount >= freeLimit 
-                                                    ? "bg-red-50 dark:bg-red-900/20 text-red-500" 
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${freeUsageCount >= freeLimit
+                                                    ? "bg-red-50 dark:bg-red-900/20 text-red-500"
                                                     : "bg-gray-200 dark:bg-gray-800 text-gray-500"
-                                                }`}>
+                                                    }`}>
                                                     System • {freeUsageCount}/{freeLimit} Free
                                                 </span>
                                             )}
@@ -1189,7 +1185,7 @@ const SenderIdsSection: React.FC<{ autoOpenAddModal?: boolean }> = ({ autoOpenAd
                                             )}
                                         </div>
                                     </div>
-                                    
+
                                     {/* Action Button */}
                                     {sid.status === "pending" && !sid.isSystem && (
                                         <button
@@ -1628,7 +1624,7 @@ const CreditsSection: React.FC = () => {
             const counts = new Map<string, number>();
             // Use current month as a baseline
             months.add(new Date().toISOString().slice(0, 7));
-            
+
             txs.forEach(tx => {
                 const rawDate = tx.created_at || (tx as CreditTransactionWithFallbacks).timestamp;
                 let monthKey = '';
@@ -1710,12 +1706,12 @@ const CreditsSection: React.FC = () => {
 
             const incomingState =
                 typeof data.checkout_state === 'string' ? data.checkout_state :
-                typeof data.state === 'string' ? data.state :
-                '';
+                    typeof data.state === 'string' ? data.state :
+                        '';
             const incomingLocationId =
                 typeof data.location_id === 'string' ? data.location_id :
-                typeof data.locationId === 'string' ? data.locationId :
-                '';
+                    typeof data.locationId === 'string' ? data.locationId :
+                        '';
 
             if (incomingState && incomingState !== pending.state) return;
             if (incomingLocationId && incomingLocationId !== pending.locationId) return;
@@ -1775,13 +1771,13 @@ const CreditsSection: React.FC = () => {
     };
 
 
-    const displayBalance  = creditStatus?.credit_balance ?? 0;
-    const trialUsed       = creditStatus?.free_usage_count ?? 0;
-    const trialTotal      = creditStatus?.free_credits_total ?? 0;
-    const isTrialActive   = trialTotal > 0 && trialUsed < trialTotal;
-    const trialLeft       = trialTotal - trialUsed;
-    const usagePercent    = Math.min(100, (displayBalance / 1000) * 100);
-    const usageColor      = displayBalance < 50 ? 'bg-red-500' : displayBalance < 200 ? 'bg-amber-400' : 'bg-emerald-500';
+    const displayBalance = creditStatus?.credit_balance ?? 0;
+    const trialUsed = creditStatus?.free_usage_count ?? 0;
+    const trialTotal = creditStatus?.free_credits_total ?? 0;
+    const isTrialActive = trialTotal > 0 && trialUsed < trialTotal;
+    const trialLeft = trialTotal - trialUsed;
+    const usagePercent = Math.min(100, (displayBalance / 1000) * 100);
+    const usageColor = displayBalance < 50 ? 'bg-red-500' : displayBalance < 200 ? 'bg-amber-400' : 'bg-emerald-500';
 
     const sentToday = creditStatus?.stats?.sent_today ?? 0;
     const creditsUsedToday = creditStatus?.stats?.credits_used_today ?? 0;
@@ -2319,11 +2315,10 @@ const CreditsSection: React.FC = () => {
                                         key={pkg.credits}
                                         type="button"
                                         onClick={() => setTopUpAmount(pkg.credits)}
-                                        className={`relative flex flex-col items-center py-4 px-3 rounded-xl border-2 transition-all duration-300 ease-out transform hover:scale-[1.02] active:scale-[0.98] ${
-                                            isSelected
-                                                ? 'border-[#2b83fa] bg-gradient-to-br from-[#2b83fa]/10 to-[#2b83fa]/5 dark:from-[#2b83fa]/20 dark:to-[#2b83fa]/5 shadow-[0_0_15px_rgba(43,131,250,0.15)] dark:shadow-[0_0_20px_rgba(43,131,250,0.25)]'
-                                                : 'border-[#e0e0e0] dark:border-[#2a2b32] bg-white dark:bg-[#1a1b1e]/50 hover:border-[#2b83fa]/50 hover:bg-gray-50/50 dark:hover:bg-[#2b832]/30'
-                                        } ${colSpan}`}
+                                        className={`relative flex flex-col items-center py-4 px-3 rounded-xl border-2 transition-all duration-300 ease-out transform hover:scale-[1.02] active:scale-[0.98] ${isSelected
+                                            ? 'border-[#2b83fa] bg-gradient-to-br from-[#2b83fa]/10 to-[#2b83fa]/5 dark:from-[#2b83fa]/20 dark:to-[#2b83fa]/5 shadow-[0_0_15px_rgba(43,131,250,0.15)] dark:shadow-[0_0_20px_rgba(43,131,250,0.25)]'
+                                            : 'border-[#e0e0e0] dark:border-[#2a2b32] bg-white dark:bg-[#1a1b1e]/50 hover:border-[#2b83fa]/50 hover:bg-gray-50/50 dark:hover:bg-[#2b832]/30'
+                                            } ${colSpan}`}
                                     >
                                         {/* Dynamic premium badge for bonus percentage */}
                                         {bonusPercent > 0 && (
@@ -2335,11 +2330,10 @@ const CreditsSection: React.FC = () => {
                                             {pkg.credits?.toLocaleString() || pkg.credits}
                                         </span>
                                         <span className="text-[10px] text-[#9aa0a6] font-semibold mt-0.5">credits</span>
-                                        <span className={`text-[13px] font-bold mt-1.5 px-3 py-0.5 rounded-lg ${
-                                            isSelected
-                                                ? 'bg-[#2b83fa] text-white'
-                                                : 'bg-gray-100 dark:bg-[#2a2b32] text-[#6e6e73] dark:text-[#94959b]'
-                                        }`}>
+                                        <span className={`text-[13px] font-bold mt-1.5 px-3 py-0.5 rounded-lg ${isSelected
+                                            ? 'bg-[#2b83fa] text-white'
+                                            : 'bg-gray-100 dark:bg-[#2a2b32] text-[#6e6e73] dark:text-[#94959b]'
+                                            }`}>
                                             ₱{pkg.price?.toLocaleString() || pkg.price}
                                         </span>
                                     </button>
@@ -2438,7 +2432,7 @@ const CreditsSection: React.FC = () => {
                                 const isCredit = tx.type === 'top_up' || tx.type === 'refund' || tx.type === 'credit_purchase' || (isAdjustment && tx.amount >= 0);
                                 const sign = isCredit ? '+' : '−';
                                 const absAmount = Math.abs(tx.amount);
-                                
+
                                 let displayDescription = tx.description;
                                 if (isAdjustment) {
                                     displayDescription = `Manual credit adjustment (Applied ${tx.amount >= 0 ? '+' : '-'}${absAmount} credits)`;
@@ -2466,15 +2460,15 @@ const CreditsSection: React.FC = () => {
                                 );
                             })}
                         </div>
-                        
+
                         {/* Pagination Controls */}
                         {transactions.length > itemsPerPage && (() => {
                             const totalPages = Math.ceil(transactions.length / itemsPerPage);
-                            
+
                             const getPageNumbers = () => {
                                 const pages = [];
                                 const maxVisiblePages = 5;
-                                
+
                                 if (totalPages <= maxVisiblePages) {
                                     for (let i = 1; i <= totalPages; i++) pages.push(i);
                                 } else {
@@ -2512,7 +2506,7 @@ const CreditsSection: React.FC = () => {
                                         >
                                             <FiChevronLeft className="w-4 h-4" />
                                         </button>
-                                        
+
                                         {getPageNumbers().map((page, idx) => (
                                             page === '...' ? (
                                                 <span key={`ellipsis-${idx}`} className="px-1 text-[12px] font-medium text-[#9aa0a6]">...</span>
@@ -2520,11 +2514,10 @@ const CreditsSection: React.FC = () => {
                                                 <button
                                                     key={`page-${page}`}
                                                     onClick={() => setCurrentPage(page as number)}
-                                                    className={`min-w-[28px] h-7 rounded-lg text-[12px] font-bold transition-all ${
-                                                        currentPage === page
-                                                            ? 'bg-[#2b83fa] text-white border border-[#2b83fa]'
-                                                            : 'border border-[#e5e5e5] dark:border-[#2a2b32] text-[#6e6e73] dark:text-[#94959b] hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32]'
-                                                    }`}
+                                                    className={`min-w-[28px] h-7 rounded-lg text-[12px] font-bold transition-all ${currentPage === page
+                                                        ? 'bg-[#2b83fa] text-white border border-[#2b83fa]'
+                                                        : 'border border-[#e5e5e5] dark:border-[#2a2b32] text-[#6e6e73] dark:text-[#94959b] hover:bg-[#f7f7f7] dark:hover:bg-[#2a2b32]'
+                                                        }`}
                                                 >
                                                     {page}
                                                 </button>
@@ -2556,6 +2549,7 @@ export const Settings: React.FC<SettingsProps> = ({ initialTab, autoOpenAddModal
     const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab || "account");
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (initialTab) setActiveTab(initialTab);
     }, [initialTab]);
 
@@ -2598,11 +2592,10 @@ export const Settings: React.FC<SettingsProps> = ({ initialTab, autoOpenAddModal
                                     <button
                                         key={tab.id}
                                         onClick={() => handleTabSelect(tab.id)}
-                                        className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl border transition-all duration-200 text-left whitespace-nowrap ${
-                                            isActive
-                                                ? "bg-white text-[#1d6bd4] border-white shadow-sm"
-                                                : "bg-white/10 text-white border-white/20 hover:bg-white/20"
-                                        }`}
+                                        className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl border transition-all duration-200 text-left whitespace-nowrap ${isActive
+                                            ? "bg-white text-[#1d6bd4] border-white shadow-sm"
+                                            : "bg-white/10 text-white border-white/20 hover:bg-white/20"
+                                            }`}
                                     >
                                         <span className="text-[15px] flex-shrink-0">{tab.icon}</span>
                                         <span className="text-[13px] font-bold">{tab.label}</span>
