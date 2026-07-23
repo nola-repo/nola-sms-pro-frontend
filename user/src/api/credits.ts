@@ -10,7 +10,7 @@ export interface CreditStatus {
     created_at?: string;
     updated_at?: string;
     cached?: boolean;
-    meta?: any;
+    meta?: unknown;
     stats?: {
         sent_today: number;
         credits_used_today: number;
@@ -47,30 +47,34 @@ const creditCacheKey = (locationId: string | null, resource: string, filtersHash
     filtersHash,
 });
 
-const normalizeCreditStatus = (payload: any): CreditStatus => {
-    if (payload && Object.prototype.hasOwnProperty.call(payload, "success") && payload.success !== true) {
-        throw new Error(payload.message || payload.error || "Failed to load credit status.");
+const normalizeCreditStatus = (payload: unknown): CreditStatus => {
+    const p = payload as Record<string, unknown> | null | undefined;
+    if (p && Object.prototype.hasOwnProperty.call(p, "success") && p.success !== true) {
+        const msg = (p.message ?? p.error) as string | undefined;
+        throw new Error(msg || "Failed to load credit status.");
     }
 
-    const data = payload?.data && !Array.isArray(payload.data) ? payload.data : payload;
+    const inner = p?.data && !Array.isArray(p.data) ? p.data as Record<string, unknown> : p;
+    const data = inner as Record<string, unknown> | null | undefined;
 
     return {
-        credit_balance: data?.credit_balance ?? data?.balance ?? payload?.balance ?? 0,
-        free_usage_count: data?.free_usage_count ?? payload?.free_usage_count ?? 0,
-        free_credits_total: data?.free_credits_total ?? payload?.free_credits_total ?? 0,
-        currency: data?.currency ?? payload?.currency ?? 'PHP',
-        created_at: data?.created_at ?? payload?.created_at,
-        updated_at: data?.updated_at ?? payload?.updated_at,
-        cached: payload?.cached,
-        meta: payload?.meta,
-        stats: data?.stats ?? payload?.stats,
+        credit_balance: Number(data?.credit_balance ?? data?.balance ?? p?.balance ?? 0),
+        free_usage_count: Number(data?.free_usage_count ?? p?.free_usage_count ?? 0),
+        free_credits_total: Number(data?.free_credits_total ?? p?.free_credits_total ?? 0),
+        currency: String(data?.currency ?? p?.currency ?? 'PHP'),
+        created_at: (data?.created_at ?? p?.created_at) as string | undefined,
+        updated_at: (data?.updated_at ?? p?.updated_at) as string | undefined,
+        cached: p?.cached as boolean | undefined,
+        meta: p?.meta,
+        stats: (data?.stats ?? p?.stats) as CreditStatus['stats'],
     };
 };
 
-const normalizeTransactions = (data: any): CreditTransaction[] => {
+const normalizeTransactions = (data: unknown): CreditTransaction[] => {
     if (Array.isArray(data)) return data as CreditTransaction[];
-    if (Array.isArray(data.transactions)) return data.transactions as CreditTransaction[];
-    if (Array.isArray(data.data)) return data.data as CreditTransaction[];
+    const d = data as Record<string, unknown> | null | undefined;
+    if (Array.isArray(d?.transactions)) return d!.transactions as CreditTransaction[];
+    if (Array.isArray(d?.data)) return d!.data as CreditTransaction[];
     return [];
 };
 

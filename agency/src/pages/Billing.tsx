@@ -16,7 +16,6 @@ import { ensureFirestoreAuth } from '../services/firestoreAuth';
 import { db } from '../services/firebaseConfig';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const AGENCY_ID = 'O0YXPGWM9ep2l37dgxAo';
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 const RECHARGE_AMOUNTS = [100, 250, 500, 1000, 2000, 5000];
@@ -437,6 +436,7 @@ const TopUpModal: React.FC<{
 }> = ({ agencyId, onClose, onSuccess }) => {
   const [topUpAmount, setTopUpAmount] = useState(500);
   const [submitted, setSubmitted] = useState(false);
+  const [blockedUrl, setBlockedUrl] = useState<string | null>(null);
   const popupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const packages: CreditPackage[] = [
@@ -465,10 +465,12 @@ const TopUpModal: React.FC<{
     );
 
     if (!popup) {
-      alert("Popup blocked! Please allow popups for this site.");
+      setBlockedUrl(checkoutUrl);
+      setSubmitted(true);
       return;
     }
 
+    setBlockedUrl(null);
     setSubmitted(true);
     if (popupPollRef.current) clearInterval(popupPollRef.current);
 
@@ -527,10 +529,19 @@ const TopUpModal: React.FC<{
           
           {submitted ? (
              <div className="flex flex-col items-center justify-center gap-2 py-4">
-               <div className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl text-emerald-600 dark:text-emerald-400 font-semibold text-[13px]">
-                   <FiCheck className="w-4 h-4" /> Checkout window opened
-               </div>
-               <button type="button" onClick={() => setSubmitted(false)} className="text-[12px] text-[#9aa0a6] underline decoration-dashed hover:text-[#111111]">
+               {blockedUrl ? (
+                 <div className="w-full flex flex-col items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-500/20 rounded-xl text-amber-800 dark:text-amber-300 text-[12.5px]">
+                   <span className="font-semibold">Popup window was blocked by your browser.</span>
+                   <a href={blockedUrl} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-amber-600 text-white rounded-lg font-bold hover:bg-amber-700 transition-colors shadow-sm">
+                     Click to Open Checkout Page
+                   </a>
+                 </div>
+               ) : (
+                 <div className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl text-emerald-600 dark:text-emerald-400 font-semibold text-[13px]">
+                     <FiCheck className="w-4 h-4" /> Checkout window opened
+                 </div>
+               )}
+               <button type="button" onClick={() => { setSubmitted(false); setBlockedUrl(null); }} className="text-[12px] text-[#9aa0a6] underline decoration-dashed hover:text-[#111111]">
                    Window didn't open or you closed it? Refresh.
                </button>
              </div>
@@ -602,7 +613,7 @@ export const Billing: React.FC = () => {
   const [reportSelectedMonth, setReportSelectedMonth] = useState('All');
   const [reportLoading, setReportLoading] = useState(false);
 
-  const effectiveAgencyId = agencyId || AGENCY_ID;
+  const effectiveAgencyId = agencyId || '';
   const agencyUser = agencySession?.user;
   const balance = wallet?.balance ?? 0;
   const agencyOwnerName = [

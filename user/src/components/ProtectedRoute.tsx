@@ -10,6 +10,10 @@ import { hasGhlLaunchSignalInCurrentUrl } from '../utils/ghlLocationDetection';
  *
  * Security note: only trusted GHL-specific params trigger the bypass.
  * Generic params like ?id= or ?location= are intentionally excluded.
+ *
+ * Iframe context: we still require a valid token OR active GHL launch signals.
+ * A raw iframe embed without any GHL params/token will surface a session error
+ * rather than silently rendering protected data.
  */
 export const ProtectedRoute: React.FC = () => {
   const isAuth = isAuthenticated();
@@ -35,9 +39,13 @@ export const ProtectedRoute: React.FC = () => {
     // Ignore storage errors in incognito/strict-privacy mode
   }
 
+  // Inside a GHL iframe: allow if authenticated OR if GHL launch signals are present
+  // (GHL SSO will complete the autologin handshake after load)
   const isGHL = urlHasParams || isIframe || savedGhlState;
+  const isGhlWithActiveSignals = urlHasParams || isAuth;
 
-  if (!isAuth && !isGHL) {
+  if (!isAuth && !isGhlWithActiveSignals) {
+    // No valid session and no GHL launch signal — even in an iframe, deny access.
     return <Navigate to="/login" replace />;
   }
 

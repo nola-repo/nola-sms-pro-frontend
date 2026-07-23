@@ -204,8 +204,21 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
 
     if (response.status === 401 && tokenAtRequestStart && !isPublicAuthPath) {
       clearStoredAuthSession();
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-        window.location.assign('/login');
+      if (typeof window !== 'undefined') {
+        // Detect iframe: navigating top-level inside GHL iframe breaks the host frame.
+        // Instead, dispatch an event that the app can intercept to show a re-auth notice.
+        let isInsideIframe = false;
+        try {
+          isInsideIframe = window.self !== window.top;
+        } catch {
+          isInsideIframe = true;
+        }
+
+        if (isInsideIframe) {
+          window.dispatchEvent(new CustomEvent('nola-auth-session-expired', { detail: { reason: '401' } }));
+        } else if (window.location.pathname !== '/login') {
+          window.location.assign('/login');
+        }
       }
     }
 

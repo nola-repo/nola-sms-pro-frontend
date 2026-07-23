@@ -21,7 +21,6 @@ import {
 } from '../utils/subscription.ts';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const AGENCY_ID = 'O0YXPGWM9ep2l37dgxAo';
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -146,7 +145,7 @@ export const Subscription: React.FC = () => {
   const popupPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectedSubaccountsRef = useRef<ConnectedSubaccountUsageRow[]>([]);
 
-  const effectiveAgencyId = agencyId || AGENCY_ID;
+  const effectiveAgencyId = agencyId || '';
   const userName = agencySession?.user ? `${agencySession.user.firstName} ${agencySession.user.lastName}`.trim() : '';
   const userEmail = agencySession?.user?.email || '';
 
@@ -288,7 +287,9 @@ export const Subscription: React.FC = () => {
     );
 
     if (!popup) {
-      alert("Popup blocked! Please allow popups for this site.");
+      // Popup was blocked — open checkout directly in current tab as fallback
+      showToast('Popup blocked. Opening checkout in this tab instead.', 'info');
+      window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
       return;
     }
 

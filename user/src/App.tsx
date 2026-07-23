@@ -61,7 +61,7 @@ const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
       return;
     }
 
-    window.location.replace(`https://smspro-api.nolacrm.io${path}${window.location.search}`);
+    window.location.replace(`${import.meta.env.VITE_API_BASE || ''}${path}${window.location.search}`);
   }, [path, alreadySignedIn, isGhlRequest, navigate]);
 
   return (
@@ -73,7 +73,7 @@ const RedirectToBackend: React.FC<{ path: string }> = ({ path }) => {
 
 const RedirectInstallRegistration: React.FC = () => {
   useEffect(() => {
-    const target = new URL("https://smspro-api.nolacrm.io/install-register.php");
+    const target = new URL(`${import.meta.env.VITE_API_BASE || window.location.origin}/install-register.php`);
     const params = new URLSearchParams(window.location.search);
     params.forEach((value, key) => target.searchParams.set(key, value));
     window.location.replace(target.toString());

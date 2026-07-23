@@ -125,8 +125,14 @@ export const useRealtimeCreditStatus = (explicitLocationId?: string | null) => {
                     });
                     userUnsubscribers.push(unsubscribe);
                 });
+
+                // Firestore listeners are healthy — stop the polling fallback timer
+                if (!cancelled) {
+                    window.clearInterval(pollTimer);
+                }
             } catch (error) {
                 devLog.error("Firestore balance listener setup failed:", error);
+                // Listeners failed — keep the polling timer running as fallback
             }
         };
 
