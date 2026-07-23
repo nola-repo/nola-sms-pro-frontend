@@ -28,20 +28,17 @@ export const ProtectedRoute: React.FC = () => {
     isIframe = true;
   }
 
-  let savedGhlState = false;
   try {
     if (urlHasParams || isIframe) {
       // Use sessionStorage only; clears when the tab/browser is closed
       sessionStorage.setItem('nola_is_ghl_frame', 'true');
     }
-    savedGhlState = sessionStorage.getItem('nola_is_ghl_frame') === 'true';
   } catch {
     // Ignore storage errors in incognito/strict-privacy mode
   }
 
   // Inside a GHL iframe: allow if authenticated OR if GHL launch signals are present
   // (GHL SSO will complete the autologin handshake after load)
-  const isGHL = urlHasParams || isIframe || savedGhlState;
   const isGhlWithActiveSignals = urlHasParams || isAuth;
 
   if (!isAuth && !isGhlWithActiveSignals) {
