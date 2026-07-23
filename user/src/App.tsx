@@ -7,6 +7,7 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { AuthProvider } from "./context/AuthContext";
 import { LocationProvider } from "./context/LocationContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import SharedLogin from "./components/SharedLogin";
 import { safeStorage } from "./utils/safeStorage";
 import { useUserProfile } from "./hooks/useUserProfile";
 import { UserProfileContext } from "./context/UserProfileContext";
@@ -338,7 +339,7 @@ const AppLayout: React.FC = () => {
     <UserProfileContext.Provider value={userProfile}>
       <div className="relative h-screen overflow-hidden bg-[#ffffff] dark:bg-[#1a1b1e]">
       <Routes>
-        <Route path="/login"                  element={<RedirectToBackend path="/login" />} />
+        <Route path="/login"                  element={<SharedLogin />} />
         <Route path="/forgot-password"        element={<ForgotPassword />} />
         <Route path="/register"               element={<RedirectToBackend path="/register" />} />
         <Route path="/register-from-install"  element={<RedirectInstallRegistration />} />
