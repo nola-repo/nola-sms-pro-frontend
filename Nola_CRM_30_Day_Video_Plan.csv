@@ -1,0 +1,31 @@
+Day,Phase,Video Title to Record,Core Topic / What to Show,YouTube URL / Custom Value,Recording Status,Workflow Status
+1,Phase 1: Setup,Welcome to Nola CRM: 3-Minute Workspace Setup,"Profile completion, connecting email domain, business phone line setup",{{ custom_values.nola_crm_video_day1 }},Recorded,Completed
+2,Phase 1: Setup,Importing Contacts & Creating Smart Lists,"Uploading CSV, mapping fields, applying tags, saving custom views",{{ custom_values.nola_crm_video_day2 }},Recorded,Completed
+3,Phase 1: Setup,Building & Customizing Your Sales Pipelines,"Creating pipeline stages, deal values, drag-and-drop opportunity cards",{{ custom_values.nola_crm_video_day3 }},In Progress,Drafted
+4,Phase 1: Setup,Creating Custom Fields & Tagging Strategy,"Adding custom contact fields (e.g., Budget, Location), tagging rules",,Not Started,Not Started
+5,Phase 1: Setup,Connecting Calendars & Setting Availability,"Integrating Google/Outlook calendars, setting meeting hours, booking links",,Not Started,Not Started
+6,Phase 1: Setup,Connecting Social Media & Unified Conversations Inbox,"Linking Facebook, Instagram, Google Business to manage all messages in one place",,Not Started,Not Started
+7,Phase 1: Setup,Nola CRM Mobile App Setup,"Downloading mobile app, enabling push notifications for instant lead alerts",,Not Started,Not Started
+8,Phase 2: Messaging,Sending 1-on-1 Emails & SMS Messages,"Navigating conversations tab, sending quick texts, attaching files",,Not Started,Not Started
+9,Phase 2: Messaging,Creating Email & SMS Snippet Templates,Building reusable message templates with merge tags ({{contact.first_name}}),,Not Started,Not Started
+10,Phase 2: Messaging,Launching Bulk SMS & Email Campaigns,Sending broadcast campaigns to contact lists or tagged groups,,Not Started,Not Started
+11,Phase 2: Messaging,Building Web Forms & Lead Capture Widgets,"Creating lead forms, custom questions, embedding forms on websites",,Not Started,Not Started
+12,Phase 2: Messaging,Installing Website Live Chat Widget,"Setting up website chat widget, SMS fallback, avatar setup",,Not Started,Not Started
+13,Phase 2: Messaging,Funnel & Landing Page Builder Overview,"Creating landing pages, editing templates, adding forms/calendars",,Not Started,Not Started
+14,Phase 2: Messaging,Automated Appointment Booking & Reminders,Setting up auto-confirmation emails and 24h/1h SMS reminders,,Not Started,Not Started
+15,Phase 3: Automations,Workflows 101: Triggers & Actions Explained,"Understanding workflow builder basics, triggers, delays, and logic",,Not Started,Not Started
+16,Phase 3: Automations,Setting Up Missed-Call Text-Back,Auto-sending an SMS when a call is missed so you never lose a lead,,Not Started,Not Started
+17,Phase 3: Automations,Configuring Nola AI Conversation & Booking Bot,Setting up AI auto-responder to qualify leads and book appointments,,Not Started,Not Started
+18,Phase 3: Automations,Auto-Assigning Leads & Round-Robin Team Distribution,Routing incoming leads to specific team members automatically,,Not Started,Not Started
+19,Phase 3: Automations,Automated Review & Reputation Requests,Sending auto SMS/Email review requests after deals reach Closed Won,,Not Started,Not Started
+20,Phase 3: Automations,Building Multi-Step Lead Nurture Drip Sequences,Designing 7-day to 30-day automated email/SMS follow-up drips,,Not Started,Not Started
+21,Phase 3: Automations,"Webhooks, Zapier & Third-Party Integrations","Connecting external tools (Zapier, Make, Webhooks) to Nola CRM",,Not Started,Not Started
+22,Phase 4: Scaling,Invoicing & Collecting Payments (Stripe/PayPal),"Connecting payment gateways, creating and sending custom invoices",,Not Started,Not Started
+23,Phase 4: Scaling,Setting Up Recurring Subscriptions & Products,"Creating subscription products, auto-billing, payment links",,Not Started,Not Started
+24,Phase 4: Scaling,Tracking Ad Attribution & Lead Sources,"Tracking where leads came from (Google Ads, Facebook Ads, Organic)",,Not Started,Not Started
+25,Phase 4: Scaling,Dashboard Analytics & Revenue Reports,"Reading pipeline stats, conversion rates, call/message logs",,Not Started,Not Started
+26,Phase 4: Scaling,"User Roles, Team Permissions & Security","Adding team members, setting user roles (Admin vs. User access)",,Not Started,Not Started
+27,Phase 4: Scaling,Advanced Workflow Logic: Conditions & If/Else Branches,Branching workflows based on lead actions (replied vs. didnt reply),,Not Started,Not Started
+28,Phase 4: Scaling,Reputation Management & Google Business Reviews,"Managing Google reviews, responding to feedback inside Nola CRM",,Not Started,Not Started
+29,Phase 4: Scaling,Creating Affiliate & Referral Programs,Setting up referral tracking links and affiliate commission payouts,,Not Started,Not Started
+30,Phase 4: Scaling,Full CRM Audit & Scaling Your Growth,"Final checklist: reviewing active workflows, pipelines, and daily routine",,Not Started,Not Started
