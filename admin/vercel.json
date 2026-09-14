@@ -1,0 +1,36 @@
+{
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://smspro-api.nolacrm.io/api/$1"
+    },
+    {
+      "source": "/webhook/(.*)",
+      "destination": "https://smspro-api.nolacrm.io/webhook/$1"
+    },
+    {
+      "source": "/((?!api/|webhook/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' https://*.gohighlevel.com https://*.msgsndr.com https://*.leadconnectorhq.com https://*.ghl-crm.com https://*.nolacrm.io https://*.app.gohighlevel.com https://*.run.app https://*.vercel.app;"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        }
+      ]
+    }
+  ]
+}
