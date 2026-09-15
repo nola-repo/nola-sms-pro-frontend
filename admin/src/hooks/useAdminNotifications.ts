@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { adminFetch } from '../utils/adminApi';
 import { getAdminAuthHeaders } from '../utils/adminAuthHeaders';
+import { useVisibleInterval } from './useVisibleInterval';
 
 const ADMIN_NOTIFICATIONS_API = '/api/admin_notifications.php';
 const POLL_INTERVAL = 60_000; // 60 seconds
@@ -43,11 +44,11 @@ export function useAdminNotifications() {
 
     useEffect(() => {
         fetchNotifications(true);
-        timerRef.current = setInterval(() => fetchNotifications(false), POLL_INTERVAL);
         return () => {
             if (timerRef.current) clearInterval(timerRef.current);
         };
     }, [fetchNotifications]);
+    useVisibleInterval(() => fetchNotifications(false), POLL_INTERVAL);
 
     const markRead = useCallback(async (notificationId: string) => {
         // Optimistic update

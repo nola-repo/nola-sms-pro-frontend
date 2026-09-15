@@ -5,6 +5,7 @@ import { ToastContainer } from '../../components/ui/ToastContainer';
 import { generateMonthlyReport } from '../../utils/pdfGenerator';
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
+import { useVisibleInterval } from '../../hooks/useVisibleInterval';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const ADMIN_AGENCY_USERS_API = '/api/admin_list_agency_users.php';
@@ -13,7 +14,7 @@ const AGENCY_USER_ENDPOINTS = [
     `${ADMIN_API}?action=agency_users`,
     `${ADMIN_API}?action=agencies`,
 ];
-const POLL_INTERVAL = 15000; // 15 seconds real-time sync
+const POLL_INTERVAL = 60000;
 
 type AgencyAccount = {
     id: string;
@@ -340,9 +341,8 @@ export const AdminAgencies: React.FC = () => {
 
     useEffect(() => {
         fetchAccounts(true);
-        const timer = setInterval(() => fetchAccounts(false), POLL_INTERVAL);
-        return () => clearInterval(timer);
     }, [fetchAccounts]);
+    useVisibleInterval(() => fetchAccounts(false), POLL_INTERVAL);
 
     const filteredAccounts = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();

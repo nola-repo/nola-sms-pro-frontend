@@ -4,10 +4,11 @@ import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
+import { useVisibleInterval } from '../../hooks/useVisibleInterval';
 import type { SenderRequest, Account } from './Types';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
-const POLL_INTERVAL = 15000; // 15 seconds real-time sync
+const POLL_INTERVAL = 60000;
 
 
 
@@ -207,9 +208,8 @@ export const AdminSenderRequests: React.FC = () => {
 
     useEffect(() => {
         fetchRequests(true);
-        const timer = setInterval(() => fetchRequests(false), POLL_INTERVAL);
-        return () => clearInterval(timer);
     }, [fetchRequests]);
+    useVisibleInterval(() => fetchRequests(false), POLL_INTERVAL);
 
     const doAction = async (action: string, requestId: string, extra: Record<string, string> = {}) => {
         setActionLoading(requestId + action);
