@@ -525,7 +525,7 @@ export const AdminSettings: React.FC = () => {
         const rawReason = String(log.failure_reason || log.failed_reason || log.error || log.reason || '').toLowerCase();
         if (rawReason.includes('timeout') || rawReason.includes('timed out') || rawReason.includes('curl')) return 'provider_error';
         if (rawReason.includes('invalid') || rawReason.includes('phone') || rawReason.includes('spam') || rawReason.includes('too_short')) return 'validation';
-        if (rawReason.includes('exception') || rawReason.includes('fatal') || rawReason.includes('uncaught')) return 'platform_error';
+        if (rawReason.includes('exception') || rawReason.includes('fatal') || rawReason.includes('uncaught')) return 'provider_error';
         return 'failed';
     };
 
@@ -534,6 +534,8 @@ export const AdminSettings: React.FC = () => {
         let semaphoreTimeouts = 0;
         let unismsTimeouts = 0;
         let invalidPhones = 0;
+        let contentValidationIssues = 0;
+        let platformErrors = 0;
         let lastSuccessDate: Date | null = null;
 
         for (const log of logs) {
@@ -563,6 +565,12 @@ export const AdminSettings: React.FC = () => {
                 if (cat === 'invalid_phone' || reason.includes('invalid phone') || reason.includes('invalid_phone')) {
                     invalidPhones++;
                 }
+                if (['content_rejected', 'content_too_short', 'provider_validation_422'].includes(cat) || reason.includes('spam') || reason.includes('rejected')) {
+                    contentValidationIssues++;
+                }
+                if (log.is_platform_error || cat === 'platform_exception' || reason.includes('exception') || reason.includes('fatal')) {
+                    platformErrors++;
+                }
             }
         }
 
@@ -570,6 +578,8 @@ export const AdminSettings: React.FC = () => {
             semaphoreTimeouts,
             unismsTimeouts,
             invalidPhones,
+            contentValidationIssues,
+            platformErrors,
             lastSuccessDate,
             failoverConfigured: true,
         };
@@ -1117,7 +1127,7 @@ export const AdminSettings: React.FC = () => {
                 </div>
 
                 {/* Compact Live Status Strip */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-5 p-3 rounded-2xl bg-[#f7f7f7]/80 dark:bg-[#111214]/90 border border-[#e5e5e5] dark:border-white/5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 mb-5 p-3 rounded-2xl bg-[#f7f7f7]/80 dark:bg-[#111214]/90 border border-[#e5e5e5] dark:border-white/5">
                     <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white dark:bg-[#1a1b1e] border border-gray-200/60 dark:border-white/5 shadow-xs">
                         <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-500 flex items-center justify-center flex-shrink-0">
                             <FiClock className="w-3.5 h-3.5" />
@@ -1145,6 +1155,26 @@ export const AdminSettings: React.FC = () => {
                         <div className="min-w-0">
                             <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-tight truncate">Invalid Phones</p>
                             <p className="text-[13px] font-black text-gray-900 dark:text-white leading-none mt-0.5">{statusStripData.invalidPhones} <span className="text-[9px] font-normal text-gray-400">today</span></p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white dark:bg-[#1a1b1e] border border-gray-200/60 dark:border-white/5 shadow-xs">
+                        <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-500 flex items-center justify-center flex-shrink-0">
+                            <FiAlertCircle className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-tight truncate">Content Validation</p>
+                            <p className="text-[13px] font-black text-gray-900 dark:text-white leading-none mt-0.5">{statusStripData.contentValidationIssues} <span className="text-[9px] font-normal text-gray-400">today</span></p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white dark:bg-[#1a1b1e] border border-gray-200/60 dark:border-white/5 shadow-xs">
+                        <div className="w-7 h-7 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center flex-shrink-0">
+                            <FiAlertTriangle className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-tight truncate">Platform Errors</p>
+                            <p className="text-[13px] font-black text-gray-900 dark:text-white leading-none mt-0.5">{statusStripData.platformErrors} <span className="text-[9px] font-normal text-gray-400">today</span></p>
                         </div>
                     </div>
 
