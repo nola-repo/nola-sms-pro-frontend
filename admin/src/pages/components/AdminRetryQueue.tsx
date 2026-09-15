@@ -11,10 +11,11 @@ import {
 } from 'react-icons/fi';
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
+import { useVisibleInterval } from '../../hooks/useVisibleInterval';
 import type { SmsRetryQueueDoc } from '../../types/Sms';
 
 const RETRY_QUEUE_API = '/api/admin_sender_requests.php?action=retry_queue';
-const POLL_INTERVAL = 10000;
+const POLL_INTERVAL = 60000;
 
 export const AdminRetryQueue: React.FC = () => {
   const [items, setItems] = useState<SmsRetryQueueDoc[]>([]);
@@ -53,9 +54,8 @@ export const AdminRetryQueue: React.FC = () => {
 
   useEffect(() => {
     fetchQueue(true);
-    const timer = setInterval(() => fetchQueue(false), POLL_INTERVAL);
-    return () => clearInterval(timer);
   }, [fetchQueue]);
+  useVisibleInterval(() => fetchQueue(false), POLL_INTERVAL);
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);

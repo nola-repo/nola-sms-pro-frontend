@@ -4,9 +4,10 @@ import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
+import { useVisibleInterval } from '../../hooks/useVisibleInterval';
 
 const USERS_API = '/api/admin_users.php';
-const POLL_INTERVAL = 15000; // 15 seconds real-time sync
+const POLL_INTERVAL = 60000;
 
 export const AdminTeamManagement: React.FC = () => {
     const [admins, setAdmins] = useState<any[]>([]);
@@ -81,9 +82,8 @@ export const AdminTeamManagement: React.FC = () => {
 
     useEffect(() => {
         fetchAdmins(true);
-        const timer = setInterval(() => fetchAdmins(false), POLL_INTERVAL);
-        return () => clearInterval(timer);
     }, [fetchAdmins]);
+    useVisibleInterval(() => fetchAdmins(false), POLL_INTERVAL);
 
     const toast = (msg: string, isError = false) => {
         showToast(msg, isError ? 'error' : 'success');

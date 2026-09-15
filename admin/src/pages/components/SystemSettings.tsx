@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { FiSend, FiAlertCircle, FiCheck, FiX, FiRefreshCw, FiKey, FiActivity, FiMessageSquare, FiCreditCard, FiShield, FiPlus, FiMinus, FiChevronLeft, FiChevronRight, FiSearch, FiFilter, FiCopy, FiClock, FiAlertTriangle, FiCheckCircle, FiZap, FiCpu } from 'react-icons/fi';
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
+import { useVisibleInterval } from '../../hooks/useVisibleInterval';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
-const POLL_INTERVAL = 15000; // 15 seconds real-time sync
+const POLL_INTERVAL = 60000;
 
 
 
@@ -471,9 +472,8 @@ export const AdminSettings: React.FC = () => {
 
     useEffect(() => {
         fetchLogs(true);
-        const t = setInterval(() => fetchLogs(false), POLL_INTERVAL);
-        return () => clearInterval(t);
     }, [fetchLogs]);
+    useVisibleInterval(() => fetchLogs(false), POLL_INTERVAL);
 
     const getType = (log: any) => {
         if (log.type === 'message' && (log.amount === undefined || log.amount === null)) return 'message';

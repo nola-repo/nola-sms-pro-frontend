@@ -22,12 +22,13 @@ import { ToastContainer } from '../../components/ui/ToastContainer';
 import { generateMonthlyReport } from '../../utils/pdfGenerator';
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
+import { useVisibleInterval } from '../../hooks/useVisibleInterval';
 import { AdminSubaccountProfile } from './AdminSubaccountProfile';
 
 const ADMIN_LIST_USERS_API = '/api/admin_list_users.php';
 const ADMIN_MANAGE_USER_API = '/api/admin_manage_user.php';
 const ADMIN_SENDER_API = '/api/admin_sender_requests.php';
-const POLL_INTERVAL = 15000;
+const POLL_INTERVAL = 60000;
 const ITEMS_PER_PAGE = 10;
 
 type Account = {
@@ -369,9 +370,8 @@ export const AdminAccounts: React.FC = () => {
 
     useEffect(() => {
         fetchAccounts(true);
-        const timer = setInterval(() => fetchAccounts(false), POLL_INTERVAL);
-        return () => clearInterval(timer);
     }, [fetchAccounts]);
+    useVisibleInterval(() => fetchAccounts(false), POLL_INTERVAL);
 
     const agencyOptions = useMemo(() => {
         const agencies = new Map<string, string>();

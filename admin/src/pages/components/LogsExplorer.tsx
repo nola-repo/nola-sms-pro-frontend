@@ -14,10 +14,11 @@ import {
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 import { ADMIN_API_LOG_EVENT, getStoredAdminApiLogs } from '../../utils/apiFetch';
+import { useVisibleInterval } from '../../hooks/useVisibleInterval';
 import { AdminRetryQueue } from './AdminRetryQueue';
 
-const POLL_INTERVAL = 15000;
-const LOG_POLL_INTERVAL = 5000;
+const POLL_INTERVAL = 60000;
+const LOG_POLL_INTERVAL = 60000;
 const ADMIN_LOGS_API = '/api/admin_sender_requests.php?action=logs';
 const LOGS_PER_PAGE = 10;
 
@@ -119,15 +120,13 @@ export const LogsExplorer: React.FC = () => {
 
     useEffect(() => {
         fetchLogsOverview(true);
-        const timer = setInterval(() => fetchLogsOverview(false), POLL_INTERVAL);
-        return () => clearInterval(timer);
     }, [fetchLogsOverview]);
+    useVisibleInterval(() => fetchLogsOverview(false), POLL_INTERVAL);
 
     useEffect(() => {
         fetchLogs(true);
-        const timer = setInterval(() => fetchLogs(false), LOG_POLL_INTERVAL);
-        return () => clearInterval(timer);
     }, [fetchLogs]);
+    useVisibleInterval(() => fetchLogs(false), LOG_POLL_INTERVAL);
 
     useEffect(() => {
         const refreshStoredLogs = () => setApiDebugLogs(getStoredAdminApiLogs());

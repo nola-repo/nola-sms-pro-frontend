@@ -8,10 +8,11 @@ import FadeContent from './FadeContent';
 import AnimatedContent from './AnimatedContent';
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
+import { useVisibleInterval } from '../../hooks/useVisibleInterval';
 import { ProviderBalanceCard, ProviderBalancesResponse } from './ProviderBalanceCard';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
-const POLL_INTERVAL = 15000; // 15 seconds real-time sync
+const POLL_INTERVAL = 60000;
 
 const readAdminTopbarInitial = () => {
     const token = sessionStorage.getItem('nola_admin_token') || localStorage.getItem('nola_admin_token') || '';
@@ -186,12 +187,11 @@ export const AdminDashboard: React.FC<{
 
     useEffect(() => {
         fetchProviderBalances(true);
-        const interval = setInterval(() => fetchProviderBalances(false), 5 * 60 * 1000);
         return () => {
-            clearInterval(interval);
             if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
         };
     }, [fetchProviderBalances]);
+    useVisibleInterval(() => fetchProviderBalances(false), 5 * 60 * 1000);
 
     // Admin Health Stats State
     const [healthStats, setHealthStats] = useState<{
@@ -274,9 +274,8 @@ export const AdminDashboard: React.FC<{
 
     useEffect(() => {
         fetchData(true);
-        const timer = setInterval(() => fetchData(false), POLL_INTERVAL);
-        return () => clearInterval(timer);
     }, [fetchData]);
+    useVisibleInterval(() => fetchData(false), POLL_INTERVAL);
 
     const totalAccounts = accounts.length;
     const pendingRequests = requests.filter(r => r.status === 'pending').length;
