@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { FiUsers, FiSend, FiX, FiRefreshCw, FiKey, FiClock, FiShield, FiShieldOff, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiMoreVertical, FiFilter, FiCheck, FiEye, FiEyeOff, FiPaperclip, FiExternalLink, FiAlertCircle } from 'react-icons/fi';
+import { FiUsers, FiSend, FiX, FiRefreshCw, FiKey, FiClock, FiShield, FiShieldOff, FiTrash2, FiChevronLeft, FiChevronRight, FiSearch, FiMoreVertical, FiFilter, FiCheck, FiEye, FiPaperclip, FiExternalLink, FiAlertCircle } from 'react-icons/fi';
 import { useToast } from '../../hooks/useToast';
 import { ToastContainer } from '../../components/ui/ToastContainer';
 import { adminFetch } from '../../utils/adminApi';
@@ -39,23 +39,6 @@ const providerLabel = (provider: string) => {
     return 'Semaphore';
 };
 
-const detectProviderFromApiKey = (value: string): 'semaphore' | 'unisms' | null => {
-    const normalized = String(value || '').trim().toLowerCase();
-    if (!normalized) return null;
-    if (/unisms|unismsapi|unis?ms[_\s-]?(api|key|token)/i.test(normalized)) return 'unisms';
-    if (/semaphore|api\.semaphore\.co|semaphore[_\s-]?(api|key|token)/i.test(normalized)) return 'semaphore';
-
-    const token = normalized
-        .replace(/^bearer\s+/i, '')
-        .split(/[?&\s"'<>]+/)
-        .find((part) => part.includes('apikey=') || part.includes('api_key=') || part.length >= 24) || normalized;
-    const cleanedToken = token.replace(/^.*(?:apikey|api_key)=/i, '').replace(/[^a-z0-9_-]/gi, '');
-
-    if (/^sk_[a-z0-9-]{20,}$/i.test(cleanedToken) || /^uni[a-z0-9_-]{12,}$/i.test(cleanedToken) || /^usms[a-z0-9_-]{12,}$/i.test(cleanedToken)) return 'unisms';
-    if (/^[a-z0-9]{32}$/i.test(cleanedToken) || /^sem[a-z0-9_-]{12,}$/i.test(cleanedToken)) return 'semaphore';
-
-    return null;
-};
 const shouldShowProviderBadge = (req: any) => String(req?.status || 'pending').toLowerCase() !== 'pending';
 
 const getRequestTimestamp = (req: any) => {
@@ -134,9 +117,7 @@ export const AdminSenderRequests: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [rejectNote, setRejectNote] = useState('');
-    const [apiKeyInput, setApiKeyInput] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [showInputKey, setShowInputKey] = useState(false);
     const [actionPrompt, setActionPrompt] = useState<{ requestId: string; action: 'approved' | 'rejected' } | null>(null);
     const [approvalProvider, setApprovalProvider] = useState<'semaphore' | 'unisms'>('semaphore');
     const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'revoked'>('all');
@@ -225,8 +206,6 @@ export const AdminSenderRequests: React.FC = () => {
                 fetchRequests();
                 setExpandedId(null);
                 setRejectNote('');
-                setApiKeyInput('');
-                setShowInputKey(false);
                 setActionPrompt(null);
             } else {
                 showToast(json.message || 'Action failed.', 'error');
@@ -242,16 +221,12 @@ export const AdminSenderRequests: React.FC = () => {
         const request = requests.find(r => r.id === requestId);
         setExpandedId(requestId);
         setRejectNote(request?.admin_notes || '');
-        setApiKeyInput('');
-        setShowInputKey(false);
         setActionPrompt(null);
     };
 
     const openActionPrompt = (req: any, action: 'approved' | 'rejected') => {
         setApprovalProvider(normalizeProvider(req) === 'unisms' ? 'unisms' : 'semaphore');
         setRejectNote(req?.admin_notes || '');
-        setApiKeyInput('');
-        setShowInputKey(false);
         setActionPrompt({ requestId: req.id, action });
     };
 
@@ -511,8 +486,6 @@ export const AdminSenderRequests: React.FC = () => {
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setApiKeyInput('');
-                                                                    setShowInputKey(false);
                                                                     openActionPrompt(req, 'approved');
                                                                 }}
                                                                 disabled={!!isActing}
@@ -651,7 +624,7 @@ export const AdminSenderRequests: React.FC = () => {
                                                 </p>
                                             </div>
                                         </div>
-                                        <button onClick={() => { setExpandedId(null); setShowInputKey(false); setActionPrompt(null); }} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
+                                        <button onClick={() => { setExpandedId(null); setActionPrompt(null); }} className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors self-start">
                                             <FiX className="w-5 h-5" />
                                         </button>
                                     </div>
@@ -805,8 +778,6 @@ export const AdminSenderRequests: React.FC = () => {
                                                         type="button"
                                                         disabled={!isFormatValid || !!isActing}
                                                         onClick={() => {
-                                                            setApiKeyInput('');
-                                                            setShowInputKey(false);
                                                             openActionPrompt(req, 'approved');
                                                         }}
                                                         className="flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
@@ -911,13 +882,6 @@ export const AdminSenderRequests: React.FC = () => {
                 if (!req) return null;
                 const isApprove = actionPrompt.action === 'approved';
                 const isActing = actionLoading?.startsWith(req.id);
-                const apiKey = apiKeyInput.trim();
-                const detectedProvider = detectProviderFromApiKey(apiKeyInput);
-                const canApprove = apiKey.length > 0;
-                const approvalKeyPayload = approvalProvider === 'unisms'
-                    ? { api_key: apiKey, unisms_api_key: apiKey }
-                    : { api_key: apiKey, semaphore_api_key: apiKey, nola_pro_api_key: apiKey };
-
                 return (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
                         <div className="bg-white dark:bg-[#1a1b1e] border border-[#e5e5e5] dark:border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
@@ -929,7 +893,7 @@ export const AdminSenderRequests: React.FC = () => {
                                     <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6] mt-1 font-semibold truncate">{req.requested_id}</p>
                                 </div>
                                 <button
-                                    onClick={() => { setActionPrompt(null); setShowInputKey(false); }}
+                                    onClick={() => setActionPrompt(null)}
                                     className="p-1.5 text-[#6e6e73] hover:bg-[#f7f7f7] dark:hover:bg-white/5 rounded-full transition-colors"
                                 >
                                     <FiX className="w-5 h-5" />
@@ -947,12 +911,12 @@ export const AdminSenderRequests: React.FC = () => {
                                                 {
                                                     id: 'unisms' as const,
                                                     label: 'UniSMS',
-                                                    description: 'Approve this sender with a required UniSMS API key.',
+                                                    description: 'Use the UniSMS account configured on the server.',
                                                 },
                                                 {
                                                     id: 'semaphore' as const,
                                                     label: 'Semaphore',
-                                                    description: 'Approve this sender with a required Semaphore API key.',
+                                                    description: 'Use the Semaphore account configured on the server.',
                                                 },
                                             ].map((option) => {
                                                 const selected = approvalProvider === option.id;
@@ -961,67 +925,34 @@ export const AdminSenderRequests: React.FC = () => {
                                                         key={option.id}
                                                         type="button"
                                                         onClick={() => setApprovalProvider(option.id)}
+                                                        aria-pressed={selected}
                                                         className={`text-left rounded-xl border p-3 transition-all ${selected
                                                             ? 'border-[#111111] dark:border-white bg-[#eef5ff] dark:bg-white/10 shadow-sm'
                                                             : 'border-[#e0e0e0] dark:border-white/10 bg-[#f7f7f7] dark:bg-[#0d0e10] hover:border-[#2b83fa]/40'
                                                         }`}
                                                     >
-                                                        <div className="flex items-center justify-between gap-2">
-                                                            <p className="text-[12.5px] font-black text-[#111111] dark:text-white">{option.label}</p>
-                                                            {detectedProvider === option.id && (
-                                                                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-300">Detected</span>
-                                                            )}
-                                                        </div>
+                                                        <p className="text-[12.5px] font-black text-[#111111] dark:text-white">{option.label}</p>
                                                         <p className="mt-1 text-[11px] font-semibold leading-snug text-[#6e6e73] dark:text-[#9aa0a6]">{option.description}</p>
                                                     </button>
                                                 );
                                             })}
                                         </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-[11px] font-bold text-[#5f6368] dark:text-[#9aa0a6] uppercase tracking-wider mb-2">
-                                            API Key <span className="text-red-500">*</span>
-                                        </label>
-                                        <div className="relative">
-                                            <input
-                                                type={showInputKey ? "text" : "password"}
-                                                value={apiKeyInput}
-                                                onChange={e => {
-                                                    const nextValue = e.target.value;
-                                                    setApiKeyInput(nextValue);
-                                                    const detected = detectProviderFromApiKey(nextValue);
-                                                    if (detected) setApprovalProvider(detected);
-                                                }}
-                                                onPaste={e => {
-                                                    const pasted = e.clipboardData.getData('text');
-                                                    const detected = detectProviderFromApiKey(pasted);
-                                                    if (detected) setApprovalProvider(detected);
-                                                }}
-                                                placeholder="Required to approve"
-                                                className="w-full pl-4 pr-12 py-3 text-[13px] rounded-xl bg-[#f7f7f7] dark:bg-[#0d0e10] border border-[#e0e0e0] dark:border-[#ffffff0a] text-[#111111] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30 transition-shadow font-semibold"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowInputKey(!showInputKey)}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                                            >
-                                                {showInputKey ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                                            </button>
-                                        </div>
-                                    </div>
+                                    <p className="text-[11px] leading-relaxed text-[#6e6e73] dark:text-[#9aa0a6]">
+                                        The selected provider uses its server-configured API key. No key is entered or sent from this form.
+                                    </p>
                                     <div className="rounded-xl border border-emerald-100 dark:border-emerald-800/30 bg-emerald-50 dark:bg-emerald-900/10 px-4 py-3">
                                         <p className="text-[12px] font-bold text-emerald-700 dark:text-emerald-300">Ready to approve</p>
                                         <p className="text-[12px] font-medium text-emerald-700/75 dark:text-emerald-300/75 mt-1 leading-relaxed">
-                                            This will activate the requested sender ID for the selected account.
+                                            This will activate the requested sender ID for the selected account through {providerLabel(approvalProvider)}.
                                         </p>
                                     </div>
                                     <button
-                                        disabled={!canApprove || !!isActing}
+                                        type="button"
+                                        disabled={!!isActing}
                                         onClick={() => doAction('approved', req.id, {
                                             provider: approvalProvider,
-                                            provider_preference: `${approvalProvider}_custom`,
-                                            ...approvalKeyPayload,
-                                        } as any)}
+                                        })}
                                         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition-all shadow-sm disabled:opacity-50 disabled:shadow-none"
                                     >
                                         <FiCheck className="w-4 h-4" />
