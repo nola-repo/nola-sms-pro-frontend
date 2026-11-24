@@ -24,6 +24,7 @@ export type AdminApiDebugLog = {
   event: string;
   method: string;
   endpoint: string;
+  host?: string;
   status: number;
   status_text?: string;
   duration_ms: number;
@@ -72,6 +73,16 @@ const endpointFor = (input: RequestInfo | URL): string => {
   }
 };
 
+const hostFor = (input: RequestInfo | URL): string | undefined => {
+  const raw = requestInfoToString(input);
+  try {
+    const base = typeof window !== 'undefined' ? window.location.origin : 'https://app.nolasmspro.com';
+    return new URL(raw, base).host;
+  } catch {
+    return undefined;
+  }
+};
+
 const classifyApiLog = (endpoint: string, method: string): AdminApiDebugLog['type'] => {
   if (endpoint.includes('/api/admin_auth.php') && method === 'POST') return 'admin_login';
   return 'api_connection';
@@ -84,8 +95,9 @@ const levelForStatus = (status: number): AdminApiDebugLog['level'] => {
 };
 
 const summaryForLog = (log: Omit<AdminApiDebugLog, 'id' | 'timestamp' | 'summary'>): string => {
-  const statusText = log.status === 0 ? 'network error' : `${log.status}${log.status_text ? ` ${log.status_text}` : ''}`;
-  const base = `${log.method} ${log.endpoint} -> ${statusText} (${log.duration_ms}ms)`;
+  const statusText = log.status === 0 ? 'no HTTP response' + (log.status_text ? ': ' + log.status_text : '') : `${log.status}${log.status_text ? ` ${log.status_text}` : ''}`;
+  const address = log.host ? log.host + log.endpoint : log.endpoint;
+  const base = log.method + ' ' + address + ' -> ' + statusText + ' (' + log.duration_ms + 'ms)';
 
   if (log.type === 'admin_login') {
     return log.status >= 200 && log.status < 300
@@ -135,6 +147,7 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
   const resolvedInput = resolveApiInput(input);
   const method = requestMethodFor(input, init);
   const endpoint = endpointFor(input);
+  const host = hostFor(resolvedInput);
   const requestId = headers.get('X-Request-ID') || undefined;
   const startedAt = nowMs();
 
@@ -151,6 +164,7 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
       event: 'HTTP_RESPONSE',
       method,
       endpoint,
+      host,
       status: response.status,
       status_text: response.statusText,
       duration_ms: durationMs,
@@ -166,8 +180,9 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
       event: 'HTTP_ERROR',
       method,
       endpoint,
+      host,
       status: 0,
-      status_text: error instanceof Error ? error.message : 'Network error',
+      status_text: error instanceof Error ? error.message : 'No HTTP response',
       duration_ms: durationMs,
       request_id: requestId,
     });

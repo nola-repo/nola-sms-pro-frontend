@@ -6,6 +6,95 @@ import { useVisibleInterval } from '../../hooks/useVisibleInterval';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 60000;
+const ACTIVITY_PAGE_LIMIT = 50;
+
+type ActivityNotice = {
+    tone: 'error' | 'warning';
+    source: 'refresh' | 'older';
+    message: string;
+};
+
+type ActivityLogsPayload = {
+    status: string;
+    data: any[];
+    partial?: boolean;
+    unavailable_sources?: string[];
+    pagination?: {
+        next_cursor?: string | null;
+        has_more?: boolean;
+    };
+};
+
+const readActivityLogsResponse = async (response: Response): Promise<ActivityLogsPayload> => {
+    let body = '';
+    try {
+        body = await response.text();
+    } catch {
+        throw new Error('The activity service response could not be read.');
+    }
+
+    let payload: any;
+    try {
+        payload = JSON.parse(body);
+    } catch {
+        if (!response.ok) {
+            throw new Error('The activity service returned HTTP ' + response.status + '.');
+        }
+        throw new Error('The activity service returned an unreadable response.');
+    }
+
+    if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+            throw new Error('Admin access needs to be refreshed before activity can load.');
+        }
+        throw new Error('The activity service returned HTTP ' + response.status + '.');
+    }
+    if (payload?.status !== 'success') {
+        throw new Error('The activity service could not load the activity feed.');
+    }
+    if (!Array.isArray(payload.data)) {
+        throw new Error('The activity service returned an invalid activity feed.');
+    }
+
+    return payload as ActivityLogsPayload;
+};
+
+const activityRequestErrorMessage = (error: unknown) => {
+    if (error instanceof TypeError) {
+        return 'Could not contact the activity service. It may be unavailable or unreachable.';
+    }
+    return error instanceof Error
+        ? error.message
+        : 'Could not load Platform Activity. Try again shortly.';
+};
+
+const partialActivityMessage = (sources: string[] = []) => {
+    const labels: Record<string, string> = {
+        messages: 'SMS messages',
+        sms_logs: 'SMS delivery logs',
+        sender_id_requests: 'sender requests',
+        credit_transactions: 'credit activity',
+    };
+    const failed = sources.map(source => labels[source]).filter(Boolean);
+    return failed.length
+        ? failed.join(', ') + ' could not be loaded. These results may be incomplete.'
+        : 'Some activity sources could not be loaded. These results may be incomplete.';
+};
+
+const mergeActivityLogs = (current: any[], incoming: any[], direction: 'newer' | 'older') => {
+    const ordered = direction === 'newer'
+        ? [...incoming, ...current]
+        : [...current, ...incoming];
+    const seen = new Set<string>();
+
+    return ordered.filter((log, index) => {
+        const fallbackKey = String(log.type || 'event') + '-' + String(log.timestamp || '') + '-' + index;
+        const key = String(log.activity_key || log.id || fallbackKey);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+};
 
 
 
@@ -402,11 +491,21 @@ export const AdminSettings: React.FC = () => {
     );
 };export const AdminLogs: React.FC<{ hideHeader?: boolean; onCardClick?: () => void }> = ({ hideHeader = false, onCardClick }) => {
     const [logs, setLogs] = useState<any[]>([]);
-    const [backendSummary, setBackendSummary] = useState<any | null>(null);
     const [accounts, setAccounts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [loadingOlder, setLoadingOlder] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+    const [activityNotice, setActivityNotice] = useState<ActivityNotice | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const logsRef = useRef<any[]>([]);
+    const nextCursorRef = useRef<string | null>(null);
+    const hasMoreRef = useRef(false);
+    const hasLoadedOlderRef = useRef(false);
+    const refreshInFlightRef = useRef(false);
+    const loadingOlderRef = useRef(false);
+    const mountedRef = useRef(true);
+    const hasLoadedOnceRef = useRef(false);
 
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'message' | 'sender_request' | 'credit_purchase' | 'credit_usage'>('all');
@@ -439,41 +538,137 @@ export const AdminSettings: React.FC = () => {
         return () => document.removeEventListener('mousedown', handleClick);
     }, [filterMenuOpen]);
 
-    const fetchLogs = useCallback(async (isInitial = false) => {
-        if (isInitial) setLoading(true);
-        setError(null);
+    const fetchAccounts = useCallback(async () => {
         try {
-            const logsPromise = adminFetch(`${ADMIN_API}?action=logs`, { headers: getAdminAuthHeaders() });
-            const accsPromise = adminFetch(`${ADMIN_API}?action=accounts`, { headers: getAdminAuthHeaders() })
-                .then(r => r.json())
-                .then(accsData => {
-                    if (accsData.status === 'success') {
-                        const mapped = (accsData.data || []).map((item: any) => item.data ? { id: item.id, ...item.data } : item);
-                        setAccounts(mapped);
-                    }
-                })
-                .catch(() => { /* accounts load failure is non-fatal */ });
+            const response = await adminFetch(ADMIN_API + '?action=accounts', { headers: getAdminAuthHeaders() });
+            if (!response.ok) return;
+            const data = await response.json().catch(() => null);
+            if (data?.status === 'success' && Array.isArray(data.data) && mountedRef.current) {
+                const mapped = data.data.map((item: any) => item.data ? { id: item.id, ...item.data } : item);
+                setAccounts(mapped);
+            }
+        } catch {
+            // Account names are supplementary; they must not block activity loading.
+        }
+    }, []);
 
-            const logsRes = await logsPromise;
-            const logsData = await logsRes.json();
-            if (logsData.status === 'success') {
-                setLogs(logsData.data || []);
-                if (logsData.summary) {
-                    setBackendSummary(logsData.summary);
+    const fetchLogs = useCallback(async () => {
+        if (refreshInFlightRef.current) return;
+        refreshInFlightRef.current = true;
+        const firstLoad = !hasLoadedOnceRef.current;
+        if (firstLoad) setLoading(true);
+        else setRefreshing(true);
+
+        try {
+            const params = new URLSearchParams({
+                action: 'logs',
+                limit: String(ACTIVITY_PAGE_LIMIT),
+            });
+            const response = await adminFetch(ADMIN_API + '?' + params.toString(), {
+                headers: getAdminAuthHeaders(),
+            });
+            const data = await readActivityLogsResponse(response);
+            if (!mountedRef.current) return;
+
+            const merged = mergeActivityLogs(logsRef.current, data.data, 'newer');
+            logsRef.current = merged;
+            setLogs(merged);
+
+            if (data.partial) {
+                setActivityNotice({
+                    tone: 'warning',
+                    source: 'refresh',
+                    message: partialActivityMessage(data.unavailable_sources),
+                });
+                if (!hasLoadedOlderRef.current) {
+                    nextCursorRef.current = null;
+                    hasMoreRef.current = false;
+                    setHasMore(false);
                 }
             } else {
-                setError(logsData.message || 'Failed to load logs.');
+                setActivityNotice(null);
+                if (!hasLoadedOlderRef.current) {
+                    nextCursorRef.current = data.pagination?.next_cursor ?? null;
+                    hasMoreRef.current = Boolean(data.pagination?.has_more && nextCursorRef.current);
+                    setHasMore(hasMoreRef.current);
+                }
             }
+        } catch (error) {
+            if (mountedRef.current) {
+                setActivityNotice({
+                    tone: 'error',
+                    source: 'refresh',
+                    message: activityRequestErrorMessage(error),
+                });
+            }
+        } finally {
+            refreshInFlightRef.current = false;
+            if (mountedRef.current) {
+                hasLoadedOnceRef.current = true;
+                setLoading(false);
+                setRefreshing(false);
+            }
+        }
+    }, []);
 
-            await accsPromise;
-        } catch { setError('Network error. Could not reach the backend.'); }
-        finally { if (isInitial) setLoading(false); }
+    const loadOlderActivity = useCallback(async () => {
+        const cursor = nextCursorRef.current;
+        if (!cursor || !hasMoreRef.current || loadingOlderRef.current) return;
+
+        loadingOlderRef.current = true;
+        hasLoadedOlderRef.current = true;
+        setLoadingOlder(true);
+        try {
+            const params = new URLSearchParams({
+                action: 'logs',
+                limit: String(ACTIVITY_PAGE_LIMIT),
+                start_after: cursor,
+            });
+            const response = await adminFetch(ADMIN_API + '?' + params.toString(), {
+                headers: getAdminAuthHeaders(),
+            });
+            const data = await readActivityLogsResponse(response);
+            if (!mountedRef.current) return;
+
+            const merged = mergeActivityLogs(logsRef.current, data.data, 'older');
+            logsRef.current = merged;
+            setLogs(merged);
+
+            if (data.partial) {
+                setActivityNotice({
+                    tone: 'warning',
+                    source: 'older',
+                    message: partialActivityMessage(data.unavailable_sources),
+                });
+            } else {
+                nextCursorRef.current = data.pagination?.next_cursor ?? null;
+                hasMoreRef.current = Boolean(data.pagination?.has_more && nextCursorRef.current);
+                setHasMore(hasMoreRef.current);
+                setActivityNotice(null);
+            }
+        } catch (error) {
+            if (mountedRef.current) {
+                setActivityNotice({
+                    tone: 'error',
+                    source: 'older',
+                    message: activityRequestErrorMessage(error),
+                });
+            }
+        } finally {
+            loadingOlderRef.current = false;
+            if (mountedRef.current) setLoadingOlder(false);
+        }
     }, []);
 
     useEffect(() => {
-        fetchLogs(true);
-    }, [fetchLogs]);
-    useVisibleInterval(() => fetchLogs(false), POLL_INTERVAL);
+        mountedRef.current = true;
+        void fetchAccounts();
+        void fetchLogs();
+        return () => {
+            mountedRef.current = false;
+        };
+    }, [fetchAccounts, fetchLogs]);
+    useVisibleInterval(() => { void fetchLogs(); }, POLL_INTERVAL);
 
     const getType = (log: any) => {
         if (log.type === 'message' && (log.amount === undefined || log.amount === null)) return 'message';
@@ -753,17 +948,6 @@ export const AdminSettings: React.FC = () => {
             else if (grp === 'platform_error') platformErrors++;
         });
 
-        // Use backend summary for global totals when on default unfiltered view
-        if (selectedMonth === 'All' && filterType === 'all' && categoryFilter === 'all' && !debouncedSearch && backendSummary) {
-            return {
-                total: backendSummary.total ?? source.length,
-                successful: backendSummary.successful ?? successful,
-                providerErrors: backendSummary.provider_errors ?? providerErrors,
-                validationErrors: backendSummary.validation_errors ?? validationErrors,
-                platformErrors: backendSummary.platform_errors ?? platformErrors,
-            };
-        }
-
         return {
             total: source.length,
             successful,
@@ -771,10 +955,16 @@ export const AdminSettings: React.FC = () => {
             validationErrors,
             platformErrors,
         };
-    }, [filtered, selectedMonth, filterType, categoryFilter, debouncedSearch, backendSummary]);
+    }, [filtered]);
 
     const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
     const currentLogs = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+    const hasActivityFilters = Boolean(
+        debouncedSearch
+        || filterType !== 'all'
+        || categoryFilter !== 'all'
+        || selectedMonth !== 'All'
+    );
 
     const availableMonths = useMemo(() => {
         logs.forEach(log => {
@@ -1119,13 +1309,15 @@ export const AdminSettings: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                            <button onClick={() => fetchLogs(true)} className="p-2 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl flex-shrink-0">
-                                <FiRefreshCw className={`w-3.5 h-3.5 ${loading && !logs.length ? 'animate-spin' : ''}`} />
+                            <button type="button" aria-label="Refresh Platform Activity" onClick={() => { void fetchLogs(); }} className="p-2 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl flex-shrink-0">
+                                <FiRefreshCw className={`w-3.5 h-3.5 ${loading || refreshing ? 'animate-spin' : ''}`} />
                             </button>
                         </div>
                     </div>
                 </div>
 
+                {(logs.length > 0 || (!loading && !activityNotice)) && (
+                    <>
                 {/* Compact Live Status Strip */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 mb-5 p-3 rounded-2xl bg-[#f7f7f7]/80 dark:bg-[#111214]/90 border border-[#e5e5e5] dark:border-white/5">
                     <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-white dark:bg-[#1a1b1e] border border-gray-200/60 dark:border-white/5 shadow-xs">
@@ -1204,7 +1396,7 @@ export const AdminSettings: React.FC = () => {
                 {/* 5 Categorized Summary Cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
                     {[
-                        { label: 'Total Events', value: activityStats.total, icon: <FiActivity />, tone: 'text-blue-600 bg-blue-50 border-blue-100 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30' },
+                        { label: hasActivityFilters ? 'Matching Events' : 'Loaded Events', value: activityStats.total, icon: <FiActivity />, tone: 'text-blue-600 bg-blue-50 border-blue-100 dark:bg-blue-900/10 dark:text-blue-400 dark:border-blue-800/30' },
                         { label: 'Successful', value: activityStats.successful, icon: <FiCheckCircle />, tone: 'text-emerald-600 bg-emerald-50 border-emerald-100 dark:bg-emerald-900/10 dark:text-emerald-400 dark:border-emerald-800/30' },
                         { label: 'Provider Issues', value: activityStats.providerErrors, icon: <FiAlertTriangle />, tone: 'text-amber-600 bg-amber-50 border-amber-100 dark:bg-amber-900/10 dark:text-amber-400 dark:border-amber-800/30' },
                         { label: 'Validation Issues', value: activityStats.validationErrors, icon: <FiAlertCircle />, tone: 'text-purple-600 bg-purple-50 border-purple-100 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-800/30' },
@@ -1241,37 +1433,73 @@ export const AdminSettings: React.FC = () => {
                         })}
                     </div>
                 </div>
+                    </>
+                )}
             </div>
             )}
 
             {/* Body */}
             <div className="p-6">
-                {error && <div className="mb-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 text-[13px] font-medium"><FiAlertCircle className="w-4 h-4 flex-shrink-0" /> {error}</div>}
+                {activityNotice && logs.length > 0 && (
+                    <div
+                        role={activityNotice.tone === 'error' ? 'alert' : 'status'}
+                        aria-live={activityNotice.tone === 'error' ? 'assertive' : 'polite'}
+                        className={'mb-4 flex flex-wrap items-center gap-2 px-4 py-3 rounded-xl border text-[13px] font-medium ' + (activityNotice.tone === 'error'
+                            ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400'
+                            : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30 text-amber-700 dark:text-amber-300')}
+                    >
+                        {activityNotice.tone === 'error' ? <FiAlertCircle className="w-4 h-4 flex-shrink-0" /> : <FiAlertTriangle className="w-4 h-4 flex-shrink-0" />}
+                        <span className="min-w-0 flex-1">{activityNotice.message}</span>
+                        <button
+                            type="button"
+                            onClick={() => { void (activityNotice.source === 'older' ? loadOlderActivity() : fetchLogs()); }}
+                            disabled={refreshing || loadingOlder}
+                            className="rounded-lg px-2.5 py-1 text-[12px] font-bold underline underline-offset-2 hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Try again
+                        </button>
+                    </div>
+                )}
 
-                {loading ? (
-                    <div className="space-y-2.5">
-                        {[...Array(7)].map((_, i) => (
-                            <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-[#e5e5e5] dark:border-white/10 bg-white dark:bg-[#1a1b1e] animate-pulse" style={{ animationDelay: `${i * 60}ms` }}>
-                                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#f0f0f0] dark:bg-white/5" />
-                                <div className="flex-1 min-w-0 space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-3 w-32 rounded-full bg-[#f0f0f0] dark:bg-white/5" />
-                                        <div className="h-4 w-12 rounded-md bg-[#f0f0f0] dark:bg-white/5" />
-                                    </div>
-                                    <div className="h-2.5 w-48 rounded-full bg-[#f5f5f5] dark:bg-white/[0.03]" />
-                                </div>
-                                <div className="flex-shrink-0 space-y-1.5 text-right">
-                                    <div className="h-2.5 w-16 rounded-full bg-[#f0f0f0] dark:bg-white/5 ml-auto" />
-                                    <div className="h-2 w-10 rounded-full bg-[#f5f5f5] dark:bg-white/[0.03] ml-auto" />
-                                </div>
-                            </div>
-                        ))}
+                {loading && logs.length === 0 ? (
+                    <div className="flex min-h-56 flex-col items-center justify-center gap-3 text-[#6e6e73] dark:text-[#9aa0a6]" role="status" aria-live="polite">
+                        <FiRefreshCw className="h-5 w-5 animate-spin text-[#2b83fa]" />
+                        <span className="text-[13px] font-medium">Loading Platform Activity…</span>
                     </div>
                 ) : filtered.length === 0 ? (
                     <div className="py-20 text-center">
-                        <FiActivity className="w-12 h-12 mx-auto mb-4 text-[#d0d0d0] dark:text-[#3a3b3f]" />
-                        <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-1">No Logs Found</h3>
-                        <p className="text-[13px] text-[#6e6e73] dark:text-[#9aa0a6]">{debouncedSearch || filterType !== 'all' || categoryFilter !== 'all' ? 'Try adjusting your search or category filters.' : 'Platform logs will appear here as activity occurs.'}</p>
+                        {activityNotice && logs.length === 0
+                            ? activityNotice.tone === 'error'
+                                ? <FiAlertCircle className="w-12 h-12 mx-auto mb-4 text-red-400" />
+                                : <FiAlertTriangle className="w-12 h-12 mx-auto mb-4 text-amber-400" />
+                            : <FiActivity className="w-12 h-12 mx-auto mb-4 text-[#d0d0d0] dark:text-[#3a3b3f]" />}
+                        <h3 className="text-[15px] font-bold text-[#111111] dark:text-white mb-1">
+                            {activityNotice && logs.length === 0
+                                ? activityNotice.tone === 'error' ? 'Platform Activity is unavailable' : 'Activity data is incomplete'
+                                : hasActivityFilters
+                                    ? 'No matching activity'
+                                    : 'No activity yet'}
+                        </h3>
+                        <p className="mx-auto max-w-lg text-[13px] text-[#6e6e73] dark:text-[#9aa0a6]">
+                            {activityNotice && logs.length === 0
+                                ? activityNotice.message
+                                : hasActivityFilters
+                                    ? hasMore
+                                        ? 'No loaded events match these filters. Load older activity to check for earlier matches, or adjust the filters.'
+                                        : 'No loaded events match these filters. Try adjusting your search or category filters.'
+                                    : 'Platform activity will appear here as events occur.'}
+                        </p>
+                        {activityNotice && logs.length === 0 && (
+                            <button
+                                type="button"
+                                onClick={() => { void fetchLogs(); }}
+                                disabled={refreshing}
+                                className="mt-4 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#2b83fa]/30 bg-[#2b83fa]/10 px-4 text-[13px] font-bold text-[#1d6bd4] transition-colors hover:bg-[#2b83fa]/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-300"
+                            >
+                                <FiRefreshCw className={'h-3.5 w-3.5 ' + (refreshing ? 'animate-spin' : '')} />
+                                Try again
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <>
@@ -1280,18 +1508,37 @@ export const AdminSettings: React.FC = () => {
                         {totalPages > 1 && (
                             <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#e5e5e5] dark:border-white/5">
                                 <div className="text-[12px] text-[#6e6e73] dark:text-[#9aa0a6] font-medium">
-                                    Showing <b className="text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</b> – <b className="text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)}</b> of <b className="text-[#111111] dark:text-white">{filtered.length}</b>
+                                    Showing <b className="text-[#111111] dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</b> – <b className="text-[#111111] dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)}</b> of <b className="text-[#111111] dark:text-white">{filtered.length}</b> loaded events
                                 </div>
                                 <div className="flex items-center gap-1.5">
-                                    <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronLeft className="w-4 h-4" /></button>
+                                    <button type="button" aria-label="Previous activity page" disabled={currentPage === 1} onClick={() => setCurrentPage(page => page - 1)} className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-[#f0f0f0] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/50 dark:hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-30 transition-colors"><FiChevronLeft className="w-4 h-4" /></button>
                                     {Array.from({ length: Math.min(5, totalPages - Math.floor((currentPage - 1) / 5) * 5) }, (_, i) => Math.floor((currentPage - 1) / 5) * 5 + 1 + i).map(page => (
-                                        <button key={page} onClick={() => setCurrentPage(page)} className={`w-7 h-7 rounded-lg text-[12px] font-bold flex items-center justify-center transition-all ${currentPage === page ? 'bg-[#2b83fa] text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5'}`}>{page}</button>
+                                        <button type="button" key={page} aria-label={'Activity page ' + page} aria-current={currentPage === page ? 'page' : undefined} onClick={() => setCurrentPage(page)} className={'w-7 h-7 rounded-lg text-[12px] font-bold flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/50 ' + (currentPage === page ? 'bg-[#2b83fa] text-white shadow-sm' : 'text-[#6e6e73] dark:text-[#9aa0a6] hover:bg-[#f0f0f0] dark:hover:bg-white/5')}>{page}</button>
                                     ))}
-                                    <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-[#f0f0f0] dark:hover:bg-white/5 disabled:opacity-30 transition-colors"><FiChevronRight className="w-4 h-4" /></button>
+                                    <button type="button" aria-label="Next activity page" disabled={currentPage === totalPages} onClick={() => setCurrentPage(page => page + 1)} className="p-1.5 rounded-lg text-[#6e6e73] hover:bg-[#f0f0f0] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/50 dark:hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-30 transition-colors"><FiChevronRight className="w-4 h-4" /></button>
                                 </div>
                             </div>
                         )}
                     </>
+                )}
+
+                {!loading && hasMore && (
+                    <div className="mt-5 flex justify-center">
+                        <button
+                            type="button"
+                            onClick={() => { void loadOlderActivity(); }}
+                            disabled={loadingOlder}
+                            aria-busy={loadingOlder}
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#e5e5e5] bg-white px-4 text-[13px] font-bold text-[#2b83fa] transition-colors hover:bg-[#f7f7f7] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/50 disabled:cursor-wait disabled:opacity-60 dark:border-white/10 dark:bg-[#1a1b1e] dark:hover:bg-white/5"
+                        >
+                            {loadingOlder && <FiRefreshCw className="h-3.5 w-3.5 animate-spin" />}
+                            {loadingOlder
+                                ? 'Loading older activity…'
+                                : activityNotice?.source === 'older'
+                                    ? 'Retry loading older activity'
+                                    : 'Load older activity'}
+                        </button>
+                    </div>
                 )}
             </div>
 
