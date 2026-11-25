@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     FiActivity,
     FiAlertCircle,
@@ -14,12 +14,12 @@ import {
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 import { ADMIN_API_LOG_EVENT, getStoredAdminApiLogs } from '../../utils/apiFetch';
+import { describeActivityLogsFailure, fetchActivityLogs, partialActivityMessage } from '../../utils/activityLogsApi';
 import { useVisibleInterval } from '../../hooks/useVisibleInterval';
 import { AdminRetryQueue } from './AdminRetryQueue';
 
 const POLL_INTERVAL = 60000;
 const LOG_POLL_INTERVAL = 60000;
-const ADMIN_LOGS_API = '/api/admin_sender_requests.php?action=logs';
 const LOGS_PER_PAGE = 10;
 
 const metricTone = (state: 'ok' | 'warn' | 'bad') => {
@@ -65,57 +65,96 @@ export const LogsExplorer: React.FC = () => {
     const [logsLoading, setLogsLoading] = useState(true);
     const [error, setError] = useState('');
     const [logsError, setLogsError] = useState('');
+    const [logsErrorRequestId, setLogsErrorRequestId] = useState('');
+    const [logsPartialMessage, setLogsPartialMessage] = useState('');
+    const [logsPartialRequestId, setLogsPartialRequestId] = useState('');
     const [logs, setLogs] = useState<any[]>([]);
+    const [logsLastSuccessfulAt, setLogsLastSuccessfulAt] = useState<Date | null>(null);
     const [diagnosticLogs, setDiagnosticLogs] = useState<any[]>([]);
     const [apiDebugLogs, setApiDebugLogs] = useState<any[]>(() => getStoredAdminApiLogs());
     const [currentLogPage, setCurrentLogPage] = useState(1);
     const [logSearch, setLogSearch] = useState('');
     const [logTypeFilter, setLogTypeFilter] = useState('ALL');
-    const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+    const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
     const [activeTab, setActiveTab] = useState<'logs' | 'retry_queue'>('logs');
+    const [diagnosticsRefreshing, setDiagnosticsRefreshing] = useState(false);
+    const logsRequestInFlightRef = useRef(false);
+    const diagnosticsRequestInFlightRef = useRef(false);
+    const mountedRef = useRef(true);
 
     const fetchLogsOverview = useCallback(async (isInitial = false) => {
+        if (diagnosticsRequestInFlightRef.current) return;
+        diagnosticsRequestInFlightRef.current = true;
+        setDiagnosticsRefreshing(true);
         if (isInitial) setLoading(true);
-        setError('');
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 25000);
 
         try {
-            const res = await adminFetch('/api/v2/admin_health', { headers: getAdminAuthHeaders() });
+            const res = await adminFetch('/api/v2/admin_health', {
+                headers: getAdminAuthHeaders(),
+                signal: controller.signal,
+            });
             const json = await res.json().catch(() => ({}));
 
+            if (!mountedRef.current) return;
             if (res.ok && json.status === 'success') {
                 const healthData = json.data;
                 setDbConnected(healthData.database_connected !== false);
                 setStats(healthData.stats || null);
                 setDiagnosticLogs(Array.isArray(healthData.logs) ? healthData.logs : []);
+                setError('');
+                setLastRefreshed(new Date());
             } else {
                 setError(json.message || 'Failed to fetch logs diagnostics.');
             }
-            setLastRefreshed(new Date());
-        } catch (e) {
-            setError('Network error. Could not refresh logs diagnostics.');
+        } catch {
+            if (mountedRef.current) {
+                setError(controller.signal.aborted
+                    ? 'System diagnostics did not respond in time. Activity events may still be available. Try again.'
+                    : 'System diagnostics did not return a response. Activity events may still be available. Try again.');
+            }
         } finally {
-            if (isInitial) setLoading(false);
+            clearTimeout(timeout);
+            diagnosticsRequestInFlightRef.current = false;
+            if (mountedRef.current) {
+                setDiagnosticsRefreshing(false);
+                if (isInitial) setLoading(false);
+            }
         }
     }, []);
 
-    const fetchLogs = useCallback(async (isInitial = false) => {
-        if (isInitial) setLogsLoading(true);
+    const fetchLogs = useCallback(async () => {
+        if (logsRequestInFlightRef.current) return;
+        logsRequestInFlightRef.current = true;
+        setLogsLoading(true);
         setLogsError('');
+        setLogsErrorRequestId('');
 
         try {
-            const res = await adminFetch(ADMIN_LOGS_API, { headers: getAdminAuthHeaders() });
-            const json = await res.json().catch(() => ({}));
-
-            if (res.ok && json.status === 'success') {
-                setLogs(Array.isArray(json.data) ? json.data : []);
-            } else {
-                setLogsError(json.message || 'Failed to load live system logs.');
+            const result = await fetchActivityLogs();
+            if (!mountedRef.current) return;
+            setLogs(result.data);
+            setLogsPartialMessage(result.partial ? partialActivityMessage(result.unavailable_sources) : '');
+            setLogsPartialRequestId(result.partial ? result.request_id || '' : '');
+            setLogsLastSuccessfulAt(new Date());
+        } catch (requestError) {
+            if (mountedRef.current) {
+                const failure = describeActivityLogsFailure(requestError);
+                setLogsError(failure.message);
+                setLogsErrorRequestId(failure.requestId || '');
             }
-        } catch (e) {
-            setLogsError('Network error. Could not refresh live system logs.');
         } finally {
-            if (isInitial) setLogsLoading(false);
+            logsRequestInFlightRef.current = false;
+            if (mountedRef.current) setLogsLoading(false);
         }
+    }, []);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+        };
     }, []);
 
     useEffect(() => {
@@ -124,9 +163,9 @@ export const LogsExplorer: React.FC = () => {
     useVisibleInterval(() => fetchLogsOverview(false), POLL_INTERVAL);
 
     useEffect(() => {
-        fetchLogs(true);
+        fetchLogs();
     }, [fetchLogs]);
-    useVisibleInterval(() => fetchLogs(false), LOG_POLL_INTERVAL);
+    useVisibleInterval(() => fetchLogs(), LOG_POLL_INTERVAL);
 
     useEffect(() => {
         const refreshStoredLogs = () => setApiDebugLogs(getStoredAdminApiLogs());
@@ -150,12 +189,19 @@ export const LogsExplorer: React.FC = () => {
     }, []);
 
     const logsStatus = useMemo(() => {
-        if (!dbConnected) return { label: 'System Offline', style: 'from-red-500/10 to-rose-500/10 border-red-500/20 text-red-600 dark:text-red-400', dot: 'bg-red-500' };
+        if (logsError) {
+            return logsLastSuccessfulAt
+                ? { label: 'Activity Refresh Failed', style: 'from-amber-500/10 to-orange-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' }
+                : { label: 'Activity Feed Unavailable', style: 'from-red-500/10 to-rose-500/10 border-red-500/20 text-red-600 dark:text-red-400', dot: 'bg-red-500' };
+        }
+        if (logsPartialMessage) return { label: 'Activity Data Incomplete', style: 'from-amber-500/10 to-orange-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' };
+        if (error) return { label: 'Diagnostics Unavailable', style: 'from-amber-500/10 to-orange-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' };
+        if (!dbConnected) return { label: 'Database Check Failed', style: 'from-red-500/10 to-rose-500/10 border-red-500/20 text-red-600 dark:text-red-400', dot: 'bg-red-500' };
         if ((stats?.failed_messages ?? 0) >= 10) return { label: 'Attention Needed (Failed Sends)', style: 'from-red-500/10 to-rose-500/10 border-red-500/20 text-red-600 dark:text-red-400', dot: 'bg-red-500' };
         if (stats?.delivery_rate !== undefined && stats.delivery_rate < 85) return { label: 'Degraded Performance (Low Success Rate)', style: 'from-amber-500/10 to-orange-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' };
         if ((stats?.low_balance_subaccounts ?? 0) > 0) return { label: 'Attention Needed (Low Credits)', style: 'from-amber-500/10 to-orange-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400', dot: 'bg-amber-500' };
         return { label: 'All Systems Operational', style: 'from-emerald-500/10 to-teal-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500' };
-    }, [dbConnected, stats]);
+    }, [dbConnected, error, logsError, logsLastSuccessfulAt, logsPartialMessage, stats]);
 
     const metricCards: Array<{
         label: string;
@@ -411,16 +457,25 @@ export const LogsExplorer: React.FC = () => {
                     <div>
                         <h2 className="text-[15px] font-bold tracking-tight">{logsStatus.label}</h2>
                         <p className="text-[11px] text-[#6e6e73] dark:text-[#9aa0a6] mt-0.5 font-medium">
-                            Last checked: {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            {logsError || logsPartialMessage
+                                ? logsLastSuccessfulAt
+                                    ? `Last activity response ${logsLastSuccessfulAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+                                    : 'No activity response has loaded'
+                                : lastRefreshed
+                                    ? `${error ? 'Last successful diagnostic check' : 'Diagnostics checked'} ${lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+                                    : loading ? 'Checking diagnostics…' : 'Diagnostics have not loaded'}
                         </p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
+                        type="button"
                         onClick={() => fetchLogsOverview(true)}
+                        disabled={diagnosticsRefreshing}
+                        aria-busy={diagnosticsRefreshing}
                         className="inline-flex items-center gap-2 rounded-xl border border-[#e5e5e5] bg-white px-4 py-2 text-[12px] font-bold text-[#6e6e73] shadow-sm transition-all hover:bg-[#f7f7f7] hover:text-[#111111] dark:border-white/10 dark:bg-[#1a1b1e] dark:text-[#9aa0a6] dark:hover:bg-white/5 dark:hover:text-white"
                     >
-                        <FiRefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                        <FiRefreshCw className={`h-3.5 w-3.5 ${diagnosticsRefreshing ? 'animate-spin' : ''}`} />
                         Refresh Diagnostics
                     </button>
                 </div>
@@ -522,8 +577,11 @@ export const LogsExplorer: React.FC = () => {
                             />
                         </label>
                         <button
-                            onClick={() => fetchLogs(true)}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e5e5e5] bg-[#f7f7f7] px-3.5 py-2 text-[12px] font-bold text-[#6e6e73] transition-all hover:text-[#2b83fa] dark:border-white/5 dark:bg-[#0d0e10] dark:text-[#9aa0a6] dark:hover:text-white"
+                            type="button"
+                            onClick={() => fetchLogs()}
+                            disabled={logsLoading}
+                            aria-busy={logsLoading}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e5e5e5] bg-[#f7f7f7] px-3.5 py-2 text-[12px] font-bold text-[#6e6e73] transition-all hover:text-[#2b83fa] disabled:cursor-wait disabled:opacity-60 dark:border-white/5 dark:bg-[#0d0e10] dark:text-[#9aa0a6] dark:hover:text-white"
                         >
                             <FiRefreshCw className={`h-3.5 w-3.5 ${logsLoading ? 'animate-spin' : ''}`} />
                             Refresh
@@ -532,10 +590,47 @@ export const LogsExplorer: React.FC = () => {
                 </div>
 
                 {logsError && (
-                    <div className="mx-5 mt-4 flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-600 dark:border-red-900/20 dark:bg-red-900/10 dark:text-red-400">
-                        <FiAlertCircle className="h-4 w-4" />
-                        {logsError}
+                    <div
+                        role="status"
+                        aria-live="polite"
+                        className={`mx-5 mt-4 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold ${
+                            logsLastSuccessfulAt
+                                ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/30 dark:bg-amber-900/10 dark:text-amber-300'
+                                : 'border-red-100 bg-red-50 text-red-600 dark:border-red-900/20 dark:bg-red-900/10 dark:text-red-400'
+                        }`}
+                    >
+                        <FiAlertCircle className="h-4 w-4 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                            <p>
+                                {logsLastSuccessfulAt
+                                    ? `Latest refresh failed. Showing the last successful activity response from ${logsLastSuccessfulAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}. ${logsError}${logsPartialMessage ? ` The saved response was partial: ${logsPartialMessage}` : ''}`
+                                    : `Activity is unavailable. ${logsError}`}
+                            </p>
+                            {logsErrorRequestId && <p className="mt-0.5 break-all text-[11px] font-normal opacity-80">Reference ID: <code>{logsErrorRequestId}</code></p>}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => fetchLogs()}
+                            disabled={logsLoading}
+                            className="rounded-lg px-2 py-1 text-[12px] font-bold underline underline-offset-2 hover:bg-black/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/50 disabled:cursor-wait disabled:opacity-50"
+                        >
+                            Try again
+                        </button>
                     </div>
+                )}
+
+                {logsPartialMessage && !logsError && (
+                    <div role="status" aria-live="polite" className="mx-5 mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-800 dark:border-amber-900/30 dark:bg-amber-900/10 dark:text-amber-300">
+                        <FiAlertCircle className="h-4 w-4 flex-shrink-0" />
+                        <span className="min-w-0 flex-1">{logsPartialMessage}</span>
+                        {logsPartialRequestId && <span className="break-all text-[11px] font-normal">Reference ID: <code>{logsPartialRequestId}</code></span>}
+                    </div>
+                )}
+
+                {logsLastSuccessfulAt && !logsError && !logsPartialMessage && (
+                    <p className="mx-5 mt-3 text-[11px] text-[#6e6e73] dark:text-[#9aa0a6]">
+                        Activity loaded {logsLastSuccessfulAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}.
+                    </p>
                 )}
 
                 <div className="overflow-x-auto">
@@ -558,10 +653,20 @@ export const LogsExplorer: React.FC = () => {
                                         </td>
                                     </tr>
                                 ))
+                            ) : logsError && !logsLastSuccessfulAt && logRows.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-5 py-10 text-center text-[13px] font-semibold text-red-600 dark:text-red-400">
+                                        Activity could not be loaded. Use Try again above to retry.
+                                    </td>
+                                </tr>
                             ) : paginatedLogRows.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="px-5 py-10 text-center text-[13px] font-semibold text-[#6e6e73] dark:text-[#9aa0a6]">
-                                        {normalizedLogSearch || logTypeFilter !== 'ALL' ? 'No logs match your filter criteria.' : 'No logs found.'}
+                                        {normalizedLogSearch || logTypeFilter !== 'ALL'
+                                            ? 'No logs match your filter criteria.'
+                                            : logsPartialMessage
+                                                ? 'No events were returned from the available sources. Results may be incomplete.'
+                                                : 'No activity has been recorded yet.'}
                                     </td>
                                 </tr>
                             ) : paginatedLogRows.map((row) => (

@@ -3,14 +3,19 @@ steps:
     args: ['build', '-f', 'admin/Dockerfile', '-t', '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_SERVICE_NAME:$COMMIT_SHA', 'admin']
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_SERVICE_NAME:$COMMIT_SHA']
+  # Wait for a ready revision before explicitly promoting it to serve traffic.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
-    args: ['run', 'deploy', '$_SERVICE_NAME', '--image', '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_SERVICE_NAME:$COMMIT_SHA', '--region', '$_DEPLOY_REGION', '--platform', 'managed', '--allow-unauthenticated']
+    args: ['run', 'deploy', '$_SERVICE_NAME', '--image', '$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_SERVICE_NAME:$COMMIT_SHA', '--region', '$_DEPLOY_REGION', '--platform', 'managed', '--allow-unauthenticated', '--no-traffic']
+  # Explicitly replace any stale or pinned traffic allocation after readiness succeeds.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args: ['run', 'services', 'update-traffic', '$_SERVICE_NAME', '--region', '$_DEPLOY_REGION', '--platform', 'managed', '--to-latest']
 
 images: ['$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$_SERVICE_NAME:$COMMIT_SHA']
 
 substitutions:
-  _SERVICE_NAME: nolasmspro-admin
+  _SERVICE_NAME: nola-sms-pro-admin
   _DEPLOY_REGION: asia-southeast1
   _AR_HOSTNAME: asia-southeast1-docker.pkg.dev
   _AR_REPOSITORY: cloud-run-source-deploy

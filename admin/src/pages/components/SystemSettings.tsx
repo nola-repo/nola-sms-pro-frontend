@@ -3,6 +3,7 @@ import { FiSend, FiAlertCircle, FiCheck, FiX, FiRefreshCw, FiKey, FiActivity, Fi
 import { adminFetch } from '../../utils/adminApi';
 import { getAdminAuthHeaders } from '../../utils/adminAuthHeaders';
 import { useVisibleInterval } from '../../hooks/useVisibleInterval';
+import { describeActivityLogsFailure, fetchActivityLogs, partialActivityMessage } from '../../utils/activityLogsApi';
 
 const ADMIN_API = '/api/admin_sender_requests.php';
 const POLL_INTERVAL = 60000;
@@ -12,73 +13,7 @@ type ActivityNotice = {
     tone: 'error' | 'warning';
     source: 'refresh' | 'older';
     message: string;
-};
-
-type ActivityLogsPayload = {
-    status: string;
-    data: any[];
-    partial?: boolean;
-    unavailable_sources?: string[];
-    pagination?: {
-        next_cursor?: string | null;
-        has_more?: boolean;
-    };
-};
-
-const readActivityLogsResponse = async (response: Response): Promise<ActivityLogsPayload> => {
-    let body = '';
-    try {
-        body = await response.text();
-    } catch {
-        throw new Error('The activity service response could not be read.');
-    }
-
-    let payload: any;
-    try {
-        payload = JSON.parse(body);
-    } catch {
-        if (!response.ok) {
-            throw new Error('The activity service returned HTTP ' + response.status + '.');
-        }
-        throw new Error('The activity service returned an unreadable response.');
-    }
-
-    if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-            throw new Error('Admin access needs to be refreshed before activity can load.');
-        }
-        throw new Error('The activity service returned HTTP ' + response.status + '.');
-    }
-    if (payload?.status !== 'success') {
-        throw new Error('The activity service could not load the activity feed.');
-    }
-    if (!Array.isArray(payload.data)) {
-        throw new Error('The activity service returned an invalid activity feed.');
-    }
-
-    return payload as ActivityLogsPayload;
-};
-
-const activityRequestErrorMessage = (error: unknown) => {
-    if (error instanceof TypeError) {
-        return 'Could not contact the activity service. It may be unavailable or unreachable.';
-    }
-    return error instanceof Error
-        ? error.message
-        : 'Could not load Platform Activity. Try again shortly.';
-};
-
-const partialActivityMessage = (sources: string[] = []) => {
-    const labels: Record<string, string> = {
-        messages: 'SMS messages',
-        sms_logs: 'SMS delivery logs',
-        sender_id_requests: 'sender requests',
-        credit_transactions: 'credit activity',
-    };
-    const failed = sources.map(source => labels[source]).filter(Boolean);
-    return failed.length
-        ? failed.join(', ') + ' could not be loaded. These results may be incomplete.'
-        : 'Some activity sources could not be loaded. These results may be incomplete.';
+    requestId?: string;
 };
 
 const mergeActivityLogs = (current: any[], incoming: any[], direction: 'newer' | 'older') => {
@@ -497,12 +432,13 @@ export const AdminSettings: React.FC = () => {
     const [loadingOlder, setLoadingOlder] = useState(false);
     const [hasMore, setHasMore] = useState(false);
     const [activityNotice, setActivityNotice] = useState<ActivityNotice | null>(null);
+    const [lastSuccessfulLoadAt, setLastSuccessfulLoadAt] = useState<Date | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const logsRef = useRef<any[]>([]);
     const nextCursorRef = useRef<string | null>(null);
     const hasMoreRef = useRef(false);
     const hasLoadedOlderRef = useRef(false);
-    const refreshInFlightRef = useRef(false);
+    const activityRequestInFlightRef = useRef(false);
     const loadingOlderRef = useRef(false);
     const mountedRef = useRef(true);
     const hasLoadedOnceRef = useRef(false);
@@ -553,38 +489,32 @@ export const AdminSettings: React.FC = () => {
     }, []);
 
     const fetchLogs = useCallback(async () => {
-        if (refreshInFlightRef.current) return;
-        refreshInFlightRef.current = true;
+        if (activityRequestInFlightRef.current) return;
+        activityRequestInFlightRef.current = true;
         const firstLoad = !hasLoadedOnceRef.current;
         if (firstLoad) setLoading(true);
         else setRefreshing(true);
 
         try {
-            const params = new URLSearchParams({
-                action: 'logs',
-                limit: String(ACTIVITY_PAGE_LIMIT),
-            });
-            const response = await adminFetch(ADMIN_API + '?' + params.toString(), {
-                headers: getAdminAuthHeaders(),
-            });
-            const data = await readActivityLogsResponse(response);
+            const data = await fetchActivityLogs({ limit: ACTIVITY_PAGE_LIMIT });
             if (!mountedRef.current) return;
 
             const merged = mergeActivityLogs(logsRef.current, data.data, 'newer');
             logsRef.current = merged;
             setLogs(merged);
+            setLastSuccessfulLoadAt(new Date());
 
             if (data.partial) {
                 setActivityNotice({
                     tone: 'warning',
                     source: 'refresh',
                     message: partialActivityMessage(data.unavailable_sources),
+                    requestId: data.request_id,
                 });
-                if (!hasLoadedOlderRef.current) {
-                    nextCursorRef.current = null;
-                    hasMoreRef.current = false;
-                    setHasMore(false);
-                }
+                nextCursorRef.current = null;
+                hasMoreRef.current = false;
+                hasLoadedOlderRef.current = false;
+                setHasMore(false);
             } else {
                 setActivityNotice(null);
                 if (!hasLoadedOlderRef.current) {
@@ -595,14 +525,16 @@ export const AdminSettings: React.FC = () => {
             }
         } catch (error) {
             if (mountedRef.current) {
+                const failure = describeActivityLogsFailure(error);
                 setActivityNotice({
                     tone: 'error',
                     source: 'refresh',
-                    message: activityRequestErrorMessage(error),
+                    message: failure.message,
+                    requestId: failure.requestId,
                 });
             }
         } finally {
-            refreshInFlightRef.current = false;
+            activityRequestInFlightRef.current = false;
             if (mountedRef.current) {
                 hasLoadedOnceRef.current = true;
                 setLoading(false);
@@ -613,33 +545,32 @@ export const AdminSettings: React.FC = () => {
 
     const loadOlderActivity = useCallback(async () => {
         const cursor = nextCursorRef.current;
-        if (!cursor || !hasMoreRef.current || loadingOlderRef.current) return;
+        if (!cursor || !hasMoreRef.current || loadingOlderRef.current || activityRequestInFlightRef.current) return;
 
+        activityRequestInFlightRef.current = true;
         loadingOlderRef.current = true;
         hasLoadedOlderRef.current = true;
         setLoadingOlder(true);
         try {
-            const params = new URLSearchParams({
-                action: 'logs',
-                limit: String(ACTIVITY_PAGE_LIMIT),
-                start_after: cursor,
-            });
-            const response = await adminFetch(ADMIN_API + '?' + params.toString(), {
-                headers: getAdminAuthHeaders(),
-            });
-            const data = await readActivityLogsResponse(response);
+            const data = await fetchActivityLogs({ limit: ACTIVITY_PAGE_LIMIT, cursor });
             if (!mountedRef.current) return;
 
             const merged = mergeActivityLogs(logsRef.current, data.data, 'older');
             logsRef.current = merged;
             setLogs(merged);
+            setLastSuccessfulLoadAt(new Date());
 
             if (data.partial) {
                 setActivityNotice({
                     tone: 'warning',
-                    source: 'older',
+                    source: 'refresh',
                     message: partialActivityMessage(data.unavailable_sources),
+                    requestId: data.request_id,
                 });
+                nextCursorRef.current = null;
+                hasMoreRef.current = false;
+                hasLoadedOlderRef.current = false;
+                setHasMore(false);
             } else {
                 nextCursorRef.current = data.pagination?.next_cursor ?? null;
                 hasMoreRef.current = Boolean(data.pagination?.has_more && nextCursorRef.current);
@@ -648,13 +579,16 @@ export const AdminSettings: React.FC = () => {
             }
         } catch (error) {
             if (mountedRef.current) {
+                const failure = describeActivityLogsFailure(error);
                 setActivityNotice({
                     tone: 'error',
                     source: 'older',
-                    message: activityRequestErrorMessage(error),
+                    message: failure.message,
+                    requestId: failure.requestId,
                 });
             }
         } finally {
+            activityRequestInFlightRef.current = false;
             loadingOlderRef.current = false;
             if (mountedRef.current) setLoadingOlder(false);
         }
@@ -1309,7 +1243,7 @@ export const AdminSettings: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                            <button type="button" aria-label="Refresh Platform Activity" onClick={() => { void fetchLogs(); }} className="p-2 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl flex-shrink-0">
+                            <button type="button" aria-label="Refresh Platform Activity" onClick={() => { void fetchLogs(); }} disabled={refreshing || loadingOlder} aria-busy={refreshing} className="p-2 text-[#6e6e73] hover:text-[#2b83fa] hover:bg-[#2b83fa]/10 transition-all border border-[#e5e5e5] dark:border-white/5 bg-[#f7f7f7] dark:bg-[#0d0e10] rounded-xl flex-shrink-0 disabled:cursor-wait disabled:opacity-50">
                                 <FiRefreshCw className={`w-3.5 h-3.5 ${loading || refreshing ? 'animate-spin' : ''}`} />
                             </button>
                         </div>
@@ -1442,14 +1376,26 @@ export const AdminSettings: React.FC = () => {
             <div className="p-6">
                 {activityNotice && logs.length > 0 && (
                     <div
-                        role={activityNotice.tone === 'error' ? 'alert' : 'status'}
-                        aria-live={activityNotice.tone === 'error' ? 'assertive' : 'polite'}
+                        role="status"
+                        aria-live="polite"
                         className={'mb-4 flex flex-wrap items-center gap-2 px-4 py-3 rounded-xl border text-[13px] font-medium ' + (activityNotice.tone === 'error'
                             ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400'
                             : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30 text-amber-700 dark:text-amber-300')}
                     >
                         {activityNotice.tone === 'error' ? <FiAlertCircle className="w-4 h-4 flex-shrink-0" /> : <FiAlertTriangle className="w-4 h-4 flex-shrink-0" />}
-                        <span className="min-w-0 flex-1">{activityNotice.message}</span>
+                        <span className="min-w-0 flex-1">
+                            {activityNotice.message}
+                            {lastSuccessfulLoadAt && (
+                                <span className="mt-0.5 block text-[11px] font-normal opacity-80">
+                                    Showing activity last loaded {lastSuccessfulLoadAt.toLocaleTimeString()}.
+                                </span>
+                            )}
+                            {activityNotice.requestId && (
+                                <span className="mt-0.5 block text-[11px] font-normal opacity-80">
+                                    Reference ID: <code className="break-all">{activityNotice.requestId}</code>
+                                </span>
+                            )}
+                        </span>
                         <button
                             type="button"
                             onClick={() => { void (activityNotice.source === 'older' ? loadOlderActivity() : fetchLogs()); }}
@@ -1467,7 +1413,7 @@ export const AdminSettings: React.FC = () => {
                         <span className="text-[13px] font-medium">Loading Platform Activity…</span>
                     </div>
                 ) : filtered.length === 0 ? (
-                    <div className="py-20 text-center">
+                    <div className="py-20 text-center" role={activityNotice && logs.length === 0 ? 'status' : undefined} aria-live={activityNotice && logs.length === 0 ? 'polite' : undefined}>
                         {activityNotice && logs.length === 0
                             ? activityNotice.tone === 'error'
                                 ? <FiAlertCircle className="w-12 h-12 mx-auto mb-4 text-red-400" />
@@ -1489,6 +1435,11 @@ export const AdminSettings: React.FC = () => {
                                         : 'No loaded events match these filters. Try adjusting your search or category filters.'
                                     : 'Platform activity will appear here as events occur.'}
                         </p>
+                        {activityNotice?.requestId && logs.length === 0 && (
+                            <p className="mt-2 text-[11px] text-[#9aa0a6]">
+                                Reference ID: <code className="break-all">{activityNotice.requestId}</code>
+                            </p>
+                        )}
                         {activityNotice && logs.length === 0 && (
                             <button
                                 type="button"
@@ -1527,7 +1478,7 @@ export const AdminSettings: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => { void loadOlderActivity(); }}
-                            disabled={loadingOlder}
+                            disabled={loadingOlder || refreshing}
                             aria-busy={loadingOlder}
                             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#e5e5e5] bg-white px-4 text-[13px] font-bold text-[#2b83fa] transition-colors hover:bg-[#f7f7f7] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2b83fa]/50 disabled:cursor-wait disabled:opacity-60 dark:border-white/10 dark:bg-[#1a1b1e] dark:hover:bg-white/5"
                         >
